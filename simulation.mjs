@@ -55,6 +55,8 @@ const SHOT_INTERVAL = 0.118;
 const RELOAD_TIME = 1.35;
 const REPAIR_TIME = 0.82;
 const REPAIR_PER_CYCLE = 13;
+const FAST_SEALER_REPAIR = 18;
+const DEEP_MAGAZINE_CAPACITY = 42;
 const INTERMISSION_TIME = 6.5;
 const JUNCTION_REPAIR_TIME = 9;
 const JUNCTION_EXTRACT_DELAY = 1.25;
@@ -76,11 +78,14 @@ function confineToChamber(player) {
 }
 
 export class Simulation {
-  constructor(area = 'artery', { tutorial = false } = {}) {
+  constructor(area = 'artery', { tutorial = false, upgrades = [] } = {}) {
     this.area = area === 'heart' || area === 'junction' ? area : 'artery';
     this.missions = this.area === 'heart' ? HEART_MISSIONS : this.area === 'junction' ? JUNCTION_MISSIONS : MISSIONS;
     this.objective = OBJECTIVE;
     this.hasTutorial = tutorial && this.area === 'artery';
+    const activeUpgrades = !this.hasTutorial && Array.isArray(upgrades) ? upgrades : [];
+    this.magazineSize = activeUpgrades.includes('deep-magazine') ? DEEP_MAGAZINE_CAPACITY : RULES.magazine;
+    this.repairAmount = activeUpgrades.includes('fast-sealer') ? FAST_SEALER_REPAIR : REPAIR_PER_CYCLE;
     this.reset();
   }
 
@@ -95,7 +100,7 @@ export class Simulation {
     } : null;
     this.player = {
       x: 0, y: 1.7, z: this.valve ? 2 : this.area === 'junction' ? 13 : 18, yaw: 0, pitch: 0,
-      health: RULES.health, ammo: RULES.magazine, reserve: RULES.initialReserve,
+      health: RULES.health, ammo: this.magazineSize, reserve: RULES.initialReserve,
     };
     this.phase = 'ready';
     this.tutorial = null;
@@ -207,7 +212,7 @@ export class Simulation {
       this.remaining = this.missions[0].species.length - this.spawnIndex + this.enemies.length;
       if (this.tutorial === 'repair' && this.tissue === RULES.tissue) {
         this.tutorial = null;
-        this.player.ammo = RULES.magazine;
+        this.player.ammo = this.magazineSize;
         this.player.reserve = RULES.initialReserve;
         this.reloading = 0;
         this.spawnCountdown = 1.35;
@@ -265,7 +270,7 @@ export class Simulation {
     const colony = this.enemies[0];
     if (!colony) return;
     if (open) colony.attackCooldown = 0;
-    else if (this.player.ammo + this.player.reserve < RULES.magazine) this.player.reserve += RULES.magazine;
+    else if (this.player.ammo + this.player.reserve < this.magazineSize) this.player.reserve += this.magazineSize;
   }
 
   advanceColony(dt) {
@@ -320,7 +325,7 @@ export class Simulation {
 
     this.repairProgress += dt / REPAIR_TIME;
     if (this.repairProgress >= 1) {
-      const amount = Math.min(REPAIR_PER_CYCLE, RULES.tissue - this.tissue);
+      const amount = Math.min(this.repairAmount, RULES.tissue - this.tissue);
       this.tissue += amount;
       if (!this.tutorial) this.score += amount * 8;
       this.repairProgress -= 1;
@@ -332,12 +337,12 @@ export class Simulation {
 
   updateRifle(dt, input, repairing) {
     const { player } = this;
-    if (this.tutorial && player.ammo === 0 && player.reserve === 0) player.reserve = RULES.magazine;
+    if (this.tutorial && player.ammo === 0 && player.reserve === 0) player.reserve = this.magazineSize;
     this.fireCooldown = Math.max(0, this.fireCooldown - dt);
     if (this.reloading > 0) {
       this.reloading = Math.max(0, this.reloading - dt);
       if (this.reloading === 0) {
-        const rounds = Math.min(RULES.magazine - player.ammo, player.reserve);
+        const rounds = Math.min(this.magazineSize - player.ammo, player.reserve);
         player.ammo += rounds;
         player.reserve -= rounds;
         this.events.push({ type: 'reload', stage: 'complete' });
@@ -348,7 +353,7 @@ export class Simulation {
     this.reloadHeld = Boolean(input.reload);
     if (repairing || this.reloading > 0) return;
     if (reloadPressed || (input.fire && player.ammo === 0)) {
-      if (player.ammo < RULES.magazine && player.reserve > 0) {
+      if (player.ammo < this.magazineSize && player.reserve > 0) {
         this.reloading = RELOAD_TIME;
         this.events.push({ type: 'reload', stage: 'start' });
         return;

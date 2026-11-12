@@ -13,6 +13,16 @@ const heartDeploy = byId('deploy-heart');
 const heartStatus = byId('heart-status');
 const continueHeart = byId('continue-heart');
 const replay = byId('replay');
+const replayLabel = byId('replay-label');
+const resultLaunchError = byId('result-launch-error');
+const resultTissueStat = byId('result-tissue-stat');
+const campaignReward = byId('campaign-reward');
+const campaignProgress = byId('campaign-progress');
+const upgradeNote = byId('campaign-upgrade-note');
+const upgradeButtons = [...document.querySelectorAll('[data-upgrade]')];
+const campaignReport = byId('campaign-report');
+const campaignTissueList = byId('campaign-tissue-list');
+const campaignAverage = byId('campaign-average');
 const manual = byId('manual-dialog');
 const pauseDialog = byId('pause-dialog');
 const resultDialog = byId('result-dialog');
@@ -39,6 +49,7 @@ const touchControls = byId('touch-controls');
 const suitValue = byId('health-value');
 const tissueValue = byId('tissue-value');
 const equipmentLabel = byId('equipment-label');
+const campaignEquipped = byId('campaign-equipped');
 const ammoValue = byId('ammo-value');
 const reserveValue = byId('reserve-value');
 const waveMode = byId('wave-mode');
@@ -79,9 +90,14 @@ const heartKey = 'immune-protocol.heart-unlocked';
 const tutorialKey = 'immune-protocol.training-complete';
 const sensitivityKey = 'immune-protocol.look-sensitivity';
 const qualityKey = 'immune-protocol.graphics-quality';
+const campaignAreas = ['artery', 'junction', 'heart'];
+const missionNames = { artery: 'Arterial Junction', junction: 'Capillary Junction', heart: 'Heart Valve' };
+const upgradeNames = { 'fast-sealer': 'Fast Sealer', 'deep-magazine': 'Deep Magazine' };
 
 let world;
 let sim;
+let campaign = null;
+let selectedUpgrade = null;
 let running = false;
 let loading = false;
 let paused = false;
@@ -197,14 +213,20 @@ function announce(title, detail = '', duration = 2.45) {
   announcementTimer = duration;
 }
 
-async function launch(area = 'artery') {
+async function launch(area, run = null) {
   const junction = area === 'junction';
   const heart = area === 'heart';
   if (loading || running || (junction && !junctionUnlocked) || (heart && !heartUnlocked)) return;
+  const fromResult = resultDialog.open;
+  const previousControl = document.activeElement;
+  const previousSim = sim;
+  const previousRun = campaign;
+  const previousUpgrade = selectedUpgrade;
   loading = true;
   deploy.disabled = true;
   displayMissionAccess();
   byId('menu-error').hidden = true;
+  resultLaunchError.hidden = true;
   resultDialog.close();
   game.hidden = false;
   requestMouse();
@@ -214,11 +236,20 @@ async function launch(area = 'artery') {
     if (!world) world = new World(canvas);
     world.setArea(area);
     world.setQuality(graphicsQuality);
+    const nextSim = new Simulation(area, {
+      tutorial: area === 'artery' && !trainingComplete,
+      upgrades: run?.upgrade ? [run.upgrade] : [],
+    });
+    nextSim.start();
+    sim = nextSim;
+    campaign = run;
+    selectedUpgrade = null;
     menu.hidden = true;
     touchControls.hidden = !isTouch;
     clearControls();
-    sim = new Simulation(area, { tutorial: area === 'artery' && !trainingComplete });
-    sim.start();
+    const equipped = run?.upgrade && upgradeNames[run.upgrade];
+    campaignEquipped.hidden = !equipped;
+    setText(campaignEquipped, equipped || '');
     game.dataset.area = sim.area;
     canvas.setAttribute('aria-label', 'First-person view inside ' + (heart ? 'the heart valve' : junction ? 'Capillary Junction' : 'the artery'));
     branchReadout.hidden = !junction;
@@ -253,7 +284,20 @@ async function launch(area = 'artery') {
     animation = requestAnimationFrame(frame);
   } catch (error) {
     console.error('Could not start Immune Protocol', error);
+    running = false;
+    audio.setActive(false);
     releaseMouse();
+    sim = previousSim;
+    campaign = previousRun;
+    selectedUpgrade = previousUpgrade;
+    if (fromResult) {
+      game.dataset.area = sim.area;
+      resultLaunchError.textContent = 'Could not start the mission. Try again.';
+      resultLaunchError.hidden = false;
+      resultDialog.showModal();
+      previousControl?.focus();
+      return;
+    }
     game.hidden = true;
     menu.hidden = false;
     syncMusic();
@@ -298,6 +342,8 @@ function resume() {
 function mainMenu() {
   running = false;
   paused = false;
+  campaign = null;
+  selectedUpgrade = null;
   clearControls();
   audio.setActive(false);
   releaseMouse();
@@ -313,6 +359,49 @@ function mainMenu() {
   deploy.focus();
 }
 
+function startCampaign() {
+  launch('artery', { results: [], upgrade: null });
+}
+
+function missionResult() {
+  return { area: sim.area, tissue: Math.ceil(sim.tissue), score: sim.score, kills: sim.kills };
+}
+
+function continueMission(area) {
+  if (!resultDialog.open || sim.phase !== 'won' || campaignAreas[campaignAreas.indexOf(sim.area) + 1] !== area) return;
+  if (campaign && !selectedUpgrade) return;
+  const run = campaign ? { results: [...campaign.results, missionResult()], upgrade: selectedUpgrade } : null;
+  launch(area, run);
+}
+
+function updateUpgradeChoice() {
+  for (const button of upgradeButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.upgrade === selectedUpgrade));
+  }
+  const nextArea = campaignAreas[campaignAreas.indexOf(sim.area) + 1];
+  const nextButton = nextArea === 'junction' ? continueJunction : continueHeart;
+  nextButton.disabled = !selectedUpgrade;
+  const nextName = missionNames[nextArea];
+  if (selectedUpgrade) setText(upgradeNote, upgradeNames[selectedUpgrade] + ' selected for ' + nextName + '.');
+  else if (campaign.upgrade) setText(upgradeNote, 'You have ' + upgradeNames[campaign.upgrade] + '. Keep it or switch for ' + nextName + '.');
+  else setText(upgradeNote, 'Choose an upgrade for ' + nextName + '.');
+}
+
+function drawCampaignReport(results) {
+  const rows = results.map(result => {
+    const row = document.createElement('div');
+    const title = document.createElement('dt');
+    const tissue = document.createElement('dd');
+    title.textContent = missionNames[result.area];
+    tissue.textContent = result.tissue + '%';
+    row.append(title, tissue);
+    return row;
+  });
+  campaignTissueList.replaceChildren(...rows);
+  const total = results.reduce((sum, result) => sum + result.tissue, 0);
+  setText(campaignAverage, Math.round(total / results.length) + '%');
+}
+
 function finish() {
   running = false;
   clearControls();
@@ -323,6 +412,8 @@ function finish() {
   const junction = sim.area === 'junction';
   const heart = sim.area === 'heart';
   const next = won ? (junction ? continueHeart : heart ? null : continueJunction) : null;
+  const reward = Boolean(campaign && next);
+  const complete = Boolean(campaign && won && heart);
   if (next === continueJunction && !junctionUnlocked) {
     junctionUnlocked = true;
     writeSetting(junctionKey, 'true');
@@ -337,22 +428,36 @@ function finish() {
     bestScore = sim.score;
     writeSetting(bestKey, bestScore);
   }
-  byId('result-title').textContent = won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : 'Host stabilized') : 'Mission failed';
+  byId('result-title').textContent = complete ? 'Campaign complete'
+    : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : 'Host stabilized') : 'Mission failed';
   let detail;
   if (next === continueJunction) detail = 'All five waves were contained. Capillary Junction is open for deployment.';
   else if (next === continueHeart) detail = 'Both inlets are clear. Heart Valve is open for deployment.';
   else if (won) detail = 'The colony is neutralized and the valve wound is sealed.';
   else detail = sim.tissue <= 0 ? 'The infection overwhelmed the tissue node.' : 'Your suit failed under pathogen attack.';
   byId('result-detail').textContent = detail;
-  byId('result-score').textContent = sim.score.toLocaleString();
-  byId('result-kills').textContent = sim.kills;
-  byId('result-tissue').textContent = Math.ceil(sim.tissue) + '%';
+  const result = missionResult();
+  const results = complete ? [...campaign.results, result] : [result];
+  byId('result-score').textContent = results.reduce((sum, result) => sum + result.score, 0).toLocaleString();
+  byId('result-kills').textContent = results.reduce((sum, result) => sum + result.kills, 0).toLocaleString();
+  byId('result-tissue').textContent = result.tissue + '%';
+  resultTissueStat.hidden = complete;
   continueJunction.hidden = next !== continueJunction;
   continueHeart.hidden = next !== continueHeart;
+  continueJunction.disabled = continueHeart.disabled = false;
+  campaignReward.hidden = !reward;
+  campaignReport.hidden = !complete;
+  if (reward) {
+    setText(campaignProgress, 'Mission ' + (campaignAreas.indexOf(sim.area) + 1) + ' of ' + campaignAreas.length);
+    updateUpgradeChoice();
+  }
+  if (complete) drawCampaignReport(results);
+  setText(replayLabel, complete ? 'Restart campaign' : campaign ? 'Retry mission' : 'Redeploy');
   replay.classList.toggle('primary', !next);
   replay.classList.toggle('outline', !!next);
   resultDialog.showModal();
-  next?.focus();
+  if (reward) upgradeButtons[0]?.focus();
+  else next?.focus();
 }
 
 function setText(element, value) {
@@ -700,12 +805,22 @@ document.querySelectorAll('[data-mute]').forEach(button => button.addEventListen
   setMuted(!muted);
   if (!muted) audio.unlock().catch(() => {});
 }));
-deploy.addEventListener('click', () => launch());
+deploy.addEventListener('click', startCampaign);
 junctionDeploy.addEventListener('click', () => launch('junction'));
-continueJunction.addEventListener('click', () => launch('junction'));
+continueJunction.addEventListener('click', () => continueMission('junction'));
 heartDeploy.addEventListener('click', () => launch('heart'));
-continueHeart.addEventListener('click', () => launch('heart'));
-replay.addEventListener('click', () => launch(sim.area));
+continueHeart.addEventListener('click', () => continueMission('heart'));
+for (const button of upgradeButtons) {
+  button.addEventListener('click', () => {
+    if (!resultDialog.open || campaignReward.hidden) return;
+    selectedUpgrade = button.dataset.upgrade;
+    updateUpgradeChoice();
+  });
+}
+replay.addEventListener('click', () => {
+  if (campaign && sim.area === 'heart' && sim.phase === 'won') startCampaign();
+  else launch(sim.area, campaign);
+});
 byId('return-menu').addEventListener('click', mainMenu);
 byId('quit').addEventListener('click', mainMenu);
 byId('pause').addEventListener('click', pause);
