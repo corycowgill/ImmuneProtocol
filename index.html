@@ -31,6 +31,7 @@
     <symbol id="target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v5m0 10v5M2 12h5m10 0h5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
     <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
     <symbol id="pause-icon" viewBox="0 0 24 24"><path d="M9 5v14m6-14v14" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="settings-icon" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M10 3.5v5M15 9.5v5M9 15.5v5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
   </svg>
 
   <main id="app">
@@ -46,6 +47,7 @@
         <div class="header-actions">
           <span class="online"><i></i> UPLINK ONLINE</span>
           <button class="icon-button audio-button" type="button" data-mute aria-pressed="false" aria-label="Mute audio" title="Mute audio"><svg aria-hidden="true"><use href="#sound"></use></svg></button>
+          <button class="icon-button settings-button" type="button" data-settings aria-label="Settings" title="Settings"><svg aria-hidden="true"><use href="#settings-icon"></use></svg></button>
         </div>
       </header>
 
@@ -100,12 +102,22 @@
           <button id="pause" class="icon-button" type="button" aria-label="Pause game" title="Pause game"><svg aria-hidden="true"><use href="#pause-icon"></use></svg></button>
         </div>
         <div id="objective-marker" class="objective-marker" aria-hidden="true" hidden><span></span><strong id="marker-label">TISSUE NODE</strong><small id="marker-distance"></small></div>
+        <div id="objective-edge" class="objective-edge" aria-hidden="true" hidden>
+          <svg id="objective-edge-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 9l5-5 5 5M8 4v9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <strong id="objective-edge-label">TISSUE</strong>
+        </div>
         <div id="inlet-left" class="inlet-marker" data-branch="left" aria-hidden="true" hidden>AMBER INLET</div>
         <div id="inlet-right" class="inlet-marker" data-branch="right" aria-hidden="true" hidden>TEAL INLET</div>
         <div id="tissue-attackers" aria-hidden="true"></div>
         <div id="reticle" class="reticle" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>
         <div id="hit-marker" class="hit-marker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-        <div id="game-alert" class="game-alert" aria-live="polite"></div>
+        <div class="mission-guidance">
+          <div id="training-hint" class="training-hint" role="status" aria-atomic="true" hidden>
+            <strong id="training-title"></strong>
+            <p id="training-detail"></p>
+          </div>
+          <div id="game-alert" class="game-alert" aria-live="polite"></div>
+        </div>
         <div id="action-prompt" class="action-prompt" hidden>
           <span id="prompt-text"></span>
           <div id="repair-meter" class="meter" role="progressbar" aria-label="Tissue repair pulse" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div id="repair-fill"></div></div>
@@ -116,7 +128,7 @@
           <div class="meter" id="health-meter" role="meter" aria-label="Suit integrity" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="health-fill"></div></div>
         </div>
         <div class="ammo-panel">
-          <div class="hud-label">NEEDLE CARBINE</div>
+          <div class="hud-label" id="equipment-label">NEEDLE CARBINE</div>
           <strong id="ammo-value">30</strong><span id="reserve-value"> / 150</span>
           <div id="reload-state">FULL AUTO</div>
         </div>
@@ -135,6 +147,7 @@
       <p class="eyebrow"><span></span> OPERATIONS BRIEF</p>
       <h2>Field manual</h2>
       <p>Keep tissue and suit integrity above zero. Your carbine is resupplied between waves. Survive five waves to unlock Capillary Junction, where pathogens approach from the amber and teal inlets. Hold repair near the tissue node to restore it.</p>
+      <p>Bacilli latch onto tissue and keep tearing it until you shoot them off.</p>
       <dl class="controls-list">
         <div><dt>Move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dd></div>
         <div><dt>Look / Aim</dt><dd><kbd>Mouse</kbd><kbd>Right click</kbd></dd></div>
@@ -152,7 +165,26 @@
       <p class="eyebrow"><span></span> UPLINK SUSPENDED</p>
       <h2>Mission paused</h2>
       <p id="pause-detail">Resume when you're ready to re-enter the artery.</p>
-      <div class="dialog-buttons"><button id="resume" class="button primary" type="button">Resume <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button id="quit" class="button outline" type="button">Main menu</button></div>
+      <div class="dialog-buttons"><button id="resume" class="button primary" type="button">Resume <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button class="button outline" type="button" data-settings>Settings</button><button id="quit" class="button outline" type="button">Main menu</button></div>
+    </dialog>
+
+    <dialog id="settings-dialog" class="panel" aria-labelledby="settings-title">
+      <h2 id="settings-title">Settings</h2>
+      <div class="settings-list">
+        <div class="setting-row">
+          <label for="look-sensitivity">Look sensitivity</label>
+          <output id="look-sensitivity-value" for="look-sensitivity" aria-hidden="true">1.00×</output>
+          <input id="look-sensitivity" type="range" min="0.5" max="2.5" step="0.05" value="1">
+        </div>
+        <div class="setting-row">
+          <label for="graphics-quality">Graphics quality</label>
+          <select id="graphics-quality">
+            <option value="high">High</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+      </div>
+      <button id="settings-close" class="button primary full-button" type="button">Done <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
     </dialog>
 
     <dialog id="result-dialog" class="panel">

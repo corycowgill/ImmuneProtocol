@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { createCarbine } from './carbine.mjs';
+import { createRepairTool } from './repair-tool.mjs';
 
 const TAU = Math.PI * 2;
 const TISSUE = new THREE.Vector3(0, 1.25, -8);
@@ -503,7 +504,7 @@ function makeRoom(scene, tile, normal, glow, random) {
   arteryDetails.add(filament);
 
   const junctionDetails = makeJunction(scene, skin, glow);
-  return { surfaces, arteryDetails, junctionDetails, canopy };
+  return { surfaces, arteryDetails, junctionDetails, canopy, growths, cilia };
 }
 
 function makeAtmosphere(scene, glow, random) {
@@ -650,20 +651,88 @@ function membraneMaps(seed, tint) {
   return { map: texture(pigment, true), normalMap: texture(normals), roughnessMap: texture(roughness) };
 }
 
-function tissueCoreGeometry() {
-  const geometry = new THREE.SphereGeometry(1, 48, 34);
-  const positions = geometry.attributes.position;
-  for (let i = 0; i < positions.count; i++) {
-    const x = positions.getX(i);
-    const y = positions.getY(i);
-    const z = positions.getZ(i);
-    const fullness = 1 + .085 * Math.sin(x * 3 + y * 3 + z) + .052 * Math.cos(z * 6 - y * 4);
-    const taper = 1 + .15 * y;
-    const cleft = Math.max(0, y) ** 2 * Math.exp(-((x + z * .27) ** 2) * 22);
-    positions.setXYZ(i, x * fullness * taper + .12 * y * y, y * fullness - cleft * .13, z * fullness * taper + .07 * y);
+function woundGeometry() {
+  const rows = 28;
+  const shellColumns = 36;
+  const channelColumns = 10;
+  function surface(columns) {
+    const geometry = new THREE.BufferGeometry();
+    const size = (rows + 1) * (columns + 1);
+    const uv = new Float32Array(size * 2);
+    const indices = [];
+    for (let row = 0; row <= rows; row++) {
+      for (let column = 0; column <= columns; column++) {
+        const i = row * (columns + 1) + column;
+        uv[i * 2] = column / columns;
+        uv[i * 2 + 1] = row / rows;
+        if (row < rows && column < columns) {
+          const next = i + columns + 1;
+          indices.push(i, i + 1, next, i + 1, next + 1, next);
+        }
+      }
+    }
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(size * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    geometry.setIndex(indices);
+    geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1.55);
+    return geometry;
   }
-  geometry.computeVertexNormals();
-  return geometry;
+
+  const shell = surface(shellColumns);
+  const channel = surface(channelColumns);
+  const pigments = new Float32Array(channel.attributes.position.count * 3);
+  for (let row = 0; row <= rows; row++) {
+    for (let column = 0; column <= channelColumns; column++) {
+      const edge = Math.abs(column / channelColumns * 2 - 1) ** 4;
+      const detail = Math.sin(row * 2.7 + column * 1.7) * .09 + Math.cos(row * 4.2 - column * .74) * .06;
+      const i = (row * (channelColumns + 1) + column) * 3;
+      pigments[i] = .26 + edge * .61 + detail;
+      pigments[i + 1] = .087 + edge * .47 + detail * .55;
+      pigments[i + 2] = .093 + edge * .38 + detail * .5;
+    }
+  }
+  channel.setAttribute('color', new THREE.BufferAttribute(pigments, 3));
+
+  function setPoint(positions, index, angle, y, radial, depth) {
+    const x = Math.sin(angle) * radial;
+    const z = Math.cos(angle) * radial;
+    const swell = 1 + .09 * Math.sin(x * 6 + y * 5 + z * 3) + .055 * Math.cos(z * 8 - y * 7);
+    const profile = swell * (1 + .13 * y);
+    positions.setXYZ(index, x * (profile - depth) + .09 * y * y, y * swell, z * (profile - depth) + .07 * y);
+  }
+
+  let previous = -1;
+  function reshape(amount) {
+    if (Math.abs(previous - amount) < .004 && amount !== 0) return;
+    if (previous === amount) return;
+    previous = amount;
+    const gapHeight = .37 + .50 * amount;
+    for (let row = 0; row <= rows; row++) {
+      const latitude = (row / rows - .5) * Math.PI;
+      const y = Math.sin(latitude);
+      const radial = Math.cos(latitude);
+      const taper = Math.max(0, 1 - Math.abs((y - .04) / gapHeight)) ** .68;
+      const center = y * .54 + .10 * Math.sin(y * 8.8);
+      const width = amount * taper * (.54 + Math.sin(y * 49) * .06 + Math.cos(y * 22) * .06);
+      for (let column = 0; column <= shellColumns; column++) {
+        const angle = center + width + (TAU - width * 2) * column / shellColumns;
+        setPoint(shell.attributes.position, row * (shellColumns + 1) + column, angle, y, radial, 0);
+      }
+      for (let column = 0; column <= channelColumns; column++) {
+        const across = column / channelColumns;
+        const angle = center + (across * 2 - 1) * width;
+        const depth = Math.sin(across * Math.PI) ** .68 * taper * amount
+          * (.41 + Math.sin(y * 41 - across * 10) * .08);
+        setPoint(channel.attributes.position, row * (channelColumns + 1) + column, angle, y, radial, depth);
+      }
+    }
+    for (const geometry of [shell, channel]) {
+      geometry.attributes.position.needsUpdate = true;
+      geometry.computeVertexNormals();
+    }
+  }
+  reshape(0);
+  return { shell, channel, reshape };
 }
 
 function makeTissue(scene, glow, floorNormal, random) {
@@ -673,29 +742,37 @@ function makeTissue(scene, glow, floorNormal, random) {
   const maps = membraneMaps(42618, [235, 182, 165]);
   const lobe = texturedLobe(1, 40, 29, .14);
   const membrane = new THREE.MeshPhysicalMaterial({
-    ...maps, color: 0xb67a6a, emissive: 0x136d54, emissiveIntensity: .22,
-    roughness: .57, clearcoat: .79, clearcoatRoughness: .25,
-    sheen: .27, sheenColor: 0xee9582, normalScale: new THREE.Vector2(.74, .74),
+    ...maps, color: 0xbf8175, emissive: 0x5c1e1c, emissiveIntensity: .17,
+    roughness: .61, clearcoat: .63, clearcoatRoughness: .28,
+    sheen: .42, sheenColor: 0xefb5a1, normalScale: new THREE.Vector2(.74, .74),
   });
   const shell = new THREE.MeshPhysicalMaterial({
     ...maps, color: 0x9b504e, roughness: .67, clearcoat: .61, clearcoatRoughness: .31,
     normalMap: floorNormal, normalScale: new THREE.Vector2(.9, .9),
   });
   const fiber = new THREE.MeshPhysicalMaterial({
-    color: 0x71897a, emissive: 0x21f8ae, emissiveIntensity: .39,
+    color: 0x9b524e, emissive: 0x5a2420, emissiveIntensity: .23,
     roughness: .47, clearcoat: .58, clearcoatRoughness: .29,
   });
   const coreMaterial = new THREE.MeshPhysicalMaterial({
-    ...maps, color: 0x995a50, emissive: 0x72ffbd, emissiveIntensity: .026,
-    clearcoat: .54, clearcoatRoughness: .36, roughness: .65,
+    ...maps, color: 0xb87363, emissive: 0x4a110d, emissiveIntensity: .095,
+    clearcoat: .63, clearcoatRoughness: .30, roughness: .61, sheen: .38, sheenColor: 0xe59484,
     normalScale: new THREE.Vector2(.58, .58),
+  });
+  const channelMaterial = new THREE.MeshPhysicalMaterial({
+    ...maps, color: 0xc43e38, vertexColors: true, roughness: .47,
+    clearcoat: .84, clearcoatRoughness: .24, emissive: 0x2f0504, emissiveIntensity: .28,
+    normalScale: new THREE.Vector2(.68, .68),
   });
   const organ = new THREE.Group();
   root.add(organ);
-  const core = addMesh(organ, tissueCoreGeometry(), coreMaterial,
-    new THREE.Vector3(-.13, -.07, -.06), [.79, .81, .68]);
-  core.rotation.set(-.13, -.1, .31);
-  const upper = addMesh(organ, lobe, membrane, new THREE.Vector3(.3, -.08, .12), [.54, .71, .49]);
+  const wound = woundGeometry();
+  const core = addMesh(organ, wound.shell, coreMaterial,
+    new THREE.Vector3(-.08, -.02, .06), [1.02, .92, .91]);
+  core.rotation.set(-.18, -.09, -.13);
+  const channel = addMesh(core, wound.channel, channelMaterial);
+  channel.visible = false;
+  const upper = addMesh(organ, lobe, membrane, new THREE.Vector3(.51, -.08, -.27), [.57, .71, .49]);
   upper.rotation.set(.18, .2, -.55);
   const glowOrb = sprite(glow, 0x66ffb5, 2.45, .09);
   glowOrb.position.set(-.04, .2, -.25);
@@ -760,8 +837,8 @@ function makeTissue(scene, glow, floorNormal, random) {
     polyps.setColorAt(i, new THREE.Color().setRGB(.69 + random() * .27, .56 + random() * .27, .5 + random() * .24));
   }
 
-  const light = new THREE.PointLight(0x84ffbf, 4, 7, 2);
-  light.position.y = 1.05;
+  const light = new THREE.PointLight(0xffc7aa, 6.3, 7, 2);
+  light.position.set(-.8, 1.48, 1.48);
   root.add(light);
 
   const contact = new THREE.Mesh(new THREE.PlaneGeometry(5.3, 5.3), new THREE.MeshBasicMaterial({
@@ -771,7 +848,7 @@ function makeTissue(scene, glow, floorNormal, random) {
   contact.position.y = -1.13;
   root.add(contact);
 
-  return { organ, core, membrane, fiber, glowOrb, light };
+  return { organ, core, membrane, fiber, glowOrb, light, channel, wound, opening: 0 };
 }
 
 function joinTubes(tubes) {
@@ -1023,8 +1100,9 @@ function reflectionTexture() {
 
 const MAX_PARTICLES = 288;
 const SPECIES_COLORS = { virus: 0xff6d4a, bacillus: 0xffd078, spore: 0xf384ff };
-const HEALTHY = new THREE.Color(0x53ffad);
-const INJURED = new THREE.Color(0xff3d1f);
+const HEALTHY = new THREE.Color(0xffc6ad);
+const INJURED = new THREE.Color(0xff795d);
+const REPAIR_LIGHT = new THREE.Color(0x9bf4c4);
 
 export class World {
   constructor(canvas, area = 'artery') {
@@ -1055,11 +1133,11 @@ export class World {
     this.shots = [];
     this.lastEvents = null;
 
-    this.scene.add(new THREE.HemisphereLight(0xf4c3a4, 0x59313d, 1.05));
+    this.scene.add(new THREE.HemisphereLight(0xf6d4ba, 0x5c3c4e, .93));
     const backlight = new THREE.DirectionalLight(0xffbd9e, 1.4);
     backlight.position.set(-12, 10, -16);
     this.scene.add(backlight);
-    const fill = new THREE.DirectionalLight(0x9b9dbd, .58);
+    const fill = new THREE.DirectionalLight(0xb3c9e3, .77);
     fill.position.set(4, 4, 16);
     this.scene.add(fill);
     const warm = new THREE.PointLight(0xff8969, 72, 24, 2);
@@ -1077,6 +1155,8 @@ export class World {
     this.weaponCamera = new THREE.PerspectiveCamera(55, 1, .026, 5);
     this.carbine = createCarbine();
     this.weaponScene.add(this.carbine.model);
+    this.repairTool = createRepairTool(this.carbine.supportHand);
+    this.weaponScene.add(this.repairTool.model);
     this.carbine.model.traverse(part => {
       if (part.isMesh && !part.material.transparent && !part.material.isMeshBasicMaterial) {
         part.castShadow = true;
@@ -1119,6 +1199,23 @@ export class World {
     this.setArea(area);
     this.atmosphere = makeAtmosphere(this.scene, this.glow, this.random);
     this.tissue = makeTissue(this.scene, this.glow, normal, this.random);
+    this.toolStream = addMesh(this.scene, new THREE.CylinderGeometry(.014, .005, 1, 9, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: 0xafffd2, transparent: true, opacity: .43, depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }));
+    this.toolStream.visible = false;
+    this.toolStart = new THREE.Vector3();
+    this.toolTarget = new THREE.Vector3();
+    this.toolDirection = new THREE.Vector3();
+    this.tetherGeometry = new THREE.CylinderGeometry(.016, .027, 1, 7, 1);
+    this.tetherMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xa05844, emissive: 0x361a0c, emissiveIntensity: .15, roughness: .49,
+      clearcoat: .55, clearcoatRoughness: .29,
+    });
+    this.tetherStart = new THREE.Vector3();
+    this.tetherEnd = new THREE.Vector3();
+    this.tetherDirection = new THREE.Vector3();
     this.templates = {
       virus: virusModel(normal),
       bacillus: bacillusModel(normal),
@@ -1166,7 +1263,7 @@ export class World {
       blending: THREE.AdditiveBlending,
     });
     this.width = this.height = 0;
-    this.resize();
+    this.setQuality('high');
   }
 
   setArea(area) {
@@ -1195,17 +1292,43 @@ export class World {
     this.shotLight.intensity = 0;
     this.lastEvents = null;
     this.clock = 0;
+    if (this.tissue) {
+      this.tissue.opening = 0;
+      this.tissue.wound.reshape(0);
+      this.tissue.channel.visible = false;
+      this.toolStream.visible = false;
+    }
     this.camera.fov = 61;
     this.camera.updateProjectionMatrix();
   }
 
-  resize() {
-    const width = this.canvas.clientWidth || window.innerWidth;
-    const height = this.canvas.clientHeight || window.innerHeight;
-    if (width === this.width && height === this.height) return;
+  setQuality(quality) {
+    const low = quality === 'low';
+    const next = low ? 'low' : 'high';
+    if (next === this.quality) return;
+    this.quality = next;
+    this.renderer.shadowMap.enabled = !low;
+    this.weaponKey.castShadow = !low;
+    this.weaponKey.shadow.needsUpdate = !low;
+    const { growths, cilia } = this.room;
+    growths.count = low ? 330 : growths.instanceMatrix.count;
+    cilia.count = low ? 170 : cilia.instanceMatrix.count;
+    const { cells, cellPath, motes, clouds } = this.atmosphere;
+    cells.count = low ? 35 : cellPath.length;
+    motes.geometry.setDrawRange(0, low ? 280 : motes.geometry.attributes.position.count);
+    clouds.forEach(({ cloud }, index) => { cloud.visible = !low || index % 3 === 2; });
+    this.resize(true);
+  }
+
+  resize(force = false) {
+    const width = Math.max(1, this.canvas.clientWidth || window.innerWidth);
+    const height = Math.max(1, this.canvas.clientHeight || window.innerHeight);
+    if (!force && width === this.width && height === this.height) return;
     this.width = width;
     this.height = height;
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.45, Math.sqrt(2300000 / (width * height)));
+    const low = this.quality === 'low';
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, low ? .87 : 1.45,
+      Math.sqrt((low ? 950000 : 2300000) / (width * height)));
     this.renderer.setPixelRatio(pixelRatio);
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
@@ -1223,7 +1346,7 @@ export class World {
   updateAtmosphere(dt) {
     this.clock += dt;
     const { cells, cellPath, motes, clouds } = this.atmosphere;
-    for (let i = 0; i < cellPath.length; i++) {
+    for (let i = 0; i < cells.count; i++) {
       const { x, y, z, radius, phase, spin } = cellPath[i];
       const angle = phase + this.clock * .47;
       this.tempPosition.set(x + Math.sin(angle) * .86, y + Math.sin(angle * .61) * .58, z + Math.cos(angle * .72) * .79);
@@ -1235,26 +1358,33 @@ export class World {
     motes.position.y = Math.sin(this.clock * .22) * .28;
     for (let i = 0; i < clouds.length; i++) {
       const { cloud, x, y, z } = clouds[i];
+      if (!cloud.visible) continue;
       cloud.position.set(x + Math.sin(this.clock * .14 + i) * .94, y + Math.sin(this.clock * .09 + i) * .38, z);
     }
   }
 
-  updateTissue(sim) {
+  updateTissue(sim, dt, reduceMotion) {
     const state = THREE.MathUtils.clamp(sim.tissue / 100, 0, 1);
-    const { organ, core, membrane, fiber, glowOrb, light } = this.tissue;
-    const healing = sim.repairProgress > 0 && sim.canRepair;
-    this.palette.copy(INJURED).lerp(HEALTHY, Math.sqrt(state));
+    const { organ, core, fiber, glowOrb, light, channel, wound } = this.tissue;
+    const healing = sim.repairing;
+    const residualDamage = Math.max(0, 100 - sim.tissue - (healing ? sim.repairProgress * 10 : 0));
+    const target = Math.min(1, Math.sqrt(residualDamage / 43));
+    const open = THREE.MathUtils.damp(this.tissue.opening, target, healing ? 11 : 8, dt);
+    this.tissue.opening = open < .004 && target === 0 ? 0 : open;
+    wound.reshape(this.tissue.opening);
+    channel.visible = this.tissue.opening > .004;
+    this.palette.copy(INJURED).lerp(HEALTHY, state);
+    if (healing) this.palette.lerp(REPAIR_LIGHT, .42);
     light.color.copy(this.palette);
-    light.intensity = 2 + state * 2 + (healing ? 2.5 + Math.sin(this.clock * 17) * 1.4 : 0);
-    glowOrb.material.color.copy(this.palette);
-    glowOrb.material.opacity = .04 + state * .045 + (healing ? .11 : 0);
-    const beat = Math.max(0, Math.sin(this.clock * (healing ? 11 : 3.7))) ** 3;
-    organ.scale.set(1 + beat * .065, 1 + beat * .08, 1 + beat * .065);
+    light.intensity = 5.2 + state * 1.1 + (healing ? 2.2 : 0);
+    glowOrb.material.color.copy(healing ? REPAIR_LIGHT : this.palette);
+    glowOrb.material.opacity = healing ? .10 : .017;
+    const beat = reduceMotion ? 0 : Math.max(0, Math.sin(this.clock * 3.7)) ** 3;
+    organ.scale.set(1 + beat * .027, 1 + beat * .044, 1 + beat * .026);
     core.material.emissive.copy(this.palette);
-    core.material.emissiveIntensity = .008 + state * .013 + beat * .007 + (healing ? .016 : 0);
+    core.material.emissiveIntensity = .025 + beat * .015 + (healing ? .04 : 0);
     fiber.emissive.copy(this.palette);
-    fiber.emissiveIntensity = .20 + state * .13 + beat * .06 + (healing ? .29 : 0);
-    membrane.emissive.copy(this.palette).multiplyScalar(.19);
+    fiber.emissiveIntensity = .033 + beat * .022 + (healing ? .13 : 0);
   }
 
   updateEnemies(enemies, dt) {
@@ -1283,15 +1413,41 @@ export class World {
       view.hit = Math.max(0, view.hit - dt * 7);
       const pulse = 1 + Math.sin(angle * 3) * .045 + view.hit * .13;
       view.model.scale.set(pulse, pulse - view.hit * .18, pulse);
+      if (enemy.latched) this.updateTethers(enemy, view, angle);
       view.shadow.position.set(enemy.x, floorHeight(enemy.x, enemy.z) + .1, enemy.z);
       view.shadow.scale.setScalar((enemy.radius || .9) * 1.4);
     }
     for (const [id, view] of this.enemyViews) {
       if (!view.present) {
         this.scene.remove(view.model, view.shadow);
+        if (view.tethers) this.scene.remove(...view.tethers);
         this.enemyViews.delete(id);
       }
     }
+  }
+
+  updateTethers(enemy, view, angle) {
+    if (!view.tethers) {
+      view.tethers = [-1, 1].map(() => addMesh(this.scene, this.tetherGeometry, this.tetherMaterial));
+    }
+    const dx = TISSUE.x - enemy.x;
+    const dz = TISSUE.z - enemy.z;
+    const distance = Math.max(.01, Math.hypot(dx, dz));
+    const x = dx / distance;
+    const z = dz / distance;
+    const pull = .58 + Math.sin(angle * 3) * .06;
+    view.model.rotation.set(z * pull, Math.atan2(x, z), -x * pull);
+    view.tethers.forEach((tether, index) => {
+      const spread = index === 0 ? -.15 : .15;
+      this.tetherStart.set(view.model.position.x + x * .20 + z * spread,
+        view.model.position.y + .04, view.model.position.z + z * .20 - x * spread);
+      this.tetherEnd.set(TISSUE.x - x * .89 + z * spread * 1.45,
+        TISSUE.y + spread * 1.4, TISSUE.z - z * .89 - x * spread * 1.45);
+      this.tetherDirection.subVectors(this.tetherEnd, this.tetherStart);
+      tether.scale.y = this.tetherDirection.length();
+      tether.position.copy(this.tetherStart).lerp(this.tetherEnd, .5);
+      tether.quaternion.setFromUnitVectors(UP, this.tetherDirection.normalize());
+    });
   }
 
   burst(x, y, z, color, count, spread) {
@@ -1396,6 +1552,8 @@ export class World {
     bolt.position.z = Math.max(pose.recoil * .033, seat * .023);
     poseHands(reach, Math.min(pose.recoil,1));
     flash.visible = pose.flash > 0;
+    model.visible = pose.lowered < .91;
+    this.updateRepairTool(sim, idle, walk, reduceMotion);
 
     this.weaponLightRotation.copy(this.camera.quaternion).invert();
     this.weaponKey.position.set(-1.3, 1.76, -.92)
@@ -1403,6 +1561,36 @@ export class World {
     this.weaponScene.environmentRotation.setFromQuaternion(this.weaponLightRotation);
     this.weaponFlash.intensity = flash.visible ? 3.4 * (pose.flash / .037) : 0;
     muzzle.getWorldPosition(this.weaponFlash.position);
+  }
+
+  updateRepairTool(sim, idle, walk, reduceMotion) {
+    const { model, nozzle, indicator, reagent } = this.repairTool;
+    const raise = THREE.MathUtils.smoothstep(this.weaponPose.lowered, .16, .86);
+    model.visible = raise > .02;
+    this.toolStream.visible = false;
+    if (!model.visible) return;
+
+    model.position.set(Math.min(.23, .11 + this.camera.aspect * .08) + walk * .018,
+      -.237 - (1 - raise) * .42 + idle, -.58);
+    model.rotation.set(.055 - (1 - raise) * .38, .17, -.07 + walk * .028);
+    indicator.emissiveIntensity = .56 + sim.repairProgress * .65;
+    reagent.emissiveIntensity = .42 + sim.repairProgress * .32;
+
+    this.toolTarget.copy(TISSUE);
+    this.toolTarget.z += .83;
+    if (!sim.repairing || raise < .68 || !this.project(this.toolTarget.x, this.toolTarget.y, this.toolTarget.z).visible) return;
+    const start = nozzle.getWorldPosition(this.toolStart);
+    const ratio = Math.tan(this.camera.fov * Math.PI / 360) / Math.tan(this.weaponCamera.fov * Math.PI / 360);
+    start.x *= ratio;
+    start.y *= ratio;
+    this.camera.localToWorld(start);
+    const direction = this.toolDirection.subVectors(this.toolTarget, start);
+    if (direction.lengthSq() < .01) return;
+    this.toolStream.scale.y = direction.length();
+    this.toolStream.position.copy(start).lerp(this.toolTarget, .5);
+    this.toolStream.quaternion.setFromUnitVectors(UP, direction.normalize());
+    this.toolStream.material.opacity = reduceMotion ? .30 : .36 + Math.sin(this.clock * 17) * .08;
+    this.toolStream.visible = true;
   }
 
   addShot(event) {
@@ -1468,7 +1656,7 @@ export class World {
     }
     this.camera.updateMatrixWorld();
     this.updateAtmosphere(dt);
-    this.updateTissue(sim);
+    this.updateTissue(sim, dt, reduceMotion);
     this.updateEnemies(sim.enemies, dt);
     this.updateWeapon(sim, dt, input, aiming, reduceMotion);
     this.processEvents(sim.events, dt);
