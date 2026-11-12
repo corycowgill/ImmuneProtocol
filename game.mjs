@@ -14,6 +14,8 @@ const hitMarker = byId('hit-marker');
 const damageFlash = byId('damage-flash');
 const alertBox = byId('game-alert');
 const marker = byId('objective-marker');
+const tissueAttackers = byId('tissue-attackers');
+const attackerMarkers = new Map();
 const actionPrompt = byId('action-prompt');
 const joystick = byId('joystick');
 const touchControls = byId('touch-controls');
@@ -61,6 +63,8 @@ let lookPointer = null;
 let stickPointer = null;
 let hitTimer = 0;
 let damageTimer = 0;
+let tissueHitTimer = 0;
+let restoredTimer = 0;
 let announcementTimer = 0;
 let lastFrame = 0;
 let animation = 0;
@@ -153,6 +157,10 @@ async function launch() {
     sim.start();
     lastFrame = 0;
     damageTimer = 0;
+    tissueHitTimer = 0;
+    restoredTimer = 0;
+    attackerMarkers.clear();
+    tissueAttackers.replaceChildren();
     hitTimer = 0;
     drawnWave = '';
     running = true;
@@ -257,11 +265,22 @@ function drawHud() {
   const { player, tissue, wave, waves, remaining, phase, intermission } = sim;
   const tissuePercent = Math.ceil(tissue);
   const suitPercent = Math.ceil(player.health);
+  const tissueAttacked = sim.enemies.some(enemy => enemy.attackingTissue);
+  const restored = restoredTimer > 0 && tissuePercent === 100;
+  hostState.parentElement.classList.toggle('under-attack', tissueAttacked || tissueHitTimer > 0);
+  hostState.parentElement.classList.toggle('restored', restored);
   setText(suitValue, suitPercent);
   setText(tissueValue, tissuePercent + '%');
   fillMeter(healthMeter, healthFill, suitPercent);
   fillMeter(tissueMeter, tissueFill, tissuePercent);
-  setText(hostState, sim.repairing ? 'REPAIR ACTIVE' : tissuePercent <= 32 ? 'TISSUE CRITICAL' : tissuePercent < 75 ? 'TISSUE COMPROMISED' : 'VITALS STABLE');
+  let tissueStatus = 'VITALS STABLE';
+  if (tissuePercent <= 32) tissueStatus = 'TISSUE CRITICAL';
+  else if (tissuePercent < 100) tissueStatus = 'TISSUE DAMAGED';
+  if (sim.repairing) tissueStatus = 'REPAIR IN PROGRESS';
+  if (restored) tissueStatus = 'TISSUE RESTORED';
+  if (tissueAttacked) tissueStatus = 'TISSUE UNDER ATTACK';
+  else if (tissueHitTimer > 0) tissueStatus = 'TISSUE HIT';
+  setText(hostState, tissueStatus);
   setText(ammoValue, pad(player.ammo));
   setText(reserveValue, ' / ' + pad(player.reserve));
   setText(reloadState, sim.reloading ? 'RELOADING' : player.ammo === 0 ? 'MAGAZINE EMPTY' : 'FULL AUTO');
@@ -275,23 +294,68 @@ function drawHud() {
   setText(threats, phase === 'intermission'
     ? 'NEXT WAVE IN ' + Math.ceil(intermission) + 's'
     : remaining + (remaining === 1 ? ' THREAT LEFT' : ' THREATS LEFT'));
-  actionPrompt.hidden = !sim.nearTissue && player.ammo > 0;
-  if (!actionPrompt.hidden) {
-    promptText.textContent = sim.canRepair ? (isTouch ? 'HOLD REPAIR TO RESTORE TISSUE' : 'HOLD E TO REPAIR TISSUE')
-      : player.ammo === 0 ? (player.reserve ? (isTouch ? 'RELOAD CARBINE' : 'PRESS R TO RELOAD') : 'AWAITING RESUPPLY') : 'TISSUE AT FULL INTEGRITY';
-    repairMeter.hidden = !sim.repairing;
-    if (sim.repairing) repairFill.style.width = sim.repairProgress * 100 + '%';
+  const restoringHere = restored && sim.nearTissue;
+  const repairing = sim.repairing && !restoringHere;
+  let prompt = '';
+  if (restoringHere) prompt = 'TISSUE RESTORED · 100%';
+  else if (repairing) prompt = 'REPAIRING TISSUE';
+  else if (sim.canRepair) prompt = isTouch ? 'HOLD REPAIR TO RESTORE TISSUE' : 'HOLD E TO REPAIR TISSUE';
+  else if (player.ammo === 0) {
+    prompt = player.reserve ? (isTouch ? 'RELOAD CARBINE' : 'PRESS R TO RELOAD') : 'AWAITING RESUPPLY';
+  } else if (phase === 'intermission' && tissuePercent < 100) {
+    prompt = 'MOVE TO THE TISSUE NODE TO REPAIR';
+  }
+  actionPrompt.hidden = !prompt;
+  actionPrompt.classList.toggle('restored', restoringHere);
+  setText(promptText, prompt);
+  repairMeter.hidden = !repairing;
+  if (repairing) {
+    const value = Math.floor(sim.repairProgress * 100);
+    repairFill.style.width = value + '%';
+    if (repairMeter.getAttribute('aria-valuenow') !== String(value)) repairMeter.setAttribute('aria-valuenow', value);
   }
 }
 
 function drawMarker() {
   const distance = Math.hypot(sim.player.x - OBJECTIVE.x, sim.player.z - OBJECTIVE.z);
   const point = world.project(OBJECTIVE.x, OBJECTIVE.y + 1.65, OBJECTIVE.z);
-  marker.hidden = !point.visible || distance < 3.2;
+  marker.hidden = !point.visible || sim.nearTissue || point.y < (window.innerWidth <= 720 ? 96 : 126);
   if (!marker.hidden) {
     marker.style.left = point.x + 'px';
     marker.style.top = point.y + 'px';
     markerDistance.textContent = Math.round(distance) + ' m';
+  }
+}
+
+function drawAttackers() {
+  const active = new Set();
+  const captions = [];
+  for (const enemy of sim.enemies) {
+    if (!enemy.attackingTissue) continue;
+    const point = world.project(enemy.x, enemy.y + enemy.radius + .17, enemy.z);
+    if (!point.visible || point.y < 105 || point.x < 17 || point.x > window.innerWidth - 17) continue;
+    active.add(enemy.id);
+    let icon = attackerMarkers.get(enemy.id);
+    if (!icon) {
+      icon = document.createElement('div');
+      icon.className = 'attacker-marker';
+      const label = document.createElement('strong');
+      label.textContent = 'ATTACKING TISSUE';
+      icon.append(label, document.createElement('span'));
+      attackerMarkers.set(enemy.id, icon);
+      tissueAttackers.append(icon);
+    }
+    const showCaption = point.x >= 65 && point.x <= window.innerWidth - 65 &&
+      !captions.some(other => Math.abs(other.x - point.x) < 125 && Math.abs(other.y - point.y) < 24);
+    icon.classList.toggle('compact', !showCaption);
+    if (showCaption) captions.push(point);
+    icon.style.left = point.x + 'px';
+    icon.style.top = point.y + 'px';
+  }
+  for (const [id, icon] of attackerMarkers) {
+    if (active.has(id)) continue;
+    icon.remove();
+    attackerMarkers.delete(id);
   }
 }
 
@@ -303,6 +367,11 @@ function applyEvents() {
       hitMarker.classList.toggle('critical', Boolean(event.crit));
     }
     if (event.type === 'damage' && event.target === 'player') damageTimer = 0.46;
+    if (event.type === 'damage' && event.target === 'tissue') {
+      tissueHitTimer = .9;
+      restoredTimer = 0;
+    }
+    if (event.type === 'repair' && event.complete) restoredTimer = 2.4;
     if (event.type === 'wave') {
       if (event.stage === 'start') announce('WAVE ' + pad(event.wave), 'PATHOGENS INBOUND');
       else if (event.wave < sim.waves) announce('WAVE CONTAINED', 'RESUPPLIED  /  REPAIR TISSUE', 3);
@@ -333,6 +402,8 @@ function frame(now) {
     input.aim = rightButton;
     hitTimer = Math.max(0, hitTimer - dt);
     damageTimer = Math.max(0, damageTimer - dt);
+    tissueHitTimer = Math.max(0, tissueHitTimer - dt);
+    restoredTimer = Math.max(0, restoredTimer - dt);
     if (announcementTimer > 0) {
       announcementTimer -= dt;
       if (announcementTimer <= 0) alertBox.replaceChildren();
@@ -349,6 +420,7 @@ function frame(now) {
     input.lookY = 0;
     drawHud();
     drawMarker();
+    drawAttackers();
     drawCombatFeedback(aiming);
     if (sim.phase === 'won' || sim.phase === 'lost') {
       finish();
