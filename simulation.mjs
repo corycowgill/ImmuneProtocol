@@ -285,16 +285,17 @@ export class Simulation {
       critical = offsetSquared <= radiusSquared * (aiming ? 0.23 : 0.16);
     }
 
-    this.events.push({
-      type: 'shot', hit: Boolean(target), crit: critical,
+    const impact = {
       x: player.x + dx * distance, y: player.y + dy * distance, z: player.z + dz * distance,
-    });
+    };
+    this.events.push({ type: 'shot', hit: Boolean(target), crit: critical, ...impact });
     if (!target) return;
 
     const damage = critical ? 42 : 23;
     target.health -= damage;
-    this.events.push({ type: 'hit', id: target.id, damage, crit: critical });
-    if (target.health > 0) return;
+    const lethal = target.health <= 0;
+    this.events.push({ type: 'hit', id: target.id, damage, crit: critical, lethal, ...impact });
+    if (!lethal) return;
 
     this.enemies.splice(this.enemies.indexOf(target), 1);
     this.kills += 1;
