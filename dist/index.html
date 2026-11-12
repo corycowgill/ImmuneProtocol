@@ -72,7 +72,7 @@
         <div class="host-panel">
           <div class="hud-label"><svg aria-hidden="true"><use href="#pulse"></use></svg> HOST TISSUE <strong id="tissue-value">100%</strong></div>
           <div class="meter" role="meter" id="tissue-meter" aria-label="Host tissue integrity" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="tissue-fill"></div></div>
-          <div id="host-state" class="host-state">VITALS STABLE</div>
+          <div id="host-state" class="host-state" role="status">VITALS STABLE</div>
         </div>
         <div class="wave-panel"><span class="hud-label">INFECTION WAVE</span><strong id="wave-value">01 <span>/ 05</span></strong><small id="threats">THREATS INBOUND</small></div>
         <div class="game-actions">
@@ -80,10 +80,14 @@
           <button id="pause" class="icon-button" type="button" aria-label="Pause game" title="Pause game"><svg aria-hidden="true"><use href="#pause-icon"></use></svg></button>
         </div>
         <div id="objective-marker" class="objective-marker" aria-hidden="true" hidden><span></span><strong id="marker-label">TISSUE NODE</strong><small id="marker-distance"></small></div>
+        <div id="tissue-attackers" aria-hidden="true"></div>
         <div id="reticle" class="reticle" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>
         <div id="hit-marker" class="hit-marker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         <div id="game-alert" class="game-alert" aria-live="polite"></div>
-        <div id="action-prompt" class="action-prompt" hidden><span id="prompt-text"></span><div id="repair-meter" class="meter" hidden><div id="repair-fill"></div></div></div>
+        <div id="action-prompt" class="action-prompt" hidden>
+          <span id="prompt-text"></span>
+          <div id="repair-meter" class="meter" role="progressbar" aria-label="Tissue repair pulse" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div id="repair-fill"></div></div>
+        </div>
         <div class="player-panel">
           <div class="hud-label"><svg aria-hidden="true"><use href="#shield"></use></svg> SUIT INTEGRITY</div>
           <strong id="health-value">100</strong>

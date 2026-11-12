@@ -466,54 +466,192 @@ function makeAtmosphere(scene, glow, random) {
   return { cells, cellPath, motes, clouds };
 }
 
+function membraneMaps(seed, tint) {
+  const size = 128;
+  const lattice = 8;
+  const random = randomSource(seed);
+  const grains = Array.from({ length: lattice ** 2 }, () => [random(), random(), random()]);
+  const cellMask = lattice - 1;
+  const texelMask = size - 1;
+  const height = new Float32Array(size * size);
+  const pigment = new Uint8Array(height.length * 4);
+  const roughness = new Uint8Array(pigment.length);
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const gx = x * lattice / size;
+      const gy = y * lattice / size;
+      const cellX = Math.floor(gx);
+      const cellY = Math.floor(gy);
+      let first = Infinity;
+      let second = Infinity;
+      let tone = .5;
+      for (let cy = cellY - 1; cy <= cellY + 1; cy++) {
+        for (let cx = cellX - 1; cx <= cellX + 1; cx++) {
+          const cell = grains[(cy & cellMask) * lattice + (cx & cellMask)];
+          const distance = Math.hypot(cx + .2 + cell[0] * .6 - gx, cy + .2 + cell[1] * .6 - gy);
+          if (distance < first) {
+            second = first;
+            first = distance;
+            tone = cell[2];
+          } else {
+            second = Math.min(second, distance);
+          }
+        }
+      }
+      const groove = Math.min(1, (second - first) * 3);
+      const fibril = Math.sin((y + Math.sin(x * TAU / size * 3) * 7) * TAU / size * 27);
+      const grain = random();
+      const detail = (.47 + groove * .31) + tone * .17 + fibril * .035 + grain * .04;
+      const index = y * size + x;
+      height[index] = groove * .68 + tone * .22 + fibril * .07 + grain * .06;
+      pigment[index * 4] = tint[0] * detail;
+      pigment[index * 4 + 1] = tint[1] * detail * (.83 + tone * .17);
+      pigment[index * 4 + 2] = tint[2] * detail;
+      pigment[index * 4 + 3] = 255;
+      roughness.fill(123 + groove * 71 + grain * 34, index * 4, index * 4 + 3);
+      roughness[index * 4 + 3] = 255;
+    }
+  }
+
+  const normals = new Uint8Array(pigment.length);
+  const h = (x, y) => height[(y & texelMask) * size + (x & texelMask)];
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = (h(x - 1, y) - h(x + 1, y)) * 1.45;
+      const dy = (h(x, y - 1) - h(x, y + 1)) * 1.45;
+      const length = Math.hypot(dx, dy, 1);
+      const index = (y * size + x) * 4;
+      normals[index] = 127.5 * (1 + dx / length);
+      normals[index + 1] = 127.5 * (1 + dy / length);
+      normals[index + 2] = 127.5 * (1 + 1 / length);
+      normals[index + 3] = 255;
+    }
+  }
+
+  const texture = (data, color = false) => {
+    const map = configureTile(new THREE.DataTexture(data, size, size), 4, color);
+    map.minFilter = THREE.LinearMipmapLinearFilter;
+    map.magFilter = THREE.LinearFilter;
+    map.generateMipmaps = true;
+    map.needsUpdate = true;
+    return map;
+  };
+  return { map: texture(pigment, true), normalMap: texture(normals), roughnessMap: texture(roughness) };
+}
+
+function tissueCoreGeometry() {
+  const geometry = new THREE.SphereGeometry(1, 48, 34);
+  const positions = geometry.attributes.position;
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i);
+    const y = positions.getY(i);
+    const z = positions.getZ(i);
+    const fullness = 1 + .085 * Math.sin(x * 3 + y * 3 + z) + .052 * Math.cos(z * 6 - y * 4);
+    const taper = 1 + .15 * y;
+    const cleft = Math.max(0, y) ** 2 * Math.exp(-((x + z * .27) ** 2) * 22);
+    positions.setXYZ(i, x * fullness * taper + .12 * y * y, y * fullness - cleft * .13, z * fullness * taper + .07 * y);
+  }
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function makeTissue(scene, glow, floorNormal, random) {
   const root = new THREE.Group();
   root.position.copy(TISSUE);
   scene.add(root);
-  const lobe = texturedLobe(1, 26, 18, .25);
+  const maps = membraneMaps(42618, [235, 182, 165]);
+  const lobe = texturedLobe(1, 40, 29, .14);
   const membrane = new THREE.MeshPhysicalMaterial({
-    color: 0x5da695, emissive: 0x136d54, emissiveIntensity: .48,
-    roughness: .29, metalness: .08, clearcoat: .85, clearcoatRoughness: .2,
-    normalMap: floorNormal, normalScale: new THREE.Vector2(.55, .55),
+    ...maps, color: 0xb67a6a, emissive: 0x136d54, emissiveIntensity: .22,
+    roughness: .57, clearcoat: .79, clearcoatRoughness: .25,
+    sheen: .27, sheenColor: 0xee9582, normalScale: new THREE.Vector2(.74, .74),
   });
   const shell = new THREE.MeshPhysicalMaterial({
-    color: 0xbe837a, roughness: .37, clearcoat: .61,
-    normalMap: floorNormal, normalScale: new THREE.Vector2(.7, .7),
+    ...maps, color: 0x9b504e, roughness: .67, clearcoat: .61, clearcoatRoughness: .31,
+    normalMap: floorNormal, normalScale: new THREE.Vector2(.9, .9),
   });
-  const fiber = new THREE.MeshStandardMaterial({
-    color: 0x8be9ca, emissive: 0x21f8ae, emissiveIntensity: .6,
-    metalness: .16, roughness: .35,
+  const fiber = new THREE.MeshPhysicalMaterial({
+    color: 0x71897a, emissive: 0x21f8ae, emissiveIntensity: .39,
+    roughness: .47, clearcoat: .58, clearcoatRoughness: .29,
   });
   const coreMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xc2ffe1, emissive: 0x72ffbd, emissiveIntensity: .93, clearcoat: .68, roughness: .3,
+    ...maps, color: 0x995a50, emissive: 0x72ffbd, emissiveIntensity: .026,
+    clearcoat: .54, clearcoatRoughness: .36, roughness: .65,
+    normalScale: new THREE.Vector2(.58, .58),
   });
   const organ = new THREE.Group();
   root.add(organ);
-  const core = addMesh(organ, lobe, coreMaterial, new THREE.Vector3(0, .13, 0), [.69, .84, .61]);
-  const glowOrb = sprite(glow, 0x66ffb5, 5.6, .48);
-  glowOrb.position.y = .25;
+  const core = addMesh(organ, tissueCoreGeometry(), coreMaterial,
+    new THREE.Vector3(-.13, -.07, -.06), [.79, .81, .68]);
+  core.rotation.set(-.13, -.1, .31);
+  const upper = addMesh(organ, lobe, membrane, new THREE.Vector3(.3, -.08, .12), [.54, .71, .49]);
+  upper.rotation.set(.18, .2, -.55);
+  const glowOrb = sprite(glow, 0x66ffb5, 2.45, .09);
+  glowOrb.position.set(-.04, .2, -.25);
   organ.add(glowOrb);
 
-  for (let i = 0; i < 12; i++) {
-    const angle = i / 12 * TAU + random() * .16;
+  const roots = [];
+  const capillaries = [];
+  const glowingVeins = [];
+  for (let i = 0; i < 9; i++) {
+    const angle = i / 9 * TAU + random() * .34;
     const x = Math.cos(angle);
     const z = Math.sin(angle);
-    const sac = addMesh(organ, lobe, membrane, new THREE.Vector3(x * .66, -.14 + random() * .33, z * .66),
-      [.36 + random() * .11, .65 + random() * .35, .32 + random() * .11]);
-    sac.quaternion.setFromUnitVectors(UP, new THREE.Vector3(x * .64, .77, z * .64).normalize());
+    const spread = .58 + random() * .25;
+    const sac = addMesh(organ, lobe, membrane, new THREE.Vector3(x * spread, -.44 + random() * .31, z * spread),
+      [.26 + random() * .18, .42 + random() * .32, .27 + random() * .16]);
+    sac.quaternion.setFromUnitVectors(UP, new THREE.Vector3(x * .8 + z * .19, .67, z * .8 - x * .19).normalize());
 
-    const scute = addMesh(root, lobe, shell, new THREE.Vector3(x * 1.16, -.91 + random() * .12, z * 1.16),
-      [.56, .33 + random() * .2, .55]);
+    const scute = addMesh(root, lobe, shell, new THREE.Vector3(x * 1.04, -.98 + random() * .12, z * 1.04),
+      [.52 + random() * .27, .22 + random() * .17, .51 + random() * .21]);
     scute.rotation.y = -angle;
-    addVessel(root, shell, [[x * .77, -.63, z * .77], [x * 1.32, -.8, z * 1.32],
-      [x * 1.75, -1.15, z * 1.75], [x * (2.2 + random() * .44), -1.26, z * (2.2 + random() * .44)]], .17 + random() * .06);
-    addVessel(organ, fiber, [[x * 1.34, -.77, z * 1.34], [x * 1.12, -.22, z * 1.12],
-      [x * .91 - z * .15, .39, z * .91 + x * .15],
-      [x * .58 - z * .27, .66, z * .58 + x * .27]], .023, .16);
+    const bend = (random() - .5) * .41;
+    const reach = 2.04 + random() * .87;
+    roots.push(tubeGeometry([
+      new THREE.Vector3(x * .66, -.64, z * .66),
+      new THREE.Vector3(x * 1.29 + z * bend, -.84, z * 1.29 - x * bend),
+      new THREE.Vector3(x * 1.73 - z * bend, -1.12, z * 1.73 + x * bend),
+      new THREE.Vector3(x * reach, -1.24, z * reach),
+    ], .16 + random() * .13, .13, 20, 9));
+    for (const side of [-1, 1]) {
+      capillaries.push(tubeGeometry([
+        new THREE.Vector3(x * 1.16 + z * bend, -.9, z * 1.16 - x * bend),
+        new THREE.Vector3(x * 1.58 + z * .32 * side, -1.13, z * 1.58 - x * .32 * side),
+        new THREE.Vector3(x * reach + z * .42 * side, -1.23, z * reach - x * .42 * side),
+      ], .043 + random() * .035, .13, 10, 6));
+    }
+    const vertex = new THREE.Vector3(x * .52 - z * .2, .65 + random() * .17, z * .49 + x * .2);
+    const fork = new THREE.Vector3(x * .84 - z * .12, -.12 + random() * .14, z * .84 + x * .12);
+    glowingVeins.push(tubeGeometry([
+      new THREE.Vector3(x * 1.19, -.83, z * 1.19), fork,
+      new THREE.Vector3(x * .76 - z * .23, .29, z * .72 + x * .23), vertex,
+    ], .026 + random() * .015, .22, 15, 7));
+    glowingVeins.push(tubeGeometry([
+      fork, new THREE.Vector3(x * .92 + z * .06, .04, z * .88 - x * .06),
+      new THREE.Vector3(x * .82 + z * .22, .27, z * .79 - x * .22),
+    ], .016, .12, 8, 5));
+  }
+  addMesh(root, joinTubes(roots), shell);
+  addMesh(root, joinTubes(capillaries), membrane);
+  addMesh(organ, joinTubes(glowingVeins), fiber);
+
+  const polyps = instanceMesh(organ, texturedLobe(1, 8, 6, .27), membrane, 49);
+  const transform = new THREE.Object3D();
+  for (let i = 0; i < polyps.count; i++) {
+    const angle = random() * TAU;
+    const y = (random() * 1.6 - .81) * .8;
+    const radial = Math.sqrt(1 - (y / .87) ** 2);
+    const size = .024 + random() ** 1.4 * .089;
+    const x = Math.cos(angle) * radial * .78;
+    const z = Math.sin(angle) * radial * .64;
+    transform.rotation.set(random() * .7, angle, random() * .75);
+    setInstance(polyps, i, transform, new THREE.Vector3(x - .1, y, z - .05), [size, size * .65, size * .76]);
+    polyps.setColorAt(i, new THREE.Color().setRGB(.69 + random() * .27, .56 + random() * .27, .5 + random() * .24));
   }
 
-  const light = new THREE.PointLight(0x84ffbf, 42, 11, 2);
-  light.position.y = 1.2;
+  const light = new THREE.PointLight(0x84ffbf, 4, 7, 2);
+  light.position.y = 1.05;
   root.add(light);
 
   const contact = new THREE.Mesh(new THREE.PlaneGeometry(5.3, 5.3), new THREE.MeshBasicMaterial({
@@ -560,39 +698,83 @@ function biologicalMaterial(color, normal, options = {}) {
 function virusModel(normal) {
   const organism = new THREE.Group();
   const random = randomSource(14833);
-  const body = texturedLobe(.55, 36, 23, .25);
+  const maps = membraneMaps(9841, [240, 197, 163]);
+  const body = texturedLobe(.56, 44, 30, .28);
   colorGeometry(body, (color, x, y, z) => {
-    const bands = Math.sin(x * 15 + y * 4 + Math.cos(z * 13) * 2.6) * Math.cos(y * 18 - z * 6);
-    color.setRGB(.71 + bands * .25, .38 + bands * .16, .22 + bands * .11);
+    const bands = Math.sin(x * 13 + y * 4 + Math.cos(z * 14) * 2.6) * Math.cos(y * 15 - z * 8);
+    const blotch = Math.sin(x * 8 - y * 9 + z * 11) * .09;
+    color.setRGB(.75 + bands * .22 + blotch, .58 + bands * .20 + blotch, .51 + bands * .18 + blotch);
   });
-  const coat = biologicalMaterial(0xeb744f, normal, {
-    vertexColors: true, emissive: 0x50110b, emissiveIntensity: .82, sheen: .34, sheenColor: 0xff9867,
+  const coat = biologicalMaterial(0xc26b47, normal, {
+    ...maps, vertexColors: true, roughness: .66, clearcoat: .56,
+    clearcoatRoughness: .29, normalScale: new THREE.Vector2(.94, .94),
+    emissive: 0x341009, emissiveIntensity: .38, sheen: .38, sheenColor: 0xe99c79,
+  });
+  const thorn = biologicalMaterial(0xa35036, normal, {
+    roughness: .48, clearcoat: .79, clearcoatRoughness: .25,
+    emissive: 0x2d1008, emissiveIntensity: .32, normalScale: new THREE.Vector2(.67, .67),
+  });
+  const tip = biologicalMaterial(0xd8885f, normal, {
+    ...maps, roughness: .56, clearcoat: .74, clearcoatRoughness: .26,
+    emissive: 0xa52e12, emissiveIntensity: .22, normalScale: new THREE.Vector2(.63, .63),
+    sheen: .42, sheenColor: 0xe7b985,
+  });
+  const nodule = biologicalMaterial(0xa75439, normal, {
+    ...maps, roughness: .67, clearcoat: .61, clearcoatRoughness: .29,
+    normalScale: new THREE.Vector2(.71, .71),
   });
   addMesh(organism, body, coat);
-  const thorn = biologicalMaterial(0xb92f18, normal, { emissive: 0x3c0c03, emissiveIntensity: .73 });
-  const jewel = biologicalMaterial(0xffab62, normal, { emissive: 0xff4619, emissiveIntensity: .58 });
-  const spike = new THREE.CylinderGeometry(.045, .093, 1, 8, 3);
-  const cap = texturedLobe(1, 10, 8, .3);
-  const spikes = instanceMesh(organism, spike, thorn, 34);
-  const heads = instanceMesh(organism, cap, jewel, 34);
-  const nodules = instanceMesh(organism, cap, jewel, 27);
+
+  const cap = texturedLobe(1, 12, 8, .38);
+  const heads = instanceMesh(organism, cap, tip, 28);
+  const nodules = instanceMesh(organism, texturedLobe(1, 8, 6, .31), nodule, 51);
   const transform = new THREE.Object3D();
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  for (let i = 0; i < spikes.count; i++) {
-    const y = 1 - (i + .5) / spikes.count * 2;
-    const w = Math.sqrt(1 - y * y);
-    const angle = i * goldenAngle + random() * .13;
-    const vector = new THREE.Vector3(Math.cos(angle) * w, y, Math.sin(angle) * w);
-    const reach = .74 + random() * .13;
-    transform.quaternion.setFromUnitVectors(UP, vector);
-    setInstance(spikes, i, transform, vector.clone().multiplyScalar((reach + .43) * .5), [1, reach - .43, 1]);
-    const width = .044 + random() * .05;
-    setInstance(heads, i, transform, vector.clone().multiplyScalar(reach), [width, width * (1 + random() * .59), width]);
-    heads.setColorAt(i, new THREE.Color().setRGB(1, .45 + random() * .51, .24 + random() * .42));
-    if (i < nodules.count) {
-      vector.applyAxisAngle(UP, .28);
-      setInstance(nodules, i, transform, vector.multiplyScalar(.51), [.058, .062, .073]);
+  const strands = [];
+  const direction = (i, count) => {
+    const y = 1 - (i + .5) / count * 2;
+    const spread = Math.sqrt(1 - y * y);
+    const angle = i * goldenAngle + (random() - .5) * .42;
+    return new THREE.Vector3(Math.cos(angle) * spread, y, Math.sin(angle) * spread);
+  };
+
+  for (let i = 0; i < heads.count; i++) {
+    const axis = direction(i, heads.count);
+    const cross = new THREE.Vector3(axis.z, .3 - random() * .6, -axis.x).normalize();
+    const reach = .66 + random() ** .62 * .186;
+    const skew = (random() - .42) * .19;
+    const neck = axis.clone().multiplyScalar((reach + .5) * .5).addScaledVector(cross, -skew * .4);
+    const end = axis.clone().multiplyScalar(reach).addScaledVector(cross, skew);
+    strands.push(tubeGeometry([
+      axis.clone().multiplyScalar(.43),
+      axis.clone().multiplyScalar(.53).addScaledVector(cross, skew * .2),
+      neck,
+      end,
+    ], .05 + random() * .039, .24 + random() * .22, 10, 7));
+    if (i % 3 === 0) {
+      strands.push(tubeGeometry([
+        neck.clone().addScaledVector(axis, -.035),
+        neck.clone().addScaledVector(axis, .055).addScaledVector(cross, -.079),
+        end.clone().addScaledVector(axis, -.024).addScaledVector(cross, -.098),
+      ], .027 + random() * .013, .13, 7, 6));
     }
+    const width = .031 + random() * .026;
+    const tangent = end.clone().sub(neck).normalize();
+    transform.quaternion.setFromUnitVectors(UP, tangent);
+    transform.rotateY(i * .74);
+    setInstance(heads, i, transform, end, [width * (1.1 + random() * .36), width * (1.07 + random() * .52), width * .69]);
+    heads.setColorAt(i, new THREE.Color().setRGB(.73 + random() * .26, .5 + random() * .42, .42 + random() * .44));
+  }
+  addMesh(organism, joinTubes(strands), thorn);
+
+  for (let i = 0; i < nodules.count; i++) {
+    const axis = direction(i + 2, nodules.count + 4);
+    const size = .03 + random() ** 1.36 * .093;
+    const surface = .522 + (Math.sin(axis.x * 7.2 + axis.y * 3) * Math.sin(axis.z * 7 + axis.y * 1.3)) * .065;
+    transform.quaternion.setFromUnitVectors(UP, axis);
+    transform.rotateY(random() * TAU);
+    setInstance(nodules, i, transform, axis.multiplyScalar(surface), [size, size * (.37 + random() * .41), size * .81]);
+    nodules.setColorAt(i, new THREE.Color().setRGB(.63 + random() * .37, .42 + random() * .48, .38 + random() * .44));
   }
   return organism;
 }
@@ -662,16 +844,22 @@ function bacillusModel(normal) {
 function sporeModel(normal) {
   const organism = new THREE.Group();
   const random = randomSource(59651);
-  const bell = texturedLobe(.52, 29, 20, .25);
+  const bell = texturedLobe(.52, 36, 25, .16);
+  const maps = membraneMaps(3188, [207, 185, 203]);
   colorGeometry(bell, (color, x, y, z) => {
     const hue = .61 + Math.sin(x * 18 - y * 16 + z * 14) * .25;
     color.setRGB(hue * .7, hue * .54, hue + .12);
   });
-  const membrane = biologicalMaterial(0xc197d4, normal, {
-    vertexColors: true, emissive: 0x623077, emissiveIntensity: .76, sheen: .57, sheenColor: 0xeac6fe,
+  const membrane = biologicalMaterial(0x846489, normal, {
+    ...maps, vertexColors: true, emissive: 0x48274e, emissiveIntensity: .32,
+    roughness: .78, clearcoat: .36, clearcoatRoughness: .34, sheen: .26, sheenColor: 0xb286ac,
   });
-  const tendril = biologicalMaterial(0xdc9adb, normal, { emissive: 0xd951d5, emissiveIntensity: .46 });
-  const sac = biologicalMaterial(0xe999ef, normal, { emissive: 0xf263fc, emissiveIntensity: .69 });
+  const tendril = biologicalMaterial(0x925371, normal, {
+    emissive: 0x702644, emissiveIntensity: .18, roughness: .59, clearcoat: .43, clearcoatRoughness: .35,
+  });
+  const sac = biologicalMaterial(0x884761, normal, {
+    ...maps, emissive: 0x9e3b68, emissiveIntensity: .29, roughness: .72, clearcoat: .41, clearcoatRoughness: .36,
+  });
   addMesh(organism, bell, membrane, new THREE.Vector3(0, .16, 0), [1.12, .75, 1.12]);
 
   const roots = [];
@@ -786,14 +974,14 @@ export class World {
       }
     });
     this.weaponScene.add(new THREE.HemisphereLight(0xf9ded4, 0x66313b, 1.16));
-    this.weaponKey = new THREE.DirectionalLight(0xffcfb4, 2.05);
+    this.weaponKey = new THREE.DirectionalLight(0xffcfb4, 1.72);
     this.weaponKey.castShadow = true;
     this.weaponKey.target.position.set(.13, -.2, -.82);
     this.weaponKey.shadow.mapSize.set(1024, 1024);
     this.weaponKey.shadow.camera = new THREE.OrthographicCamera(-.87, .87, .87, -.87, .05, 5);
     this.weaponKey.shadow.bias = -.00025;
     this.weaponKey.shadow.normalBias = .003;
-    this.weaponRim = new THREE.DirectionalLight(0xaed5db, 1.22);
+    this.weaponRim = new THREE.DirectionalLight(0xaed5db, 1.04);
     this.weaponRim.position.set(.7, .8, -.6);
     const weaponBounce = new THREE.DirectionalLight(0xffd8c7, 1.24);
     weaponBounce.position.set(-.95, .28, .8);
@@ -806,12 +994,12 @@ export class World {
     this.weaponLightRotation = new THREE.Quaternion();
     this.weaponSight = this.carbine.sight.getWorldPosition(new THREE.Vector3());
     this.magazineRest = this.carbine.magazine.position.clone();
-    if (this.carbine.supportHand) {
-      this.supportRest = this.carbine.supportHand.position.clone();
-      const bounds = new THREE.Box3().setFromObject(this.carbine.magazine);
-      this.magazineGrip = bounds.getCenter(new THREE.Vector3()).sub(this.magazineRest);
-      this.magazineGrip.x = bounds.min.x - this.magazineRest.x - .035;
-    }
+    this.magazineHandPosition = new THREE.Vector3();
+    this.supportRest = this.carbine.supportHand.position.clone();
+    const magazineBounds = new THREE.Box3().setFromObject(this.carbine.magazine);
+    this.magazineGrip = magazineBounds.getCenter(new THREE.Vector3()).sub(this.magazineRest);
+    this.magazineGrip.x = magazineBounds.min.x - this.magazineRest.x + .007;
+    this.magazineGrip.z -= .019;
 
     const anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     const tile = configureTile(fallbackTissue(), anisotropy, true);
@@ -915,13 +1103,15 @@ export class World {
     const healing = sim.repairProgress > 0 && sim.canRepair;
     this.palette.copy(INJURED).lerp(HEALTHY, Math.sqrt(state));
     light.color.copy(this.palette);
-    light.intensity = 28 + state * 17 + (healing ? 19 + Math.sin(this.clock * 17) * 9 : 0);
+    light.intensity = 2 + state * 2 + (healing ? 2.5 + Math.sin(this.clock * 17) * 1.4 : 0);
     glowOrb.material.color.copy(this.palette);
-    glowOrb.material.opacity = .25 + state * .19 + (healing ? .2 : 0);
+    glowOrb.material.opacity = .04 + state * .045 + (healing ? .11 : 0);
     const beat = Math.max(0, Math.sin(this.clock * (healing ? 11 : 3.7))) ** 3;
     organ.scale.set(1 + beat * .065, 1 + beat * .08, 1 + beat * .065);
     core.material.emissive.copy(this.palette);
+    core.material.emissiveIntensity = .008 + state * .013 + beat * .007 + (healing ? .016 : 0);
     fiber.emissive.copy(this.palette);
+    fiber.emissiveIntensity = .20 + state * .13 + beat * .06 + (healing ? .29 : 0);
     membrane.emissive.copy(this.palette).multiplyScalar(.19);
   }
 
@@ -935,13 +1125,19 @@ export class World {
         const shadow = new THREE.Mesh(this.shadowGeometry, this.shadowMaterial);
         shadow.rotation.x = -Math.PI / 2;
         this.scene.add(shadow);
-        view = { model, shadow, present: true, hit: 0, phase: this.random() * TAU };
+        view = { model, shadow, present: true, hit: 0, strike: 0, phase: this.random() * TAU };
         this.enemyViews.set(enemy.id, view);
       }
       view.present = true;
       view.model.position.set(enemy.x, enemy.y, enemy.z);
       const angle = view.phase + this.clock * (enemy.type === 'virus' ? .64 : .9);
       view.model.rotation.set(Math.sin(angle * .74) * .24, angle, Math.sin(angle * .66) * .22);
+      view.strike = Math.max(0, view.strike - dt);
+      if (view.strike > 0) {
+        const thrust = Math.sin(view.strike / .23 * Math.PI);
+        view.model.position.lerp(TISSUE, thrust * .10);
+        view.model.rotation.z += thrust * .15;
+      }
       view.hit = Math.max(0, view.hit - dt * 7);
       const pulse = 1 + Math.sin(angle * 3) * .045 + view.hit * .13;
       view.model.scale.set(pulse, pulse - view.hit * .18, pulse);
@@ -1018,7 +1214,7 @@ export class World {
     pose.swayX = damp(pose.swayX, reduceMotion ? 0 : clamp(input.lookX * .001, -.027, .027), 15, dt);
     pose.swayY = damp(pose.swayY, reduceMotion ? 0 : clamp(input.lookY * .001, -.023, .023), 15, dt);
 
-    const { model, muzzle, flash, magazine, supportHand } = this.carbine;
+    const { model, muzzle, flash, magazine, supportHand, bolt, poseHands } = this.carbine;
     if (sim.events !== this.lastEvents && sim.events.some(event => event.type === 'shot')) {
       pose.recoil = Math.min(1.24, pose.recoil + (reduceMotion ? .43 : 1));
       pose.flash = reduceMotion ? 0 : .037;
@@ -1026,8 +1222,11 @@ export class World {
     }
     const aim = pose.aim;
     const reload = sim.reloadProgress;
-    const reloadTilt = smoothstep(reload, 0, .19) * (1 - smoothstep(reload, .76, 1));
-    const magazineTravel = smoothstep(reload, .17, .41) * (1 - smoothstep(reload, .59, .79));
+    const reloadTilt = smoothstep(reload, 0, .17) * (1 - smoothstep(reload, .82, 1));
+    const reach = smoothstep(reload, .035, .195) * (1 - smoothstep(reload, .80, .98));
+    const magazineTravel = smoothstep(reload, .195, .43) * (1 - smoothstep(reload, .61, .80));
+    const magazineTurn = smoothstep(reload, .30, .49) * (1 - smoothstep(reload, .64, .77));
+    const seat = smoothstep(reload, .75, .80) * (1 - smoothstep(reload, .80, .89));
     const walk = Math.sin(pose.stride) * pose.movement * (1 - aim * .88);
     const step = Math.sin(pose.stride * 2) * pose.movement * (1 - aim * .88);
     const idle = reduceMotion ? 0 : Math.sin(this.clock * 2.1) * .005 * (1 - aim);
@@ -1040,19 +1239,20 @@ export class World {
       lerp(-.60, -.61, aim) + pose.recoil * .068 - reloadTilt * .13,
     );
     model.rotation.set(
-      lerp(.12, 0, aim) + pose.recoil * .065 + reloadTilt * .12 - pose.lowered * .63 - pose.swayY,
+      lerp(.12, 0, aim) + pose.recoil * .065 + reloadTilt * .12 - seat * .047 - pose.lowered * .63 - pose.swayY,
       lerp(.18, 0, aim) + reloadTilt * .19 - pose.swayX,
       lerp(-.06, 0, aim) + walk * .035 + reloadTilt * .55 - pose.lowered * .25,
     );
     magazine.position.copy(this.magazineRest);
-    magazine.position.x -= magazineTravel * .04;
-    magazine.position.y -= magazineTravel * .19;
-    magazine.position.z += magazineTravel * .08;
-    magazine.rotation.x = magazineTravel * .24;
-    if (supportHand) {
-      const reach = smoothstep(reload, .04, .19) * (1 - smoothstep(reload, .77, .98));
-      supportHand.position.copy(magazine.position).add(this.magazineGrip).lerp(this.supportRest, 1 - reach);
-    }
+    magazine.position.x -= magazineTurn * .067;
+    magazine.position.y -= magazineTravel * .196;
+    magazine.position.z += magazineTurn * .056;
+    magazine.rotation.set(magazineTurn * .22, -magazineTurn * .15, -magazineTurn * .24);
+    this.magazineHandPosition.copy(this.magazineGrip).applyQuaternion(magazine.quaternion).add(magazine.position);
+    supportHand.position.copy(this.supportRest).lerp(this.magazineHandPosition,reach);
+    supportHand.rotation.set(-reach * .24 + magazineTurn * .15, reach * .15, reach * .42 + magazineTurn * .17);
+    bolt.position.z = Math.max(pose.recoil * .033, seat * .023);
+    poseHands(reach, Math.min(pose.recoil,1));
     flash.visible = pose.flash > 0;
 
     this.weaponLightRotation.copy(this.camera.quaternion).invert();
@@ -1088,8 +1288,15 @@ export class World {
         if (event.type === 'shot') this.addShot(event);
         if (event.type === 'hit' && this.enemyViews.has(event.id)) this.enemyViews.get(event.id).hit = 1;
         if (event.type === 'kill') this.burst(event.x, event.y, event.z, SPECIES_COLORS[event.enemyType] || 0xff9c60, 40, 4.9);
-        if (event.type === 'repair') this.burst(0, 1.4, -8, 0x83ffca, 38, 3.6);
-        if (event.type === 'damage' && event.target === 'tissue') this.burst(0, 1.2, -8, 0xf37337, 14, 2.4);
+        if (event.type === 'repair') {
+          this.burst(TISSUE.x, 1.4, TISSUE.z, 0x83ffca, event.complete ? 62 : 38, event.complete ? 4.8 : 3.6);
+        }
+        if (event.type === 'damage' && event.target === 'tissue') {
+          const attacker = this.enemyViews.get(event.id);
+          if (attacker) attacker.strike = .23;
+          this.burst(THREE.MathUtils.lerp(TISSUE.x, event.x, .58), 1.28,
+            THREE.MathUtils.lerp(TISSUE.z, event.z, .58), 0xf37337, 14, 2.4);
+        }
       }
     }
     let count = 0;

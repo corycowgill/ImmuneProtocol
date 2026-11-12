@@ -5,7 +5,7 @@ export class GameAudio {
     this.active = false;
     this.heartbeat = null;
     this.repairVoice = null;
-    this.damageAt = { player: -1, tissue: -1 };
+    this.damageAt = { player: -Infinity, tissue: -Infinity };
   }
 
   async unlock() {
@@ -167,14 +167,15 @@ export class GameAudio {
       case 'damage': {
         const target = event.target === 'tissue' ? 'tissue' : 'player';
         const time = this.context.currentTime;
-        if (time - this.damageAt[target] < 0.32) break;
+        const interval = target === 'tissue' ? 2.7 : .32;
+        if (time - this.damageAt[target] < interval) break;
         this.damageAt[target] = time;
         if (target === 'player') {
           this.noise('lowpass', 920, 0.19, 0.34);
           this.tone('triangle', 94, 43, 0.24, 0.25);
         } else {
-          this.tone('triangle', 345, 245, 0.21, 0.105);
-          this.tone('sine', 290, 222, 0.17, 0.07, 0.15);
+          this.tone('triangle', 916, 686, 0.18, 0.13, 0, 0.018);
+          this.tone('triangle', 916, 596, 0.23, 0.12, 0.20, 0.018);
         }
         break;
       }
@@ -194,8 +195,15 @@ export class GameAudio {
         this.stopRepair();
         break;
       case 'repair':
-        this.tone('sine', 494, 570, 0.28, 0.13, 0, 0.04);
-        this.tone('sine', 740, 784, 0.36, 0.11, 0.12, 0.05);
+        if (event.complete) {
+          this.stopRepair();
+          this.tone('sine', 523, 523, 0.24, 0.12, 0, 0.022);
+          this.tone('sine', 659, 659, 0.30, 0.11, 0.10, 0.022);
+          this.tone('sine', 880, 880, 0.42, 0.095, 0.22, 0.035);
+        } else {
+          this.tone('sine', 494, 570, 0.18, 0.086, 0, 0.024);
+          this.tone('sine', 740, 784, 0.22, 0.068, 0.10, 0.03);
+        }
         break;
       case 'wave':
         this.tone('triangle', 133, 126, 0.37, 0.14, 0, 0.035);

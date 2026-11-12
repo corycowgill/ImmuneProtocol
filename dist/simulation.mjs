@@ -195,7 +195,7 @@ export class Simulation {
       this.score += amount * 8;
       this.repairProgress -= 1;
       this.canRepair = this.tissue < RULES.tissue;
-      this.events.push({ type: 'repair', amount, ...OBJECTIVE });
+      this.events.push({ type: 'repair', amount, complete: this.tissue === RULES.tissue, ...OBJECTIVE });
     }
     return true;
   }
@@ -291,6 +291,7 @@ export class Simulation {
       health: spec.health,
       maxHealth: spec.health,
       attackCooldown: 0.65,
+      attackingTissue: false,
     });
   }
 
@@ -305,6 +306,7 @@ export class Simulation {
       const target = attacksSuit ? player : OBJECTIVE;
       const distance = attacksSuit ? distanceToSuit : distanceToTissue;
       const range = enemy.radius + (attacksSuit ? 0.75 : 1.25);
+      enemy.attackingTissue = !attacksSuit && distance <= range + 0.04;
       enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
       if (distance > range + 0.04) {
         const weave = enemy.type === 'bacillus' ? 0.10 : 0.30;
