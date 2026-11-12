@@ -13,11 +13,20 @@ const replay = byId('replay');
 const manual = byId('manual-dialog');
 const pauseDialog = byId('pause-dialog');
 const resultDialog = byId('result-dialog');
+const settingsDialog = byId('settings-dialog');
+const sensitivityControl = byId('look-sensitivity');
+const sensitivityValue = byId('look-sensitivity-value');
+const qualityControl = byId('graphics-quality');
 const reticle = byId('reticle');
 const hitMarker = byId('hit-marker');
 const damageFlash = byId('damage-flash');
 const alertBox = byId('game-alert');
 const marker = byId('objective-marker');
+const objectiveEdge = byId('objective-edge');
+const objectiveEdgeLabel = byId('objective-edge-label');
+const trainingHint = byId('training-hint');
+const trainingTitle = byId('training-title');
+const trainingDetail = byId('training-detail');
 const tissueAttackers = byId('tissue-attackers');
 const attackerMarkers = new Map();
 const actionPrompt = byId('action-prompt');
@@ -26,6 +35,7 @@ const touchControls = byId('touch-controls');
 
 const suitValue = byId('health-value');
 const tissueValue = byId('tissue-value');
+const equipmentLabel = byId('equipment-label');
 const ammoValue = byId('ammo-value');
 const reserveValue = byId('reserve-value');
 const waveMode = byId('wave-mode');
@@ -59,6 +69,9 @@ const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const bestKey = 'immune-protocol.best-score';
 const muteKey = 'immune-protocol.muted';
 const junctionKey = 'immune-protocol.junction-unlocked';
+const tutorialKey = 'immune-protocol.training-complete';
+const sensitivityKey = 'immune-protocol.look-sensitivity';
+const qualityKey = 'immune-protocol.graphics-quality';
 
 let world;
 let sim;
@@ -83,6 +96,9 @@ let drawnWave = '';
 let bestScore = Number(readSetting(bestKey)) || 0;
 let muted = readSetting(muteKey) === 'true';
 let junctionUnlocked = readSetting(junctionKey) === 'true';
+let trainingComplete = readSetting(tutorialKey) === 'true';
+let sensitivity = clamp(Number.parseFloat(readSetting(sensitivityKey)) || 1, 0.5, 2.5);
+let graphicsQuality = readSetting(qualityKey) === 'low' ? 'low' : 'high';
 
 function readSetting(key) {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -90,6 +106,12 @@ function readSetting(key) {
 
 function writeSetting(key, value) {
   try { localStorage.setItem(key, value); } catch { /* Private browsing may block storage. */ }
+}
+
+function syncSettings() {
+  sensitivityControl.value = sensitivity;
+  sensitivityValue.value = sensitivity.toFixed(2) + '×';
+  qualityControl.value = graphicsQuality;
 }
 
 function setMuted(value) {
@@ -108,8 +130,8 @@ function setMuted(value) {
 function syncMusic() {
   let mode = 'silent';
   if (!paused && !document.hidden) {
-    if (running && sim.phase === 'combat') mode = 'combat';
-    else if (!menu.hidden || (running && sim.phase === 'intermission')) mode = 'drift';
+    if (running && sim.phase === 'combat' && sim.tutorial !== 'repair') mode = 'combat';
+    else if (!menu.hidden || (running && (sim.phase === 'intermission' || sim.tutorial === 'repair'))) mode = 'drift';
   }
   audio.setMusic(mode);
 }
@@ -179,10 +201,11 @@ async function launch(area = 'artery') {
     const { World } = await import('./world.mjs');
     if (!world) world = new World(canvas);
     world.setArea(area);
+    world.setQuality(graphicsQuality);
     menu.hidden = true;
     touchControls.hidden = !isTouch;
     clearControls();
-    sim = new Simulation(area);
+    sim = new Simulation(area, { tutorial: !junction && !trainingComplete });
     sim.start();
     game.dataset.area = sim.area;
     canvas.setAttribute('aria-label', junction ? 'First-person view inside Capillary Junction' : 'First-person view inside the artery');
@@ -205,7 +228,11 @@ async function launch(area = 'artery') {
       if (running && !paused && sim === mission && sim.clock < 1.25) audio.play({ type: 'deploy' });
     }).catch(() => {});
     if (junction) announce('CAPILLARY JUNCTION', 'WATCH BOTH INLETS', 2.8);
-    else announce('WAVE 01', 'DEFEND THE TISSUE NODE', 3.1);
+    else if (!sim.tutorial) announce('WAVE 01', 'DEFEND THE TISSUE NODE', 3.1);
+    else {
+      announcementTimer = 0;
+      alertBox.replaceChildren();
+    }
     drawHud();
     cancelAnimationFrame(animation);
     animation = requestAnimationFrame(frame);
@@ -260,6 +287,7 @@ function mainMenu() {
   audio.setActive(false);
   releaseMouse();
   cancelAnimationFrame(animation);
+  settingsDialog.close();
   pauseDialog.close();
   resultDialog.close();
   game.hidden = true;
@@ -317,6 +345,24 @@ function fillMeter(meter, fill, value) {
   meter.parentElement.classList.toggle('critical', value <= 32);
 }
 
+function drawTraining() {
+  const stage = sim.tutorial;
+  trainingHint.hidden = !stage;
+  if (!stage) return;
+  trainingHint.dataset.stage = stage;
+  if (stage === 'observe') {
+    setText(trainingTitle, 'Watch the tissue node');
+    setText(trainingDetail, 'A pathogen is approaching the membrane.');
+  } else if (stage === 'intercept') {
+    setText(trainingTitle, 'Shoot the attached pathogen');
+    setText(trainingDetail, isTouch ? 'Drag to aim and hold Fire.' : 'Aim at the attacker and fire.');
+  } else {
+    setText(trainingTitle, 'Seal the wound');
+    setText(trainingDetail, sim.nearTissue ? '' : 'Move to the tissue node to repair it.');
+  }
+  trainingDetail.hidden = !trainingDetail.textContent;
+}
+
 function drawHud() {
   const { player, tissue, wave, waves, remaining, phase, intermission } = sim;
   const tissuePercent = Math.ceil(tissue);
@@ -336,7 +382,10 @@ function drawHud() {
   if (restored) tissueStatus = 'TISSUE RESTORED';
   if (tissueAttacked) tissueStatus = 'TISSUE UNDER ATTACK';
   else if (tissueHitTimer > 0) tissueStatus = 'TISSUE HIT';
+  if (sim.enemies.some(enemy => enemy.latched && enemy.type === 'bacillus')) tissueStatus = 'BACILLUS LATCHED';
   setText(hostState, tissueStatus);
+  setText(equipmentLabel, sim.repairing ? 'TISSUE SEALER' : 'NEEDLE CARBINE');
+  ammoValue.hidden = reserveValue.hidden = reloadState.hidden = sim.repairing;
   setText(ammoValue, pad(player.ammo));
   setText(reserveValue, ' / ' + pad(player.reserve));
   setText(reloadState, sim.reloading ? 'RELOADING' : player.ammo === 0 ? 'MAGAZINE EMPTY' : 'FULL AUTO');
@@ -351,7 +400,7 @@ function drawHud() {
     total.textContent = '/ ' + pad(waves);
     waveValue.replaceChildren(document.createTextNode(pad(wave) + ' '), total);
   }
-  setText(threats, phase === 'intermission'
+  setText(threats, sim.tutorial ? 'FIELD TRAINING' : phase === 'intermission'
     ? (sim.settling ? 'EXTRACT IN ' : 'NEXT WAVE IN ') + Math.ceil(intermission) + 's'
     : remaining + (remaining === 1 ? ' THREAT LEFT' : ' THREATS LEFT'));
   const restoringHere = restored && sim.nearTissue;
@@ -375,18 +424,46 @@ function drawHud() {
     repairFill.style.width = value + '%';
     if (repairMeter.getAttribute('aria-valuenow') !== String(value)) repairMeter.setAttribute('aria-valuenow', value);
   }
+  drawTraining();
 }
 
 function drawMarker() {
   const { x, y, z } = sim.objective;
-  const distance = Math.hypot(sim.player.x - x, sim.player.z - z);
+  const player = sim.player;
+  const dx = x - player.x;
+  const dz = z - player.z;
+  const distance = Math.hypot(dx, dz);
   const point = world.project(x, y + 1.65, z);
-  marker.hidden = !point.visible || sim.nearTissue || point.y < worldMarkerTop(window.innerWidth <= 720 ? 96 : 126);
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const top = worldMarkerTop(width <= 720 ? 104 : 128);
+  marker.hidden = !point.visible || sim.nearTissue || point.y < top;
   if (!marker.hidden) {
     marker.style.left = point.x + 'px';
     marker.style.top = point.y + 'px';
     markerDistance.textContent = Math.round(distance) + ' m';
   }
+
+  const attacking = sim.enemies.some(enemy => enemy.attackingTissue);
+  const seekingRepair = !sim.nearTissue && (sim.tutorial === 'repair' || (sim.phase === 'intermission' && sim.tissue < 100));
+  objectiveEdge.hidden = (point.visible && point.y >= top) || !(attacking || seekingRepair || sim.tutorial === 'observe');
+  if (objectiveEdge.hidden) return;
+
+  const side = dx * Math.cos(player.yaw) - dz * Math.sin(player.yaw);
+  const forward = -dx * Math.sin(player.yaw) - dz * Math.cos(player.yaw);
+  const insetX = Math.min(84, width * 0.23);
+  const halfWidth = Math.max(12, width / 2 - insetX);
+  const bottom = Math.max(top + 20, height * (isTouch ? 0.68 : 0.8));
+  const middleY = (top + bottom) / 2;
+  const halfHeight = (bottom - top) / 2;
+  // A point behind the view projects to the wrong side of the camera.
+  const towardX = forward > 0 ? point.x - width / 2 : Math.sign(side || 1) * width;
+  const towardY = forward > 0 ? point.y - middleY : 0;
+  const scale = 1 / Math.max(Math.abs(towardX) / halfWidth, Math.abs(towardY) / halfHeight, 0.01);
+  objectiveEdge.style.setProperty('--objective-x', width / 2 + towardX * scale + 'px');
+  objectiveEdge.style.setProperty('--objective-y', middleY + towardY * scale + 'px');
+  objectiveEdge.style.setProperty('--objective-angle', Math.atan2(towardX, -towardY) + 'rad');
+  setText(objectiveEdgeLabel, attacking ? 'TISSUE UNDER ATTACK' : seekingRepair ? 'REPAIR TISSUE' : 'TISSUE NODE');
 }
 
 function worldMarkerTop(defaultTop) {
@@ -406,13 +483,14 @@ function drawAttackers() {
       icon = document.createElement('div');
       icon.className = 'attacker-marker';
       const label = document.createElement('strong');
-      const branch = branches[enemy.branch];
-      if (branch) icon.dataset.branch = enemy.branch;
-      label.textContent = branch ? branch.name + ' ATTACKING' : 'ATTACKING TISSUE';
+      if (enemy.branch) icon.dataset.branch = enemy.branch;
       icon.append(label, document.createElement('span'));
       attackerMarkers.set(enemy.id, icon);
       tissueAttackers.append(icon);
     }
+    const branch = branches[enemy.branch];
+    setText(icon.firstElementChild, enemy.latched ? (branch ? branch.name + ' LATCHED' : 'LATCHED ON TISSUE')
+      : (branch ? branch.name + ' ATTACKING' : 'ATTACKING TISSUE'));
     const showCaption = point.x >= 65 && point.x <= window.innerWidth - 65 &&
       !captions.some(other => Math.abs(other.x - point.x) < 125 && Math.abs(other.y - point.y) < 24);
     icon.classList.toggle('compact', !showCaption);
@@ -452,6 +530,12 @@ function drawBranches() {
 
 function applyEvents() {
   for (const event of sim.events) {
+    if (event.type === 'tutorial' && event.stage === 'complete') {
+      trainingComplete = true;
+      writeSetting(tutorialKey, true);
+      announce('WAVE 01', 'PATHOGENS INBOUND', 2.8);
+      audio.play({ type: 'wave', stage: 'start' });
+    }
     if (event.type === 'branch' || event.type === 'damage' || event.type === 'hit' || event.type === 'kill') {
       const { x, z, yaw } = sim.player;
       const dx = event.x - x;
@@ -514,8 +598,9 @@ function frame(now) {
     }
     if (dt > 0) {
       const phase = sim.phase;
+      const tutorial = sim.tutorial;
       sim.step(dt, input);
-      if (sim.phase !== phase) syncMusic();
+      if (sim.phase !== phase || sim.tutorial !== tutorial) syncMusic();
       applyEvents();
       fireTap = false;
       reloadTap = false;
@@ -540,6 +625,22 @@ function frame(now) {
 byId('manual').addEventListener('click', () => manual.showModal());
 byId('touch-manual').hidden = !isTouch;
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => byId(button.dataset.close).close()));
+document.querySelectorAll('[data-settings]').forEach(button => button.addEventListener('click', () => {
+  if (!settingsDialog.open) settingsDialog.showModal();
+}));
+byId('settings-close').addEventListener('click', () => settingsDialog.close());
+sensitivityControl.addEventListener('input', () => {
+  sensitivity = clamp(sensitivityControl.valueAsNumber, 0.5, 2.5);
+  sensitivityValue.value = sensitivity.toFixed(2) + '×';
+  writeSetting(sensitivityKey, sensitivity);
+});
+qualityControl.addEventListener('change', () => {
+  graphicsQuality = qualityControl.value;
+  writeSetting(qualityKey, graphicsQuality);
+  if (!world) return;
+  world.setQuality(graphicsQuality);
+  if (paused) world.render(sim, 0, input, reducedMotion);
+});
 menu.addEventListener('click', () => {
   if (!loading) audio.unlock().catch(() => {});
 }, { once: true });
@@ -582,8 +683,8 @@ window.addEventListener('keydown', event => {
 window.addEventListener('keyup', event => keys.delete(event.code));
 window.addEventListener('mousemove', event => {
   if (running && !paused && locked) {
-    input.lookX += event.movementX;
-    input.lookY += event.movementY;
+    input.lookX += event.movementX * sensitivity;
+    input.lookY += event.movementY * sensitivity;
   }
 });
 canvas.addEventListener('contextmenu', event => event.preventDefault());
@@ -607,7 +708,7 @@ canvas.addEventListener('pointerdown', event => {
 });
 canvas.addEventListener('pointermove', event => {
   if (locked || lookPointer?.id !== event.pointerId) return;
-  const multiplier = event.pointerType === 'touch' ? 1.35 : 1;
+  const multiplier = sensitivity * (event.pointerType === 'touch' ? 1.35 : 1);
   input.lookX += (event.clientX - lookPointer.x) * multiplier;
   input.lookY += (event.clientY - lookPointer.y) * multiplier;
   lookPointer.x = event.clientX;
@@ -658,6 +759,7 @@ touchControls.querySelectorAll('[data-touch]').forEach(button => {
 });
 
 setMuted(muted);
+syncSettings();
 audio.preloadEffects();
 syncMusic();
 displayBest();

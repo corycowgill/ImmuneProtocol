@@ -17,7 +17,7 @@ export const RULES = Object.freeze({
 
 const SPECIES = {
   virus: { radius: 0.92, y: 1.63, health: 34, speed: 2.05, suitDamage: 9, tissueDamage: 5, period: 1.22, score: 100 },
-  bacillus: { radius: 1.12, y: 1.13, health: 68, speed: 1.32, suitDamage: 14, tissueDamage: 9, period: 1.75, score: 180 },
+  bacillus: { radius: 1.12, y: 1.13, health: 68, speed: 1.32, tissueDamage: 9, period: 1.75, score: 180 },
   spore: { radius: 0.73, y: 2.10, health: 18, speed: 3.28, suitDamage: 7, tissueDamage: 3, period: 0.97, score: 130 },
 };
 
@@ -30,8 +30,10 @@ const MISSIONS = [
 ];
 
 const JUNCTION_MISSIONS = [{
-  species: ['virus', 'virus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'virus', 'spore'],
-  delays: [.38, 2.05, .64, 2.2, .85, 1.75, .65, 1.6, .76, 1.45, .66],
+  species: ['virus', 'spore', 'bacillus', 'virus', 'virus', 'spore', 'bacillus', 'spore', 'virus', 'spore', 'virus', 'virus'],
+  branches: ['left', 'left', 'right', 'right', 'left', 'left', 'left', 'right', 'right', 'right', 'left', 'right'],
+  // Stagger the fast attackers so they arrive from the opposite inlet as a bacillus attaches.
+  delays: [.62, .83, .90, 2.30, 4.15, .55, 2.55, 1.10, 3.65, .70, .75],
 }];
 
 const ENTRANCES = [
@@ -48,6 +50,8 @@ const REPAIR_PER_CYCLE = 13;
 const INTERMISSION_TIME = 6.5;
 const JUNCTION_REPAIR_TIME = 9;
 const JUNCTION_EXTRACT_DELAY = 1.25;
+const LATCH_RANGE = 1.9;
+const LATCH_WINDUP = 0.45;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -64,10 +68,11 @@ function confineToChamber(player) {
 }
 
 export class Simulation {
-  constructor(area = 'artery') {
+  constructor(area = 'artery', { tutorial = false } = {}) {
     this.area = area === 'junction' ? 'junction' : 'artery';
     this.missions = this.area === 'junction' ? JUNCTION_MISSIONS : MISSIONS;
     this.objective = OBJECTIVE;
+    this.hasTutorial = tutorial && this.area === 'artery';
     this.reset();
   }
 
@@ -81,6 +86,7 @@ export class Simulation {
       health: RULES.health, ammo: RULES.magazine, reserve: RULES.initialReserve,
     };
     this.phase = 'ready';
+    this.tutorial = null;
     this.tissue = RULES.tissue;
     this.wave = 0;
     this.waves = this.missions.length;
@@ -107,6 +113,15 @@ export class Simulation {
   start() {
     this.reset();
     this.beginWave();
+    if (this.hasTutorial) {
+      this.tutorial = 'observe';
+      this.player.z = 2.5;
+      const attacker = this.createEnemy('bacillus', this.objective.x - 3.25, this.objective.z + 5.6);
+      attacker.tutorial = true;
+      attacker.health = attacker.maxHealth = SPECIES.virus.health;
+      this.enemies.push(attacker);
+      this.spawnIndex = 1;
+    }
   }
 
   beginWave() {
@@ -151,6 +166,20 @@ export class Simulation {
     this.movePlayer(dt, input);
     const repairing = this.updateRepair(dt, input.repair);
     this.updateRifle(dt, input, repairing);
+
+    if (this.tutorial) {
+      this.advanceEnemies(dt);
+      this.remaining = this.missions[0].species.length - this.spawnIndex + this.enemies.length;
+      if (this.tutorial === 'repair' && this.tissue === RULES.tissue) {
+        this.tutorial = null;
+        this.player.ammo = RULES.magazine;
+        this.player.reserve = RULES.initialReserve;
+        this.reloading = 0;
+        this.spawnCountdown = 1.35;
+        this.events.push({ type: 'tutorial', stage: 'complete' });
+      }
+      return;
+    }
 
     if (this.phase === 'intermission') {
       if (this.settling && this.tissue === RULES.tissue) {
@@ -203,7 +232,8 @@ export class Simulation {
   updateRepair(dt, held) {
     const distance = Math.hypot(this.player.x - this.objective.x, this.player.z - this.objective.z);
     this.nearTissue = distance <= RULES.repairRadius;
-    this.canRepair = this.nearTissue && this.tissue < RULES.tissue;
+    const mayRepair = !this.tutorial || this.tutorial === 'repair';
+    this.canRepair = mayRepair && this.nearTissue && this.tissue < RULES.tissue;
 
     const active = Boolean(held && this.canRepair);
     if (active !== this.repairing) {
@@ -219,7 +249,7 @@ export class Simulation {
     if (this.repairProgress >= 1) {
       const amount = Math.min(REPAIR_PER_CYCLE, RULES.tissue - this.tissue);
       this.tissue += amount;
-      this.score += amount * 8;
+      if (!this.tutorial) this.score += amount * 8;
       this.repairProgress -= 1;
       this.canRepair = this.tissue < RULES.tissue;
       this.events.push({ type: 'repair', amount, complete: this.tissue === RULES.tissue, ...this.objective });
@@ -229,6 +259,7 @@ export class Simulation {
 
   updateRifle(dt, input, repairing) {
     const { player } = this;
+    if (this.tutorial && player.ammo === 0 && player.reserve === 0) player.reserve = RULES.magazine;
     this.fireCooldown = Math.max(0, this.fireCooldown - dt);
     if (this.reloading > 0) {
       this.reloading = Math.max(0, this.reloading - dt);
@@ -271,6 +302,7 @@ export class Simulation {
     let target;
     let critical = false;
     for (const enemy of this.enemies) {
+      if (enemy.tutorial && this.tutorial === 'observe') continue;
       const x = enemy.x - player.x;
       const y = enemy.y - player.y;
       const z = enemy.z - player.z;
@@ -299,10 +331,15 @@ export class Simulation {
 
     this.enemies.splice(this.enemies.indexOf(target), 1);
     this.kills += 1;
-    this.score += SPECIES[target.type].score + (critical ? 35 : 0);
+    const score = target.tutorial ? SPECIES.virus.score : SPECIES[target.type].score;
+    this.score += score + (critical ? 35 : 0);
     this.events.push({
       type: 'kill', id: target.id, enemyType: target.type, x: target.x, y: target.y, z: target.z,
     });
+    if (target.tutorial) {
+      this.tutorial = 'repair';
+      this.events.push({ type: 'tutorial', stage: 'repair' });
+    }
   }
 
   spawn(type) {
@@ -313,31 +350,81 @@ export class Simulation {
     let spawnZ = z + Math.cos(index * 1.9 + this.wave) * 0.85;
     let branch;
     if (this.area === 'junction') {
-      branch = index % 2 === 0 ? 'left' : 'right';
+      branch = this.missions[this.wave - 1].branches[index];
       spawnX = Math.sign(JUNCTION_INLETS[branch].x) * (15.25 + Math.sin(index * 1.7) * .47);
       spawnZ = -18.5 + Math.cos(index * 2.2) * .47;
     }
+    const enemy = this.createEnemy(type, spawnX, spawnZ);
+    if (branch) {
+      enemy.branch = branch;
+      this.events.push({ type: 'branch', branch, x: enemy.x, y: enemy.y, z: enemy.z });
+    }
+    this.enemies.push(enemy);
+  }
+
+  createEnemy(type, x, z) {
     const spec = SPECIES[type];
-    const enemy = {
+    return {
       id: this.nextEnemyId++,
-      type, x: spawnX, y: spec.y, z: spawnZ,
+      type, x, y: spec.y, z,
       radius: spec.radius,
       health: spec.health,
       maxHealth: spec.health,
       attackCooldown: 0.65,
       attackingTissue: false,
+      latched: false,
     };
-    if (branch) {
-      enemy.branch = branch;
-      this.events.push({ type: 'branch', branch, x: spawnX, y: spec.y, z: spawnZ });
+  }
+
+  advanceBacillus(enemy, dt, spec) {
+    if (!enemy.latched) {
+      const dx = this.objective.x - enemy.x;
+      const dz = this.objective.z - enemy.z;
+      const distance = Math.hypot(dx, dz);
+      const speed = enemy.tutorial ? 2.7 : spec.speed + (this.wave - 1) * 0.13;
+      const travel = Math.min(Math.max(0, distance - LATCH_RANGE), speed * dt);
+      if (distance > LATCH_RANGE) {
+        enemy.x += dx * travel / distance;
+        enemy.z += dz * travel / distance;
+      }
+      if (distance - travel > LATCH_RANGE + 0.001) {
+        enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * 0.08;
+        return;
+      }
+      enemy.latched = true;
+      enemy.attackingTissue = true;
+      enemy.y = this.objective.y + 0.13;
+      enemy.attackCooldown = LATCH_WINDUP;
+      return;
     }
-    this.enemies.push(enemy);
+
+    if (enemy.tutorial && this.tutorial !== 'observe') return;
+    enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
+    if (enemy.attackCooldown > 0) return;
+    enemy.attackCooldown = spec.period;
+    this.damageTarget(enemy, 'tissue', enemy.tutorial ? REPAIR_PER_CYCLE : spec.tissueDamage);
+    if (enemy.tutorial) {
+      this.tutorial = 'intercept';
+      this.events.push({ type: 'tutorial', stage: 'intercept' });
+    }
+  }
+
+  damageTarget(enemy, target, amount) {
+    if (target === 'player') this.player.health = Math.max(0, this.player.health - amount);
+    else this.tissue = Math.max(0, this.tissue - amount);
+    const impact = { type: 'damage', target, amount, id: enemy.id, x: enemy.x, y: enemy.y, z: enemy.z };
+    if (enemy.branch) impact.branch = enemy.branch;
+    this.events.push(impact);
   }
 
   advanceEnemies(dt) {
     const { player } = this;
     for (const enemy of this.enemies) {
       const spec = SPECIES[enemy.type];
+      if (enemy.type === 'bacillus') {
+        this.advanceBacillus(enemy, dt, spec);
+        continue;
+      }
       const distanceToSuit = Math.hypot(player.x - enemy.x, player.z - enemy.z);
       const distanceToTissue = Math.hypot(this.objective.x - enemy.x, this.objective.z - enemy.z);
       const aggro = enemy.type === 'spore' ? 12 : 7.4;
@@ -348,30 +435,17 @@ export class Simulation {
       enemy.attackingTissue = !attacksSuit && distance <= range + 0.04;
       enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
       if (distance > range + 0.04) {
-        const weave = enemy.type === 'bacillus' ? 0.10 : 0.30;
         const heading = Math.atan2(target.z - enemy.z, target.x - enemy.x);
-        const course = heading + Math.sin(this.clock * 2.2 + enemy.id * 2.9) * weave * Math.min(1, distance / 4);
+        const course = heading + Math.sin(this.clock * 2.2 + enemy.id * 2.9) * 0.30 * Math.min(1, distance / 4);
         const travel = Math.min(distance - range, (spec.speed + (this.wave - 1) * 0.13) * dt);
         enemy.x += Math.cos(course) * travel;
         enemy.z += Math.sin(course) * travel;
       } else if (enemy.attackCooldown === 0) {
         enemy.attackCooldown = spec.period;
-        const amount = attacksSuit ? spec.suitDamage : spec.tissueDamage;
-        if (attacksSuit) {
-          player.health = Math.max(0, player.health - amount);
-        } else {
-          this.tissue = Math.max(0, this.tissue - amount);
-        }
-        const impact = {
-          type: 'damage', target: attacksSuit ? 'player' : 'tissue', amount,
-          id: enemy.id, x: enemy.x, y: enemy.y, z: enemy.z,
-        };
-        if (enemy.branch) impact.branch = enemy.branch;
-        this.events.push(impact);
+        this.damageTarget(enemy, attacksSuit ? 'player' : 'tissue', attacksSuit ? spec.suitDamage : spec.tissueDamage);
       }
 
-      const hover = enemy.type === 'bacillus' ? 0.08 : 0.24;
-      enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * hover;
+      enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * 0.24;
     }
   }
 }
