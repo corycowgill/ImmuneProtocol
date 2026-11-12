@@ -10,6 +10,7 @@ const EFFECTS = [
   'field/branch', 'field/tissue-hit', 'field/suit-hit',
   'field/repair-start', 'field/repair-loop', 'field/repair-pulse', 'field/repair-complete',
   'field/wave-start', 'field/wave-clear', 'field/won', 'field/lost',
+  'field/valve-open', 'field/valve-close', 'field/valve-blocked',
 ];
 
 export class GameAudio {
@@ -29,6 +30,7 @@ export class GameAudio {
     this.musicLoading = null;
     this.damageAt = { player: -Infinity, tissue: -Infinity };
     this.branchAt = { left: -Infinity, right: -Infinity };
+    this.valveBlockedAt = -Infinity;
   }
 
   async unlock() {
@@ -231,6 +233,18 @@ export class GameAudio {
           pan: this.spatialPan(event),
           rate: branch === 'left' ? 0.96 : 1.04,
         })) this.branchAt[branch] = now;
+        break;
+      }
+      case 'valve': {
+        const pan = this.spatialPan(event) * .7;
+        if (event.stage === 'open') this.playSample('field/valve-open', .36, { pan });
+        else if (event.stage === 'closed') this.playSample('field/valve-close', .43, { pan });
+        else if (event.stage === 'blocked') {
+          const now = this.context.currentTime;
+          if (now - this.valveBlockedAt >= .18 && this.playSample('field/valve-blocked', .29, { pan })) {
+            this.valveBlockedAt = now;
+          }
+        }
         break;
       }
       case 'damage': {

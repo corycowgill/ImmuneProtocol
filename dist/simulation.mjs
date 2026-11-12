@@ -3,6 +3,7 @@ export const JUNCTION_INLETS = Object.freeze({
   left: Object.freeze({ x: -12.3, y: 1.42, z: -15.6 }),
   right: Object.freeze({ x: 12.3, y: 1.42, z: -15.6 }),
 });
+export const HEART_VALVE = Object.freeze({ x: 0, y: 2, z: -10.7, radius: 3.65 });
 
 export const RULES = Object.freeze({
   health: 100,
@@ -19,6 +20,7 @@ const SPECIES = {
   virus: { radius: 0.92, y: 1.63, health: 34, speed: 2.05, suitDamage: 9, tissueDamage: 5, period: 1.22, score: 100 },
   bacillus: { radius: 1.12, y: 1.13, health: 68, speed: 1.32, tissueDamage: 9, period: 1.75, score: 180 },
   spore: { radius: 0.73, y: 2.10, health: 18, speed: 3.28, suitDamage: 7, tissueDamage: 3, period: 0.97, score: 130 },
+  colony: { radius: 1.10, y: 3.35, health: 1100, tissueDamage: 11, period: 1.57, score: 900 },
 };
 
 const MISSIONS = [
@@ -35,6 +37,12 @@ const JUNCTION_MISSIONS = [{
   // Stagger the fast attackers so they arrive from the opposite inlet as a bacillus attaches.
   delays: [.62, .83, .90, 2.30, 4.15, .55, 2.55, 1.10, 3.65, .70, .75],
 }];
+
+const HEART_MISSIONS = [{ species: ['colony'] }];
+const HEART_CLOSED_TIME = 3.8;
+const HEART_OPEN_TIME = 3.4;
+const HEART_LEAFLET_TIME = 0.42;
+const HEART_MIN_PLAYER_Z = -9.8;
 
 const ENTRANCES = [
   [0, -27], [-9, -23], [9, -23], [-16, -13], [16, -14], [3, -28],
@@ -69,8 +77,8 @@ function confineToChamber(player) {
 
 export class Simulation {
   constructor(area = 'artery', { tutorial = false } = {}) {
-    this.area = area === 'junction' ? 'junction' : 'artery';
-    this.missions = this.area === 'junction' ? JUNCTION_MISSIONS : MISSIONS;
+    this.area = area === 'heart' || area === 'junction' ? area : 'artery';
+    this.missions = this.area === 'heart' ? HEART_MISSIONS : this.area === 'junction' ? JUNCTION_MISSIONS : MISSIONS;
     this.objective = OBJECTIVE;
     this.hasTutorial = tutorial && this.area === 'artery';
     this.reset();
@@ -81,8 +89,12 @@ export class Simulation {
   }
 
   reset() {
+    this.valve = this.area === 'heart' ? {
+      phase: 'closed', duration: HEART_CLOSED_TIME, remaining: HEART_CLOSED_TIME,
+      openness: 0, exposed: false, colonyDefeated: false,
+    } : null;
     this.player = {
-      x: 0, y: 1.7, z: this.area === 'junction' ? 13 : 18, yaw: 0, pitch: 0,
+      x: 0, y: 1.7, z: this.valve ? 2 : this.area === 'junction' ? 13 : 18, yaw: 0, pitch: 0,
       health: RULES.health, ammo: RULES.magazine, reserve: RULES.initialReserve,
     };
     this.phase = 'ready';
@@ -113,6 +125,11 @@ export class Simulation {
   start() {
     this.reset();
     this.beginWave();
+    if (this.valve) {
+      this.tissue = RULES.tissue - 2 * REPAIR_PER_CYCLE;
+      this.enemies.push(this.createEnemy('colony', HEART_VALVE.x, -13.25));
+      return;
+    }
     if (this.hasTutorial) {
       this.tutorial = 'observe';
       this.player.z = 2.5;
@@ -163,9 +180,27 @@ export class Simulation {
     if (this.phase !== 'combat' && this.phase !== 'intermission') return;
     dt = clamp(dt, 0, 0.1);
     this.clock += dt;
+    if (this.valve) {
+      this.updateValve();
+      this.advanceColony(dt);
+      if (this.phase === 'lost') return;
+    }
     this.movePlayer(dt, input);
     const repairing = this.updateRepair(dt, input.repair);
     this.updateRifle(dt, input, repairing);
+
+    if (this.valve) {
+      if (this.enemies.length === 0) {
+        this.remaining = 0;
+        this.settling = true;
+        this.valve.colonyDefeated = true;
+        if (this.tissue === RULES.tissue) {
+          this.score += 250;
+          this.endMission('won');
+        }
+      }
+      return;
+    }
 
     if (this.tutorial) {
       this.advanceEnemies(dt);
@@ -211,6 +246,41 @@ export class Simulation {
     }
   }
 
+  updateValve() {
+    const valve = this.valve;
+    const elapsed = this.clock % (HEART_CLOSED_TIME + HEART_OPEN_TIME);
+    const open = elapsed >= HEART_CLOSED_TIME;
+    const phase = open ? 'open' : 'closed';
+    const duration = open ? HEART_OPEN_TIME : HEART_CLOSED_TIME;
+    const phaseElapsed = open ? elapsed - HEART_CLOSED_TIME : elapsed;
+    const transition = open ? clamp(Math.min(phaseElapsed, duration - phaseElapsed) / HEART_LEAFLET_TIME, 0, 1) : 0;
+    valve.remaining = duration - phaseElapsed;
+    valve.duration = duration;
+    valve.openness = transition * transition * (3 - 2 * transition);
+    valve.exposed = open && valve.openness >= .72;
+    if (phase === valve.phase) return;
+
+    valve.phase = phase;
+    this.events.push({ type: 'valve', stage: phase, x: HEART_VALVE.x, y: HEART_VALVE.y, z: HEART_VALVE.z });
+    const colony = this.enemies[0];
+    if (!colony) return;
+    if (open) colony.attackCooldown = 0;
+    else if (this.player.ammo + this.player.reserve < RULES.magazine) this.player.reserve += RULES.magazine;
+  }
+
+  advanceColony(dt) {
+    const colony = this.enemies[0];
+    if (!colony) return;
+
+    colony.attackingTissue = this.valve.exposed;
+    if (!colony.attackingTissue) return;
+    colony.attackCooldown = Math.max(0, colony.attackCooldown - dt);
+    if (colony.attackCooldown > 0) return;
+    colony.attackCooldown = SPECIES.colony.period;
+    this.damageTarget(colony, 'tissue', SPECIES.colony.tissueDamage, HEART_VALVE);
+    if (this.tissue === 0) this.endMission('lost', 'tissue');
+  }
+
   movePlayer(dt, input) {
     const { player } = this;
     const sensitivity = input.aim ? TURN_SENSITIVITY * 0.68 : TURN_SENSITIVITY;
@@ -226,13 +296,16 @@ export class Simulation {
     const cos = Math.cos(player.yaw);
     player.x += (strafe * cos - forward * sin) * travel;
     player.z -= (strafe * sin + forward * cos) * travel;
-    confineToChamber(player);
+    if (this.valve) {
+      player.x = clamp(player.x, -6, 6);
+      player.z = clamp(player.z, HEART_MIN_PLAYER_Z, 9);
+    } else confineToChamber(player);
   }
 
   updateRepair(dt, held) {
     const distance = Math.hypot(this.player.x - this.objective.x, this.player.z - this.objective.z);
     this.nearTissue = distance <= RULES.repairRadius;
-    const mayRepair = !this.tutorial || this.tutorial === 'repair';
+    const mayRepair = this.valve ? this.valve.phase === 'closed' : !this.tutorial || this.tutorial === 'repair';
     this.canRepair = mayRepair && this.nearTissue && this.tissue < RULES.tissue;
 
     const active = Boolean(held && this.canRepair);
@@ -315,6 +388,22 @@ export class Simulation {
       distance = entry;
       target = enemy;
       critical = offsetSquared <= radiusSquared * (aiming ? 0.23 : 0.16);
+    }
+
+    if (this.valve && dz < 0) {
+      const crossing = (HEART_VALVE.z - player.z) / dz;
+      if (crossing < distance) {
+        const x = player.x + dx * crossing;
+        const y = player.y + dy * crossing;
+        // The ray must fit inside the moving aperture as well as the hit window.
+        const aperture = .035 + 2.35 * this.valve.openness ** .6;
+        if (!this.valve.exposed || Math.hypot(x - HEART_VALVE.x, y - HEART_VALVE.y) > aperture) {
+          distance = crossing;
+          target = undefined;
+          critical = false;
+          this.events.push({ type: 'valve', stage: 'blocked', x, y, z: HEART_VALVE.z });
+        }
+      }
     }
 
     const impact = {
@@ -409,10 +498,10 @@ export class Simulation {
     }
   }
 
-  damageTarget(enemy, target, amount) {
+  damageTarget(enemy, target, amount, origin = enemy) {
     if (target === 'player') this.player.health = Math.max(0, this.player.health - amount);
     else this.tissue = Math.max(0, this.tissue - amount);
-    const impact = { type: 'damage', target, amount, id: enemy.id, x: enemy.x, y: enemy.y, z: enemy.z };
+    const impact = { type: 'damage', target, amount, id: enemy.id, x: origin.x, y: origin.y, z: origin.z };
     if (enemy.branch) impact.branch = enemy.branch;
     this.events.push(impact);
   }

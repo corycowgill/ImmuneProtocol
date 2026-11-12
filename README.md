@@ -1,6 +1,6 @@
 # Immune Protocol
 
-A browser FPS about a nano-soldier injected into a patient. Fight five waves of viruses, bacilli, and spores in the Arterial Junction, and repair the tissue node to keep the host alive. Surviving the artery unlocks the Capillary Junction, where pathogens attack from two branches.
+A browser FPS about a nano-soldier injected into a patient. Fight five waves of viruses, bacilli, and spores in the Arterial Junction, and repair the tissue node to keep the host alive. Surviving the artery unlocks Capillary Junction, where pathogens attack from two branches. Clear both inlets to unlock Heart Valve, where the heartbeat determines when you can shoot and repair.
 
 [Play on GitHub Pages](https://corycowgill.github.io/ImmuneProtocol/) · [Watch the demo](https://corycowgill.github.io/ImmuneProtocol/demo/)
 
@@ -45,6 +45,8 @@ Settings is available from the main menu and pause screen. Look sensitivity appl
 
 Bacilli head straight for the tissue and keep tearing it once attached. Watch the opposite inlet in Capillary Junction when you turn to clear a latch.
 
+In Heart Valve, fire through the opening to hit the colony. Use each closed window to repair the wound. The mission ends when you destroy the colony and fully seal the valve tissue. Unlocks are saved in the browser.
+
 The original soundtrack fades between **Arterial Drift** in the menu and between waves, and **Immune Response** during combat. It starts after you interact with the game. The speaker button mutes both the soundtrack and sound effects.
 
 ## Architecture
@@ -65,11 +67,12 @@ flowchart LR
 | File | Responsibility |
 | --- | --- |
 | [`dist/index.html`](dist/index.html), [`dist/styles.css`](dist/styles.css) | Menus, HUD, canvas, and touch controls. |
-| [`dist/game.mjs`](dist/game.mjs) | Input, mouse capture, frame timing, and screen transitions. Browser storage remembers training completion, controls and graphics settings, the Junction unlock, best score, and mute setting. |
+| [`dist/game.mjs`](dist/game.mjs) | Input, mouse capture, frame timing, and screen transitions. Browser storage remembers training completion, controls and graphics settings, mission unlocks, best score, and mute setting. |
 | [`dist/simulation.mjs`](dist/simulation.mjs) | Movement, shooting, enemy targeting, wave progression, health, scoring, and tissue repair. It runs independently of the DOM and Three.js. |
-| [`dist/world.mjs`](dist/world.mjs) | Arena geometry, lighting, atmosphere, enemies, and effects. Both missions share the renderer and switch anatomy and lighting when the area changes. |
+| [`dist/world.mjs`](dist/world.mjs) | Arena geometry, lighting, atmosphere, enemies, and effects. The missions share the renderer and switch anatomy and lighting when the area changes. |
 | [`dist/carbine.mjs`](dist/carbine.mjs) | The 3D carbine and armored gloves, including the articulated magazine, bolt, and hand poses. |
 | [`dist/repair-tool.mjs`](dist/repair-tool.mjs) | The 3D tissue sealer that replaces the carbine while the player repairs the wound. |
+| [`dist/heart-valve.mjs`](dist/heart-valve.mjs) | The moving valve and attached colony. The scene follows the same timing as the simulation's shot and repair windows. |
 | [`dist/audio.mjs`](dist/audio.mjs) | Mixes original [sound effects](dist/assets/sfx) and two synchronized [soundtrack loops](dist/assets/music). Impacts and inlet activity pan with their position relative to the player. |
 
 ## How it was built

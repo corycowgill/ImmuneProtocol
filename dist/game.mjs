@@ -9,6 +9,9 @@ const deploy = byId('deploy');
 const junctionDeploy = byId('deploy-junction');
 const junctionStatus = byId('junction-status');
 const continueJunction = byId('continue-junction');
+const heartDeploy = byId('deploy-heart');
+const heartStatus = byId('heart-status');
+const continueHeart = byId('continue-heart');
 const replay = byId('replay');
 const manual = byId('manual-dialog');
 const pauseDialog = byId('pause-dialog');
@@ -41,6 +44,9 @@ const reserveValue = byId('reserve-value');
 const waveMode = byId('wave-mode');
 const waveValue = byId('wave-value');
 const branchReadout = byId('branch-readout');
+const valveReadout = byId('valve-readout');
+const valveFill = byId('valve-fill');
+const colonyStatus = byId('colony-status');
 const branches = {
   left: { name: 'AMBER', badge: byId('branch-left'), marker: byId('inlet-left') },
   right: { name: 'TEAL', badge: byId('branch-right'), marker: byId('inlet-right') },
@@ -69,6 +75,7 @@ const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const bestKey = 'immune-protocol.best-score';
 const muteKey = 'immune-protocol.muted';
 const junctionKey = 'immune-protocol.junction-unlocked';
+const heartKey = 'immune-protocol.heart-unlocked';
 const tutorialKey = 'immune-protocol.training-complete';
 const sensitivityKey = 'immune-protocol.look-sensitivity';
 const qualityKey = 'immune-protocol.graphics-quality';
@@ -96,6 +103,7 @@ let drawnWave = '';
 let bestScore = Number(readSetting(bestKey)) || 0;
 let muted = readSetting(muteKey) === 'true';
 let junctionUnlocked = readSetting(junctionKey) === 'true';
+let heartUnlocked = readSetting(heartKey) === 'true';
 let trainingComplete = readSetting(tutorialKey) === 'true';
 let sensitivity = clamp(Number.parseFloat(readSetting(sensitivityKey)) || 1, 0.5, 2.5);
 let graphicsQuality = readSetting(qualityKey) === 'low' ? 'low' : 'high';
@@ -130,8 +138,9 @@ function setMuted(value) {
 function syncMusic() {
   let mode = 'silent';
   if (!paused && !document.hidden) {
-    if (running && sim.phase === 'combat' && sim.tutorial !== 'repair') mode = 'combat';
-    else if (!menu.hidden || (running && (sim.phase === 'intermission' || sim.tutorial === 'repair'))) mode = 'drift';
+    const recovering = running && (sim.phase === 'intermission' || sim.tutorial === 'repair' || sim.valve?.colonyDefeated);
+    if (running && sim.phase === 'combat' && !recovering) mode = 'combat';
+    else if (!menu.hidden || recovering) mode = 'drift';
   }
   audio.setMusic(mode);
 }
@@ -142,9 +151,11 @@ function displayBest() {
   best.textContent = 'BEST SCORE ' + bestScore.toLocaleString();
 }
 
-function displayJunctionAccess() {
+function displayMissionAccess() {
   junctionDeploy.disabled = loading || !junctionUnlocked;
   setText(junctionStatus, junctionUnlocked ? 'Defend the node from both inlets.' : 'Clear all five waves to unlock.');
+  heartDeploy.disabled = loading || !heartUnlocked;
+  setText(heartStatus, heartUnlocked ? 'Time your shots and repairs to the valve.' : 'Secure Capillary Junction to unlock.');
 }
 
 function requestMouse() {
@@ -188,10 +199,11 @@ function announce(title, detail = '', duration = 2.45) {
 
 async function launch(area = 'artery') {
   const junction = area === 'junction';
-  if (loading || running || (junction && !junctionUnlocked)) return;
+  const heart = area === 'heart';
+  if (loading || running || (junction && !junctionUnlocked) || (heart && !heartUnlocked)) return;
   loading = true;
   deploy.disabled = true;
-  displayJunctionAccess();
+  displayMissionAccess();
   byId('menu-error').hidden = true;
   resultDialog.close();
   game.hidden = false;
@@ -205,11 +217,13 @@ async function launch(area = 'artery') {
     menu.hidden = true;
     touchControls.hidden = !isTouch;
     clearControls();
-    sim = new Simulation(area, { tutorial: !junction && !trainingComplete });
+    sim = new Simulation(area, { tutorial: area === 'artery' && !trainingComplete });
     sim.start();
     game.dataset.area = sim.area;
-    canvas.setAttribute('aria-label', junction ? 'First-person view inside Capillary Junction' : 'First-person view inside the artery');
+    canvas.setAttribute('aria-label', 'First-person view inside ' + (heart ? 'the heart valve' : junction ? 'Capillary Junction' : 'the artery'));
     branchReadout.hidden = !junction;
+    valveReadout.hidden = !heart;
+    delete game.dataset.valve;
     for (const branch of Object.values(branches)) branch.marker.hidden = true;
     lastFrame = 0;
     damageTimer = 0;
@@ -227,7 +241,8 @@ async function launch(area = 'artery') {
     Promise.resolve(unlocked).then(() => {
       if (running && !paused && sim === mission && sim.clock < 1.25) audio.play({ type: 'deploy' });
     }).catch(() => {});
-    if (junction) announce('CAPILLARY JUNCTION', 'WATCH BOTH INLETS', 2.8);
+    if (heart) announce('HEART VALVE', 'FIRE WHEN OPEN · SEAL WHEN CLOSED', 3.2);
+    else if (junction) announce('CAPILLARY JUNCTION', 'WATCH BOTH INLETS', 2.8);
     else if (!sim.tutorial) announce('WAVE 01', 'DEFEND THE TISSUE NODE', 3.1);
     else {
       announcementTimer = 0;
@@ -248,7 +263,7 @@ async function launch(area = 'artery') {
   } finally {
     deploy.disabled = false;
     loading = false;
-    displayJunctionAccess();
+    displayMissionAccess();
   }
 }
 
@@ -294,7 +309,7 @@ function mainMenu() {
   menu.hidden = false;
   syncMusic();
   displayBest();
-  displayJunctionAccess();
+  displayMissionAccess();
   deploy.focus();
 }
 
@@ -306,31 +321,38 @@ function finish() {
   syncMusic();
   const won = sim.phase === 'won';
   const junction = sim.area === 'junction';
-  const canContinue = won && !junction;
-  if (canContinue && !junctionUnlocked) {
+  const heart = sim.area === 'heart';
+  const next = won ? (junction ? continueHeart : heart ? null : continueJunction) : null;
+  if (next === continueJunction && !junctionUnlocked) {
     junctionUnlocked = true;
     writeSetting(junctionKey, 'true');
-    displayJunctionAccess();
   }
+  if (next === continueHeart && !heartUnlocked) {
+    heartUnlocked = true;
+    writeSetting(heartKey, 'true');
+  }
+  displayMissionAccess();
   audio.play({ type: won ? 'won' : 'lost' });
   if (sim.score > bestScore) {
     bestScore = sim.score;
     writeSetting(bestKey, bestScore);
   }
-  byId('result-title').textContent = won ? (junction ? 'Junction secured' : 'Host stabilized') : 'Mission failed';
+  byId('result-title').textContent = won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : 'Host stabilized') : 'Mission failed';
   let detail;
-  if (canContinue) detail = 'All five waves were contained. The Capillary Junction is open for deployment.';
-  else if (won) detail = 'The amber and teal inlets are clear. The tissue node survived.';
+  if (next === continueJunction) detail = 'All five waves were contained. Capillary Junction is open for deployment.';
+  else if (next === continueHeart) detail = 'Both inlets are clear. Heart Valve is open for deployment.';
+  else if (won) detail = 'The colony is neutralized and the valve wound is sealed.';
   else detail = sim.tissue <= 0 ? 'The infection overwhelmed the tissue node.' : 'Your suit failed under pathogen attack.';
   byId('result-detail').textContent = detail;
   byId('result-score').textContent = sim.score.toLocaleString();
   byId('result-kills').textContent = sim.kills;
   byId('result-tissue').textContent = Math.ceil(sim.tissue) + '%';
-  continueJunction.hidden = !canContinue;
-  replay.classList.toggle('primary', !canContinue);
-  replay.classList.toggle('outline', canContinue);
+  continueJunction.hidden = next !== continueJunction;
+  continueHeart.hidden = next !== continueHeart;
+  replay.classList.toggle('primary', !next);
+  replay.classList.toggle('outline', !!next);
   resultDialog.showModal();
-  if (canContinue) continueJunction.focus();
+  next?.focus();
 }
 
 function setText(element, value) {
@@ -363,8 +385,23 @@ function drawTraining() {
   trainingDetail.hidden = !trainingDetail.textContent;
 }
 
+function drawValve(valve) {
+  const open = valve.phase === 'open';
+  const phase = valve.exposed ? 'exposed' : valve.phase;
+  if (game.dataset.valve !== phase) game.dataset.valve = phase;
+  let label = 'CLOSED';
+  if (open) label = valve.exposed ? 'OPEN' : valve.remaining > valve.duration / 2 ? 'OPENING' : 'CLOSING';
+  setText(waveMode, 'HEART VALVE');
+  setText(waveValue, label);
+  setText(threats, (open ? 'CLOSES IN ' : 'OPENS IN ') + Math.ceil(valve.remaining) + 's');
+  valveFill.style.width = (100 * clamp(valve.remaining / valve.duration, 0, 1)).toFixed(1) + '%';
+  const colony = sim.enemies.find(enemy => enemy.type === 'colony');
+  const health = colony ? Math.ceil(100 * colony.health / colony.maxHealth) : 0;
+  setText(colonyStatus, valve.colonyDefeated ? 'COLONY NEUTRALIZED' : 'COLONY ' + health + '%');
+}
+
 function drawHud() {
-  const { player, tissue, wave, waves, remaining, phase, intermission } = sim;
+  const { player, tissue, wave, waves, remaining, phase, intermission, valve } = sim;
   const tissuePercent = Math.ceil(tissue);
   const suitPercent = Math.ceil(player.health);
   const tissueAttacked = sim.enemies.some(enemy => enemy.attackingTissue);
@@ -391,24 +428,31 @@ function drawHud() {
   setText(reloadState, sim.reloading ? 'RELOADING' : player.ammo === 0 ? 'MAGAZINE EMPTY' : 'FULL AUTO');
   const junction = sim.area === 'junction';
   const waveLabel = pad(wave) + ' / ' + pad(waves);
-  setText(waveMode, junction ? 'CAPILLARY JUNCTION' : 'INFECTION WAVE');
-  if (junction) {
-    setText(waveValue, sim.settling ? (tissuePercent < 100 ? 'REPAIR' : 'EXTRACT') : 'DEFEND');
-  } else if (waveLabel !== drawnWave) {
-    drawnWave = waveLabel;
-    const total = document.createElement('span');
-    total.textContent = '/ ' + pad(waves);
-    waveValue.replaceChildren(document.createTextNode(pad(wave) + ' '), total);
+  if (valve) drawValve(valve);
+  else {
+    setText(waveMode, junction ? 'CAPILLARY JUNCTION' : 'INFECTION WAVE');
+    if (junction) {
+      setText(waveValue, sim.settling ? (tissuePercent < 100 ? 'REPAIR' : 'EXTRACT') : 'DEFEND');
+    } else if (waveLabel !== drawnWave) {
+      drawnWave = waveLabel;
+      const total = document.createElement('span');
+      total.textContent = '/ ' + pad(waves);
+      waveValue.replaceChildren(document.createTextNode(pad(wave) + ' '), total);
+    }
+    setText(threats, sim.tutorial ? 'FIELD TRAINING' : phase === 'intermission'
+      ? (sim.settling ? 'EXTRACT IN ' : 'NEXT WAVE IN ') + Math.ceil(intermission) + 's'
+      : remaining + (remaining === 1 ? ' THREAT LEFT' : ' THREATS LEFT'));
   }
-  setText(threats, sim.tutorial ? 'FIELD TRAINING' : phase === 'intermission'
-    ? (sim.settling ? 'EXTRACT IN ' : 'NEXT WAVE IN ') + Math.ceil(intermission) + 's'
-    : remaining + (remaining === 1 ? ' THREAT LEFT' : ' THREATS LEFT'));
   const restoringHere = restored && sim.nearTissue;
   const repairing = sim.repairing && !restoringHere;
   let prompt = '';
   if (restoringHere) prompt = 'TISSUE RESTORED · 100%';
   else if (repairing) prompt = 'REPAIRING TISSUE';
   else if (sim.canRepair) prompt = isTouch ? 'HOLD REPAIR TO RESTORE TISSUE' : 'HOLD E TO REPAIR TISSUE';
+  else if (valve && tissuePercent < 100 && (valve.colonyDefeated || valve.phase === 'closed')) {
+    prompt = sim.nearTissue ? 'SEAL THE WOUND WHEN THE VALVE CLOSES' : 'MOVE TO THE WOUND TO REPAIR';
+  }
+  else if (valve?.exposed && !valve.colonyDefeated && player.ammo > 0) prompt = 'SHOOT THE EXPOSED COLONY';
   else if (sim.settling && tissuePercent < 100) prompt = 'MOVE TO THE TISSUE NODE TO REPAIR';
   else if (player.ammo === 0) {
     prompt = player.reserve ? (isTouch ? 'RELOAD CARBINE' : 'PRESS R TO RELOAD') : 'AWAITING RESUPPLY';
@@ -428,12 +472,16 @@ function drawHud() {
 }
 
 function drawMarker() {
+  if (sim.valve?.exposed && !sim.valve.colonyDefeated) {
+    marker.hidden = objectiveEdge.hidden = true;
+    return;
+  }
   const { x, y, z } = sim.objective;
   const player = sim.player;
   const dx = x - player.x;
   const dz = z - player.z;
   const distance = Math.hypot(dx, dz);
-  const point = world.project(x, y + 1.65, z);
+  const point = world.project(x, y + (sim.valve ? .96 : 1.65), z);
   const width = window.innerWidth;
   const height = window.innerHeight;
   const top = worldMarkerTop(width <= 720 ? 104 : 128);
@@ -445,7 +493,7 @@ function drawMarker() {
   }
 
   const attacking = sim.enemies.some(enemy => enemy.attackingTissue);
-  const seekingRepair = !sim.nearTissue && (sim.tutorial === 'repair' || (sim.phase === 'intermission' && sim.tissue < 100));
+  const seekingRepair = !sim.nearTissue && (sim.tutorial === 'repair' || ((sim.phase === 'intermission' || sim.valve) && sim.tissue < 100));
   objectiveEdge.hidden = (point.visible && point.y >= top) || !(attacking || seekingRepair || sim.tutorial === 'observe');
   if (objectiveEdge.hidden) return;
 
@@ -467,7 +515,7 @@ function drawMarker() {
 }
 
 function worldMarkerTop(defaultTop) {
-  return sim.area === 'junction' && window.innerWidth <= 480 ? 166 : defaultTop;
+  return sim.area !== 'artery' && window.innerWidth <= 480 ? 166 : defaultTop;
 }
 
 function drawAttackers() {
@@ -536,13 +584,16 @@ function applyEvents() {
       announce('WAVE 01', 'PATHOGENS INBOUND', 2.8);
       audio.play({ type: 'wave', stage: 'start' });
     }
-    if (event.type === 'branch' || event.type === 'damage' || event.type === 'hit' || event.type === 'kill') {
+    if (event.type === 'branch' || event.type === 'valve' || event.type === 'damage' || event.type === 'hit' || event.type === 'kill') {
       const { x, z, yaw } = sim.player;
       const dx = event.x - x;
       const dz = event.z - z;
       const pan = (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / Math.max(1, Math.hypot(dx, dz));
       audio.play({ ...event, pan });
     } else if (event.type !== 'mission') audio.play(event);
+    if (event.type === 'kill' && event.enemyType === 'colony' && sim.tissue < 100) {
+      announce('COLONY NEUTRALIZED', 'SEAL THE WOUND WHEN THE VALVE CLOSES', 3);
+    }
     if (event.type === 'shot' && event.hit) {
       hitTimer = 0.19;
       hitMarker.classList.toggle('critical', Boolean(event.crit));
@@ -599,8 +650,9 @@ function frame(now) {
     if (dt > 0) {
       const phase = sim.phase;
       const tutorial = sim.tutorial;
+      const colonyDefeated = sim.valve?.colonyDefeated;
       sim.step(dt, input);
-      if (sim.phase !== phase || sim.tutorial !== tutorial) syncMusic();
+      if (sim.phase !== phase || sim.tutorial !== tutorial || sim.valve?.colonyDefeated !== colonyDefeated) syncMusic();
       applyEvents();
       fireTap = false;
       reloadTap = false;
@@ -651,6 +703,8 @@ document.querySelectorAll('[data-mute]').forEach(button => button.addEventListen
 deploy.addEventListener('click', () => launch());
 junctionDeploy.addEventListener('click', () => launch('junction'));
 continueJunction.addEventListener('click', () => launch('junction'));
+heartDeploy.addEventListener('click', () => launch('heart'));
+continueHeart.addEventListener('click', () => launch('heart'));
 replay.addEventListener('click', () => launch(sim.area));
 byId('return-menu').addEventListener('click', mainMenu);
 byId('quit').addEventListener('click', mainMenu);
@@ -763,4 +817,4 @@ syncSettings();
 audio.preloadEffects();
 syncMusic();
 displayBest();
-displayJunctionAccess();
+displayMissionAccess();
