@@ -50,6 +50,10 @@
             <button id="deploy" class="button primary" type="button">Deploy soldier <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
             <button id="manual" class="button outline" type="button"><svg aria-hidden="true"><use href="#book"></use></svg> Field manual</button>
           </div>
+          <div class="mission-entry">
+            <button id="deploy-junction" class="button outline" type="button" aria-describedby="junction-status" disabled>Capillary Junction <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+            <p id="junction-status">Clear all five waves to unlock.</p>
+          </div>
           <p id="menu-error" class="menu-error" role="alert" hidden></p>
         </div>
         <div class="scene-caption" aria-hidden="true"><span></span> INFECTED ARTERIAL TISSUE</div>
@@ -74,12 +78,22 @@
           <div class="meter" role="meter" id="tissue-meter" aria-label="Host tissue integrity" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="tissue-fill"></div></div>
           <div id="host-state" class="host-state" role="status">VITALS STABLE</div>
         </div>
-        <div class="wave-panel"><span class="hud-label">INFECTION WAVE</span><strong id="wave-value">01 <span>/ 05</span></strong><small id="threats">THREATS INBOUND</small></div>
+        <div class="wave-panel">
+          <span class="hud-label" id="wave-mode">INFECTION WAVE</span>
+          <strong id="wave-value">01 <span>/ 05</span></strong>
+          <small id="threats">THREATS INBOUND</small>
+          <div id="branch-readout" class="branch-readout" role="group" aria-label="Inlet threats" hidden>
+            <span id="branch-left" data-branch="left">AMBER 0</span>
+            <span id="branch-right" data-branch="right">TEAL 0</span>
+          </div>
+        </div>
         <div class="game-actions">
           <button class="icon-button audio-button" type="button" data-mute aria-pressed="false" aria-label="Mute audio" title="Mute audio"><svg aria-hidden="true"><use href="#sound"></use></svg></button>
           <button id="pause" class="icon-button" type="button" aria-label="Pause game" title="Pause game"><svg aria-hidden="true"><use href="#pause-icon"></use></svg></button>
         </div>
         <div id="objective-marker" class="objective-marker" aria-hidden="true" hidden><span></span><strong id="marker-label">TISSUE NODE</strong><small id="marker-distance"></small></div>
+        <div id="inlet-left" class="inlet-marker" data-branch="left" aria-hidden="true" hidden>AMBER INLET</div>
+        <div id="inlet-right" class="inlet-marker" data-branch="right" aria-hidden="true" hidden>TEAL INLET</div>
         <div id="tissue-attackers" aria-hidden="true"></div>
         <div id="reticle" class="reticle" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>
         <div id="hit-marker" class="hit-marker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -112,7 +126,7 @@
       <button class="icon-button close-dialog" data-close="manual-dialog" type="button" aria-label="Close field manual"><svg aria-hidden="true"><use href="#close"></use></svg></button>
       <p class="eyebrow"><span></span> OPERATIONS BRIEF</p>
       <h2>Field manual</h2>
-      <p>Keep the host tissue and your suit above zero through five waves. Follow the tissue marker and hold repair near the node to restore it. Between waves, your carbine is resupplied.</p>
+      <p>Keep tissue and suit integrity above zero. Your carbine is resupplied between waves. Survive five waves to unlock Capillary Junction, where pathogens approach from the amber and teal inlets. Hold repair near the tissue node to restore it.</p>
       <dl class="controls-list">
         <div><dt>Move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dd></div>
         <div><dt>Look / Aim</dt><dd><kbd>Mouse</kbd><kbd>Right click</kbd></dd></div>
@@ -138,6 +152,7 @@
       <h2 id="result-title">Host stabilized</h2>
       <p id="result-detail"></p>
       <dl class="result-stats"><div><dt>Score</dt><dd id="result-score"></dd></div><div><dt>Neutralized</dt><dd id="result-kills"></dd></div><div><dt>Host tissue</dt><dd id="result-tissue"></dd></div></dl>
+      <button id="continue-junction" class="button primary full-button result-next" type="button" hidden>Enter Capillary Junction <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
       <div class="dialog-buttons"><button id="replay" class="button primary" type="button">Redeploy <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button id="return-menu" class="button outline" type="button">Main menu</button></div>
     </dialog>
   </main>

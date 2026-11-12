@@ -1,4 +1,8 @@
 export const OBJECTIVE = Object.freeze({ x: 0, y: 1.25, z: -8 });
+export const JUNCTION_INLETS = Object.freeze({
+  left: Object.freeze({ x: -12.3, y: 1.42, z: -15.6 }),
+  right: Object.freeze({ x: 12.3, y: 1.42, z: -15.6 }),
+});
 
 export const RULES = Object.freeze({
   health: 100,
@@ -25,6 +29,11 @@ const MISSIONS = [
   { cadence: 0.72, species: ['bacillus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'spore', 'bacillus', 'virus', 'spore', 'bacillus', 'spore', 'bacillus', 'virus'] },
 ];
 
+const JUNCTION_MISSIONS = [{
+  species: ['virus', 'virus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'virus', 'spore'],
+  delays: [.38, 2.05, .64, 2.2, .85, 1.75, .65, 1.6, .76, 1.45, .66],
+}];
+
 const ENTRANCES = [
   [0, -27], [-9, -23], [9, -23], [-16, -13], [16, -14], [3, -28],
   [-17, 6], [16, 10], [-10, 22], [10, 24],
@@ -37,6 +46,8 @@ const RELOAD_TIME = 1.35;
 const REPAIR_TIME = 0.82;
 const REPAIR_PER_CYCLE = 13;
 const INTERMISSION_TIME = 6.5;
+const JUNCTION_REPAIR_TIME = 9;
+const JUNCTION_EXTRACT_DELAY = 1.25;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -53,7 +64,10 @@ function confineToChamber(player) {
 }
 
 export class Simulation {
-  constructor() {
+  constructor(area = 'artery') {
+    this.area = area === 'junction' ? 'junction' : 'artery';
+    this.missions = this.area === 'junction' ? JUNCTION_MISSIONS : MISSIONS;
+    this.objective = OBJECTIVE;
     this.reset();
   }
 
@@ -63,13 +77,13 @@ export class Simulation {
 
   reset() {
     this.player = {
-      x: 0, y: 1.7, z: 18, yaw: 0, pitch: 0,
+      x: 0, y: 1.7, z: this.area === 'junction' ? 13 : 18, yaw: 0, pitch: 0,
       health: RULES.health, ammo: RULES.magazine, reserve: RULES.initialReserve,
     };
     this.phase = 'ready';
     this.tissue = RULES.tissue;
     this.wave = 0;
-    this.waves = MISSIONS.length;
+    this.waves = this.missions.length;
     this.clock = 0;
     this.score = 0;
     this.kills = 0;
@@ -79,6 +93,7 @@ export class Simulation {
     this.nearTissue = false;
     this.canRepair = false;
     this.intermission = 0;
+    this.settling = false;
     this.reloading = 0;
     this.fireCooldown = 0;
     this.reloadHeld = false;
@@ -100,7 +115,7 @@ export class Simulation {
     this.intermission = 0;
     this.spawnIndex = 0;
     this.spawnCountdown = this.wave === 1 ? 0.8 : 0.65;
-    this.remaining = MISSIONS[this.wave - 1].species.length;
+    this.remaining = this.missions[this.wave - 1].species.length;
     this.events.push({ type: 'wave', wave: this.wave, stage: 'start' });
   }
 
@@ -108,7 +123,13 @@ export class Simulation {
     this.score += 250 * this.wave;
     this.events.push({ type: 'wave', wave: this.wave, stage: 'clear' });
     if (this.wave === this.waves) {
-      this.endMission('won');
+      if (this.area === 'junction' && this.tissue < RULES.tissue) {
+        this.settling = true;
+        this.phase = 'intermission';
+        this.intermission = JUNCTION_REPAIR_TIME;
+      } else {
+        this.endMission('won');
+      }
       return;
     }
     this.phase = 'intermission';
@@ -132,16 +153,22 @@ export class Simulation {
     this.updateRifle(dt, input, repairing);
 
     if (this.phase === 'intermission') {
+      if (this.settling && this.tissue === RULES.tissue) {
+        this.intermission = Math.min(this.intermission, JUNCTION_EXTRACT_DELAY);
+      }
       this.intermission = Math.max(0, this.intermission - dt);
-      if (this.intermission === 0) this.beginWave();
+      if (this.intermission === 0) {
+        if (this.settling) this.endMission('won');
+        else this.beginWave();
+      }
       return;
     }
 
-    const mission = MISSIONS[this.wave - 1];
+    const mission = this.missions[this.wave - 1];
     this.spawnCountdown -= dt;
     if (this.spawnIndex < mission.species.length && this.spawnCountdown <= 0) {
       this.spawn(mission.species[this.spawnIndex]);
-      this.spawnCountdown += mission.cadence;
+      this.spawnCountdown += mission.delays?.[this.spawnIndex - 1] ?? mission.cadence ?? 0;
     }
     this.advanceEnemies(dt);
     this.remaining = mission.species.length - this.spawnIndex + this.enemies.length;
@@ -174,7 +201,7 @@ export class Simulation {
   }
 
   updateRepair(dt, held) {
-    const distance = Math.hypot(this.player.x - OBJECTIVE.x, this.player.z - OBJECTIVE.z);
+    const distance = Math.hypot(this.player.x - this.objective.x, this.player.z - this.objective.z);
     this.nearTissue = distance <= RULES.repairRadius;
     this.canRepair = this.nearTissue && this.tissue < RULES.tissue;
 
@@ -195,7 +222,7 @@ export class Simulation {
       this.score += amount * 8;
       this.repairProgress -= 1;
       this.canRepair = this.tissue < RULES.tissue;
-      this.events.push({ type: 'repair', amount, complete: this.tissue === RULES.tissue, ...OBJECTIVE });
+      this.events.push({ type: 'repair', amount, complete: this.tissue === RULES.tissue, ...this.objective });
     }
     return true;
   }
@@ -281,10 +308,16 @@ export class Simulation {
     const index = this.spawnIndex++;
     const entranceCount = Math.min(ENTRANCES.length, 5 + this.wave);
     const [x, z] = ENTRANCES[index % entranceCount];
-    const spawnX = index === 0 ? x : x + Math.sin(index * 2.4 + this.wave) * 1.35;
-    const spawnZ = z + Math.cos(index * 1.9 + this.wave) * 0.85;
+    let spawnX = index === 0 ? x : x + Math.sin(index * 2.4 + this.wave) * 1.35;
+    let spawnZ = z + Math.cos(index * 1.9 + this.wave) * 0.85;
+    let branch;
+    if (this.area === 'junction') {
+      branch = index % 2 === 0 ? 'left' : 'right';
+      spawnX = Math.sign(JUNCTION_INLETS[branch].x) * (15.25 + Math.sin(index * 1.7) * .47);
+      spawnZ = -18.5 + Math.cos(index * 2.2) * .47;
+    }
     const spec = SPECIES[type];
-    this.enemies.push({
+    const enemy = {
       id: this.nextEnemyId++,
       type, x: spawnX, y: spec.y, z: spawnZ,
       radius: spec.radius,
@@ -292,7 +325,12 @@ export class Simulation {
       maxHealth: spec.health,
       attackCooldown: 0.65,
       attackingTissue: false,
-    });
+    };
+    if (branch) {
+      enemy.branch = branch;
+      this.events.push({ type: 'branch', branch, x: spawnX, y: spec.y, z: spawnZ });
+    }
+    this.enemies.push(enemy);
   }
 
   advanceEnemies(dt) {
@@ -300,10 +338,10 @@ export class Simulation {
     for (const enemy of this.enemies) {
       const spec = SPECIES[enemy.type];
       const distanceToSuit = Math.hypot(player.x - enemy.x, player.z - enemy.z);
-      const distanceToTissue = Math.hypot(OBJECTIVE.x - enemy.x, OBJECTIVE.z - enemy.z);
+      const distanceToTissue = Math.hypot(this.objective.x - enemy.x, this.objective.z - enemy.z);
       const aggro = enemy.type === 'spore' ? 12 : 7.4;
       const attacksSuit = distanceToSuit < aggro && distanceToSuit < distanceToTissue + 0.6;
-      const target = attacksSuit ? player : OBJECTIVE;
+      const target = attacksSuit ? player : this.objective;
       const distance = attacksSuit ? distanceToSuit : distanceToTissue;
       const range = enemy.radius + (attacksSuit ? 0.75 : 1.25);
       enemy.attackingTissue = !attacksSuit && distance <= range + 0.04;
@@ -323,10 +361,12 @@ export class Simulation {
         } else {
           this.tissue = Math.max(0, this.tissue - amount);
         }
-        this.events.push({
+        const impact = {
           type: 'damage', target: attacksSuit ? 'player' : 'tissue', amount,
           id: enemy.id, x: enemy.x, y: enemy.y, z: enemy.z,
-        });
+        };
+        if (enemy.branch) impact.branch = enemy.branch;
+        this.events.push(impact);
       }
 
       const hover = enemy.type === 'bacillus' ? 0.08 : 0.24;

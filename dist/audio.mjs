@@ -6,6 +6,7 @@ export class GameAudio {
     this.heartbeat = null;
     this.repairVoice = null;
     this.damageAt = { player: -Infinity, tissue: -Infinity };
+    this.branchAt = { left: -Infinity, right: -Infinity };
   }
 
   async unlock() {
@@ -88,22 +89,34 @@ export class GameAudio {
     }
   }
 
-  envelope(start, duration, volume, attack = 0.008) {
+  branchPan(event) {
+    if (Number.isFinite(event.pan)) return .85 * Math.max(-1, Math.min(1, event.pan));
+    return event.branch === 'left' ? -.72 : event.branch === 'right' ? .72 : 0;
+  }
+
+  envelope(start, duration, volume, attack = 0.008, pan = 0) {
     const gain = this.context.createGain();
     gain.gain.setValueAtTime(0.0001, start);
     gain.gain.exponentialRampToValueAtTime(volume, start + Math.min(duration / 3, attack));
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    gain.connect(this.master);
+    if (pan && typeof this.context.createStereoPanner === 'function') {
+      const panner = this.context.createStereoPanner();
+      panner.pan.value = pan;
+      gain.connect(panner);
+      panner.connect(this.master);
+    } else {
+      gain.connect(this.master);
+    }
     return gain;
   }
 
-  tone(shape, from, to, duration, volume, delay = 0, attack) {
+  tone(shape, from, to, duration, volume, delay = 0, attack, pan = 0) {
     const start = this.context.currentTime + delay;
     const source = this.context.createOscillator();
     source.type = shape;
     source.frequency.setValueAtTime(from, start);
     source.frequency.exponentialRampToValueAtTime(to, start + duration);
-    source.connect(this.envelope(start, duration, volume, attack));
+    source.connect(this.envelope(start, duration, volume, attack, pan));
     source.start(start);
     source.stop(start + duration + 0.015);
   }
@@ -164,6 +177,18 @@ export class GameAudio {
         this.tone('sine', 172, 48, 0.22, 0.15, 0.042);
         this.tone('sine', 570, 760, 0.16, 0.08, 0.09);
         break;
+      case 'branch': {
+        const { branch } = event;
+        if (branch !== 'left' && branch !== 'right') break;
+        const time = this.context.currentTime;
+        if (time - this.branchAt[branch] < 1.65) break;
+        this.branchAt[branch] = time;
+        const pan = this.branchPan(event);
+        const frequency = branch === 'left' ? 510 : 710;
+        this.tone('triangle', frequency, frequency * 1.18, .15, .112, 0, .017, pan);
+        this.tone('sine', frequency * 1.38, frequency * 1.5, .20, .092, .12, .022, pan);
+        break;
+      }
       case 'damage': {
         const target = event.target === 'tissue' ? 'tissue' : 'player';
         const time = this.context.currentTime;
@@ -174,8 +199,10 @@ export class GameAudio {
           this.noise('lowpass', 920, 0.19, 0.34);
           this.tone('triangle', 94, 43, 0.24, 0.25);
         } else {
-          this.tone('triangle', 916, 686, 0.18, 0.13, 0, 0.018);
-          this.tone('triangle', 916, 596, 0.23, 0.12, 0.20, 0.018);
+          const pan = this.branchPan(event);
+          const frequency = event.branch === 'left' ? 824 : event.branch === 'right' ? 990 : 916;
+          this.tone('triangle', frequency, frequency * .75, .18, .13, 0, .018, pan);
+          this.tone('triangle', frequency, frequency * .65, .23, .12, .20, .018, pan);
         }
         break;
       }

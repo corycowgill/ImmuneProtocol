@@ -1,4 +1,4 @@
-import { Simulation, OBJECTIVE } from './simulation.mjs';
+import { Simulation, JUNCTION_INLETS } from './simulation.mjs';
 import { GameAudio } from './audio.mjs';
 
 const byId = id => document.getElementById(id);
@@ -6,6 +6,10 @@ const menu = byId('menu');
 const game = byId('game');
 const canvas = byId('world');
 const deploy = byId('deploy');
+const junctionDeploy = byId('deploy-junction');
+const junctionStatus = byId('junction-status');
+const continueJunction = byId('continue-junction');
+const replay = byId('replay');
 const manual = byId('manual-dialog');
 const pauseDialog = byId('pause-dialog');
 const resultDialog = byId('result-dialog');
@@ -24,7 +28,13 @@ const suitValue = byId('health-value');
 const tissueValue = byId('tissue-value');
 const ammoValue = byId('ammo-value');
 const reserveValue = byId('reserve-value');
+const waveMode = byId('wave-mode');
 const waveValue = byId('wave-value');
+const branchReadout = byId('branch-readout');
+const branches = {
+  left: { name: 'AMBER', badge: byId('branch-left'), marker: byId('inlet-left') },
+  right: { name: 'TEAL', badge: byId('branch-right'), marker: byId('inlet-right') },
+};
 const hostState = byId('host-state');
 const threats = byId('threats');
 const reloadState = byId('reload-state');
@@ -48,6 +58,7 @@ const pad = number => String(number).padStart(2, '0');
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const bestKey = 'immune-protocol.best-score';
 const muteKey = 'immune-protocol.muted';
+const junctionKey = 'immune-protocol.junction-unlocked';
 
 let world;
 let sim;
@@ -71,6 +82,7 @@ let animation = 0;
 let drawnWave = '';
 let bestScore = Number(readSetting(bestKey)) || 0;
 let muted = readSetting(muteKey) === 'true';
+let junctionUnlocked = readSetting(junctionKey) === 'true';
 
 function readSetting(key) {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -97,6 +109,11 @@ function displayBest() {
   const best = byId('high-score');
   best.hidden = bestScore === 0;
   best.textContent = 'BEST SCORE ' + bestScore.toLocaleString();
+}
+
+function displayJunctionAccess() {
+  junctionDeploy.disabled = loading || !junctionUnlocked;
+  setText(junctionStatus, junctionUnlocked ? 'Defend the node from both inlets.' : 'Clear all five waves to unlock.');
 }
 
 function requestMouse() {
@@ -138,10 +155,12 @@ function announce(title, detail = '', duration = 2.45) {
   announcementTimer = duration;
 }
 
-async function launch() {
-  if (loading || running) return;
+async function launch(area = 'artery') {
+  const junction = area === 'junction';
+  if (loading || running || (junction && !junctionUnlocked)) return;
   loading = true;
   deploy.disabled = true;
+  displayJunctionAccess();
   byId('menu-error').hidden = true;
   resultDialog.close();
   game.hidden = false;
@@ -150,11 +169,16 @@ async function launch() {
   try {
     const { World } = await import('./world.mjs');
     if (!world) world = new World(canvas);
+    world.setArea(area);
     menu.hidden = true;
     touchControls.hidden = !isTouch;
     clearControls();
-    sim = new Simulation();
+    sim = new Simulation(area);
     sim.start();
+    game.dataset.area = sim.area;
+    canvas.setAttribute('aria-label', junction ? 'First-person view inside Capillary Junction' : 'First-person view inside the artery');
+    branchReadout.hidden = !junction;
+    for (const branch of Object.values(branches)) branch.marker.hidden = true;
     lastFrame = 0;
     damageTimer = 0;
     tissueHitTimer = 0;
@@ -169,7 +193,8 @@ async function launch() {
     Promise.resolve(unlocked).then(() => {
       if (running && !paused) audio.play({ type: 'deploy' });
     }).catch(() => {});
-    announce('WAVE 01', 'DEFEND THE TISSUE NODE', 3.1);
+    if (junction) announce('CAPILLARY JUNCTION', 'WATCH BOTH INLETS', 2.8);
+    else announce('WAVE 01', 'DEFEND THE TISSUE NODE', 3.1);
     drawHud();
     cancelAnimationFrame(animation);
     animation = requestAnimationFrame(frame);
@@ -184,6 +209,7 @@ async function launch() {
   } finally {
     deploy.disabled = false;
     loading = false;
+    displayJunctionAccess();
   }
 }
 
@@ -196,7 +222,7 @@ function pause() {
   audio.setActive(false);
   releaseMouse();
   byId('pause-detail').textContent = isTouch
-    ? 'Resume when you’re ready to re-enter the artery.'
+    ? 'Resume when you’re ready to return to the fight.'
     : 'Resume to capture the mouse. If it stays free, drag the view or use the arrow keys to look.';
   pauseDialog.showModal();
 }
@@ -225,6 +251,7 @@ function mainMenu() {
   game.hidden = true;
   menu.hidden = false;
   displayBest();
+  displayJunctionAccess();
   deploy.focus();
 }
 
@@ -234,19 +261,32 @@ function finish() {
   releaseMouse();
   audio.setActive(false);
   const won = sim.phase === 'won';
+  const junction = sim.area === 'junction';
+  const canContinue = won && !junction;
+  if (canContinue && !junctionUnlocked) {
+    junctionUnlocked = true;
+    writeSetting(junctionKey, 'true');
+    displayJunctionAccess();
+  }
   audio.play({ type: won ? 'won' : 'lost' });
   if (sim.score > bestScore) {
     bestScore = sim.score;
     writeSetting(bestKey, bestScore);
   }
-  byId('result-title').textContent = won ? 'Host stabilized' : 'Mission failed';
-  byId('result-detail').textContent = won
-    ? 'All five waves were contained. The arterial junction is secure.'
-    : (sim.tissue <= 0 ? 'The infection overwhelmed the tissue node.' : 'Your suit failed under pathogen attack.');
+  byId('result-title').textContent = won ? (junction ? 'Junction secured' : 'Host stabilized') : 'Mission failed';
+  let detail;
+  if (canContinue) detail = 'All five waves were contained. The Capillary Junction is open for deployment.';
+  else if (won) detail = 'The amber and teal inlets are clear. The tissue node survived.';
+  else detail = sim.tissue <= 0 ? 'The infection overwhelmed the tissue node.' : 'Your suit failed under pathogen attack.';
+  byId('result-detail').textContent = detail;
   byId('result-score').textContent = sim.score.toLocaleString();
   byId('result-kills').textContent = sim.kills;
   byId('result-tissue').textContent = Math.ceil(sim.tissue) + '%';
+  continueJunction.hidden = !canContinue;
+  replay.classList.toggle('primary', !canContinue);
+  replay.classList.toggle('outline', canContinue);
   resultDialog.showModal();
+  if (canContinue) continueJunction.focus();
 }
 
 function setText(element, value) {
@@ -284,15 +324,19 @@ function drawHud() {
   setText(ammoValue, pad(player.ammo));
   setText(reserveValue, ' / ' + pad(player.reserve));
   setText(reloadState, sim.reloading ? 'RELOADING' : player.ammo === 0 ? 'MAGAZINE EMPTY' : 'FULL AUTO');
+  const junction = sim.area === 'junction';
   const waveLabel = pad(wave) + ' / ' + pad(waves);
-  if (waveLabel !== drawnWave) {
+  setText(waveMode, junction ? 'CAPILLARY JUNCTION' : 'INFECTION WAVE');
+  if (junction) {
+    setText(waveValue, sim.settling ? (tissuePercent < 100 ? 'REPAIR' : 'EXTRACT') : 'DEFEND');
+  } else if (waveLabel !== drawnWave) {
     drawnWave = waveLabel;
     const total = document.createElement('span');
     total.textContent = '/ ' + pad(waves);
     waveValue.replaceChildren(document.createTextNode(pad(wave) + ' '), total);
   }
   setText(threats, phase === 'intermission'
-    ? 'NEXT WAVE IN ' + Math.ceil(intermission) + 's'
+    ? (sim.settling ? 'EXTRACT IN ' : 'NEXT WAVE IN ') + Math.ceil(intermission) + 's'
     : remaining + (remaining === 1 ? ' THREAT LEFT' : ' THREATS LEFT'));
   const restoringHere = restored && sim.nearTissue;
   const repairing = sim.repairing && !restoringHere;
@@ -300,6 +344,7 @@ function drawHud() {
   if (restoringHere) prompt = 'TISSUE RESTORED · 100%';
   else if (repairing) prompt = 'REPAIRING TISSUE';
   else if (sim.canRepair) prompt = isTouch ? 'HOLD REPAIR TO RESTORE TISSUE' : 'HOLD E TO REPAIR TISSUE';
+  else if (sim.settling && tissuePercent < 100) prompt = 'MOVE TO THE TISSUE NODE TO REPAIR';
   else if (player.ammo === 0) {
     prompt = player.reserve ? (isTouch ? 'RELOAD CARBINE' : 'PRESS R TO RELOAD') : 'AWAITING RESUPPLY';
   } else if (phase === 'intermission' && tissuePercent < 100) {
@@ -317,14 +362,19 @@ function drawHud() {
 }
 
 function drawMarker() {
-  const distance = Math.hypot(sim.player.x - OBJECTIVE.x, sim.player.z - OBJECTIVE.z);
-  const point = world.project(OBJECTIVE.x, OBJECTIVE.y + 1.65, OBJECTIVE.z);
-  marker.hidden = !point.visible || sim.nearTissue || point.y < (window.innerWidth <= 720 ? 96 : 126);
+  const { x, y, z } = sim.objective;
+  const distance = Math.hypot(sim.player.x - x, sim.player.z - z);
+  const point = world.project(x, y + 1.65, z);
+  marker.hidden = !point.visible || sim.nearTissue || point.y < worldMarkerTop(window.innerWidth <= 720 ? 96 : 126);
   if (!marker.hidden) {
     marker.style.left = point.x + 'px';
     marker.style.top = point.y + 'px';
     markerDistance.textContent = Math.round(distance) + ' m';
   }
+}
+
+function worldMarkerTop(defaultTop) {
+  return sim.area === 'junction' && window.innerWidth <= 480 ? 166 : defaultTop;
 }
 
 function drawAttackers() {
@@ -333,14 +383,16 @@ function drawAttackers() {
   for (const enemy of sim.enemies) {
     if (!enemy.attackingTissue) continue;
     const point = world.project(enemy.x, enemy.y + enemy.radius + .17, enemy.z);
-    if (!point.visible || point.y < 105 || point.x < 17 || point.x > window.innerWidth - 17) continue;
+    if (!point.visible || point.y < worldMarkerTop(105) || point.x < 17 || point.x > window.innerWidth - 17) continue;
     active.add(enemy.id);
     let icon = attackerMarkers.get(enemy.id);
     if (!icon) {
       icon = document.createElement('div');
       icon.className = 'attacker-marker';
       const label = document.createElement('strong');
-      label.textContent = 'ATTACKING TISSUE';
+      const branch = branches[enemy.branch];
+      if (branch) icon.dataset.branch = enemy.branch;
+      label.textContent = branch ? branch.name + ' ATTACKING' : 'ATTACKING TISSUE';
       icon.append(label, document.createElement('span'));
       attackerMarkers.set(enemy.id, icon);
       tissueAttackers.append(icon);
@@ -359,9 +411,38 @@ function drawAttackers() {
   }
 }
 
+function drawBranches() {
+  if (sim.area !== 'junction') return;
+  for (const [side, branch] of Object.entries(branches)) {
+    let count = 0;
+    let striking = false;
+    for (const enemy of sim.enemies) {
+      if (enemy.branch !== side) continue;
+      count++;
+      striking ||= enemy.attackingTissue;
+    }
+    setText(branch.badge, branch.name + ' ' + count);
+    branch.badge.classList.toggle('active', count > 0);
+    branch.badge.classList.toggle('striking', striking);
+    const { x, y, z } = JUNCTION_INLETS[side];
+    const point = world.project(x, y + 1.8, z);
+    branch.marker.hidden = !point.visible || point.y < worldMarkerTop(127) || point.x < 56 || point.x > window.innerWidth - 56;
+    if (!branch.marker.hidden) {
+      branch.marker.style.left = point.x + 'px';
+      branch.marker.style.top = point.y + 'px';
+    }
+  }
+}
+
 function applyEvents() {
   for (const event of sim.events) {
-    if (event.type !== 'mission') audio.play(event);
+    if (event.branch) {
+      const { x, z, yaw } = sim.player;
+      const dx = event.x - x;
+      const dz = event.z - z;
+      const pan = (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / Math.max(1, Math.hypot(dx, dz));
+      audio.play({ ...event, pan });
+    } else if (event.type !== 'mission') audio.play(event);
     if (event.type === 'shot' && event.hit) {
       hitTimer = 0.19;
       hitMarker.classList.toggle('critical', Boolean(event.crit));
@@ -371,9 +452,16 @@ function applyEvents() {
       tissueHitTimer = .9;
       restoredTimer = 0;
     }
-    if (event.type === 'repair' && event.complete) restoredTimer = 2.4;
+    if (event.type === 'repair' && event.complete) {
+      restoredTimer = 2.4;
+      if (sim.settling) {
+        announcementTimer = 0;
+        alertBox.replaceChildren();
+      }
+    }
     if (event.type === 'wave') {
       if (event.stage === 'start') announce('WAVE ' + pad(event.wave), 'PATHOGENS INBOUND');
+      else if (sim.settling) announce('INLETS CLEAR', 'REPAIR TISSUE BEFORE EXTRACTION', 2.8);
       else if (event.wave < sim.waves) announce('WAVE CONTAINED', 'RESUPPLIED  /  REPAIR TISSUE', 3);
     }
   }
@@ -421,6 +509,7 @@ function frame(now) {
     drawHud();
     drawMarker();
     drawAttackers();
+    drawBranches();
     drawCombatFeedback(aiming);
     if (sim.phase === 'won' || sim.phase === 'lost') {
       finish();
@@ -434,8 +523,10 @@ byId('manual').addEventListener('click', () => manual.showModal());
 byId('touch-manual').hidden = !isTouch;
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => byId(button.dataset.close).close()));
 document.querySelectorAll('[data-mute]').forEach(button => button.addEventListener('click', () => setMuted(!muted)));
-deploy.addEventListener('click', launch);
-byId('replay').addEventListener('click', launch);
+deploy.addEventListener('click', () => launch());
+junctionDeploy.addEventListener('click', () => launch('junction'));
+continueJunction.addEventListener('click', () => launch('junction'));
+replay.addEventListener('click', () => launch(sim.area));
 byId('return-menu').addEventListener('click', mainMenu);
 byId('quit').addEventListener('click', mainMenu);
 byId('pause').addEventListener('click', pause);
@@ -541,3 +632,4 @@ touchControls.querySelectorAll('[data-touch]').forEach(button => {
 
 setMuted(muted);
 displayBest();
+displayJunctionAccess();
