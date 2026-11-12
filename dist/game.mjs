@@ -9,8 +9,6 @@ const deploy = byId('deploy');
 const manual = byId('manual-dialog');
 const pauseDialog = byId('pause-dialog');
 const resultDialog = byId('result-dialog');
-const weapon = byId('weapon');
-const muzzle = byId('muzzle');
 const reticle = byId('reticle');
 const hitMarker = byId('hit-marker');
 const damageFlash = byId('damage-flash');
@@ -61,12 +59,9 @@ let fireTap = false;
 let reloadTap = false;
 let lookPointer = null;
 let stickPointer = null;
-let aimAmount = 0;
-let recoil = 0;
 let hitTimer = 0;
 let damageTimer = 0;
 let announcementTimer = 0;
-let time = 0;
 let lastFrame = 0;
 let animation = 0;
 let drawnWave = '';
@@ -156,10 +151,7 @@ async function launch() {
     clearControls();
     sim = new Simulation();
     sim.start();
-    time = 0;
     lastFrame = 0;
-    recoil = 0;
-    aimAmount = 0;
     damageTimer = 0;
     hitTimer = 0;
     drawnWave = '';
@@ -306,12 +298,9 @@ function drawMarker() {
 function applyEvents() {
   for (const event of sim.events) {
     if (event.type !== 'mission') audio.play(event);
-    if (event.type === 'shot') {
-      recoil = 1;
-      if (event.hit) {
-        hitTimer = 0.19;
-        hitMarker.classList.toggle('critical', Boolean(event.crit));
-      }
+    if (event.type === 'shot' && event.hit) {
+      hitTimer = 0.19;
+      hitMarker.classList.toggle('critical', Boolean(event.crit));
     }
     if (event.type === 'damage' && event.target === 'player') damageTimer = 0.46;
     if (event.type === 'wave') {
@@ -321,17 +310,8 @@ function applyEvents() {
   }
 }
 
-function drawWeapon(dt) {
-  const moving = Math.hypot(input.moveX, input.moveZ) > 0.05;
-  const sway = reducedMotion ? 0 : Math.sin(time * (moving ? (input.sprint ? 14 : 9) : 2.2));
-  aimAmount += ((input.aim ? 1 : 0) - aimAmount) * (1 - Math.exp(-dt * 16));
-  const x = sway * (moving ? 8 : 2) - aimAmount * 48 + recoil * 11;
-  const y = Math.abs(sway) * (moving ? 6 : 1) - aimAmount * 35 + recoil * 7 + (sim.reloading ? 66 : 0) + (sim.repairing ? 85 : 0);
-  const roll = sway * 0.6 + recoil * 1.1 + (sim.reloading ? 7 : 0);
-  weapon.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0) rotate(' + roll + 'deg)';
-  weapon.style.opacity = sim.repairing ? '0.52' : '1';
-  muzzle.style.opacity = reducedMotion ? '0' : String(Math.max(0, (recoil - 0.45) * 2));
-  reticle.classList.toggle('aim', input.aim);
+function drawCombatFeedback(aiming) {
+  reticle.classList.toggle('aim', aiming);
   hitMarker.style.opacity = String(clamp(hitTimer * 7, 0, 1));
   damageFlash.style.opacity = String(damageTimer * (reducedMotion ? 0.42 : 1.6));
 }
@@ -342,7 +322,6 @@ function frame(now) {
   const dt = lastFrame ? Math.min((now - lastFrame) / 1000, 0.05) : 0;
   lastFrame = now;
   if (!paused) {
-    time += dt;
     input.moveX = Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + touch.x;
     input.moveZ = Number(keys.has('KeyW')) - Number(keys.has('KeyS')) + touch.z;
     input.lookX += (Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft'))) * dt * 825;
@@ -352,7 +331,6 @@ function frame(now) {
     input.repair = keys.has('KeyE') || touch.repair;
     input.sprint = keys.has('ShiftLeft') || keys.has('ShiftRight');
     input.aim = rightButton;
-    recoil = Math.max(0, recoil - dt * 8);
     hitTimer = Math.max(0, hitTimer - dt);
     damageTimer = Math.max(0, damageTimer - dt);
     if (announcementTimer > 0) {
@@ -366,12 +344,12 @@ function frame(now) {
       reloadTap = false;
       touch.reload = false;
     }
+    const aiming = world.render(sim, dt, input, reducedMotion);
     input.lookX = 0;
     input.lookY = 0;
-    world.render(sim, dt, true, input.aim);
     drawHud();
     drawMarker();
-    drawWeapon(dt);
+    drawCombatFeedback(aiming);
     if (sim.phase === 'won' || sim.phase === 'lost') {
       finish();
       return;

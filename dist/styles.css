@@ -67,9 +67,6 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 #world,.game-vignette,.hud,.damage-flash{position:absolute;inset:0;width:100%;height:100%}
 #world{display:block;touch-action:none}
 .game-vignette{background:radial-gradient(ellipse at 50% 44%,transparent 46%,#10070962 100%);pointer-events:none}
-.weapon{position:absolute;right:-4%;bottom:-8%;width:min(50vw,900px);aspect-ratio:1.7778;pointer-events:none;transform-origin:70% 80%;will-change:transform;transition:opacity .15s;filter:drop-shadow(0 12px 28px #100607a0)}
-.weapon img{width:100%;height:100%;display:block;object-fit:contain;user-select:none}
-.muzzle{position:absolute;left:4.5%;top:10%;width:25%;aspect-ratio:1;opacity:0;border-radius:50%;mix-blend-mode:screen;background:radial-gradient(ellipse,#fffee6 0%,#fdf6a3 4%,#ffb052a6 16%,#f37f4d48 29%,transparent 63%);transform:translate(-50%,-50%);pointer-events:none}
 .damage-flash{opacity:0;background:radial-gradient(ellipse at center,transparent 28%,#df14163d 62%,#f62521bf 100%);pointer-events:none}
 .hud{pointer-events:none;font:500 11px/1.35 var(--mono);letter-spacing:.1em;text-shadow:0 2px 5px #080404d9;color:#fcf2df}
 .hud-label{display:flex;align-items:center;gap:8px;font:500 10px/1.35 var(--mono);letter-spacing:.12em;color:#f3e4d5;white-space:nowrap}
@@ -99,7 +96,7 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .field-hint span{width:3px;height:3px;border-radius:50%;background:var(--green)}
 .reticle,.hit-marker{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:30px;height:30px;filter:drop-shadow(0 1px 2px #000)}
 .reticle{--offset:4px;opacity:.86}
-.reticle.aim{--offset:7px}
+.reticle.aim{opacity:0}
 .reticle i,.reticle b{position:absolute;background:#f9f4d2}
 .reticle i:nth-child(-n+2){top:50%;height:1px;width:7px}
 .reticle i:nth-child(1){left:var(--offset)}
@@ -161,7 +158,6 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
   .wave-panel small{font-size:7px}
   .wave-panel strong span{font-size:17px}
   .hud-label svg{width:12px;height:12px}
-  .weapon{width:72vw;right:-9%;bottom:-3%}
   .field-hint{display:none}
 }
 @media(max-height:650px) and (min-width:721px){

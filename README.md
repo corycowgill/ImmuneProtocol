@@ -23,8 +23,8 @@ When mouse capture is unavailable, drag the view to look. On touchscreens, move 
 
 ## Artwork
 
-The built-in image generator produced three assets from these briefs.
+The built-in image generator produced the title artwork and tissue texture.
 
 - `dist/assets/hero.webp` depicts a photoreal artery at the scale of a nano-soldier, with backlit spiked pathogens, suspended blood cells, and a first-person carbine. The attached reference set the visual direction.
 - `dist/assets/tissue.webp` depicts close-packed burgundy collagen, micropores, and fine capillaries for the 3D chamber surfaces.
-- `dist/assets/weapon.webp` depicts a foreshortened nanomedic carbine and gloved hands in worn gunmetal, surgical polymer, and mint illumination on a transparent background.
+- `dist/carbine.mjs` builds the in-game carbine and armored gloves as a 3D model with physically based materials. The model animates in the player’s camera as they move, aim, fire, and reload.
