@@ -18,6 +18,10 @@ The Hallucinated Games studio intro plays before the main menu. Use Skip intro, 
 
 Your first Arterial Junction deployment begins with one guided breach. Shoot the bacillus off the tissue, move into repair range, and hold Repair until the wound seals. The rest of Wave 1 starts after the seal. The browser remembers completed training for later deployments.
 
+Choose **Start campaign** to play Arterial Junction, Capillary Junction, and Heart Valve in order. After the first two missions, equip **Fast Sealer** to restore 18 tissue points per pulse or **Deep Magazine** to carry 42 rounds before reloading. You can keep your pick or switch at the second checkpoint. A retry keeps the upgrade you brought into that mission. The final report shows tissue integrity for all three missions and the campaign totals for score and neutralized pathogens.
+
+Returning to the main menu ends the current run. Unlocked practice missions are available from the menu with standard equipment.
+
 ## Publish updates
 
 GitHub Pages serves the root of `gh-pages`. After committing game changes to `main`, publish the contents of `dist/` by running this command from `main`:

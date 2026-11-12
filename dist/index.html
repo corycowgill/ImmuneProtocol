@@ -57,15 +57,15 @@
           <h1>IMMUNE<span>PROTOCOL</span></h1>
           <p class="summary">Deploy inside a living body. Fight the infection and repair damaged tissue before the host flatlines.</p>
           <div class="menu-buttons">
-            <button id="deploy" class="button primary" type="button">Deploy soldier <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+            <button id="deploy" class="button primary" type="button">Start campaign <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
             <button id="manual" class="button outline" type="button"><svg aria-hidden="true"><use href="#book"></use></svg> Field manual</button>
           </div>
           <div class="mission-entry">
-            <button id="deploy-junction" class="button outline" type="button" aria-describedby="junction-status" disabled>Capillary Junction <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+            <button id="deploy-junction" class="button outline" type="button" aria-describedby="junction-status" disabled>Practice Capillary Junction <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
             <p id="junction-status">Clear all five waves to unlock.</p>
           </div>
           <div class="mission-entry">
-            <button id="deploy-heart" class="button outline" type="button" aria-describedby="heart-status" disabled>Heart Valve <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+            <button id="deploy-heart" class="button outline" type="button" aria-describedby="heart-status" disabled>Practice Heart Valve <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
             <p id="heart-status">Secure Capillary Junction to unlock.</p>
           </div>
           <p id="menu-error" class="menu-error" role="alert" hidden></p>
@@ -139,6 +139,7 @@
           <div class="hud-label" id="equipment-label">NEEDLE CARBINE</div>
           <strong id="ammo-value">30</strong><span id="reserve-value"> / 150</span>
           <div id="reload-state">FULL AUTO</div>
+          <div id="campaign-equipped" class="campaign-equipped" hidden></div>
         </div>
         <div id="field-hint" class="field-hint">WASD MOVE <span></span> R RELOAD <span></span> E REPAIR</div>
       </div>
@@ -157,6 +158,7 @@
       <p>Keep tissue and suit integrity above zero. Your carbine is resupplied between waves. Survive five waves to unlock Capillary Junction, where pathogens approach from the amber and teal inlets. Hold repair near the tissue node to restore it.</p>
       <p>Bacilli latch onto tissue and keep tearing it until you shoot them off.</p>
       <p>Clear Capillary Junction to unlock Heart Valve. Shoot the colony through the open valve. Seal the wound while the valve is closed.</p>
+      <p>In a campaign, choose a field upgrade after the first two missions. Your final report shows the tissue integrity you preserved in each chamber.</p>
       <dl class="controls-list">
         <div><dt>Move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dd></div>
         <div><dt>Look / Aim</dt><dd><kbd>Mouse</kbd><kbd>Right click</kbd></dd></div>
@@ -196,14 +198,39 @@
       <button id="settings-close" class="button primary full-button" type="button">Done <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
     </dialog>
 
-    <dialog id="result-dialog" class="panel">
+    <dialog id="result-dialog" class="panel" aria-labelledby="result-title">
       <p id="result-kicker" class="eyebrow"><span></span> MISSION REPORT</p>
       <h2 id="result-title">Host stabilized</h2>
       <p id="result-detail"></p>
-      <dl class="result-stats"><div><dt>Score</dt><dd id="result-score"></dd></div><div><dt>Neutralized</dt><dd id="result-kills"></dd></div><div><dt>Host tissue</dt><dd id="result-tissue"></dd></div></dl>
+      <dl id="result-stats" class="result-stats"><div><dt>Score</dt><dd id="result-score"></dd></div><div><dt>Neutralized</dt><dd id="result-kills"></dd></div><div id="result-tissue-stat"><dt>Host tissue</dt><dd id="result-tissue"></dd></div></dl>
+      <section id="campaign-reward" class="campaign-section" aria-labelledby="campaign-reward-title" hidden>
+        <div class="campaign-heading">
+          <h3 id="campaign-reward-title">Choose a field upgrade</h3>
+          <span id="campaign-progress" class="campaign-caption"></span>
+        </div>
+        <div class="campaign-choices">
+          <button class="campaign-choice" type="button" data-upgrade="fast-sealer" aria-pressed="false">
+            <strong>Fast Sealer</strong>
+            <span>Restores 18% tissue per pulse</span>
+          </button>
+          <button class="campaign-choice" type="button" data-upgrade="deep-magazine" aria-pressed="false">
+            <strong>Deep Magazine</strong>
+            <span>42 rounds per magazine</span>
+          </button>
+        </div>
+        <p id="campaign-upgrade-note" class="campaign-note" role="status"></p>
+      </section>
+      <section id="campaign-report" class="campaign-section" aria-labelledby="campaign-report-title" hidden>
+        <div class="campaign-heading">
+          <h3 id="campaign-report-title">Tissue across the campaign</h3>
+        </div>
+        <dl id="campaign-tissue-list" class="campaign-tissue-list"></dl>
+        <div class="campaign-total"><span>Average tissue preserved</span><strong id="campaign-average"></strong></div>
+      </section>
+      <p id="result-launch-error" role="alert" hidden></p>
       <button id="continue-junction" class="button primary full-button result-next" type="button" hidden>Enter Capillary Junction <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
       <button id="continue-heart" class="button primary full-button result-next" type="button" hidden>Enter Heart Valve <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-      <div class="dialog-buttons"><button id="replay" class="button primary" type="button">Redeploy <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button id="return-menu" class="button outline" type="button">Main menu</button></div>
+      <div class="dialog-buttons"><button id="replay" class="button primary" type="button"><span id="replay-label">Redeploy</span> <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button id="return-menu" class="button outline" type="button">Main menu</button></div>
     </dialog>
   </main>
   <script type="module" src="game.mjs"></script>
