@@ -264,8 +264,117 @@ function addVessel(group, material, coordinates, radius, tip = .3) {
   return addMesh(group, tubeGeometry(points, radius, tip), material);
 }
 
+function capillaryTunnel(side) {
+  const path = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(side * 12.3, 1.42, -15.6),
+    new THREE.Vector3(side * 15.6, 1.51, -18.9),
+    new THREE.Vector3(side * 18.6, 1.62, -23.6),
+    new THREE.Vector3(side * 23.7, 2.08, -27.7),
+    new THREE.Vector3(side * 28.8, 2.54, -28.3),
+  ]);
+  const crossSection = (along) => {
+    const center = path.getPointAt(along);
+    const tangent = path.getTangentAt(along);
+    const lateral = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
+    const flare = (1 - along) ** 2;
+    const width = 2.63 + 2.25 * flare;
+    const height = 2.33 + 1.74 * flare;
+    const folds = 1 + .077 * Math.cos(along * 63) + .045 * Math.sin(along * 93);
+    return (angle) => {
+      const shape = folds + .044 * Math.sin(angle * 7 + along * 15) + .055 * Math.cos(angle * 3 - along * 8);
+      const point = center.clone().addScaledVector(lateral, Math.cos(angle) * width * shape);
+      point.y += Math.sin(angle) * height * shape;
+      return point;
+    };
+  };
+  const angleAt = (t) => -.53 + t * (Math.PI + 1.06);
+  const geometry = new THREE.PlaneGeometry(1, 1, 44, 32);
+  const positions = geometry.attributes.position;
+  const uvs = geometry.attributes.uv;
+  const sections = Array.from({ length: 45 }, (_, i) => crossSection(i / 44));
+
+  for (let i = 0; i < positions.count; i++) {
+    const along = uvs.getX(i);
+    const point = sections[Math.round(along * 44)](angleAt(uvs.getY(i)));
+    positions.setXYZ(i, point.x, point.y, point.z);
+    uvs.setXY(i, along * 5.1, uvs.getY(i) * 3.35);
+  }
+  geometry.computeVertexNormals();
+  colorGeometry(geometry, (color, x, y, z) => {
+    const pigment = Math.cos(x * 1.24 + y * 1.11 - z * .76) * .09
+      + Math.sin(z * 1.64 + x * .31) * .07;
+    color.setRGB(.91 + pigment, .68 + pigment, .61 + pigment * .76);
+  });
+  const lips = [0, .13, .28].map((along, i) => {
+    const section = crossSection(along);
+    const points = Array.from({ length: 15 }, (_, j) => section(angleAt(j / 14)));
+    return tubeGeometry(points, .31 - i * .067, .63, 29, 9);
+  });
+  return { geometry, lips };
+}
+
+function makeJunction(scene, skin, glow) {
+  const junction = new THREE.Group();
+  scene.add(junction);
+  const lining = skin({
+    color: 0xe1bdb3, side: THREE.DoubleSide, vertexColors: true, roughness: .48,
+    clearcoat: .66, clearcoatRoughness: .37, normalScale: new THREE.Vector2(.9, .9),
+  });
+  const lip = skin({ color: 0xcd9587, roughness: .43, clearcoat: .61 });
+  const vein = skin({ color: 0xc16662, roughness: .41, clearcoat: .69 });
+  const veins = [];
+
+  const entrances = [
+    { side: -1, light: 0xffa258, haze: 0xffa66c },
+    { side: 1, light: 0x70d8d1, haze: 0x78d6d8 },
+  ];
+  for (const { side, light, haze } of entrances) {
+    const tunnel = capillaryTunnel(side);
+    addMesh(junction, tunnel.geometry, lining);
+    addMesh(junction, joinTubes(tunnel.lips), lip);
+    const points = (coordinates) => coordinates.map(([x, y, z]) => new THREE.Vector3(x * side, y, z));
+    veins.push(
+      tubeGeometry(points([[23, 0, 11], [22, 4.3, 6], [20, 6.2, 1], [17, 6.8, -6],
+        [13.4, 6.3, -12], [12.3, 5.4, -16.4], [13.8, 5.35, -20.6]]), .75, .38, 28, 10),
+      tubeGeometry(points([[17.5, 6.6, -4.9], [15.5, 6.5, -7.6], [12.8, 6.1, -10.2],
+        [10.1, 5.7, -13.2], [7.9, 3.9, -17.8]]), .39, .39, 21, 8),
+      tubeGeometry(points([[21, 0, -12], [19.3, 1.8, -12], [17.1, 3.1, -12.9],
+        [14.8, 4.43, -14.9], [13.4, 5.19, -16.4]]), .48, .45, 22, 8),
+      tubeGeometry(points([[9.3, .08, -17.1], [7.7, .21, -18.4], [5.7, .31, -19.6],
+        [3.7, .37, -21.7], [1.8, .57, -26.6]]), .39, .49, 18, 8),
+    );
+
+    const branchLight = new THREE.PointLight(light, 198, 26, 2);
+    branchLight.position.set(side * 16.8, 2.65, -20.7);
+    junction.add(branchLight);
+
+    const entranceHaze = sprite(glow, haze, 6.9, .43);
+    entranceHaze.position.set(side * 16.7, 2.4, -20.4);
+    entranceHaze.scale.y *= .87;
+    junction.add(entranceHaze);
+    const farHaze = sprite(glow, haze, 3.35, .64);
+    farHaze.position.set(side * 20.2, 2.75, -23.1);
+    farHaze.scale.y *= 1.28;
+    junction.add(farHaze);
+  }
+
+  veins.push(
+    tubeGeometry([[-10.8, 7.9, -17.4], [-5.8, 7.45, -20.9], [-1.1, 6.17, -22.7],
+      [2.7, 6.57, -22.1], [7.9, 7.58, -18.5], [15.1, 7.66, -15.6]].map((point) => new THREE.Vector3(...point)),
+    .91, .54, 24, 10),
+  );
+  addMesh(junction, joinTubes(veins), vein);
+
+  const ridge = addMesh(junction, texturedLobe(1, 28, 20, .12), lip,
+    new THREE.Vector3(.35, 9.4, -25.3), [5.4, 5.8, 4.4]);
+  ridge.rotation.set(.11, -.23, -.17);
+  return junction;
+}
+
 function makeRoom(scene, tile, normal, glow, random) {
   const surfaces = [];
+  const arteryDetails = new THREE.Group();
+  scene.add(arteryDetails);
   const skin = (options) => {
     const material = new THREE.MeshPhysicalMaterial({
       map: tile,
@@ -296,7 +405,7 @@ function makeRoom(scene, tile, normal, glow, random) {
     roofUv.setXY(i, x / 3.7, z / 3.7);
   }
   roof.computeVertexNormals();
-  addMesh(scene, roof, skin({ color: 0x9e6768, side: THREE.DoubleSide, roughness: .66 }));
+  const canopy = addMesh(scene, roof, skin({ color: 0x9e6768, side: THREE.DoubleSide, roughness: .66 }));
 
   const lobeMaterial = skin({ color: 0xeca5a3, roughness: .41, clearcoat: .55 });
   const vesselMaterial = skin({ color: 0xdb7f82, roughness: .36, clearcoat: .78 });
@@ -331,7 +440,7 @@ function makeRoom(scene, tile, normal, glow, random) {
     { points: [[-11, 2.2, 28], [-13, 6, 25], [-13, 9.1, 20], [-8, 13, 17], [2, 15, 18]], radius: .57 },
     { points: [[18, 1, 23], [14, 4.4, 24], [9, 7.2, 24], [6, 8.7, 28], [3, 9.4, 32]], radius: .48 },
   ];
-  for (const { points, radius } of branches) addVessel(scene, vesselMaterial, points, radius, .37);
+  for (const { points, radius } of branches) addVessel(arteryDetails, vesselMaterial, points, radius, .37);
 
   for (let i = 0; i < 44; i++) {
     const angle = random() * TAU;
@@ -384,16 +493,17 @@ function makeRoom(scene, tile, normal, glow, random) {
 
   const bulb = new THREE.PointLight(0xffb07c, 310, 34, 2);
   bulb.position.set(3.5, 3.8, -30.5);
-  scene.add(bulb);
+  arteryDetails.add(bulb);
   const backGlow = sprite(glow, 0xffae65, 18, .75);
   backGlow.position.set(3.4, 3.6, -32);
-  scene.add(backGlow);
+  arteryDetails.add(backGlow);
   const filament = sprite(glow, 0xffe5aa, 3.5, .82);
   filament.position.set(3.5, 3.8, -31.2);
   filament.scale.y *= 2.25;
-  scene.add(filament);
+  arteryDetails.add(filament);
 
-  return surfaces;
+  const junctionDetails = makeJunction(scene, skin, glow);
+  return { surfaces, arteryDetails, junctionDetails, canopy };
 }
 
 function makeAtmosphere(scene, glow, random) {
@@ -917,7 +1027,7 @@ const HEALTHY = new THREE.Color(0x53ffad);
 const INJURED = new THREE.Color(0xff3d1f);
 
 export class World {
-  constructor(canvas) {
+  constructor(canvas, area = 'artery') {
     this.canvas = canvas;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1004,7 +1114,9 @@ export class World {
     const anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     const tile = configureTile(fallbackTissue(), anisotropy, true);
     const normal = normalFromImage(tile.image, anisotropy);
-    const surfaces = makeRoom(this.scene, tile, normal, this.glow, this.random);
+    this.room = makeRoom(this.scene, tile, normal, this.glow, this.random);
+    this.areaLights = { backlight, warm, side };
+    this.setArea(area);
     this.atmosphere = makeAtmosphere(this.scene, this.glow, this.random);
     this.tissue = makeTissue(this.scene, this.glow, normal, this.random);
     this.templates = {
@@ -1015,7 +1127,7 @@ export class World {
     new THREE.TextureLoader().load(new URL('./assets/tissue.webp', import.meta.url).href, (asset) => {
       configureTile(asset, anisotropy, true);
       const normalMap = normalFromImage(asset.image, anisotropy);
-      for (const material of surfaces) {
+      for (const material of this.room.surfaces) {
         material.map = asset;
         material.normalMap = normalMap;
       }
@@ -1055,6 +1167,36 @@ export class World {
     });
     this.width = this.height = 0;
     this.resize();
+  }
+
+  setArea(area) {
+    const junction = area === 'junction';
+    this.area = junction ? 'junction' : 'artery';
+    const { arteryDetails, junctionDetails, canopy } = this.room;
+    arteryDetails.visible = !junction;
+    junctionDetails.visible = junction;
+    canopy.scale.y = junction ? .63 : 1;
+    this.scene.background.setHex(junction ? 0x1d1115 : 0x230f11);
+    this.scene.fog.color.setHex(junction ? 0x332528 : 0x462524);
+    this.scene.fog.density = junction ? .032 : .036;
+
+    const { backlight, warm, side } = this.areaLights;
+    backlight.color.setHex(junction ? 0xd2a79e : 0xffbd9e);
+    backlight.intensity = junction ? 1.13 : 1.4;
+    warm.intensity = junction ? 42 : 72;
+    side.visible = !junction;
+    this.updateEnemies([], 0);
+    for (const shot of this.shots) {
+      this.scene.remove(shot.line);
+      shot.line.geometry.dispose();
+    }
+    this.shots.length = 0;
+    this.particles.length = 0;
+    this.shotLight.intensity = 0;
+    this.lastEvents = null;
+    this.clock = 0;
+    this.camera.fov = 61;
+    this.camera.updateProjectionMatrix();
   }
 
   resize() {
