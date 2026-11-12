@@ -200,8 +200,9 @@ async function launch(area = 'artery') {
     paused = false;
     audio.setActive(true);
     syncMusic();
+    const mission = sim;
     Promise.resolve(unlocked).then(() => {
-      if (running && !paused) audio.play({ type: 'deploy' });
+      if (running && !paused && sim === mission && sim.clock < 1.25) audio.play({ type: 'deploy' });
     }).catch(() => {});
     if (junction) announce('CAPILLARY JUNCTION', 'WATCH BOTH INLETS', 2.8);
     else announce('WAVE 01', 'DEFEND THE TISSUE NODE', 3.1);
@@ -451,7 +452,7 @@ function drawBranches() {
 
 function applyEvents() {
   for (const event of sim.events) {
-    if (event.branch) {
+    if (event.type === 'branch' || event.type === 'damage' || event.type === 'hit' || event.type === 'kill') {
       const { x, z, yaw } = sim.player;
       const dx = event.x - x;
       const dz = event.z - z;
@@ -657,6 +658,7 @@ touchControls.querySelectorAll('[data-touch]').forEach(button => {
 });
 
 setMuted(muted);
+audio.preloadEffects();
 syncMusic();
 displayBest();
 displayJunctionAccess();
