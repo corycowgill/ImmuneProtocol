@@ -1,0 +1,10 @@
+{
+  "name": "immune-protocol",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "python -m http.server 8017 --bind 127.0.0.1 --directory dist",
+    "check": "node --check dist/game.mjs && node --check dist/world.mjs && node --check dist/simulation.mjs && node --check dist/audio.mjs"
+  }
+}

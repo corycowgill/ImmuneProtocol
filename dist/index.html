@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#120b0b">
+  <meta name="description" content="Deploy as a nano-soldier, fight five waves of infection, and repair the damaged tissue inside a living artery.">
+  <title>Immune Protocol</title>
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="preload" as="image" href="assets/hero.webp">
+  <link rel="modulepreload" href="world.mjs">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="emblem" viewBox="0 0 32 32"><path d="M16 2.5 28 9v14L16 29.5 4 23V9zM16 9v14M9 16h14" fill="none" stroke="currentColor" stroke-width="1.55"/><circle cx="16" cy="16" r="2" fill="currentColor"/></symbol>
+    <symbol id="sound" viewBox="0 0 24 24"><path d="M3 9h4l5-4v14l-5-4H3zM16 8a5.5 5.5 0 0 1 0 8m2-11a9 9 0 0 1 0 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="muted" viewBox="0 0 24 24"><path d="M3 9h4l5-4v14l-5-4H3zm13 0 5 6m0-6-5 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="arrow" viewBox="0 0 24 24"><path d="M3 12h17m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"/></symbol>
+    <symbol id="book" viewBox="0 0 24 24"><path d="M4 4h5c1.6 0 3 1.3 3 3v13c0-1.7-1.4-3-3-3H4zm16 0h-5c-1.6 0-3 1.3-3 3v13c0-1.7 1.4-3 3-3h5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+    <symbol id="pulse" viewBox="0 0 24 24"><path d="M2 12h5l3-7 4 14 3-7h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6zm-4 9 2.5 2.5L16 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v5m0 10v5M2 12h5m10 0h5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="pause-icon" viewBox="0 0 24 24"><path d="M9 5v14m6-14v14" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  </svg>
+
+  <main id="app">
+    <section id="menu" class="menu" aria-label="Main menu">
+      <div class="menu-art" aria-hidden="true"></div>
+      <div class="menu-shade" aria-hidden="true"></div>
+
+      <header class="menu-header">
+        <div class="brand">
+          <svg aria-hidden="true"><use href="#emblem"></use></svg>
+          <span>IMMUNE SYSTEMS<small>FIELD OPERATIONS</small></span>
+        </div>
+        <div class="header-actions">
+          <span class="online"><i></i> UPLINK ONLINE</span>
+          <button class="icon-button audio-button" type="button" data-mute aria-pressed="false" aria-label="Mute audio" title="Mute audio"><svg aria-hidden="true"><use href="#sound"></use></svg></button>
+        </div>
+      </header>
+
+      <div class="menu-main">
+        <div class="briefing">
+          <p class="eyebrow"><span></span> NANOMEDICAL COMBAT DIVISION</p>
+          <h1>IMMUNE<span>PROTOCOL</span></h1>
+          <p class="summary">Deploy inside a living artery. Fight the infection and repair damaged tissue before the host flatlines.</p>
+          <div class="menu-buttons">
+            <button id="deploy" class="button primary" type="button">Deploy soldier <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+            <button id="manual" class="button outline" type="button"><svg aria-hidden="true"><use href="#book"></use></svg> Field manual</button>
+          </div>
+          <p id="menu-error" class="menu-error" role="alert" hidden></p>
+        </div>
+        <div class="scene-caption" aria-hidden="true"><span></span> INFECTED ARTERIAL TISSUE</div>
+      </div>
+
+      <footer class="menu-footer" aria-label="Mission briefing">
+        <div class="brief-item"><svg aria-hidden="true"><use href="#target"></use></svg><div><small>INSERTION SITE</small><strong>Arterial Junction</strong></div></div>
+        <div class="brief-item"><svg aria-hidden="true"><use href="#pulse"></use></svg><div><small>THREAT FORECAST</small><strong>5 infection waves</strong></div></div>
+        <div class="brief-item"><svg aria-hidden="true"><use href="#shield"></use></svg><div><small>PRIMARY DIRECTIVE</small><strong>Preserve the host</strong></div></div>
+        <span id="high-score" class="high-score" hidden></span>
+      </footer>
+    </section>
+
+    <section id="game" class="game" aria-label="Game" hidden>
+      <canvas id="world" aria-label="First-person view inside the artery"></canvas>
+      <div class="game-vignette" aria-hidden="true"></div>
+      <div id="weapon" class="weapon" aria-hidden="true"><img src="assets/weapon.webp" alt="" draggable="false"><div id="muzzle" class="muzzle"></div></div>
+      <div id="damage-flash" class="damage-flash" aria-hidden="true"></div>
+
+      <div class="hud">
+        <div class="host-panel">
+          <div class="hud-label"><svg aria-hidden="true"><use href="#pulse"></use></svg> HOST TISSUE <strong id="tissue-value">100%</strong></div>
+          <div class="meter" role="meter" id="tissue-meter" aria-label="Host tissue integrity" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="tissue-fill"></div></div>
+          <div id="host-state" class="host-state">VITALS STABLE</div>
+        </div>
+        <div class="wave-panel"><span class="hud-label">INFECTION WAVE</span><strong id="wave-value">01 <span>/ 05</span></strong><small id="threats">THREATS INBOUND</small></div>
+        <div class="game-actions">
+          <button class="icon-button audio-button" type="button" data-mute aria-pressed="false" aria-label="Mute audio" title="Mute audio"><svg aria-hidden="true"><use href="#sound"></use></svg></button>
+          <button id="pause" class="icon-button" type="button" aria-label="Pause game" title="Pause game"><svg aria-hidden="true"><use href="#pause-icon"></use></svg></button>
+        </div>
+        <div id="objective-marker" class="objective-marker" aria-hidden="true" hidden><span></span><strong id="marker-label">TISSUE NODE</strong><small id="marker-distance"></small></div>
+        <div id="reticle" class="reticle" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>
+        <div id="hit-marker" class="hit-marker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <div id="game-alert" class="game-alert" aria-live="polite"></div>
+        <div id="action-prompt" class="action-prompt" hidden><span id="prompt-text"></span><div id="repair-meter" class="meter" hidden><div id="repair-fill"></div></div></div>
+        <div class="player-panel">
+          <div class="hud-label"><svg aria-hidden="true"><use href="#shield"></use></svg> SUIT INTEGRITY</div>
+          <strong id="health-value">100</strong>
+          <div class="meter" id="health-meter" role="meter" aria-label="Suit integrity" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="health-fill"></div></div>
+        </div>
+        <div class="ammo-panel">
+          <div class="hud-label">NEEDLE CARBINE</div>
+          <strong id="ammo-value">30</strong><span id="reserve-value"> / 150</span>
+          <div id="reload-state">FULL AUTO</div>
+        </div>
+        <div id="field-hint" class="field-hint">WASD MOVE <span></span> R RELOAD <span></span> E REPAIR</div>
+      </div>
+      <div id="touch-controls" class="touch-controls" hidden>
+        <div id="joystick" class="joystick" aria-label="Movement joystick"><div></div></div>
+        <div class="touch-actions">
+          <button type="button" data-touch="reload">Reload</button><button type="button" data-touch="repair">Repair</button><button type="button" data-touch="fire" class="touch-fire">Fire</button>
+        </div>
+      </div>
+    </section>
+
+    <dialog id="manual-dialog" class="panel">
+      <button class="icon-button close-dialog" data-close="manual-dialog" type="button" aria-label="Close field manual"><svg aria-hidden="true"><use href="#close"></use></svg></button>
+      <p class="eyebrow"><span></span> OPERATIONS BRIEF</p>
+      <h2>Field manual</h2>
+      <p>Keep the host tissue and your suit above zero through five waves. Follow the tissue marker and hold repair near the node to restore it. Between waves, your carbine is resupplied.</p>
+      <dl class="controls-list">
+        <div><dt>Move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dd></div>
+        <div><dt>Look / Aim</dt><dd><kbd>Mouse</kbd><kbd>Right click</kbd></dd></div>
+        <div><dt>Fire</dt><dd><kbd>Left click</kbd></dd></div>
+        <div><dt>Sprint</dt><dd><kbd>Shift</kbd></dd></div>
+        <div><dt>Reload</dt><dd><kbd>R</kbd></dd></div>
+        <div><dt>Repair tissue</dt><dd><kbd>Hold E</kbd></dd></div>
+        <div><dt>Pause</dt><dd><kbd>Esc</kbd><kbd>P</kbd></dd></div>
+      </dl>
+      <p id="touch-manual" hidden>On touchscreens, use the joystick to move and drag the view to look. Use the on-screen buttons to fire, reload, or hold repair.</p>
+      <button class="button primary full-button" data-close="manual-dialog" type="button">Return to briefing <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+    </dialog>
+
+    <dialog id="pause-dialog" class="panel">
+      <p class="eyebrow"><span></span> UPLINK SUSPENDED</p>
+      <h2>Mission paused</h2>
+      <p id="pause-detail">Resume when you're ready to re-enter the artery.</p>
+      <div class="dialog-buttons"><button id="resume" class="button primary" type="button">Resume <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button id="quit" class="button outline" type="button">Main menu</button></div>
+    </dialog>
+
+    <dialog id="result-dialog" class="panel">
+      <p id="result-kicker" class="eyebrow"><span></span> MISSION REPORT</p>
+      <h2 id="result-title">Host stabilized</h2>
+      <p id="result-detail"></p>
+      <dl class="result-stats"><div><dt>Score</dt><dd id="result-score"></dd></div><div><dt>Neutralized</dt><dd id="result-kills"></dd></div><div><dt>Host tissue</dt><dd id="result-tissue"></dd></div></dl>
+      <div class="dialog-buttons"><button id="replay" class="button primary" type="button">Redeploy <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button id="return-menu" class="button outline" type="button">Main menu</button></div>
+    </dialog>
+  </main>
+  <script type="module" src="game.mjs"></script>
+</body>
+</html>
