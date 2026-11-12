@@ -1,3 +1,8 @@
+const MUSIC_CUES = [
+  { mode: 'drift', file: 'arterial-drift.mp3', volume: 0.36 },
+  { mode: 'combat', file: 'immune-response.mp3', volume: 0.43 },
+];
+
 export class GameAudio {
   constructor() {
     this.context = null;
@@ -5,6 +10,9 @@ export class GameAudio {
     this.active = false;
     this.heartbeat = null;
     this.repairVoice = null;
+    this.musicMode = 'drift';
+    this.musicTracks = null;
+    this.musicLoading = null;
     this.damageAt = { player: -Infinity, tissue: -Infinity };
     this.branchAt = { left: -Infinity, right: -Infinity };
   }
@@ -58,16 +66,60 @@ export class GameAudio {
     }
 
     try {
-      if (this.context.state === 'suspended') await this.context.resume();
+      if (this.context.state !== 'running') await this.context.resume();
     } catch {
       return;
     }
     this.setActive(this.active);
+    this.loadMusic();
   }
 
   setMuted(muted) {
     this.muted = muted;
     if (this.context) this.master.gain.setTargetAtTime(muted ? 0 : 0.65, this.context.currentTime, 0.03);
+  }
+
+  loadMusic() {
+    if (this.muted || this.musicTracks || this.musicLoading) return;
+    const context = this.context;
+    this.musicLoading = Promise.all(MUSIC_CUES.map(async ({ file }) => {
+      const response = await fetch(new URL(`./assets/music/${file}`, import.meta.url));
+      if (!response.ok) throw new Error(`Could not load soundtrack cue ${file}`);
+      return context.decodeAudioData(await response.arrayBuffer());
+    })).then(buffers => {
+      // Start both arrangements on the same beat and keep them in sync through fades.
+      const start = context.currentTime + 0.04;
+      this.musicTracks = MUSIC_CUES.map(({ mode, volume }, i) => {
+        const gain = context.createGain();
+        gain.gain.value = 0;
+        const source = context.createBufferSource();
+        source.buffer = buffers[i];
+        source.loop = true;
+        source.connect(gain);
+        gain.connect(this.master);
+        source.start(start);
+        return { mode, volume, gain };
+      });
+      this.fadeMusic();
+    }).catch(() => {
+      // A failed soundtrack download should leave the game and its sound effects playable.
+    }).finally(() => {
+      this.musicLoading = null;
+    });
+  }
+
+  setMusic(mode) {
+    if (this.musicMode === mode) return;
+    this.musicMode = mode;
+    this.fadeMusic();
+  }
+
+  fadeMusic() {
+    if (!this.musicTracks) return;
+    const now = this.context.currentTime;
+    for (const { mode, volume, gain } of this.musicTracks) {
+      gain.gain.setTargetAtTime(mode === this.musicMode ? volume : 0, now, 0.23);
+    }
   }
 
   setActive(active) {
