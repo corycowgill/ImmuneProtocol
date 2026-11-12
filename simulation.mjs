@@ -57,6 +57,10 @@ export class Simulation {
     this.reset();
   }
 
+  get reloadProgress() {
+    return this.reloading > 0 ? 1 - this.reloading / RELOAD_TIME : 0;
+  }
+
   reset() {
     this.player = {
       x: 0, y: 1.7, z: 18, yaw: 0, pitch: 0,
