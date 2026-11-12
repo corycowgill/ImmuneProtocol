@@ -105,6 +105,15 @@ function setMuted(value) {
   });
 }
 
+function syncMusic() {
+  let mode = 'silent';
+  if (!paused && !document.hidden) {
+    if (running && sim.phase === 'combat') mode = 'combat';
+    else if (!menu.hidden || (running && sim.phase === 'intermission')) mode = 'drift';
+  }
+  audio.setMusic(mode);
+}
+
 function displayBest() {
   const best = byId('high-score');
   best.hidden = bestScore === 0;
@@ -190,6 +199,7 @@ async function launch(area = 'artery') {
     running = true;
     paused = false;
     audio.setActive(true);
+    syncMusic();
     Promise.resolve(unlocked).then(() => {
       if (running && !paused) audio.play({ type: 'deploy' });
     }).catch(() => {});
@@ -203,6 +213,7 @@ async function launch(area = 'artery') {
     releaseMouse();
     game.hidden = true;
     menu.hidden = false;
+    syncMusic();
     const message = byId('menu-error');
     message.textContent = 'Could not initialize 3D graphics. Try a browser with WebGL 2 and hardware acceleration enabled.';
     message.hidden = false;
@@ -220,6 +231,7 @@ function pause() {
   animation = 0;
   clearControls();
   audio.setActive(false);
+  syncMusic();
   releaseMouse();
   byId('pause-detail').textContent = isTouch
     ? 'Resume when you’re ready to return to the fight.'
@@ -235,6 +247,7 @@ function resume() {
   clearControls();
   audio.unlock().catch(() => {});
   audio.setActive(true);
+  syncMusic();
   requestMouse();
   animation = requestAnimationFrame(frame);
 }
@@ -250,6 +263,7 @@ function mainMenu() {
   resultDialog.close();
   game.hidden = true;
   menu.hidden = false;
+  syncMusic();
   displayBest();
   displayJunctionAccess();
   deploy.focus();
@@ -260,6 +274,7 @@ function finish() {
   clearControls();
   releaseMouse();
   audio.setActive(false);
+  syncMusic();
   const won = sim.phase === 'won';
   const junction = sim.area === 'junction';
   const canContinue = won && !junction;
@@ -497,7 +512,9 @@ function frame(now) {
       if (announcementTimer <= 0) alertBox.replaceChildren();
     }
     if (dt > 0) {
+      const phase = sim.phase;
       sim.step(dt, input);
+      if (sim.phase !== phase) syncMusic();
       applyEvents();
       fireTap = false;
       reloadTap = false;
@@ -522,7 +539,13 @@ function frame(now) {
 byId('manual').addEventListener('click', () => manual.showModal());
 byId('touch-manual').hidden = !isTouch;
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => byId(button.dataset.close).close()));
-document.querySelectorAll('[data-mute]').forEach(button => button.addEventListener('click', () => setMuted(!muted)));
+menu.addEventListener('click', () => {
+  if (!loading) audio.unlock().catch(() => {});
+}, { once: true });
+document.querySelectorAll('[data-mute]').forEach(button => button.addEventListener('click', () => {
+  setMuted(!muted);
+  if (!muted) audio.unlock().catch(() => {});
+}));
 deploy.addEventListener('click', () => launch());
 junctionDeploy.addEventListener('click', () => launch('junction'));
 continueJunction.addEventListener('click', () => launch('junction'));
@@ -539,7 +562,10 @@ document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   if (wasLocked && !locked && running && !paused) pause();
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pause();
+  syncMusic();
+});
 window.addEventListener('blur', () => { if (running) pause(); });
 window.addEventListener('keydown', event => {
   if (!running || paused || !controlKeys.has(event.code)) return;
@@ -631,5 +657,6 @@ touchControls.querySelectorAll('[data-touch]').forEach(button => {
 });
 
 setMuted(muted);
+syncMusic();
 displayBest();
 displayJunctionAccess();

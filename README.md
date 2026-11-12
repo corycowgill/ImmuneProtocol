@@ -39,6 +39,8 @@ git subtree push --prefix=dist origin gh-pages
 
 When mouse capture is unavailable, drag the view to look. On touchscreens, move with the joystick, drag to look, and use the action buttons.
 
+The original soundtrack fades between **Arterial Drift** in the menu and between waves, and **Immune Response** during combat. It starts after you interact with the game. The speaker button mutes both the soundtrack and sound effects.
+
 ## Architecture
 
 The game runs entirely in the browser. On each animation frame, the browser controller collects input and advances the simulation with the elapsed time, capped at 50 ms. The renderer reads the resulting state to move objects and draw effects. The controller also updates the HUD and plays audio cues from simulation events.
@@ -61,7 +63,7 @@ flowchart LR
 | [`dist/simulation.mjs`](dist/simulation.mjs) | Movement, shooting, enemy targeting, wave progression, health, scoring, and tissue repair. It runs independently of the DOM and Three.js. |
 | [`dist/world.mjs`](dist/world.mjs) | Arena geometry, lighting, atmosphere, enemies, and effects. Both missions share the renderer and switch anatomy and lighting when the area changes. |
 | [`dist/carbine.mjs`](dist/carbine.mjs) | The 3D carbine and armored gloves, including the articulated magazine, bolt, and hand poses. |
-| [`dist/audio.mjs`](dist/audio.mjs) | Synthesized weapon, pathogen, and repair sounds. Junction cues pan toward the active branch relative to the player’s view. |
+| [`dist/audio.mjs`](dist/audio.mjs) | Synthesized weapon, pathogen, and repair sounds, plus two synchronized [soundtrack loops](dist/assets/music). Junction cues pan toward the active branch relative to the player’s view. |
 
 ## How it was built
 
