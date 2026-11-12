@@ -1,10 +1,16 @@
 # Immune Protocol
 
-A first-person nano-soldier defense game set inside a living artery. Survive five escalating waves of viruses, bacilli, and spores while protecting the tissue node. Repair the node between waves and keep the host alive.
+A browser FPS about a nano-soldier injected into a patient. Fight five waves of viruses, bacilli, and spores in the Arterial Junction, and repair the tissue node to keep the host alive. Surviving the artery unlocks the Capillary Junction, where pathogens attack from two branches.
 
 ## Run locally
 
-From this directory, run `npm run dev` and open [http://127.0.0.1:8017](http://127.0.0.1:8017) in a browser with WebGL 2. The server uses Python 3. No npm install is needed. The complete static game lives in `dist/`.
+You’ll need Node.js with npm, Python 3 on your `PATH` as `python`, and a browser that supports WebGL 2. From the repository root:
+
+```sh
+npm run dev
+```
+
+Open [http://127.0.0.1:8017](http://127.0.0.1:8017). The command serves `dist/` with Python’s static file server. Three.js and the game assets are included, so there’s no dependency install or build step. For a deployment, serve `dist/` from a static host. Run `npm run check` to check the five game modules for JavaScript syntax errors. A recorded demo is available at [/demo/](http://127.0.0.1:8017/demo/) while the local server is running.
 
 ## Controls
 
@@ -21,10 +27,32 @@ From this directory, run `npm run dev` and open [http://127.0.0.1:8017](http://1
 
 When mouse capture is unavailable, drag the view to look. On touchscreens, move with the joystick, drag to look, and use the action buttons.
 
-## Artwork
+## Architecture
 
-The built-in image generator produced the title artwork and tissue texture.
+The game runs entirely in the browser. On each animation frame, the browser controller collects input and advances the simulation with the elapsed time, capped at 50 ms. The renderer reads the resulting state to move objects and draw effects. The controller also updates the HUD and plays audio cues from simulation events.
 
-- `dist/assets/hero.webp` depicts a photoreal artery at the scale of a nano-soldier, with backlit spiked pathogens, suspended blood cells, and a first-person carbine. The attached reference set the visual direction.
-- `dist/assets/tissue.webp` depicts close-packed burgundy collagen, micropores, and fine capillaries for the 3D chamber surfaces.
-- `dist/carbine.mjs` builds the in-game carbine and armored gloves as a 3D model with physically based materials. The model animates in the player’s camera as they move, aim, fire, and reload.
+```mermaid
+flowchart LR
+    Input["Keyboard, mouse, touch"] --> Game["game.mjs · browser controller"]
+    Game -->|input and elapsed time| Sim["simulation.mjs · gameplay rules"]
+    Sim -->|state and events| Game
+    Game -->|state and events| World["world.mjs · Three.js renderer"]
+    Game --> HUD["HTML menus and HUD"]
+    Game -->|audio cues| Audio["audio.mjs · Web Audio"]
+    World --> Canvas["WebGL 2 canvas"]
+```
+
+| File | Responsibility |
+| --- | --- |
+| [`dist/index.html`](dist/index.html), [`dist/styles.css`](dist/styles.css) | Menus, HUD, canvas, and touch controls. |
+| [`dist/game.mjs`](dist/game.mjs) | Input, mouse capture, frame timing, and screen transitions. Browser storage remembers the Junction unlock, best score, and mute setting. |
+| [`dist/simulation.mjs`](dist/simulation.mjs) | Movement, shooting, enemy targeting, wave progression, health, scoring, and tissue repair. It runs independently of the DOM and Three.js. |
+| [`dist/world.mjs`](dist/world.mjs) | Arena geometry, lighting, atmosphere, enemies, and effects. Both missions share the renderer and switch anatomy and lighting when the area changes. |
+| [`dist/carbine.mjs`](dist/carbine.mjs) | The 3D carbine and armored gloves, including the articulated magazine, bolt, and hand poses. |
+| [`dist/audio.mjs`](dist/audio.mjs) | Synthesized weapon, pathogen, and repair sounds. Junction cues pan toward the active branch relative to the player’s view. |
+
+## How it was built
+
+The artery is a real-time 3D scene. Code builds the vessel branches, membrane folds, drifting blood cells, and pathogens. The generated [tissue texture](dist/assets/tissue.webp) supplies surface color and is used to derive fine relief. Fog, wet material highlights, and particles give the chamber depth. Repeated geometry such as blood cells is instanced to keep the number of draw calls down.
+
+The carbine and gloves are built from 3D meshes with physically based materials. The renderer draws the arena first, clears the depth buffer, and draws the weapon in a separately lit scene. This keeps the foreground model visible near walls while letting it sway, aim, recoil, and reload. The generated [title artwork](dist/assets/hero.webp) appears on the menu.
