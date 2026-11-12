@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import { createCarbine } from './carbine.mjs';
 import { createRepairTool } from './repair-tool.mjs';
+import { createHeartValve, createValveColony } from './heart-valve.mjs';
 
 const TAU = Math.PI * 2;
 const TISSUE = new THREE.Vector3(0, 1.25, -8);
@@ -1099,7 +1100,7 @@ function reflectionTexture() {
 }
 
 const MAX_PARTICLES = 288;
-const SPECIES_COLORS = { virus: 0xff6d4a, bacillus: 0xffd078, spore: 0xf384ff };
+const SPECIES_COLORS = { virus: 0xff6d4a, bacillus: 0xffd078, spore: 0xf384ff, colony: 0xffb572 };
 const HEALTHY = new THREE.Color(0xffc6ad);
 const INJURED = new THREE.Color(0xff795d);
 const REPAIR_LIGHT = new THREE.Color(0x9bf4c4);
@@ -1196,7 +1197,6 @@ export class World {
     const normal = normalFromImage(tile.image, anisotropy);
     this.room = makeRoom(this.scene, tile, normal, this.glow, this.random);
     this.areaLights = { backlight, warm, side };
-    this.setArea(area);
     this.atmosphere = makeAtmosphere(this.scene, this.glow, this.random);
     this.tissue = makeTissue(this.scene, this.glow, normal, this.random);
     this.toolStream = addMesh(this.scene, new THREE.CylinderGeometry(.014, .005, 1, 9, 1, true),
@@ -1220,6 +1220,11 @@ export class World {
       virus: virusModel(normal),
       bacillus: bacillusModel(normal),
       spore: sporeModel(normal),
+    };
+    this.makeHeart = () => {
+      const maps = membraneMaps(26701, [238, 181, 170]);
+      this.templates.colony = createValveColony(maps, texturedLobe(1, 26, 17, .27), randomSource(8209));
+      return createHeartValve(this.scene, maps, redCellGeometry(), randomSource(9468));
     };
     new THREE.TextureLoader().load(new URL('./assets/tissue.webp', import.meta.url).href, (asset) => {
       configureTile(asset, anisotropy, true);
@@ -1263,25 +1268,29 @@ export class World {
       blending: THREE.AdditiveBlending,
     });
     this.width = this.height = 0;
+    this.setArea(area);
     this.setQuality('high');
   }
 
   setArea(area) {
     const junction = area === 'junction';
-    this.area = junction ? 'junction' : 'artery';
+    const heart = area === 'heart';
+    this.area = heart ? 'heart' : junction ? 'junction' : 'artery';
     const { arteryDetails, junctionDetails, canopy } = this.room;
-    arteryDetails.visible = !junction;
+    arteryDetails.visible = !junction && !heart;
     junctionDetails.visible = junction;
-    canopy.scale.y = junction ? .63 : 1;
-    this.scene.background.setHex(junction ? 0x1d1115 : 0x230f11);
-    this.scene.fog.color.setHex(junction ? 0x332528 : 0x462524);
-    this.scene.fog.density = junction ? .032 : .036;
+    if (heart && !this.heart) this.heart = this.makeHeart();
+    if (this.heart) this.heart.group.visible = heart;
+    canopy.scale.y = heart ? .54 : junction ? .63 : 1;
+    this.scene.background.setHex(heart ? 0x26181f : junction ? 0x1d1115 : 0x230f11);
+    this.scene.fog.color.setHex(heart ? 0x3c2228 : junction ? 0x332528 : 0x462524);
+    this.scene.fog.density = heart ? .026 : junction ? .032 : .036;
 
     const { backlight, warm, side } = this.areaLights;
-    backlight.color.setHex(junction ? 0xd2a79e : 0xffbd9e);
-    backlight.intensity = junction ? 1.13 : 1.4;
-    warm.intensity = junction ? 42 : 72;
-    side.visible = !junction;
+    backlight.color.setHex(heart ? 0xeab5b9 : junction ? 0xd2a79e : 0xffbd9e);
+    backlight.intensity = heart ? .89 : junction ? 1.13 : 1.4;
+    warm.intensity = heart ? 47 : junction ? 42 : 72;
+    side.visible = !junction && !heart;
     this.updateEnemies([], 0);
     for (const shot of this.shots) {
       this.scene.remove(shot.line);
@@ -1387,7 +1396,7 @@ export class World {
     fiber.emissiveIntensity = .033 + beat * .022 + (healing ? .13 : 0);
   }
 
-  updateEnemies(enemies, dt) {
+  updateEnemies(enemies, dt, reduceMotion = false) {
     for (const view of this.enemyViews.values()) view.present = false;
     for (const enemy of enemies) {
       let view = this.enemyViews.get(enemy.id);
@@ -1402,6 +1411,13 @@ export class World {
       }
       view.present = true;
       view.model.position.set(enemy.x, enemy.y, enemy.z);
+      if (enemy.type === 'colony') {
+        view.hit = Math.max(0, view.hit - dt * 7);
+        const throb = reduceMotion ? 0 : Math.sin(this.clock * 3.1) * .025;
+        view.model.scale.set(1 + throb + view.hit * .07, 1 - throb - view.hit * .06, 1);
+        view.shadow.visible = false;
+        continue;
+      }
       const angle = view.phase + this.clock * (enemy.type === 'virus' ? .64 : .9);
       view.model.rotation.set(Math.sin(angle * .74) * .24, angle, Math.sin(angle * .66) * .22);
       view.strike = Math.max(0, view.strike - dt);
@@ -1627,6 +1643,9 @@ export class World {
           this.burst(THREE.MathUtils.lerp(TISSUE.x, event.x, .58), 1.28,
             THREE.MathUtils.lerp(TISSUE.z, event.z, .58), 0xf37337, 14, 2.4);
         }
+        if (event.type === 'valve' && event.stage === 'blocked') {
+          this.burst(event.x, event.y, event.z + .16, 0xdb806d, 7, 1.7);
+        }
       }
     }
     let count = 0;
@@ -1656,8 +1675,9 @@ export class World {
     }
     this.camera.updateMatrixWorld();
     this.updateAtmosphere(dt);
+    if (sim.valve) this.heart.update(sim.valve, dt, reduceMotion, this.quality === 'low');
     this.updateTissue(sim, dt, reduceMotion);
-    this.updateEnemies(sim.enemies, dt);
+    this.updateEnemies(sim.enemies, dt, reduceMotion);
     this.updateWeapon(sim, dt, input, aiming, reduceMotion);
     this.processEvents(sim.events, dt);
     this.updateParticles(dt);

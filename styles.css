@@ -73,7 +73,7 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .setting-row :is(input,select):focus-visible{outline:2px solid var(--green);outline-offset:3px}
 .full-button{width:100%;justify-content:space-between}
 .result-next{margin-top:20px}
-.result-next:not([hidden])+.dialog-buttons{margin-top:12px}
+.result-next:not([hidden])~.dialog-buttons{margin-top:12px}
 .result-stats{display:grid;grid-template-columns:repeat(3,1fr);border-block:1px solid var(--line);margin:19px 0 0;padding:14px 0;gap:7px}
 .result-stats dt{font:500 9px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .result-stats dd{font:800 37px/1 var(--display);color:var(--green);margin:4px 0 0}
@@ -104,6 +104,13 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .wave-panel strong span{font-size:24px;color:#efdfc8}
 .wave-panel small{font-size:9px;white-space:nowrap}
 .game[data-area="junction"] .wave-panel>strong{font-size:31px;letter-spacing:.06em}
+.game[data-area="heart"] .wave-panel{min-width:155px}
+.game[data-area="heart"] .wave-panel>strong{font-size:32px;letter-spacing:.06em;color:#ffc19d}
+.game[data-area="heart"][data-valve="exposed"] .wave-panel>strong{color:var(--green)}
+.valve-readout{margin-top:6px;color:#f1daca;font-size:8px;letter-spacing:.08em;white-space:nowrap}
+.valve-readout .meter{height:3px;margin-bottom:5px}
+.valve-readout .meter>div{background:#ffc19d;box-shadow:none;transition:none}
+.game[data-valve="exposed"] .valve-readout .meter>div{background:var(--green)}
 .branch-readout{display:flex;justify-content:center;gap:5px;margin-top:7px;white-space:nowrap;font-size:8px;letter-spacing:.06em}
 .branch-readout>span{border:1px solid var(--branch);padding:3px 5px;color:var(--branch);background:#171414cc;opacity:.6}
 .branch-readout>span.active{opacity:1}
@@ -200,6 +207,8 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
   .wave-panel small{font-size:7px}
   .wave-panel strong span{font-size:17px}
   .game[data-area="junction"] .wave-panel>strong{font-size:24px}
+  .game[data-area="heart"] .wave-panel{min-width:105px;padding-inline:6px}
+  .game[data-area="heart"] .wave-panel>strong{font-size:25px}
   .mission-guidance{top:max(103px,23%)}
   .mission-guidance:has(.training-hint:not([hidden])){top:max(103px,16%)}
   .branch-readout{gap:3px;font-size:7px}
@@ -217,8 +226,8 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 }
 @media(max-width:480px){
   .online{display:none}
-  .game[data-area="junction"] .wave-panel{top:74px;padding:3px 9px 12px}
-  .game[data-area="junction"] .mission-guidance{top:max(24%,169px)}
+  .game:is([data-area="junction"],[data-area="heart"]) .wave-panel{top:74px;padding:3px 9px 12px}
+  .game:is([data-area="junction"],[data-area="heart"]) .mission-guidance{top:max(24%,169px)}
 }
 @media(pointer:coarse){.field-hint{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
