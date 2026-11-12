@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#100e10">
+  <title>Immune Protocol | Gameplay Demo</title>
+  <style>
+    @font-face {
+      font-family: "Barlow Condensed";
+      src: url("../vendor/barlow-condensed.woff2") format("woff2");
+      font-weight: 600 800;
+      font-display: swap;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(ellipse at 60% 0%, #271719, #100e10 60%);
+      color: #f1efeb;
+      font: 1rem/1.45 system-ui, sans-serif;
+    }
+    main { width: min(1120px, 100%); margin: auto; padding: clamp(1rem, 4vw, 3rem); }
+    a { color: #c3f58c; text-underline-offset: .24em; }
+    a:focus-visible { outline: 2px solid #c3f58c; outline-offset: 5px; }
+    header { margin: 1.2rem 0 1.5rem; }
+    h1 {
+      font: 700 clamp(2.65rem, 7vw, 5rem)/.94 "Barlow Condensed", "Arial Narrow", sans-serif;
+      margin: 0 0 .4rem;
+    }
+    p { margin: 0; color: #d0c8c9; }
+    video {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #080708;
+      border: 1px solid #553a3e;
+      border-radius: .5rem;
+    }
+    footer { margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <nav aria-label="Game"><a href="../">Back to game</a></nav>
+    <header>
+      <h1>Immune Protocol</h1>
+      <p>Gameplay demo · 1:00</p>
+    </header>
+    <video controls playsinline preload="metadata" poster="./poster.jpg" aria-label="One-minute Immune Protocol gameplay demo">
+      <source src="./immune-protocol-demo.mp4" type="video/mp4">
+      <a href="./immune-protocol-demo.mp4">Open the demo video</a>
+    </video>
+    <footer><a href="./immune-protocol-demo.mp4" download>Download MP4</a></footer>
+  </main>
+</body>
+</html>
