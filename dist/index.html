@@ -91,6 +91,7 @@
           <div class="hud-label"><svg aria-hidden="true"><use href="#pulse"></use></svg> HOST TISSUE <strong id="tissue-value">100%</strong></div>
           <div class="meter" role="meter" id="tissue-meter" aria-label="Host tissue integrity" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="tissue-fill"></div></div>
           <div id="host-state" class="host-state" role="status">VITALS STABLE</div>
+          <div id="gash-status" class="gash-status" role="status" hidden></div>
         </div>
         <div class="wave-panel">
           <span class="hud-label" id="wave-mode">INFECTION WAVE</span>
@@ -100,6 +101,8 @@
             <span id="branch-left" data-branch="left">AMBER 0</span>
             <span id="branch-right" data-branch="right">TEAL 0</span>
           </div>
+          <div id="junction-wave-name" class="junction-wave-name" hidden></div>
+          <div id="junction-forecast" class="junction-forecast" role="status" hidden></div>
           <div id="valve-readout" class="valve-readout" hidden>
             <div class="meter" aria-hidden="true"><div id="valve-fill"></div></div>
             <span id="colony-status">COLONY INTACT</span>
@@ -114,6 +117,11 @@
           <svg id="objective-edge-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 9l5-5 5 5M8 4v9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <strong id="objective-edge-label">TISSUE</strong>
         </div>
+        <div id="gash-marker" class="objective-marker gash-marker" aria-hidden="true" hidden><span></span><strong id="gash-label">OPEN GASH</strong><small id="gash-distance"></small></div>
+        <div id="gash-edge" class="objective-edge gash-edge" aria-hidden="true" hidden>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 9l5-5 5 5M8 4v9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <strong id="gash-edge-label">OPEN GASH</strong>
+        </div>
         <div id="inlet-left" class="inlet-marker" data-branch="left" aria-hidden="true" hidden>AMBER INLET</div>
         <div id="inlet-right" class="inlet-marker" data-branch="right" aria-hidden="true" hidden>TEAL INLET</div>
         <div id="tissue-attackers" aria-hidden="true"></div>
@@ -126,6 +134,15 @@
           </div>
           <div id="game-alert" class="game-alert" aria-live="polite"></div>
         </div>
+        <section id="junction-supply" class="junction-supply" aria-labelledby="junction-supply-title" hidden>
+          <h2 id="junction-supply-title">Prepare for the next wave</h2>
+          <div class="junction-supply-options">
+            <button type="button" data-junction-supply="left" data-branch="left" aria-keyshortcuts="1" aria-pressed="false"><kbd aria-hidden="true">1</kbd><span>Reinforce Amber</span></button>
+            <button type="button" data-junction-supply="right" data-branch="right" aria-keyshortcuts="2" aria-pressed="false"><kbd aria-hidden="true">2</kbd><span>Reinforce Teal</span></button>
+            <button type="button" data-junction-supply="ammo" aria-keyshortcuts="3" aria-pressed="false"><kbd aria-hidden="true">3</kbd><span>Extra ammo</span></button>
+          </div>
+          <p id="junction-supply-note" role="status">Reinforcing slows enemies at that inlet.</p>
+        </section>
         <div id="action-prompt" class="action-prompt" hidden>
           <span id="prompt-text"></span>
           <div id="repair-meter" class="meter" role="progressbar" aria-label="Tissue repair pulse" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div id="repair-fill"></div></div>
@@ -157,6 +174,7 @@
       <h2>Field manual</h2>
       <p>Keep tissue and suit integrity above zero. Your carbine is resupplied between waves. Survive five waves to unlock Capillary Junction, where pathogens approach from the amber and teal inlets. Hold repair near the tissue node to restore it.</p>
       <p>Viruses recoil before lunging. Spores swell before spitting a slow projectile. Move sideways to dodge either attack. Shoot latched bacilli before they tear more tissue.</p>
+      <p>In Capillary Junction, watch the forecast and pick an inlet reinforcement or extra ammo between waves. Open gashes drain tissue even after the attacker is gone. Follow the gash marker and hold repair in range to seal it.</p>
       <p>Clear Capillary Junction to unlock Heart Valve. Shoot the colony through the open valve. Seal the wound while the valve is closed.</p>
       <p>In a campaign, choose a field upgrade after the first two missions. Your final report shows the tissue integrity you preserved in each chamber.</p>
       <dl class="controls-list">

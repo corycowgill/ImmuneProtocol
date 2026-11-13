@@ -47,7 +47,11 @@ When mouse capture is unavailable, drag the view to look. On touchscreens, move 
 
 Settings is available from the main menu and pause screen. Look sensitivity applies to mouse and touch aiming. Low graphics reduces rendering load on slower devices. Both settings are saved in the browser.
 
-Viruses coil before lunging toward a fixed landing point. Spores swell before spitting a slow projectile. Step sideways during the windup to evade either attack. Bacilli head straight for the tissue, brace, and tear until you dislodge them. Watch the opposite inlet in Capillary Junction when you turn to clear a latch.
+Viruses coil before lunging toward a fixed landing point. Spores swell before spitting a slow projectile. Step sideways during the windup to evade either attack. Bacilli head straight for the tissue, brace, and tear until you dislodge them.
+
+Capillary Junction has three waves with different threats. Read the forecast during each break, then use **1**, **2**, or **3** to reinforce Amber, reinforce Teal, or take extra ammo. You can also select the options on screen. Reinforcing an inlet delays its attackers in the next wave.
+
+In the breach wave, a bacillus tear can leave a gash that keeps draining tissue after the attacker dies. Move to the marked wound and hold Repair. Completed sealing pulses stay applied when you stop to fight or dodge. If a gash is still open after the last enemy falls, seal it to extract.
 
 In Heart Valve, fire through the opening to hit the colony. Use each closed window to repair the wound. The mission ends when you destroy the colony and fully seal the valve tissue. Unlocks are saved in the browser.
 

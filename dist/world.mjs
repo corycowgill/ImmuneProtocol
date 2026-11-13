@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import { createCarbine } from './carbine.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve, createValveColony } from './heart-valve.mjs';
+import { JUNCTION_GASH_SITES, JUNCTION_INLETS } from './simulation.mjs';
 
 const TAU = Math.PI * 2;
 const TISSUE = new THREE.Vector3(0, 1.25, -8);
@@ -853,6 +854,103 @@ function makeTissue(scene, glow, floorNormal, random) {
   return { organ, core, membrane, fiber, glowOrb, light, channel, wound, opening: 0 };
 }
 
+function makeJunctionField(group, tissue, glow) {
+  const membrane = tissue.membrane.clone();
+  membrane.color.setHex(0xbd665a);
+  membrane.emissiveIntensity = .07;
+  membrane.clearcoat = .82;
+  const clot = tissue.channel.material.clone();
+  clot.color.setHex(0xd63f29);
+  clot.emissive.setHex(0x5a0e06);
+  clot.emissiveIntensity = .55;
+  const vessel = tissue.fiber.clone();
+  vessel.color.setHex(0x743435);
+  const lobe = texturedLobe(1, 24, 14, .17);
+  const contact = new THREE.MeshBasicMaterial({
+    color: 0x100204, map: glow, transparent: true, depthWrite: false, opacity: .59,
+  });
+  const anchor = new THREE.MeshStandardMaterial({ color: 0x486462, metalness: .58, roughness: .46 });
+  const meshWire = new THREE.MeshStandardMaterial({
+    color: 0x82b9a4, emissive: 0x4ea58b, emissiveIntensity: .36, metalness: .36, roughness: .49,
+  });
+  const meshGlow = new THREE.MeshBasicMaterial({
+    color: 0x7bf4cc, opacity: .21, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  const gashes = {};
+  const supports = {};
+
+  for (const branch of ['left', 'right']) {
+    const side = branch === 'left' ? -1 : 1;
+    const site = JUNCTION_GASH_SITES[branch];
+    const root = new THREE.Group();
+    root.position.copy(site);
+    root.rotation.y = side * .12;
+    group.add(root);
+    const wound = woundGeometry();
+    const bank = addMesh(root, wound.shell, membrane,
+      new THREE.Vector3(0, -.04, 0), [1.18, .83, .55]);
+    bank.rotation.z = -side * .82;
+    const tear = addMesh(bank, wound.channel, clot);
+    tear.visible = false;
+    const sheen = sprite(glow, 0xff4d2b, 1.25, .0);
+    sheen.position.set(.03, .01, .49);
+    root.add(sheen);
+    const dark = addMesh(root, new THREE.PlaneGeometry(3.3, 2.55), contact,
+      new THREE.Vector3(0, floorHeight(site.x, site.z) - site.y + .018, 0));
+    dark.rotation.x = -Math.PI / 2;
+
+    // Connect the smaller wound sites to the same tissue bed as the central node.
+    const roots = [0, 1, 2].map(index => {
+      const z = (index - 1) * .46;
+      return tubeGeometry([
+        new THREE.Vector3(-side * .52, -.38, z * .44),
+        new THREE.Vector3(-side * 1.05, -.68, z),
+        new THREE.Vector3(-side * 1.88, -.84, z * 1.42 - .22),
+        new THREE.Vector3(-side * 2.59, -.83, z * 1.2 - .40),
+      ], .23 - index * .035, .54, 15, 7);
+    });
+    addMesh(root, joinTubes(roots), vessel);
+    for (const [x, y, z, w, h] of [[-.58, -.48, .06, .73, .28], [.56, -.51, -.09, .72, .31], [.24, -.58, .38, .85, .23]]) {
+      const foot = addMesh(root, lobe, vessel, new THREE.Vector3(x * side, y, z), [w, h, .49]);
+      foot.rotation.z = x * side * -.2;
+    }
+    gashes[branch] = { root, wound, tear, sheen, opening: 0 };
+
+    const inlet = JUNCTION_INLETS[branch];
+    const support = new THREE.Group();
+    support.position.copy(inlet);
+    support.rotation.y = -side * .72;
+    support.visible = false;
+    group.add(support);
+
+    const frame = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-3.3, -1.37, .12), new THREE.Vector3(-3.05, .55, .07),
+      new THREE.Vector3(-1.87, 2.25, -.05), new THREE.Vector3(0, 2.83, -.25),
+      new THREE.Vector3(1.87, 2.25, -.05), new THREE.Vector3(3.05, .55, .07),
+      new THREE.Vector3(3.3, -1.37, .12),
+    ]);
+    addMesh(support, new THREE.TubeGeometry(frame, 38, .069, 8, false), anchor);
+    const strands = [];
+    for (const slope of [-1, 1]) {
+      for (let index = -3; index <= 3; index++) {
+        const points = [];
+        for (let step = 0; step <= 24; step++) {
+          const y = -1.25 + step / 24 * 3.95;
+          const x = index * .93 + slope * (y - .42) * .82;
+          const section = 1 - ((y - .27) / 2.51) ** 2;
+          if (x ** 2 > 10.2 * section) continue;
+          points.push(new THREE.Vector3(x, y, -.32 + (x / 3.2) ** 2 * .31 + slope * .032));
+        }
+        if (points.length > 1) strands.push(tubeGeometry(points, .022, .79, 14, 5));
+      }
+    }
+    addMesh(support, joinTubes(strands), meshWire);
+    const edge = addMesh(support, new THREE.TubeGeometry(frame, 32, .089, 6, false), meshGlow.clone());
+    supports[branch] = { support, edge };
+  }
+  return { gashes, supports, meshWire };
+}
+
 function joinTubes(tubes) {
   const geometry = new THREE.BufferGeometry();
   const meshes = tubes.map((tube) => tube.toNonIndexed());
@@ -1210,6 +1308,8 @@ export class World {
     this.areaLights = { backlight, warm, side };
     this.atmosphere = makeAtmosphere(this.scene, this.glow, this.random);
     this.tissue = makeTissue(this.scene, this.glow, normal, this.random);
+    this.junctionField = makeJunctionField(this.room.junctionDetails, this.tissue, this.glow);
+    this.leakTime = 0;
     this.toolStream = addMesh(this.scene, new THREE.CylinderGeometry(.014, .005, 1, 9, 1, true),
       new THREE.MeshBasicMaterial({
         color: 0xafffd2, transparent: true, opacity: .43, depthWrite: false,
@@ -1324,6 +1424,15 @@ export class World {
     this.shotLight.intensity = 0;
     this.lastEvents = null;
     this.clock = 0;
+    this.leakTime = 0;
+    for (const branch of ['left', 'right']) {
+      const { wound, tear, sheen } = this.junctionField.gashes[branch];
+      this.junctionField.gashes[branch].opening = 0;
+      wound.reshape(0);
+      tear.visible = false;
+      sheen.visible = false;
+      this.junctionField.supports[branch].support.visible = false;
+    }
     if (this.tissue) {
       this.tissue.opening = 0;
       this.tissue.wound.reshape(0);
@@ -1398,7 +1507,7 @@ export class World {
   updateTissue(sim, dt, reduceMotion) {
     const state = THREE.MathUtils.clamp(sim.tissue / 100, 0, 1);
     const { organ, core, fiber, glowOrb, light, channel, wound } = this.tissue;
-    const healing = sim.repairing;
+    const healing = sim.repairing && (!sim.gash || sim.repairTarget !== sim.gash);
     const residualDamage = Math.max(0, 100 - sim.tissue - (healing ? sim.repairProgress * 10 : 0));
     const target = Math.min(1, Math.sqrt(residualDamage / 43));
     const open = THREE.MathUtils.damp(this.tissue.opening, target, healing ? 11 : 8, dt);
@@ -1417,6 +1526,41 @@ export class World {
     core.material.emissiveIntensity = .025 + beat * .015 + (healing ? .04 : 0);
     fiber.emissive.copy(this.palette);
     fiber.emissiveIntensity = .033 + beat * .022 + (healing ? .13 : 0);
+  }
+
+  updateJunctionField(sim, dt, reduceMotion) {
+    const { gashes, supports, meshWire } = this.junctionField;
+    const { gash, reinforcement } = sim;
+    const sealing = gash && sim.repairTarget === gash;
+    for (const branch of ['left', 'right']) {
+      const site = gashes[branch];
+      const torn = gash?.branch === branch;
+      const remaining = torn ? gash.sealRemaining - (sealing ? sim.repairProgress * sim.repairAmount * .75 : 0) : 0;
+      const target = torn ? Math.max(.10, remaining / gash.sealRequired) : 0;
+      const open = THREE.MathUtils.damp(site.opening, target, torn && !sealing ? 13 : 10, dt);
+      site.opening = !torn && open < .012 ? 0 : open;
+      site.wound.reshape(site.opening);
+      site.tear.visible = site.opening > 0;
+      site.sheen.visible = site.tear.visible;
+      if (site.sheen.visible) {
+        site.sheen.material.color.setHex(sealing && torn ? 0x7af0ac : 0xff5d30);
+        site.sheen.material.opacity = site.opening * (sealing && torn ? .16 : .11);
+      }
+
+      const { support, edge } = supports[branch];
+      support.visible = reinforcement?.branch === branch;
+      if (support.visible) {
+        const strength = Math.min(1, reinforcement.remaining / 2.1);
+        edge.material.opacity = .10 + strength * .24;
+        meshWire.emissiveIntensity = .18 + strength * .72;
+      }
+    }
+    this.leakTime -= dt;
+    if (gash && !reduceMotion && this.leakTime <= 0) {
+      const low = this.quality === 'low';
+      this.leakTime = low ? .36 : .20;
+      this.burst(gash.x, gash.y + .04, gash.z + .43, 0xe04b31, low ? 1 : 3, .85);
+    }
   }
 
   updateEnemies(enemies, dt, reduceMotion = false) {
@@ -1546,8 +1690,9 @@ export class World {
     if (!view.tethers) {
       view.tethers = [-1, 1].map(() => addMesh(this.scene, this.tetherGeometry, this.tetherMaterial));
     }
-    const dx = TISSUE.x - enemy.x;
-    const dz = TISSUE.z - enemy.z;
+    const anchor = enemy.attackAnchor ?? TISSUE;
+    const dx = anchor.x - enemy.x;
+    const dz = anchor.z - enemy.z;
     const distance = Math.max(.01, Math.hypot(dx, dz));
     const x = dx / distance;
     const z = dz / distance;
@@ -1563,8 +1708,9 @@ export class World {
       const spread = index === 0 ? -.15 : .15;
       this.tetherStart.set(view.model.position.x + x * .20 + z * spread,
         view.model.position.y + .04, view.model.position.z + z * .20 - x * spread);
-      this.tetherEnd.set(TISSUE.x - x * .89 + z * spread * 1.45,
-        TISSUE.y + spread * 1.4, TISSUE.z - z * .89 - x * spread * 1.45);
+      const radius = enemy.attackAnchor ? .45 : .89;
+      this.tetherEnd.set(anchor.x - x * radius + z * spread * 1.45,
+        anchor.y + spread * 1.4, anchor.z - z * radius - x * spread * 1.45);
       this.tetherDirection.subVectors(this.tetherEnd, this.tetherStart);
       const width = 1 + windup * .4 + tear * .2;
       tether.scale.set(width, this.tetherDirection.length(), width);
@@ -1730,8 +1876,9 @@ export class World {
     indicator.emissiveIntensity = .56 + sim.repairProgress * .65;
     reagent.emissiveIntensity = .42 + sim.repairProgress * .32;
 
-    this.toolTarget.copy(TISSUE);
-    this.toolTarget.z += .83;
+    const target = sim.repairTarget ?? TISSUE;
+    this.toolTarget.copy(target);
+    this.toolTarget.z += sim.gash && target === sim.gash ? .49 : .83;
     if (!sim.repairing || raise < .68 || !this.project(this.toolTarget.x, this.toolTarget.y, this.toolTarget.z).visible) return;
     const start = nozzle.getWorldPosition(this.toolStart);
     const ratio = Math.tan(this.camera.fov * Math.PI / 360) / Math.tan(this.weaponCamera.fov * Math.PI / 360);
@@ -1773,13 +1920,16 @@ export class World {
         if (event.type === 'hit' && this.enemyViews.has(event.id)) this.enemyViews.get(event.id).hit = 1;
         if (event.type === 'kill') this.burst(event.x, event.y, event.z, SPECIES_COLORS[event.enemyType] || 0xff9c60, 40, 4.9);
         if (event.type === 'repair') {
-          this.burst(TISSUE.x, 1.4, TISSUE.z, 0x83ffca, event.complete ? 62 : 38, event.complete ? 4.8 : 3.6);
+          this.burst(event.x, event.y + .15, event.z, 0x83ffca, event.complete ? 62 : 38, event.complete ? 4.8 : 3.6);
         }
+        if (event.type === 'gash' && event.stage === 'open') this.burst(event.x, event.y + .12, event.z + .33, 0xff7555, 22, 2.6);
         if (event.type === 'damage' && event.target === 'tissue') {
           const attacker = this.enemyViews.get(event.id);
           if (attacker) attacker.strike = .23;
-          this.burst(THREE.MathUtils.lerp(TISSUE.x, event.x, .58), 1.28,
-            THREE.MathUtils.lerp(TISSUE.z, event.z, .58), 0xf37337, 14, 2.4);
+          const anchor = event.branch && this.area === 'junction' && event.anchor === 'gash'
+            ? JUNCTION_GASH_SITES[event.branch] : TISSUE;
+          this.burst(THREE.MathUtils.lerp(anchor.x, event.x, .58), anchor.y + .03,
+            THREE.MathUtils.lerp(anchor.z, event.z, .58), 0xf37337, 14, 2.4);
         }
         if (event.type === 'enemyAttack' && event.enemyType === 'spore') {
           if (event.stage === 'release') this.burst(event.x, event.y, event.z, 0xd279b1, 8, .9);
@@ -1819,6 +1969,7 @@ export class World {
     this.updateAtmosphere(dt);
     if (sim.valve) this.heart.update(sim.valve, dt, reduceMotion, this.quality === 'low');
     this.updateTissue(sim, dt, reduceMotion);
+    if (this.area === 'junction') this.updateJunctionField(sim, dt, reduceMotion);
     this.updateEnemies(sim.enemies, dt, reduceMotion);
     this.updateProjectiles(sim.projectiles ?? [], reduceMotion);
     this.updateWeapon(sim, dt, input, aiming, reduceMotion);
