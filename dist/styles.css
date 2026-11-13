@@ -34,6 +34,8 @@ h1{font:800 clamp(74px,9.55vw,152px)/.765 var(--display);margin:26px 0 26px;lett
 h1 span{display:block;color:var(--green);margin-top:.105em}
 .summary{max-width:360px;margin:33px 0 0;font-size:clamp(15px,1.3vw,19px);line-height:1.57;color:#dad0c5}
 .menu-buttons,.dialog-buttons{display:flex;gap:13px;flex-wrap:wrap;margin-top:32px}
+.menu-secondary{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.menu-secondary .button{min-height:44px;padding-inline:13px}
 .button{min-height:51px;padding:0 17px;display:inline-flex;gap:12px;align-items:center;justify-content:center;border:1px solid transparent;text-transform:uppercase;font:500 11px/1.2 var(--mono);letter-spacing:.1em;transition:color .2s,background .2s,border-color .2s,box-shadow .2s;white-space:nowrap}
 .button svg{width:18px;height:18px}
 .button.primary{background:var(--green);color:#152315;border-color:var(--green);font-weight:700}
@@ -42,10 +44,8 @@ h1 span{display:block;color:var(--green);margin-top:.105em}
 .button.outline{background:#1b14128c;border-color:#d7c5ab68;color:#f0e7db}
 .button.outline:hover{border-color:var(--green);color:var(--green);background:#273422bb}
 .button:disabled{opacity:.6;cursor:wait}
-.mission-entry{display:flex;align-items:center;flex-wrap:wrap;gap:8px 13px;margin-top:13px}
-.mission-entry .button{min-height:39px}
-.mission-entry .button:disabled{cursor:default;border-color:#d7c5ab44;background:#1b14128c;color:#f0e7db}
-.mission-entry p{margin:0;color:#d5c9be;font:500 10px/1.4 var(--mono)}
+.menu-buttons:has(#resume-campaign:not([hidden])) #deploy{background:#1b14128c;border-color:#d7c5ab68;color:#f0e7db;font-weight:500}
+.menu-buttons:has(#resume-campaign:not([hidden])) #deploy:hover{border-color:var(--green);color:var(--green);background:#273422bb}
 .menu-error{color:#ffab9d;font:500 12px/1.6 var(--mono);max-width:420px}
 .scene-caption{position:absolute;bottom:32px;right:var(--edge);display:flex;align-items:center;gap:10px;color:#d9c4ae;text-shadow:0 2px 6px #000}
 .scene-caption span{display:inline-block;width:9px;height:9px;border:1px solid #e8ad8b;transform:rotate(45deg)}
@@ -60,6 +60,29 @@ h1 span{display:block;color:var(--green);margin-top:.105em}
 .close-dialog{position:absolute;top:15px;right:15px}
 .panel h2{font:800 56px/.9 var(--display);text-transform:uppercase;letter-spacing:.01em;margin:18px 0 19px}
 .panel p:not(.eyebrow){color:var(--muted);font-size:14px;margin:0 0 19px}
+.mission-panel{width:min(704px,calc(100vw - 32px));padding:clamp(18px,4vw,34px);overscroll-behavior:contain}
+.mission-heading{padding-right:50px}
+.mission-panel h2{font-size:clamp(35px,7vw,56px);margin:4px 0 8px}
+.mission-panel .mission-count:not(.eyebrow){margin-bottom:10px;color:var(--green);font:500 10px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.mission-panel #mission-intro{max-width:48ch;font-size:13px;line-height:1.45;margin-bottom:14px}
+.mission-panel #mission-error{color:#ffab9d;font:500 11px/1.45 var(--mono)}
+.mission-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:0;padding:0;list-style:none}
+.mission-list>li{min-width:0;background:linear-gradient(135deg,#39262170,#24201c70);border:1px solid var(--line)}
+.mission-list>li:has(button:not(:disabled)){border-left:2px solid var(--mission-color,var(--green))}
+.mission-list>li:has(button:not(:disabled):hover){border-color:var(--mission-color,var(--green));background:#322a21}
+.mission-card{width:100%;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:8px 11px 4px;border:0;background:none;text-align:left;color:var(--mission-color,var(--green));font:800 22px/.96 var(--display);letter-spacing:.015em;text-transform:uppercase}
+.mission-card svg{width:17px;height:17px}
+.mission-card:disabled{color:#c4b4a8;cursor:default}
+.mission-card:disabled svg{opacity:.3}
+.mission-card:focus-visible{outline-offset:-3px}
+.mission-list p:not(.eyebrow){margin:0;padding:0 11px 8px;font:500 9px/1.35 var(--mono);letter-spacing:.035em}
+.mission-list>li:has([data-deploy-area="junction"]){--mission-color:#ffb88c}
+.mission-list>li:has([data-deploy-area="heart"]){--mission-color:#f7a0a6}
+.mission-list>li:has([data-deploy-area="lungs"]){--mission-color:#99ded5}
+.mission-list>li:has([data-deploy-area="stomach"]){--mission-color:#edca82}
+.mission-list>li:has([data-deploy-area="intestines"]){--mission-color:#ffb4a0}
+.mission-list>li:has([data-deploy-area="ear"]){--mission-color:#a7ddf8}
+.mission-list>li:has([data-deploy-area="brain"]){--mission-color:#c9b4f7}
 .controls-list{margin:17px 0 22px;border-top:1px solid var(--line)}
 .controls-list>div{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:8px 0;gap:8px;font-size:13px}
 .controls-list dd{display:flex;gap:5px;margin:0}
@@ -239,6 +262,13 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .junction-surge-threat{grid-area:threat;color:#ecdac8;font-size:9px}
 .junction-surge-time{grid-area:time;min-width:2.5ch;color:var(--branch,#f5e6d0);font:800 23px/.9 var(--display);font-variant-numeric:tabular-nums;text-align:right}
 .junction-surge[data-urgent="true"]{border-color:var(--branch,#f5e6d0);background:#30211cee}
+.organ-hazard{--condition:#a7e1dc;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label time" "detail time";gap:3px 10px;align-items:center;width:min(206px,40vw);margin:7px auto 0;padding:6px 8px;border:1px solid #d7c5ab65;border-left:2px solid var(--condition);background:#181514ed;text-align:left;line-height:1.25;letter-spacing:.035em}
+.organ-hazard[data-phase="warning"]{--condition:#ffd18f;background:#2a2119f0}
+.organ-hazard[data-phase="active"]{--condition:#ff9c83;background:#351f1bed}
+.organ-hazard-label{grid-area:label;color:var(--condition);font-weight:700;text-transform:uppercase}
+.organ-hazard-detail{grid-area:detail;color:#ead8c9;font-size:9px;overflow-wrap:anywhere}
+.organ-hazard-time{grid-area:time;min-width:2ch;color:var(--condition);font:800 22px/.9 var(--display);text-align:right}
+.organ-hazard-time:empty{display:none}
 [data-branch="left"]{--branch:#ffbd7e}
 [data-branch="right"]{--branch:#8fe4dd}
 .game-actions{position:absolute;right:25px;top:25px;display:flex;gap:7px;pointer-events:auto}
@@ -278,6 +308,7 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .game:has(#junction-surge:not([hidden])) .mission-guidance{top:max(222px,27%)}
 .game:has(#junction-surge:not([hidden])) .game-alert{font-size:clamp(22px,3.25vw,40px)}
 .mission-guidance:has(.training-hint:not([hidden])){top:clamp(128px,18%,170px)}
+.game:has(#organ-hazard:not([hidden])) .mission-guidance{top:max(195px,25%)}
 .training-hint{width:fit-content;padding:9px 14px 10px;background:#1b1412e8;border:1px solid #d7c5ab45;border-top-color:var(--green)}
 .training-hint strong{display:block;color:var(--green);font:800 clamp(19px,2.5vw,26px)/1.1 var(--display);letter-spacing:.045em;text-transform:uppercase}
 .training-hint p{max-width:35ch;margin:3px 0 0;color:var(--paper);font:500 clamp(10px,1.35vw,12px)/1.4 var(--mono);letter-spacing:0}
@@ -407,6 +438,10 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
   .wave-panel strong{font-size:31px}
   .wave-panel small{font-size:7px}
   .wave-panel strong span{font-size:17px}
+  .organ-hazard{width:min(180px,42vw);padding:4px 5px;column-gap:6px;font-size:9px}
+  .organ-hazard-detail{font-size:8px}
+  .organ-hazard-time{font-size:18px}
+  .game:has(#organ-hazard:not([hidden])) .mission-guidance{top:max(156px,26%)}
   .game[data-area="junction"] .wave-panel>strong{font-size:24px}
   .game[data-area="heart"] .wave-panel{min-width:105px;padding-inline:6px}
   .game[data-area="heart"] .wave-panel>strong{font-size:25px}
@@ -437,8 +472,18 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 }
 @media(max-width:480px){
   .online{display:none}
+  .menu-buttons:has(#resume-campaign:not([hidden])){gap:7px}
+  .menu-buttons:has(#resume-campaign:not([hidden])) .button{min-height:45px}
+  .menu-secondary{gap:6px}
+  .menu-secondary .button{padding-inline:8px;gap:6px;font-size:10px}
+  .mission-panel{padding:16px}
+  .mission-panel .close-dialog{top:12px;right:12px}
+  .mission-card{font-size:18px;padding-inline:8px}
+  .mission-card svg{width:13px;height:13px}
+  .mission-list p:not(.eyebrow){padding-inline:8px}
   .host-panel{width:44vw}
   .game .wave-panel{top:49px;left:auto;right:12px;transform:none;max-width:46vw;padding:3px 7px 12px}
+  .game:has(#organ-hazard:not([hidden])) .mission-guidance{top:max(204px,25%)}
   .objective-edge{max-width:min(144px,42vw);letter-spacing:.04em}
   .game .mission-guidance:has(.training-hint:not([hidden])){top:max(142px,17%)}
   .game:is([data-area="junction"],[data-area="heart"]) .mission-guidance{top:max(23%,194px)}
@@ -462,6 +507,14 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
   .joystick{left:12px;width:84px;height:84px}
 }
 @media(orientation:landscape) and (max-height:500px){
+  .mission-panel{padding:16px}
+  .mission-panel h2{font-size:32px}
+  .mission-list{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .mission-card{font-size:18px;padding-inline:8px}
+  .mission-list p:not(.eyebrow){padding-inline:8px}
+  .game:has(#organ-hazard:not([hidden])) .mission-guidance{left:50%;top:auto;bottom:21%;width:min(340px,53vw)}
+  .game:has(#organ-hazard:not([hidden])) .game-alert{font-size:21px}
+  .game:has(#organ-hazard:not([hidden])) .game-alert small{margin-top:5px;font-size:8px}
   .game[data-area="junction"] .host-panel{width:min(180px,31vw)}
   .junction-supply{left:12px;top:auto;bottom:89px;transform:none;width:min(310px,calc(40vw - 18px));padding:6px}
   .junction-supply h2{margin-bottom:5px;font-size:16px}

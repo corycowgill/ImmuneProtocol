@@ -9,6 +9,13 @@ const ENEMY_CUES = {
   spore: { windup: ['field/spore-windup', .44], release: ['field/spore-spit', .39] },
   bacillus: { windup: ['field/bacillus-windup', .43] },
 };
+const ORGAN_CUES = {
+  lungs: ['field/virus-pounce', 'field/valve-open', .66],
+  stomach: ['field/spore-windup', 'field/valve-open', .69],
+  intestines: ['field/valve-close', 'field/valve-open', .74],
+  ear: ['field/branch', 'field/spore-windup', 1.11],
+  brain: ['field/branch', 'field/valve-blocked', .88],
+};
 const EFFECTS = [
   ...SHOTS, 'field/deploy', 'field/arterial-bed',
   'weapon/dry', 'weapon/hit', 'weapon/kill', 'weapon/reload-start', 'weapon/reload-complete',
@@ -253,7 +260,8 @@ export class GameAudio {
         break;
       }
       case 'enemyAttack': {
-        const cue = ENEMY_CUES[event.enemyType]?.[event.stage];
+        const family = event.enemyType === 'guard' ? 'bacillus' : event.enemyType === 'splitter' ? 'virus' : event.enemyType;
+        const cue = ENEMY_CUES[family]?.[event.stage];
         if (!cue) break;
         const [name, volume] = cue;
         const now = this.context.currentTime;
@@ -265,6 +273,24 @@ export class GameAudio {
         }
         break;
       }
+      case 'organ': {
+        const cue = ORGAN_CUES[event.area];
+        if (cue && (event.stage === 'warning' || event.stage === 'active')) {
+          const active = event.stage === 'active';
+          this.playSample(cue[Number(active)], active ? .49 : .36, {
+            pan: this.spatialPan(event) * .72,
+            rate: cue[2],
+          });
+        }
+        break;
+      }
+      case 'guard':
+        if (event.stage === 'block' && event.source !== 'turret' && this.context.currentTime - this.valveBlockedAt >= .18) {
+          if (this.playSample('field/valve-blocked', .32, { pan: this.spatialPan(event), rate: .87 })) {
+            this.valveBlockedAt = this.context.currentTime;
+          }
+        }
+        break;
       case 'valve': {
         const pan = this.spatialPan(event) * .7;
         if (event.stage === 'open') this.playSample('field/valve-open', .36, { pan });

@@ -1,3 +1,5 @@
+import { ORGAN_MISSIONS } from './organs.mjs';
+
 export const OBJECTIVE = Object.freeze({ x: 0, y: 1.25, z: -8 });
 export const TISSUE_NODES = Object.freeze({
   artery: Object.freeze([
@@ -12,6 +14,9 @@ export const TISSUE_NODES = Object.freeze({
     Object.freeze({ id: 'heart-valve', name: 'Valve Wound', ...OBJECTIVE }),
     Object.freeze({ id: 'heart-flank', name: 'Septal Node', x: 13, y: 1.25, z: 7 }),
   ]),
+  ...Object.fromEntries(Object.entries(ORGAN_MISSIONS).map(([area, mission]) =>
+    [area, Object.freeze(mission.nodes.map(node => Object.freeze(node)))],
+  )),
 });
 export const JUNCTION_INLETS = Object.freeze({
   left: Object.freeze({ x: -19.5, y: 1.42, z: -21.5 }),
@@ -38,8 +43,13 @@ const SPECIES = {
   virus: { radius: 0.92, y: 1.63, health: 34, speed: 2.05, suitDamage: 9, tissueDamage: 5, score: 100 },
   bacillus: { radius: 1.12, y: 1.13, health: 68, speed: 1.32, tissueDamage: 9, period: 1.75, score: 180 },
   spore: { radius: 0.73, y: 2.10, health: 18, speed: 3.28, suitDamage: 7, tissueDamage: 3, score: 130 },
+  guard: { behavior: 'bacillus', radius: 1.32, y: 1.33, health: 96, speed: 1.48, tissueDamage: 11, period: 1.9, score: 260 },
+  splitter: { behavior: 'virus', radius: 1.07, y: 1.75, health: 55, speed: 3.08, suitDamage: 11, tissueDamage: 6, score: 200 },
   colony: { radius: 1.10, y: 3.35, health: 1100, tissueDamage: 11, period: 1.57, score: 900 },
 };
+
+const FRAGMENT = { radius: .55, y: 1.35, health: 18, speed: 3.85, suitDamage: 5, tissueDamage: 2, score: 55 };
+const GUARD_FRONT_THRESHOLD = .55;
 
 const MISSIONS = [
   { cadence: 1.65, species: ['virus', 'virus', 'virus', 'spore', 'virus', 'virus', 'spore'] },
@@ -157,10 +167,24 @@ function confineToChamber(player) {
   }
 }
 
+function withinHazard(actor, hazard) {
+  const dx = actor.x - hazard.x;
+  const dz = actor.z - hazard.z;
+  return hazard.radius ? Math.hypot(dx, dz) <= hazard.radius
+    : Math.abs(dx) <= hazard.width / 2 && Math.abs(dz) <= hazard.depth / 2;
+}
+
+function guardFaces(enemy, source) {
+  const dx = source.x - enemy.x;
+  const dz = source.z - enemy.z;
+  return dx * Math.sin(enemy.heading) + dz * Math.cos(enemy.heading) > GUARD_FRONT_THRESHOLD * Math.hypot(dx, dz);
+}
+
 export class Simulation {
   constructor(area = 'artery', { tutorial = false, upgrades = [] } = {}) {
-    this.area = area === 'heart' || area === 'junction' ? area : 'artery';
-    this.missions = this.area === 'heart' ? HEART_MISSIONS : this.area === 'junction' ? JUNCTION_MISSIONS : MISSIONS;
+    this.organMission = Object.hasOwn(ORGAN_MISSIONS, area) ? ORGAN_MISSIONS[area] : null;
+    this.area = this.organMission || area === 'heart' || area === 'junction' ? area : 'artery';
+    this.missions = this.organMission?.waves ?? (this.area === 'heart' ? HEART_MISSIONS : this.area === 'junction' ? JUNCTION_MISSIONS : MISSIONS);
     this.hasTutorial = tutorial && this.area === 'artery';
     const activeUpgrades = !this.hasTutorial && Array.isArray(upgrades) ? upgrades : [];
     this.magazineSize = activeUpgrades.includes('deep-magazine') ? DEEP_MAGAZINE_CAPACITY : RULES.magazine;
@@ -170,6 +194,10 @@ export class Simulation {
 
   get reloadProgress() {
     return this.reloading > 0 ? 1 - this.reloading / RELOAD_TIME : 0;
+  }
+
+  get organWave() {
+    return this.organMission?.waves[this.wave - 1]?.name ?? null;
   }
 
   get tissue() {
@@ -250,6 +278,7 @@ export class Simulation {
       x: 0, y: 1.7, z: this.valve ? 2 : this.area === 'junction' ? 13 : 18, yaw: 0, pitch: 0,
       health: RULES.health, ammo: this.magazineSize, reserve: RULES.initialReserve,
     };
+    if (this.organMission) [this.player.x, this.player.z] = this.organMission.entry;
     this.phase = 'ready';
     this.tutorial = null;
     this.nodes = TISSUE_NODES[this.area].map(node => ({ ...node, health: RULES.tissue, underAttack: false }));
@@ -294,6 +323,9 @@ export class Simulation {
     this.patrolIndex = 0;
     this.colony = null;
     this.events = [];
+    this.organCycle = 0;
+    this.organNextDamage = 0;
+    this.organ = this.organMission ? this.createOrganPhase('recovery') : null;
   }
 
   start() {
@@ -323,6 +355,10 @@ export class Simulation {
     this.spawnIndex = 0;
     this.junctionSurgeIndex = 0;
     this.waveStartedAt = this.clock;
+    if (this.organ) {
+      this.organCycle = this.wave - 1;
+      this.organ = this.createOrganPhase('recovery');
+    }
     this.spawnCountdown = this.wave === 1 ? 0.8 : 0.65;
     const mission = this.missions[this.wave - 1];
     this.remaining = (mission.arrivals ?? mission.species).length;
@@ -369,6 +405,10 @@ export class Simulation {
       return;
     }
     this.phase = 'intermission';
+    if (this.organ) {
+      this.organCycle = this.wave;
+      this.organ = this.createOrganPhase('recovery');
+    }
     const junction = this.area === 'junction';
     this.intermission = junction ? JUNCTION_BREAK_TIME : INTERMISSION_TIME;
     this.player.reserve = Math.min(RULES.reserveCap, this.player.reserve + (junction ? 12 : 55));
@@ -396,12 +436,18 @@ export class Simulation {
       this.advanceColony(dt);
       this.spawnHeartPatrol();
     }
+    if (this.organ) this.updateOrgan(dt);
     this.movePlayer(dt, input);
+    if (this.organ?.phase === 'active') this.applyOrganHazard(dt);
     if (this.gash) {
       this.damageNode(this.gash.node, this.gash.drainPerSecond * dt);
     }
     if (this.failedNode) {
       this.endMission('lost', 'tissue');
+      return;
+    }
+    if (this.organ && this.player.health === 0) {
+      this.endMission('lost', 'suit');
       return;
     }
     if (input.deploy) this.deployTurret();
@@ -495,6 +541,59 @@ export class Simulation {
     this.events.push({ type: 'extraction', stage: 'ready' });
   }
 
+  createOrganPhase(phase) {
+    const { hazard } = this.organMission;
+    const node = hazard.alternateNodes ? this.nodes[this.organCycle % this.nodes.length] : null;
+    const target = node ? ' · ' + node.name : '';
+    return {
+      phase,
+      label: phase === 'recovery' ? hazard.name + ' in' : hazard.name + target,
+      detail: phase === 'active' ? hazard.effect : hazard.instruction + (phase === 'recovery' ? target : ''),
+      remaining: hazard[phase],
+      x: node?.x ?? hazard.x,
+      z: node?.z ?? hazard.z,
+      nodeId: node?.id ?? null,
+      repairBlocked: phase === 'active' && Boolean(hazard.repairBlocked),
+      width: hazard.width,
+      depth: hazard.depth,
+      radius: hazard.radius,
+    };
+  }
+
+  updateOrgan(dt) {
+    if (this.phase !== 'combat') {
+      this.organ.remaining = this.intermission + this.organMission.hazard.recovery;
+      return;
+    }
+    let state = this.organ;
+    state.remaining = Math.max(0, state.remaining - dt);
+    if (state.remaining <= 1e-9) {
+      if (state.phase === 'active') this.organCycle += 1;
+      const next = state.phase === 'recovery' ? 'warning' : state.phase === 'warning' ? 'active' : 'recovery';
+      state = this.organ = this.createOrganPhase(next);
+      this.organNextDamage = this.clock;
+      this.events.push({ type: 'organ', stage: next, area: this.area, x: state.x, y: .8, z: state.z });
+    }
+    const { hazard } = this.organMission;
+    if (state.phase === 'active' && hazard.endZ !== undefined) {
+      state.z = hazard.z + (hazard.endZ - hazard.z) * (1 - state.remaining / hazard.active);
+    }
+  }
+
+  applyOrganHazard(dt) {
+    const { player, organ } = this;
+    if (!withinHazard(player, organ)) return;
+    const { push, damage } = this.organMission.hazard;
+    if (push) {
+      player.z += push * dt;
+      this.confineToArena(player);
+    }
+    if (damage && this.clock >= this.organNextDamage) {
+      this.organNextDamage = this.clock + .65;
+      this.damageTarget(player, 'player', damage);
+    }
+  }
+
   updateValve() {
     const valve = this.valve;
     const elapsed = this.clock % (HEART_CLOSED_TIME + HEART_OPEN_TIME);
@@ -546,7 +645,10 @@ export class Simulation {
     const strafe = input.moveX || 0;
     const forward = input.moveZ || 0;
     const diagonal = Math.max(1, Math.hypot(strafe, forward));
-    const speed = input.aim ? 3.3 : input.sprint && !input.fire ? 8.8 : 5.8;
+    let speed = input.aim ? 3.3 : input.sprint && !input.fire ? 8.8 : 5.8;
+    if (this.organ?.phase === 'active' && this.organMission.hazard.slow && withinHazard(player, this.organ)) {
+      speed *= this.organMission.hazard.slow;
+    }
     const travel = speed * dt / diagonal;
     const sin = Math.sin(player.yaw);
     const cos = Math.cos(player.yaw);
@@ -573,7 +675,8 @@ export class Simulation {
         this.nearNode = node;
         nearestDistance = distance;
       }
-      if (node.health < RULES.tissue && distance <= repairDistance &&
+      const overloaded = this.organ?.repairBlocked && this.organ.nodeId === node.id;
+      if (node.health < RULES.tissue && distance <= repairDistance && !overloaded &&
         (!this.valve || node !== this.objective || this.valve.phase === 'closed')) {
         target = node;
         repairDistance = distance;
@@ -670,6 +773,13 @@ export class Simulation {
     const turret = this.turret;
     if (!turret) return;
     turret.cooldown = Math.max(0, turret.cooldown - dt);
+    if (this.area === 'ear') {
+      turret.jammed = this.organ.phase === 'active' && withinHazard(turret, this.organ);
+      if (turret.jammed) {
+        turret.targetId = null;
+        return;
+      }
+    }
     const origin = { x: turret.x, y: turret.y + 1.18, z: turret.z };
     let target = null;
     let targetScore = -Infinity;
@@ -703,7 +813,8 @@ export class Simulation {
     }
     const impact = { x: target.x, y: target.y, z: target.z };
     this.events.push({ type: 'turret', stage: 'fire', id: target.id, ...origin, impact });
-    this.hitEnemy(target, TURRET_DAMAGE, false, impact, 'turret');
+    if (target.type === 'guard' && guardFaces(target, origin)) this.blockGuardHit(target, impact, 'turret');
+    else this.hitEnemy(target, TURRET_DAMAGE, false, impact, 'turret');
   }
 
   shoot(aiming) {
@@ -752,8 +863,17 @@ export class Simulation {
     const impact = {
       x: player.x + dx * distance, y: player.y + dy * distance, z: player.z + dz * distance,
     };
+    if (target?.type === 'guard' && guardFaces(target, player)) {
+      this.events.push({ type: 'shot', hit: false, crit: false, ...impact });
+      this.blockGuardHit(target, impact, 'player');
+      return;
+    }
     this.events.push({ type: 'shot', hit: Boolean(target), crit: critical, ...impact });
     if (target) this.hitEnemy(target, critical ? 42 : 23, critical, impact, 'player');
+  }
+
+  blockGuardHit(guard, impact, source) {
+    this.events.push({ type: 'guard', stage: 'block', id: guard.id, source, ...impact });
   }
 
   hitEnemy(target, damage, critical, impact, source) {
@@ -764,7 +884,7 @@ export class Simulation {
 
     this.enemies.splice(this.enemies.indexOf(target), 1);
     this.kills += 1;
-    const score = target.tutorial ? SPECIES.virus.score : SPECIES[target.type].score;
+    const score = target.fragment ? FRAGMENT.score : target.tutorial ? SPECIES.virus.score : SPECIES[target.type].score;
     this.score += score + (critical ? 35 : 0);
     this.events.push({
       type: 'kill', id: target.id, enemyType: target.type, source, x: target.x, y: target.y, z: target.z,
@@ -773,16 +893,27 @@ export class Simulation {
       this.colony = null;
       this.valve.colonyDefeated = true;
     }
+    if (target.type === 'splitter') this.splitEnemy(target);
     if (target.tutorial) {
       this.tutorial = 'repair';
       this.events.push({ type: 'tutorial', stage: 'repair' });
     }
   }
 
+  splitEnemy(enemy) {
+    for (const direction of [-1, 1]) {
+      const fragment = this.createEnemy('virus', enemy.x + direction * Math.cos(enemy.heading) * .85,
+        enemy.z - direction * Math.sin(enemy.heading) * .85, enemy.node, FRAGMENT);
+      fragment.fragment = true;
+      this.confineToArena(fragment);
+      this.enemies.push(fragment);
+    }
+  }
+
   spawn(type) {
     const index = this.spawnIndex++;
-    const lane = (index + this.wave - 1) % this.nodes.length;
-    const route = ENTRANCES[lane];
+    const lane = this.organMission ? Number(this.missions[this.wave - 1].lanes[index] === 'R') : (index + this.wave - 1) % this.nodes.length;
+    const route = (this.organMission?.inlets ?? ENTRANCES)[lane];
     const [x, z] = route[(Math.floor(index / this.nodes.length) + this.wave - 1) % route.length];
     const spawnX = index === 0 ? x : x + Math.sin(index * 2.4 + this.wave) * 1.35;
     const spawnZ = z + Math.cos(index * 1.9 + this.wave) * 0.85;
@@ -810,18 +941,17 @@ export class Simulation {
     this.enemies.push(enemy);
   }
 
-  createEnemy(type, x, z, node = this.objective) {
-    const spec = SPECIES[type];
+  createEnemy(type, x, z, node = this.objective, spec = SPECIES[type]) {
     return {
       id: this.nextEnemyId++,
-      type, x, y: spec.y, z, node, nodeId: node.id,
+      type, behavior: spec.behavior ?? type, x, y: spec.y, z, node, nodeId: node.id,
       radius: spec.radius,
       health: spec.health,
       maxHealth: spec.health,
       attackCooldown: 0.65,
       attackingTissue: false,
       latched: false,
-      heading: 0,
+      heading: type === 'guard' ? Math.atan2(node.x - x, node.z - z) : 0,
       action: 'idle',
       actionProgress: 0,
       actionElapsed: 0,
@@ -921,7 +1051,12 @@ export class Simulation {
 
   damageTarget(enemy, target, amount, origin = enemy) {
     if (target === 'player') this.player.health = Math.max(0, this.player.health - amount);
-    else this.damageNode(enemy.node, amount);
+    else {
+      if (this.organ?.phase === 'active' && this.organ.nodeId === enemy.nodeId) {
+        amount *= this.organMission.hazard.tissueDamage ?? 1;
+      }
+      this.damageNode(enemy.node, amount);
+    }
     const impact = { type: 'damage', target, amount, id: enemy.id, x: origin.x, y: origin.y, z: origin.z };
     if (target === 'tissue') impact.nodeId = enemy.nodeId;
     if (enemy.branch) impact.branch = enemy.branch;
@@ -933,7 +1068,8 @@ export class Simulation {
     const { player } = this;
     for (const enemy of this.enemies) {
       if (enemy.type === 'colony') continue;
-      const spec = SPECIES[enemy.type];
+      const spec = enemy.fragment ? FRAGMENT : SPECIES[enemy.type];
+      const { behavior } = enemy;
       const reinforced = !!this.reinforcement && this.reinforcement.branch === enemy.branch;
       const speedFactor = (reinforced ? REINFORCED_SPEED : 1) * (enemy.slowRemaining > 0 ? TURRET_SLOW_FACTOR : 1);
       enemy.slowRemaining = Math.max(0, enemy.slowRemaining - dt);
@@ -941,30 +1077,30 @@ export class Simulation {
         enemy.inletHold -= dt;
         continue;
       }
-      if (enemy.type === 'bacillus') {
+      if (behavior === 'bacillus') {
         this.advanceBacillus(enemy, dt, spec, speedFactor);
         continue;
       }
       if (enemy.action !== 'idle') {
         enemy.node.underAttack ||= enemy.attackingTissue;
-        if (enemy.type === 'virus') this.advanceVirusAttack(enemy, dt, spec);
+        if (behavior === 'virus') this.advanceVirusAttack(enemy, dt, spec);
         else this.advanceSporeAttack(enemy, dt);
         continue;
       }
 
       const distanceToSuit = Math.hypot(player.x - enemy.x, player.z - enemy.z);
       const distanceToTissue = Math.hypot(enemy.node.x - enemy.x, enemy.node.z - enemy.z);
-      const aggro = enemy.type === 'spore' ? 12 : 7.4;
+      const aggro = behavior === 'spore' ? 12 : 7.4;
       const attacksSuit = distanceToSuit < aggro && distanceToSuit < distanceToTissue + 0.6;
       const target = attacksSuit ? player : enemy.node;
       const distance = attacksSuit ? distanceToSuit : distanceToTissue;
-      const range = enemy.type === 'virus' ? (attacksSuit ? VIRUS_RANGE : 2.7) : (attacksSuit ? SPORE_RANGE : 3.4);
+      const range = behavior === 'virus' ? (attacksSuit ? VIRUS_RANGE : 2.7) : (attacksSuit ? SPORE_RANGE : 3.4);
       enemy.attackingTissue = !attacksSuit && distance <= range + 0.04;
       enemy.node.underAttack ||= enemy.attackingTissue;
       enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
       enemy.heading = Math.atan2(target.x - enemy.x, target.z - enemy.z);
       enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * 0.24;
-      if (enemy.type === 'spore' && attacksSuit && distance > 0.01 && distance < SPORE_STANDOFF - 0.04) {
+      if (behavior === 'spore' && attacksSuit && distance > 0.01 && distance < SPORE_STANDOFF - 0.04) {
         const retreat = Math.min(SPORE_STANDOFF - distance, 2.6 * speedFactor * dt);
         enemy.x -= Math.sin(enemy.heading) * retreat;
         enemy.z -= Math.cos(enemy.heading) * retreat;
@@ -987,7 +1123,7 @@ export class Simulation {
     enemy.actionTarget = targetName;
     enemy.attackOrigin = { x: enemy.x, y: enemy.y, z: enemy.z };
     enemy.attackPoint = { x: target.x, y: target.y, z: target.z };
-    if (enemy.type === 'virus') {
+    if (enemy.behavior === 'virus') {
       // Leave the virus on the near side of what it strikes so it stays shootable.
       const dx = enemy.x - target.x;
       const dz = enemy.z - target.z;
@@ -996,7 +1132,7 @@ export class Simulation {
       enemy.attackPoint.x += dx * offset / distance;
       enemy.attackPoint.z += dz * offset / distance;
     }
-    this.setEnemyAction(enemy, enemy.type + '-windup');
+    this.setEnemyAction(enemy, enemy.behavior + '-windup');
     this.attackEvent(enemy, 'windup', targetName);
   }
 

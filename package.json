@@ -5,6 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "python -m http.server 8017 --bind 127.0.0.1 --directory dist",
-    "check": "node --check dist/game.mjs && node --check dist/world.mjs && node --check dist/carbine.mjs && node --check dist/repair-tool.mjs && node --check dist/heart-valve.mjs && node --check dist/turret.mjs && node --check dist/simulation.mjs && node --check dist/audio.mjs && node --check dist/intro/start.js && node --check dist/intro/hallucinated-intro.js"
+    "check": "node --check dist/game.mjs && node --check dist/world.mjs && node --check dist/carbine.mjs && node --check dist/repair-tool.mjs && node --check dist/heart-valve.mjs && node --check dist/turret.mjs && node --check dist/simulation.mjs && node --check dist/organs.mjs && node --check dist/organ-world.mjs && node --check dist/audio.mjs && node --check dist/intro/start.js && node --check dist/intro/hallucinated-intro.js"
   }
 }

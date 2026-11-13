@@ -1,6 +1,6 @@
 # Immune Protocol
 
-A browser FPS about a nano-soldier injected into a patient. Fight waves of viruses, bacilli, and spores across three chambers, each with two tissue nodes to defend. Place an auto-turret to delay an attack at one node while you move to the other. Clear Arterial Junction to unlock Capillary Junction, then enter Heart Valve to fight the colony and defend the outer wall.
+A browser FPS about a nano-soldier injected into a patient. Defend two tissue nodes in each of eight missions. Place an auto-turret to cover one approach while you defend the other. The campaign starts in the bloodstream, then moves through the lungs, stomach, intestines, inner ear, and brain.
 
 [Play on GitHub Pages](https://corycowgill.github.io/ImmuneProtocol/) · [Watch the demo](https://corycowgill.github.io/ImmuneProtocol/demo/)
 
@@ -18,9 +18,20 @@ The Hallucinated Games studio intro plays before the main menu. Use Skip intro, 
 
 Your first Arterial Junction deployment begins with one guided breach. Shoot the bacillus off the tissue, move into repair range, and hold Repair until the wound seals. The second node and turret become available as the rest of Wave 1 begins. The browser remembers completed training for later deployments.
 
-Choose **Start campaign** to play Arterial Junction, Capillary Junction, and Heart Valve in order. After the first two missions, equip **Fast Sealer** to restore 18 tissue points per pulse or **Deep Magazine** to carry 42 rounds before reloading. You can keep your pick or switch at the second checkpoint. A retry keeps the upgrade you brought into that mission. The final report shows tissue integrity for all three missions and the campaign totals for score and neutralized pathogens.
+Choose **Start campaign** to deploy into Arterial Junction. Between missions, equip **Fast Sealer** to restore 18 tissue points per pulse or **Deep Magazine** to carry 42 rounds before reloading. Your browser saves completed missions and the chosen upgrade at each checkpoint. Use **Resume** to return to the start of the current mission. The final report shows the tissue preserved in all eight missions, total score, and pathogens neutralized. Open **Mission select** to replay unlocked areas with standard equipment.
 
-Returning to the main menu ends the current run. Unlocked practice missions are available from the menu with standard equipment.
+## Campaign missions
+
+| Mission | What to watch for |
+| --- | --- |
+| Arterial Junction | Learn to intercept attackers and repair the core before defending both nodes through five waves. |
+| Capillary Junction | Read the Amber and Teal attack forecasts, deploy support between waves, and choose whether to stay for Overtime. |
+| Heart Valve | Shoot the colony through the open valve and defend the Septal Node against flank attacks. |
+| Bronchial Fork | Step out of the central airway before each exhale pushes through it. |
+| Gastric Chamber | Fight from the sides when acid floods the central basin. |
+| Intestinal Bend | Move into the side channels to evade the pressure wave. |
+| Inner Ear | Place your turret outside the resonance zones to keep it firing. |
+| Neural Cortex | Rotate between nodes as neural overload temporarily blocks repairs and amplifies attacks. |
 
 ## Publish updates
 
@@ -52,6 +63,8 @@ Settings is available from the main menu and pause screen. Look sensitivity appl
 
 Viruses coil before lunging toward a fixed landing point. Spores swell before spitting a slow projectile. Step sideways during the windup to evade either attack. Bacilli head straight for the tissue, brace, and tear until you dislodge them.
 
+Shellbacks guard their front. Aim for exposed tissue from the side or rear. Splitters break into two smaller attackers on death, so keep the area in sight after the first kill.
+
 Capillary Junction has three waves with staggered attacks. The HUD names the next targeted node, the incoming pathogen, and the time until it enters. In Wave 3, an Amber virus rush arrives six seconds before the Teal bacillus breach.
 
 During each break, use **1** to reinforce Amber, **2** to reinforce Teal, **3** for extra ammo, or **4** to redeploy a turret you've already placed. You can also select the options on screen. Reinforcement starts when the first attacker enters the chosen inlet. After choosing redeploy, face clear ground and press **Q** or tap **Turret** before the next wave. A successful move uses your support choice for that break. The turret keeps its position until you find a valid new spot.
@@ -82,9 +95,11 @@ flowchart LR
 | File | Responsibility |
 | --- | --- |
 | [`dist/index.html`](dist/index.html), [`dist/styles.css`](dist/styles.css) | Menus, HUD, canvas, and touch controls. |
-| [`dist/game.mjs`](dist/game.mjs) | Input, mouse capture, frame timing, and screen transitions. Browser storage remembers training completion, controls and graphics settings, mission unlocks, best score, and mute setting. |
+| [`dist/game.mjs`](dist/game.mjs) | Input, mouse capture, frame timing, and screen transitions. Browser storage remembers campaign checkpoints, mission unlocks, best score, training completion, and player settings. |
 | [`dist/simulation.mjs`](dist/simulation.mjs) | Movement, shooting, lane and node targeting, turret behavior, wave progression, scoring, and repair. It runs independently of the DOM and Three.js. |
 | [`dist/world.mjs`](dist/world.mjs) | Arena geometry, lighting, atmosphere, enemies, and effects. The missions share the renderer and switch anatomy and lighting when the area changes. |
+| [`dist/organs.mjs`](dist/organs.mjs) | Mission data for the five new organs, including node coordinates, wave compositions, and hazard timings. |
+| [`dist/organ-world.mjs`](dist/organ-world.mjs) | Procedural anatomy, organ-specific materials, and animated hazard geometry. |
 | [`dist/carbine.mjs`](dist/carbine.mjs) | The 3D carbine and armored gloves, including the articulated magazine, bolt, and hand poses. |
 | [`dist/repair-tool.mjs`](dist/repair-tool.mjs) | The 3D tissue sealer that replaces the carbine while the player repairs the wound. |
 | [`dist/heart-valve.mjs`](dist/heart-valve.mjs) | The moving valve and attached colony. The scene follows the same timing as the simulation's shot and repair windows. |
