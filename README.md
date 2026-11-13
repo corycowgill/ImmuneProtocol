@@ -47,7 +47,7 @@ When mouse capture is unavailable, drag the view to look. On touchscreens, move 
 
 Settings is available from the main menu and pause screen. Look sensitivity applies to mouse and touch aiming. Low graphics reduces rendering load on slower devices. Both settings are saved in the browser.
 
-Bacilli head straight for the tissue and keep tearing it once attached. Watch the opposite inlet in Capillary Junction when you turn to clear a latch.
+Viruses coil before lunging toward a fixed landing point. Spores swell before spitting a slow projectile. Step sideways during the windup to evade either attack. Bacilli head straight for the tissue, brace, and tear until you dislodge them. Watch the opposite inlet in Capillary Junction when you turn to clear a latch.
 
 In Heart Valve, fire through the opening to hit the colony. Use each closed window to repair the wound. The mission ends when you destroy the colony and fully seal the valve tissue. Unlocks are saved in the browser.
 

@@ -6,6 +6,7 @@ import { createHeartValve, createValveColony } from './heart-valve.mjs';
 const TAU = Math.PI * 2;
 const TISSUE = new THREE.Vector3(0, 1.25, -8);
 const UP = new THREE.Vector3(0, 1, 0);
+const FORWARD = new THREE.Vector3(0, 0, 1);
 
 function randomSource(seed) {
   return () => {
@@ -911,10 +912,13 @@ function virusModel(normal) {
     ...maps, roughness: .67, clearcoat: .61, clearcoatRoughness: .29,
     normalScale: new THREE.Vector2(.71, .71),
   });
-  addMesh(organism, body, coat);
+  addMesh(organism, body, coat).name = 'attack-membrane';
 
+  const spikes = new THREE.Group();
+  spikes.name = 'virus-spikes';
+  organism.add(spikes);
   const cap = texturedLobe(1, 12, 8, .38);
-  const heads = instanceMesh(organism, cap, tip, 28);
+  const heads = instanceMesh(spikes, cap, tip, 28);
   const nodules = instanceMesh(organism, texturedLobe(1, 8, 6, .31), nodule, 51);
   const transform = new THREE.Object3D();
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
@@ -953,7 +957,7 @@ function virusModel(normal) {
     setInstance(heads, i, transform, end, [width * (1.1 + random() * .36), width * (1.07 + random() * .52), width * .69]);
     heads.setColorAt(i, new THREE.Color().setRGB(.73 + random() * .26, .5 + random() * .42, .42 + random() * .44));
   }
-  addMesh(organism, joinTubes(strands), thorn);
+  addMesh(spikes, joinTubes(strands), thorn);
 
   for (let i = 0; i < nodules.count; i++) {
     const axis = direction(i + 2, nodules.count + 4);
@@ -1019,6 +1023,7 @@ function bacillusModel(normal) {
   addMesh(body, joinTubes(strands), fiber);
 
   const bacteriaPearls = instanceMesh(body, texturedLobe(1, 12, 8, .24), pulse, 15);
+  bacteriaPearls.name = 'attack-membrane';
   const transform = new THREE.Object3D();
   for (let i = 0; i < bacteriaPearls.count; i++) {
     const angle = i * 2.4;
@@ -1063,10 +1068,10 @@ function sporeModel(normal) {
       new THREE.Vector3(x * .43 + z * .25, -length - .19, z * .43 - x * .25),
     ], .04 + random() * .014, .17, 13, 6));
   }
-  addMesh(organism, joinTubes(roots), tendril);
+  addMesh(organism, joinTubes(roots), tendril).name = 'spore-fringe';
 
   const lobe = texturedLobe(.23, 20, 14, .23);
-  addMesh(organism, lobe, sac, new THREE.Vector3(0, -.14, 0), [1.32, .81, 1.32]);
+  addMesh(organism, lobe, sac, new THREE.Vector3(0, -.14, 0), [1.32, .81, 1.32]).name = 'attack-membrane';
   for (let i = 0; i < 6; i++) {
     const a = i * TAU / 6;
     addMesh(organism, lobe, sac, new THREE.Vector3(Math.cos(a) * .35, .18, Math.sin(a) * .35), [.62, .66, .62]);
@@ -1101,6 +1106,11 @@ function reflectionTexture() {
 
 const MAX_PARTICLES = 288;
 const SPECIES_COLORS = { virus: 0xff6d4a, bacillus: 0xffd078, spore: 0xf384ff, colony: 0xffb572 };
+const ATTACK_GLOW = {
+  virus: new THREE.Color(0xde653b),
+  bacillus: new THREE.Color(0xef9b46),
+  spore: new THREE.Color(0xd681b9),
+};
 const HEALTHY = new THREE.Color(0xffc6ad);
 const INJURED = new THREE.Color(0xff795d);
 const REPAIR_LIGHT = new THREE.Color(0x9bf4c4);
@@ -1130,6 +1140,7 @@ export class World {
     this.palette = new THREE.Color();
     this.glow = glowTexture();
     this.enemyViews = new Map();
+    this.projectileViews = new Map();
     this.particles = [];
     this.shots = [];
     this.lastEvents = null;
@@ -1221,6 +1232,17 @@ export class World {
       bacillus: bacillusModel(normal),
       spore: sporeModel(normal),
     };
+    this.sporeDroplet = texturedLobe(1, 18, 12, .11);
+    this.sporeTrail = new THREE.SphereGeometry(1, 9, 6);
+    this.sporeDropletMaterial = biologicalMaterial(0xca659e, normal, {
+      emissive: 0xb32687, emissiveIntensity: .84, clearcoat: .96,
+      roughness: .36, clearcoatRoughness: .16,
+    });
+    this.sporeTrailMaterial = new THREE.MeshBasicMaterial({
+      color: 0xe280bd, transparent: true, opacity: .25,
+      depthWrite: false,
+    });
+    this.projectileDirection = new THREE.Vector3();
     this.makeHeart = () => {
       const maps = membraneMaps(26701, [238, 181, 170]);
       this.templates.colony = createValveColony(maps, texturedLobe(1, 26, 17, .27), randomSource(8209));
@@ -1292,6 +1314,7 @@ export class World {
     warm.intensity = heart ? 47 : junction ? 42 : 72;
     side.visible = !junction && !heart;
     this.updateEnemies([], 0);
+    this.updateProjectiles([], false);
     for (const shot of this.shots) {
       this.scene.remove(shot.line);
       shot.line.geometry.dispose();
@@ -1402,11 +1425,20 @@ export class World {
       let view = this.enemyViews.get(enemy.id);
       if (!view) {
         const model = this.templates[enemy.type].clone();
+        const membrane = model.getObjectByName('attack-membrane');
+        if (membrane) membrane.material = membrane.material.clone();
         this.scene.add(model);
         const shadow = new THREE.Mesh(this.shadowGeometry, this.shadowMaterial);
         shadow.rotation.x = -Math.PI / 2;
         this.scene.add(shadow);
-        view = { model, shadow, present: true, hit: 0, strike: 0, phase: this.random() * TAU };
+        view = {
+          model, shadow, present: true, hit: 0, strike: 0, phase: this.random() * TAU,
+          attackMembrane: membrane?.material,
+          membraneGlow: membrane?.material.emissive.clone(),
+          membraneIntensity: membrane?.material.emissiveIntensity,
+          spikes: model.getObjectByName('virus-spikes'),
+          fringe: model.getObjectByName('spore-fringe'),
+        };
         this.enemyViews.set(enemy.id, view);
       }
       view.present = true;
@@ -1419,17 +1451,22 @@ export class World {
         continue;
       }
       const angle = view.phase + this.clock * (enemy.type === 'virus' ? .64 : .9);
-      view.model.rotation.set(Math.sin(angle * .74) * .24, angle, Math.sin(angle * .66) * .22);
+      view.model.rotation.set(
+        reduceMotion ? 0 : Math.sin(angle * .74) * .24,
+        reduceMotion ? enemy.heading || 0 : angle,
+        reduceMotion ? 0 : Math.sin(angle * .66) * .22,
+      );
       view.strike = Math.max(0, view.strike - dt);
-      if (view.strike > 0) {
+      if (view.strike > 0 && !enemy.latched && !reduceMotion) {
         const thrust = Math.sin(view.strike / .23 * Math.PI);
         view.model.position.lerp(TISSUE, thrust * .10);
         view.model.rotation.z += thrust * .15;
       }
       view.hit = Math.max(0, view.hit - dt * 7);
-      const pulse = 1 + Math.sin(angle * 3) * .045 + view.hit * .13;
+      const pulse = 1 + (reduceMotion ? 0 : Math.sin(angle * 3) * .045 + view.hit * .13);
       view.model.scale.set(pulse, pulse - view.hit * .18, pulse);
-      if (enemy.latched) this.updateTethers(enemy, view, angle);
+      this.poseEnemyAttack(enemy, view, reduceMotion);
+      if (enemy.latched) this.updateTethers(enemy, view, angle, reduceMotion);
       view.shadow.position.set(enemy.x, floorHeight(enemy.x, enemy.z) + .1, enemy.z);
       view.shadow.scale.setScalar((enemy.radius || .9) * 1.4);
     }
@@ -1437,12 +1474,75 @@ export class World {
       if (!view.present) {
         this.scene.remove(view.model, view.shadow);
         if (view.tethers) this.scene.remove(...view.tethers);
+        view.attackMembrane?.dispose();
         this.enemyViews.delete(id);
       }
     }
   }
 
-  updateTethers(enemy, view, angle) {
+  poseEnemyAttack(enemy, view, reduceMotion) {
+    const { model, attackMembrane, spikes, fringe } = view;
+    const progress = enemy.actionProgress ?? 0;
+    const motion = reduceMotion ? .55 : 1;
+    let glow = 0;
+    if (spikes) spikes.scale.setScalar(1);
+    if (fringe) fringe.scale.set(1, 1, 1);
+    switch (enemy.action) {
+      case 'virus-windup':
+        model.rotation.set(-.27 * progress * motion, enemy.heading, 0);
+        model.scale.x *= 1 + .18 * progress * motion;
+        model.scale.y *= 1 - .36 * progress * motion;
+        model.scale.z *= 1 - .24 * progress * motion;
+        spikes?.scale.setScalar(1 - .22 * progress * motion);
+        glow = .32 + .68 * progress;
+        break;
+      case 'virus-pounce': {
+        const thrust = Math.sin(progress * Math.PI);
+        model.rotation.set((.42 - progress * .84) * motion, enemy.heading, 0);
+        model.scale.set(1 - .17 * thrust * motion, 1 - .16 * thrust * motion, 1 + .52 * thrust * motion);
+        spikes?.scale.setScalar(1 + .11 * thrust * motion);
+        glow = .9;
+        break;
+      }
+      case 'virus-recover': {
+        const recoil = Math.sin(progress * Math.PI) * motion;
+        model.rotation.set(-.46 * recoil, enemy.heading, 0);
+        model.scale.set(1 + .23 * recoil, 1 - .34 * recoil, 1 + .18 * recoil);
+        glow = (1 - progress) * .42;
+        break;
+      }
+      case 'spore-windup':
+        model.rotation.set(-.20 * progress * motion, enemy.heading, 0);
+        model.scale.x *= 1 + .30 * progress * motion;
+        model.scale.y *= 1 - .23 * progress * motion;
+        model.scale.z *= 1 + .30 * progress * motion;
+        fringe?.scale.set(1 - .20 * progress * motion, 1 - .36 * progress * motion, 1 - .20 * progress * motion);
+        glow = .34 + .66 * progress;
+        break;
+      case 'spore-recover': {
+        const expel = Math.pow(1 - progress, 3) * motion;
+        model.rotation.set(.36 * expel, enemy.heading, 0);
+        model.scale.set(1 - .28 * expel, 1 + .35 * expel, 1 - .28 * expel);
+        fringe?.scale.set(1 + .29 * expel, 1 + .27 * expel, 1 + .29 * expel);
+        glow = (1 - progress) * .48;
+        break;
+      }
+      case 'bacillus-windup':
+        model.scale.y *= 1 + .29 * progress * motion;
+        glow = .23 + .65 * progress;
+        break;
+      case 'bacillus-tear':
+        model.scale.y *= 1 - .23 * Math.sin(progress * Math.PI) * motion;
+        glow = .76 * (1 - progress);
+        break;
+    }
+    if (attackMembrane) {
+      attackMembrane.emissive.copy(view.membraneGlow).lerp(ATTACK_GLOW[enemy.type], glow * .58);
+      attackMembrane.emissiveIntensity = view.membraneIntensity + glow * .66;
+    }
+  }
+
+  updateTethers(enemy, view, angle, reduceMotion) {
     if (!view.tethers) {
       view.tethers = [-1, 1].map(() => addMesh(this.scene, this.tetherGeometry, this.tetherMaterial));
     }
@@ -1451,8 +1551,14 @@ export class World {
     const distance = Math.max(.01, Math.hypot(dx, dz));
     const x = dx / distance;
     const z = dz / distance;
-    const pull = .58 + Math.sin(angle * 3) * .06;
+    const progress = enemy.actionProgress ?? 0;
+    const windup = enemy.action === 'bacillus-windup' ? progress : 0;
+    const tear = enemy.action === 'bacillus-tear' ? Math.sin(progress * Math.PI) : 0;
+    const motion = reduceMotion ? .55 : 1;
+    const pull = .58 + (reduceMotion ? 0 : Math.sin(angle * 3) * .06) - windup * .44 * motion + tear * .69 * motion;
     view.model.rotation.set(z * pull, Math.atan2(x, z), -x * pull);
+    view.model.position.x -= x * (windup * .23 - tear * .18) * motion;
+    view.model.position.z -= z * (windup * .23 - tear * .18) * motion;
     view.tethers.forEach((tether, index) => {
       const spread = index === 0 ? -.15 : .15;
       this.tetherStart.set(view.model.position.x + x * .20 + z * spread,
@@ -1460,10 +1566,42 @@ export class World {
       this.tetherEnd.set(TISSUE.x - x * .89 + z * spread * 1.45,
         TISSUE.y + spread * 1.4, TISSUE.z - z * .89 - x * spread * 1.45);
       this.tetherDirection.subVectors(this.tetherEnd, this.tetherStart);
-      tether.scale.y = this.tetherDirection.length();
+      const width = 1 + windup * .4 + tear * .2;
+      tether.scale.set(width, this.tetherDirection.length(), width);
       tether.position.copy(this.tetherStart).lerp(this.tetherEnd, .5);
       tether.quaternion.setFromUnitVectors(UP, this.tetherDirection.normalize());
     });
+  }
+
+  updateProjectiles(projectiles, reduceMotion) {
+    for (const view of this.projectileViews.values()) view.present = false;
+    for (const projectile of projectiles) {
+      let view = this.projectileViews.get(projectile.id);
+      if (!view) {
+        view = {
+          model: addMesh(this.scene, this.sporeDroplet, this.sporeDropletMaterial),
+          trail: addMesh(this.scene, this.sporeTrail, this.sporeTrailMaterial),
+        };
+        this.projectileViews.set(projectile.id, view);
+      }
+      view.present = true;
+      const radius = projectile.radius;
+      const direction = this.projectileDirection.set(projectile.vx, projectile.vy, projectile.vz).normalize();
+      view.model.position.set(projectile.x, projectile.y, projectile.z);
+      view.model.scale.set(radius * .88, radius * .88, radius * 1.35);
+      if (direction.lengthSq() > 0) view.model.quaternion.setFromUnitVectors(FORWARD, direction);
+      view.trail.visible = this.quality !== 'low' && !reduceMotion;
+      if (view.trail.visible) {
+        view.trail.position.copy(view.model.position).addScaledVector(direction, -radius * 1.48);
+        view.trail.quaternion.copy(view.model.quaternion);
+        view.trail.scale.set(radius * .41, radius * .41, radius * 2.3);
+      }
+    }
+    for (const [id, view] of this.projectileViews) {
+      if (view.present) continue;
+      this.scene.remove(view.model, view.trail);
+      this.projectileViews.delete(id);
+    }
   }
 
   burst(x, y, z, color, count, spread) {
@@ -1643,6 +1781,10 @@ export class World {
           this.burst(THREE.MathUtils.lerp(TISSUE.x, event.x, .58), 1.28,
             THREE.MathUtils.lerp(TISSUE.z, event.z, .58), 0xf37337, 14, 2.4);
         }
+        if (event.type === 'enemyAttack' && event.enemyType === 'spore') {
+          if (event.stage === 'release') this.burst(event.x, event.y, event.z, 0xd279b1, 8, .9);
+          if (event.stage === 'impact') this.burst(event.x, event.y, event.z, 0xe39bc8, 12, 1.7);
+        }
         if (event.type === 'valve' && event.stage === 'blocked') {
           this.burst(event.x, event.y, event.z + .16, 0xdb806d, 7, 1.7);
         }
@@ -1678,6 +1820,7 @@ export class World {
     if (sim.valve) this.heart.update(sim.valve, dt, reduceMotion, this.quality === 'low');
     this.updateTissue(sim, dt, reduceMotion);
     this.updateEnemies(sim.enemies, dt, reduceMotion);
+    this.updateProjectiles(sim.projectiles ?? [], reduceMotion);
     this.updateWeapon(sim, dt, input, aiming, reduceMotion);
     this.processEvents(sim.events, dt);
     this.updateParticles(dt);

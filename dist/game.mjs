@@ -93,6 +93,11 @@ const qualityKey = 'immune-protocol.graphics-quality';
 const campaignAreas = ['artery', 'junction', 'heart'];
 const missionNames = { artery: 'Arterial Junction', junction: 'Capillary Junction', heart: 'Heart Valve' };
 const upgradeNames = { 'fast-sealer': 'Fast Sealer', 'deep-magazine': 'Deep Magazine' };
+const attackWarnings = {
+  'virus-windup': 'VIRUS ABOUT TO LUNGE',
+  'spore-windup': 'SPORE CHARGING',
+  'bacillus-windup': 'BACILLUS TEARING TISSUE',
+};
 
 let world;
 let sim;
@@ -544,9 +549,11 @@ function drawHud() {
       total.textContent = '/ ' + pad(waves);
       waveValue.replaceChildren(document.createTextNode(pad(wave) + ' '), total);
     }
-    setText(threats, sim.tutorial ? 'FIELD TRAINING' : phase === 'intermission'
-      ? (sim.settling ? 'EXTRACT IN ' : 'NEXT WAVE IN ') + Math.ceil(intermission) + 's'
-      : remaining + (remaining === 1 ? ' THREAT LEFT' : ' THREATS LEFT'));
+    let status = remaining + (remaining === 1 ? ' THREAT LEFT' : ' THREATS LEFT');
+    if (sim.tutorial) status = 'FIELD TRAINING';
+    else if (phase === 'intermission') status = (sim.settling ? 'EXTRACT IN ' : 'NEXT WAVE IN ') + Math.ceil(intermission) + 's';
+    else if (remaining === 0 && sim.projectiles.length) status = 'SPORE SHOTS IN FLIGHT';
+    setText(threats, status);
   }
   const restoringHere = restored && sim.nearTissue;
   const repairing = sim.repairing && !restoringHere;
@@ -627,7 +634,8 @@ function drawAttackers() {
   const active = new Set();
   const captions = [];
   for (const enemy of sim.enemies) {
-    if (!enemy.attackingTissue) continue;
+    const warning = enemy.tutorial ? '' : attackWarnings[enemy.action];
+    if (!enemy.attackingTissue && !warning) continue;
     const point = world.project(enemy.x, enemy.y + enemy.radius + .17, enemy.z);
     if (!point.visible || point.y < worldMarkerTop(105) || point.x < 17 || point.x > window.innerWidth - 17) continue;
     active.add(enemy.id);
@@ -642,8 +650,11 @@ function drawAttackers() {
       tissueAttackers.append(icon);
     }
     const branch = branches[enemy.branch];
-    setText(icon.firstElementChild, enemy.latched ? (branch ? branch.name + ' LATCHED' : 'LATCHED ON TISSUE')
-      : (branch ? branch.name + ' ATTACKING' : 'ATTACKING TISSUE'));
+    const label = enemy.latched ? (branch ? branch.name + ' LATCHED' : 'LATCHED ON TISSUE')
+      : (branch ? branch.name + ' ATTACKING' : 'ATTACKING TISSUE');
+    const text = warning && enemy.actionTarget === 'player' ? warning + ' · MOVE' : warning || label;
+    icon.classList.toggle('winding-up', !!warning);
+    setText(icon.firstElementChild, text);
     const showCaption = point.x >= 65 && point.x <= window.innerWidth - 65 &&
       !captions.some(other => Math.abs(other.x - point.x) < 125 && Math.abs(other.y - point.y) < 24);
     icon.classList.toggle('compact', !showCaption);
@@ -689,12 +700,13 @@ function applyEvents() {
       announce('WAVE 01', 'PATHOGENS INBOUND', 2.8);
       audio.play({ type: 'wave', stage: 'start' });
     }
-    if (event.type === 'branch' || event.type === 'valve' || event.type === 'damage' || event.type === 'hit' || event.type === 'kill') {
+    if (event.type === 'branch' || event.type === 'valve' || event.type === 'enemyAttack' || event.type === 'damage' || event.type === 'hit' || event.type === 'kill') {
       const { x, z, yaw } = sim.player;
       const dx = event.x - x;
       const dz = event.z - z;
-      const pan = (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / Math.max(1, Math.hypot(dx, dz));
-      audio.play({ ...event, pan });
+      const distance = Math.hypot(dx, dz);
+      const pan = (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / Math.max(1, distance);
+      audio.play({ ...event, pan, distance });
     } else if (event.type !== 'mission') audio.play(event);
     if (event.type === 'kill' && event.enemyType === 'colony' && sim.tissue < 100) {
       announce('COLONY NEUTRALIZED', 'SEAL THE WOUND WHEN THE VALVE CLOSES', 3);

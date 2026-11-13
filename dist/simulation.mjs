@@ -17,9 +17,9 @@ export const RULES = Object.freeze({
 });
 
 const SPECIES = {
-  virus: { radius: 0.92, y: 1.63, health: 34, speed: 2.05, suitDamage: 9, tissueDamage: 5, period: 1.22, score: 100 },
+  virus: { radius: 0.92, y: 1.63, health: 34, speed: 2.05, suitDamage: 9, tissueDamage: 5, score: 100 },
   bacillus: { radius: 1.12, y: 1.13, health: 68, speed: 1.32, tissueDamage: 9, period: 1.75, score: 180 },
-  spore: { radius: 0.73, y: 2.10, health: 18, speed: 3.28, suitDamage: 7, tissueDamage: 3, period: 0.97, score: 130 },
+  spore: { radius: 0.73, y: 2.10, health: 18, speed: 3.28, suitDamage: 7, tissueDamage: 3, score: 130 },
   colony: { radius: 1.10, y: 3.35, health: 1100, tissueDamage: 11, period: 1.57, score: 900 },
 };
 
@@ -62,6 +62,18 @@ const JUNCTION_REPAIR_TIME = 9;
 const JUNCTION_EXTRACT_DELAY = 1.25;
 const LATCH_RANGE = 1.9;
 const LATCH_WINDUP = 0.45;
+const LATCH_TEAR = 0.27;
+const VIRUS_WINDUP = 0.5;
+const VIRUS_POUNCE = 0.22;
+const VIRUS_RECOVERY = 0.42;
+const VIRUS_RANGE = 3.6;
+const SPORE_WINDUP = 0.55;
+const SPORE_RECOVERY = 0.55;
+const SPORE_RANGE = 8.2;
+const SPORE_STANDOFF = 2.4;
+const SPORE_SPEED = 7.3;
+const SPORE_RADIUS = 0.21;
+const SPORE_ARM_TIME = 0.12;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -124,6 +136,8 @@ export class Simulation {
     this.spawnCountdown = 0;
     this.nextEnemyId = 1;
     this.enemies = [];
+    this.nextProjectileId = 1;
+    this.projectiles = [];
     this.events = [];
   }
 
@@ -157,6 +171,7 @@ export class Simulation {
   }
 
   clearWave() {
+    this.projectiles.length = 0;
     this.score += 250 * this.wave;
     this.events.push({ type: 'wave', wave: this.wave, stage: 'clear' });
     if (this.wave === this.waves) {
@@ -177,6 +192,7 @@ export class Simulation {
 
   endMission(outcome, reason) {
     this.phase = outcome;
+    this.projectiles.length = 0;
     this.events.push({ type: 'mission', outcome, reason });
   }
 
@@ -240,13 +256,14 @@ export class Simulation {
       this.spawnCountdown += mission.delays?.[this.spawnIndex - 1] ?? mission.cadence ?? 0;
     }
     this.advanceEnemies(dt);
+    this.advanceProjectiles(dt);
     this.remaining = mission.species.length - this.spawnIndex + this.enemies.length;
 
     if (this.tissue === 0) {
       this.endMission('lost', 'tissue');
     } else if (this.player.health === 0) {
       this.endMission('lost', 'suit');
-    } else if (this.remaining === 0) {
+    } else if (this.remaining === 0 && this.projectiles.length === 0) {
       this.clearWave();
     }
   }
@@ -467,7 +484,34 @@ export class Simulation {
       attackCooldown: 0.65,
       attackingTissue: false,
       latched: false,
+      heading: 0,
+      action: 'idle',
+      actionProgress: 0,
+      actionElapsed: 0,
+      actionTarget: null,
     };
+  }
+
+  setEnemyAction(enemy, action) {
+    enemy.action = action;
+    enemy.actionProgress = 0;
+    enemy.actionElapsed = 0;
+    if (action === 'idle') enemy.actionTarget = null;
+  }
+
+  advanceAction(enemy, dt, duration) {
+    enemy.actionElapsed += dt;
+    enemy.actionProgress = Math.min(1, enemy.actionElapsed / duration);
+    return enemy.actionProgress === 1;
+  }
+
+  attackEvent(enemy, stage, target, origin = enemy) {
+    const event = {
+      type: 'enemyAttack', enemyType: enemy.type, id: enemy.id, stage, target,
+      x: origin.x, y: origin.y, z: origin.z,
+    };
+    if (enemy.branch) event.branch = enemy.branch;
+    this.events.push(event);
   }
 
   advanceBacillus(enemy, dt, spec) {
@@ -475,6 +519,7 @@ export class Simulation {
       const dx = this.objective.x - enemy.x;
       const dz = this.objective.z - enemy.z;
       const distance = Math.hypot(dx, dz);
+      enemy.heading = Math.atan2(dx, dz);
       const speed = enemy.tutorial ? 2.7 : spec.speed + (this.wave - 1) * 0.13;
       const travel = Math.min(Math.max(0, distance - LATCH_RANGE), speed * dt);
       if (distance > LATCH_RANGE) {
@@ -489,14 +534,29 @@ export class Simulation {
       enemy.attackingTissue = true;
       enemy.y = this.objective.y + 0.13;
       enemy.attackCooldown = LATCH_WINDUP;
+      enemy.actionTarget = 'tissue';
+      this.setEnemyAction(enemy, 'bacillus-windup');
+      this.attackEvent(enemy, 'windup', 'tissue');
       return;
     }
 
+    if (enemy.action === 'bacillus-tear' && this.advanceAction(enemy, dt, LATCH_TEAR)) {
+      this.setEnemyAction(enemy, 'idle');
+    }
     if (enemy.tutorial && this.tutorial !== 'observe') return;
     enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
+    if (enemy.action === 'bacillus-windup') {
+      enemy.actionProgress = 1 - enemy.attackCooldown / LATCH_WINDUP;
+    } else if (enemy.attackCooldown <= LATCH_WINDUP) {
+      enemy.actionTarget = 'tissue';
+      this.setEnemyAction(enemy, 'bacillus-windup');
+      this.attackEvent(enemy, 'windup', 'tissue');
+    }
     if (enemy.attackCooldown > 0) return;
     enemy.attackCooldown = spec.period;
+    this.setEnemyAction(enemy, 'bacillus-tear');
     this.damageTarget(enemy, 'tissue', enemy.tutorial ? REPAIR_PER_CYCLE : spec.tissueDamage);
+    this.attackEvent(enemy, 'impact', 'tissue');
     if (enemy.tutorial) {
       this.tutorial = 'intercept';
       this.events.push({ type: 'tutorial', stage: 'intercept' });
@@ -519,15 +579,30 @@ export class Simulation {
         this.advanceBacillus(enemy, dt, spec);
         continue;
       }
+      if (enemy.action !== 'idle') {
+        if (enemy.type === 'virus') this.advanceVirusAttack(enemy, dt, spec);
+        else this.advanceSporeAttack(enemy, dt);
+        continue;
+      }
+
       const distanceToSuit = Math.hypot(player.x - enemy.x, player.z - enemy.z);
       const distanceToTissue = Math.hypot(this.objective.x - enemy.x, this.objective.z - enemy.z);
       const aggro = enemy.type === 'spore' ? 12 : 7.4;
       const attacksSuit = distanceToSuit < aggro && distanceToSuit < distanceToTissue + 0.6;
       const target = attacksSuit ? player : this.objective;
       const distance = attacksSuit ? distanceToSuit : distanceToTissue;
-      const range = enemy.radius + (attacksSuit ? 0.75 : 1.25);
+      const range = enemy.type === 'virus' ? (attacksSuit ? VIRUS_RANGE : 2.7) : (attacksSuit ? SPORE_RANGE : 3.4);
       enemy.attackingTissue = !attacksSuit && distance <= range + 0.04;
       enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
+      enemy.heading = Math.atan2(target.x - enemy.x, target.z - enemy.z);
+      enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * 0.24;
+      if (enemy.type === 'spore' && attacksSuit && distance > 0.01 && distance < SPORE_STANDOFF - 0.04) {
+        const retreat = Math.min(SPORE_STANDOFF - distance, 2.6 * dt);
+        enemy.x -= Math.sin(enemy.heading) * retreat;
+        enemy.z -= Math.cos(enemy.heading) * retreat;
+        confineToChamber(enemy);
+        if (Math.hypot(player.x - enemy.x, player.z - enemy.z) > distance + retreat * .3) continue;
+      }
       if (distance > range + 0.04) {
         const heading = Math.atan2(target.z - enemy.z, target.x - enemy.x);
         const course = heading + Math.sin(this.clock * 2.2 + enemy.id * 2.9) * 0.30 * Math.min(1, distance / 4);
@@ -535,12 +610,128 @@ export class Simulation {
         enemy.x += Math.cos(course) * travel;
         enemy.z += Math.sin(course) * travel;
       } else if (enemy.attackCooldown === 0) {
-        enemy.attackCooldown = spec.period;
-        this.damageTarget(enemy, attacksSuit ? 'player' : 'tissue', attacksSuit ? spec.suitDamage : spec.tissueDamage);
+        this.startEnemyAttack(enemy, target, attacksSuit ? 'player' : 'tissue');
+      }
+    }
+  }
+
+  startEnemyAttack(enemy, target, targetName) {
+    enemy.actionTarget = targetName;
+    enemy.attackOrigin = { x: enemy.x, y: enemy.y, z: enemy.z };
+    enemy.attackPoint = { x: target.x, y: target.y, z: target.z };
+    if (enemy.type === 'virus') {
+      // Leave the virus on the near side of what it strikes so it stays shootable.
+      const dx = enemy.x - target.x;
+      const dz = enemy.z - target.z;
+      const distance = Math.max(0.01, Math.hypot(dx, dz));
+      const offset = Math.min(distance, targetName === 'tissue' ? 1.3 : 0.44);
+      enemy.attackPoint.x += dx * offset / distance;
+      enemy.attackPoint.z += dz * offset / distance;
+    }
+    this.setEnemyAction(enemy, enemy.type + '-windup');
+    this.attackEvent(enemy, 'windup', targetName);
+  }
+
+  advanceVirusAttack(enemy, dt, spec) {
+    if (enemy.action === 'virus-windup') {
+      if (this.advanceAction(enemy, dt, VIRUS_WINDUP)) {
+        this.setEnemyAction(enemy, 'virus-pounce');
+        this.attackEvent(enemy, 'release', enemy.actionTarget);
+      }
+      return;
+    }
+    if (enemy.action === 'virus-pounce') {
+      const landed = this.advanceAction(enemy, dt, VIRUS_POUNCE);
+      const progress = enemy.actionProgress;
+      const from = enemy.attackOrigin;
+      const to = enemy.attackPoint;
+      enemy.x = from.x + (to.x - from.x) * progress;
+      enemy.y = from.y + (to.y - from.y) * progress + 0.52 * Math.sin(Math.PI * progress);
+      enemy.z = from.z + (to.z - from.z) * progress;
+      if (!landed) return;
+
+      const hitsSuit = enemy.actionTarget === 'player' && Math.hypot(enemy.x - this.player.x, enemy.z - this.player.z) < 1.06;
+      const hitsTissue = enemy.actionTarget === 'tissue';
+      if (hitsSuit || hitsTissue) this.damageTarget(enemy, enemy.actionTarget, hitsSuit ? spec.suitDamage : spec.tissueDamage);
+      this.attackEvent(enemy, hitsSuit || hitsTissue ? 'impact' : 'miss', enemy.actionTarget);
+      this.setEnemyAction(enemy, 'virus-recover');
+      return;
+    }
+    if (this.advanceAction(enemy, dt, VIRUS_RECOVERY)) {
+      enemy.attackCooldown = enemy.actionTarget === 'tissue' ? 0.12 : 0.34;
+      this.setEnemyAction(enemy, 'idle');
+    }
+  }
+
+  advanceSporeAttack(enemy, dt) {
+    if (enemy.action === 'spore-windup') {
+      if (this.advanceAction(enemy, dt, SPORE_WINDUP)) {
+        this.launchSpore(enemy);
+        this.setEnemyAction(enemy, 'spore-recover');
+      }
+      return;
+    }
+    if (this.advanceAction(enemy, dt, SPORE_RECOVERY)) {
+      enemy.attackCooldown = enemy.actionTarget === 'tissue' ? 0.12 : 0.38;
+      this.setEnemyAction(enemy, 'idle');
+    }
+  }
+
+  launchSpore(enemy) {
+    const aim = enemy.attackPoint;
+    const dx = aim.x - enemy.x;
+    const dy = aim.y - enemy.y;
+    const dz = aim.z - enemy.z;
+    const distance = Math.hypot(dx, dy, dz);
+    const scale = SPORE_SPEED / Math.max(0.01, distance);
+    this.projectiles.push({
+      id: this.nextProjectileId++, owner: enemy,
+      target: enemy.actionTarget, x: enemy.x, y: enemy.y, z: enemy.z,
+      vx: dx * scale, vy: dy * scale, vz: dz * scale, radius: SPORE_RADIUS,
+      arming: SPORE_ARM_TIME,
+      lifetime: Math.max(0.4, distance / SPORE_SPEED + 0.32),
+    });
+    this.attackEvent(enemy, 'release', enemy.actionTarget);
+  }
+
+  advanceProjectiles(dt) {
+    let active = 0;
+    for (const projectile of this.projectiles) {
+      const { owner, target, vx, vy, vz } = projectile;
+      const from = { x: projectile.x, y: projectile.y, z: projectile.z };
+      const travel = Math.min(dt, projectile.lifetime);
+      const dx = vx * travel;
+      const dy = vy * travel;
+      const dz = vz * travel;
+      const objective = target === 'player' ? this.player : this.objective;
+      const tx = objective.x - from.x;
+      const ty = objective.y - from.y;
+      const tz = objective.z - from.z;
+      const lengthSquared = dx * dx + dy * dy + dz * dz;
+      const armed = projectile.arming <= travel;
+      const armedStart = travel > 0 ? Math.min(1, projectile.arming / travel) : 0;
+      const nearest = lengthSquared ? clamp((tx * dx + ty * dy + tz * dz) / lengthSquared, armedStart, 1) : 0;
+      const radius = projectile.radius + (target === 'player' ? 0.61 : 1.08);
+      if (armed && Math.hypot(tx - dx * nearest, ty - dy * nearest, tz - dz * nearest) <= radius) {
+        const impact = { x: from.x + dx * nearest, y: from.y + dy * nearest, z: from.z + dz * nearest };
+        const spec = SPECIES.spore;
+        this.damageTarget(owner, target, target === 'player' ? spec.suitDamage : spec.tissueDamage, impact);
+        this.attackEvent(owner, 'impact', target, impact);
+        continue;
       }
 
-      enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * 0.24;
+      projectile.x += dx;
+      projectile.y += dy;
+      projectile.z += dz;
+      projectile.arming = Math.max(0, projectile.arming - travel);
+      projectile.lifetime -= travel;
+      if (projectile.lifetime <= 0) {
+        this.attackEvent(owner, 'miss', target, projectile);
+      } else {
+        this.projectiles[active++] = projectile;
+      }
     }
+    this.projectiles.length = active;
   }
 }
 

@@ -4,6 +4,11 @@ const MUSIC_CUES = [
 ];
 
 const SHOTS = ['weapon/shot-1', 'weapon/shot-2', 'weapon/shot-3', 'weapon/shot-4'];
+const ENEMY_CUES = {
+  virus: { windup: ['field/virus-windup', .47], release: ['field/virus-pounce', .36] },
+  spore: { windup: ['field/spore-windup', .44], release: ['field/spore-spit', .39] },
+  bacillus: { windup: ['field/bacillus-windup', .43] },
+};
 const EFFECTS = [
   ...SHOTS, 'field/deploy', 'field/arterial-bed',
   'weapon/dry', 'weapon/hit', 'weapon/kill', 'weapon/reload-start', 'weapon/reload-complete',
@@ -11,6 +16,7 @@ const EFFECTS = [
   'field/repair-start', 'field/repair-loop', 'field/repair-pulse', 'field/repair-complete',
   'field/wave-start', 'field/wave-clear', 'field/won', 'field/lost',
   'field/valve-open', 'field/valve-close', 'field/valve-blocked',
+  ...Object.values(ENEMY_CUES).flatMap(stages => Object.values(stages).map(([name]) => name)),
 ];
 
 export class GameAudio {
@@ -31,6 +37,7 @@ export class GameAudio {
     this.damageAt = { player: -Infinity, tissue: -Infinity };
     this.branchAt = { left: -Infinity, right: -Infinity };
     this.valveBlockedAt = -Infinity;
+    this.enemyCueAt = new Map();
   }
 
   async unlock() {
@@ -233,6 +240,19 @@ export class GameAudio {
           pan: this.spatialPan(event),
           rate: branch === 'left' ? 0.96 : 1.04,
         })) this.branchAt[branch] = now;
+        break;
+      }
+      case 'enemyAttack': {
+        const cue = ENEMY_CUES[event.enemyType]?.[event.stage];
+        if (!cue) break;
+        const [name, volume] = cue;
+        const now = this.context.currentTime;
+        if (now - (this.enemyCueAt.get(name) ?? -Infinity) < .14) break;
+        const distance = event.distance ?? 0;
+        const attenuation = 1 / (1 + Math.max(0, distance - 3) * .085);
+        if (this.playSample(name, volume * attenuation, { pan: this.spatialPan(event) })) {
+          this.enemyCueAt.set(name, now);
+        }
         break;
       }
       case 'valve': {
