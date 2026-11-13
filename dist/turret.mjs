@@ -181,12 +181,14 @@ export function createTurret(glow) {
 
   let deployedFor = 0;
   let recoilTime = 0;
+  let emplacement = null;
 
   function reset() {
     model.visible = false;
     flash.visible = false;
     deployedFor = 0;
     recoilTime = 0;
+    emplacement = null;
   }
 
   function update(turret, floor, dt, reduceMotion) {
@@ -194,14 +196,18 @@ export function createTurret(glow) {
       if (model.visible) reset();
       return;
     }
-    const firstFrame = !model.visible;
+    const firstFrame = turret !== emplacement;
+    if (firstFrame) {
+      reset();
+      emplacement = turret;
+    }
     model.visible = true;
     model.position.set(turret.x, turret.y + floor, turret.z);
     deployedFor += dt;
     recoilTime = Math.max(0, recoilTime - dt);
     const yawDelta = turret.yaw - azimuth.rotation.y;
     azimuth.rotation.y = firstFrame ? turret.yaw : azimuth.rotation.y + Math.atan2(Math.sin(yawDelta), Math.cos(yawDelta)) * (1 - Math.exp(-dt * 20));
-    elevation.rotation.x = THREE.MathUtils.damp(elevation.rotation.x, -turret.pitch, 20, dt);
+    elevation.rotation.x = firstFrame ? -turret.pitch : THREE.MathUtils.damp(elevation.rotation.x, -turret.pitch, 20, dt);
     recoil.position.z = -recoilTime * (reduceMotion ? .16 : .59);
     const unfold = reduceMotion ? 1 : THREE.MathUtils.smoothstep(deployedFor, .01, .27);
     for (const leg of legs) {

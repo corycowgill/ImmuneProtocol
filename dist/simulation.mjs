@@ -49,35 +49,44 @@ const MISSIONS = [
   { cadence: 0.72, species: ['bacillus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'spore', 'bacillus', 'virus', 'spore', 'bacillus', 'spore', 'bacillus', 'virus', 'spore', 'virus', 'bacillus'] },
 ];
 
+const SURGE_SPACING = .68;
+const JUNCTION_NODE_INDEX = { left: 0, right: 1 };
+
+function junctionMission(name, groups, bonus = 0) {
+  const surges = [];
+  const arrivals = [];
+  for (const [at, branch, threat, species] of groups) {
+    const nodeName = TISSUE_NODES.junction[JUNCTION_NODE_INDEX[branch]].name;
+    const surge = { at, branch, nodeName, threat };
+    surges.push(surge);
+    for (const [index, type] of species.entries()) {
+      arrivals.push({ at: at + index * SURGE_SPACING, type, branch, surge: index === 0 ? surge : null });
+    }
+  }
+  return { name, lane: surges[0].branch, bonus, surges, arrivals };
+}
+
 const JUNCTION_MISSIONS = [
-  {
-    name: 'Virus Rush', lane: 'left',
-    species: ['virus', 'virus', 'virus', 'virus', 'virus', 'virus'],
-    branches: ['left', 'left', 'right', 'left', 'right', 'left'],
-    delays: [.64, 1.45, .95, 1.24, .92],
-  },
-  {
-    name: 'Spore Crossfire', lane: 'both',
-    species: ['spore', 'spore', 'virus', 'spore', 'spore', 'virus'],
-    branches: ['left', 'right', 'right', 'left', 'right', 'left'],
-    delays: [.44, 1.42, 1.6, .74, 1.1],
-  },
-  {
-    name: 'Breach', lane: 'left', breach: true,
-    species: ['bacillus', 'virus', 'spore', 'spore', 'virus', 'spore', 'virus'],
-    branches: ['left', 'left', 'right', 'right', 'left', 'right', 'left'],
-    // Teal spores enter as the slower amber bacillus closes on the tissue.
-    delays: [1.0, 3.75, 1.35, 2.0, .85, 1.0],
-  },
+  junctionMission('Virus Rush', [
+    [2, 'left', 'Virus rush', ['virus', 'virus', 'virus', 'virus']],
+    [6.4, 'right', 'Virus rush', ['virus', 'virus']],
+  ]),
+  junctionMission('Spore Crossfire', [
+    [1.2, 'left', 'Spore volley', ['spore', 'virus', 'spore']],
+    [5.8, 'right', 'Spore volley', ['spore', 'virus', 'spore']],
+  ]),
+  junctionMission('Breach', [
+    [1.2, 'left', 'Virus rush', ['virus', 'virus', 'virus']],
+    [7.2, 'right', 'Bacillus breach', ['bacillus', 'spore']],
+    [11.8, 'left', 'Spore volley', ['spore', 'spore']],
+  ]),
 ];
 
-const JUNCTION_OVERTIME = {
-  name: 'Overtime', lane: 'both', breach: true, bonus: 2000,
-  species: ['bacillus', 'virus', 'spore', 'spore', 'virus', 'spore', 'virus', 'bacillus', 'spore'],
-  branches: ['right', 'right', 'left', 'left', 'right', 'left', 'right', 'right', 'left'],
-  // Amber spore volleys start before the teal bacillus can latch.
-  delays: [.68, .85, .73, 1.2, .95, 1.2, 1.05, .74],
-};
+const JUNCTION_OVERTIME = junctionMission('Overtime', [
+  [2, 'right', 'Bacillus breach', ['bacillus', 'virus', 'virus']],
+  [4.7, 'left', 'Spore volley', ['spore', 'spore', 'spore', 'spore']],
+  [8.8, 'right', 'Bacillus breach', ['bacillus', 'virus']],
+], 2000);
 
 const HEART_MISSIONS = [{ species: ['colony'] }];
 const HEART_CLOSED_TIME = 3.8;
@@ -168,7 +177,8 @@ export class Simulation {
   }
 
   get turretPlacement() {
-    if (!this.turretCharges || this.tutorial || this.extractionPending || (this.phase !== 'combat' && this.phase !== 'intermission')) return null;
+    if ((!this.turretCharges && !this.canRedeployTurret) || this.tutorial || this.extractionPending ||
+      (this.phase !== 'combat' && this.phase !== 'intermission')) return null;
     const { x, z, yaw } = this.player;
     const point = { x: x - Math.sin(yaw) * 2.2, y: 0, z: z - Math.cos(yaw) * 2.2 };
     if (this.valve && (Math.abs(point.x) > HEART_MAX_PLAYER_X - .65 ||
@@ -187,12 +197,28 @@ export class Simulation {
     return this.area === 'junction' ? this.missions[this.wave] ?? null : null;
   }
 
+  get junctionSurge() {
+    if (this.phase === 'intermission' && !this.settling) {
+      const surge = this.junctionForecast?.surges[0];
+      return surge ? { ...surge, remaining: this.intermission + surge.at } : null;
+    }
+    if (this.phase !== 'combat') return null;
+    const surge = this.junctionWave?.surges[this.junctionSurgeIndex];
+    return surge ? { ...surge, remaining: Math.max(0, surge.at - (this.clock - this.waveStartedAt)) } : null;
+  }
+
   get overtimeForecast() {
     return this.area === 'junction' && !this.overtime ? JUNCTION_OVERTIME : null;
   }
 
+  get canRedeployTurret() {
+    return !!this.turret && this.junctionSupply === 'turret' && !this.junctionSupplyLocked &&
+      this.phase === 'intermission' && !!this.junctionForecast;
+  }
+
   selectJunctionSupply(choice) {
-    if (this.phase !== 'intermission' || !this.junctionForecast || !['left', 'right', 'ammo'].includes(choice)) return false;
+    if (this.phase !== 'intermission' || !this.junctionForecast || this.junctionSupplyLocked ||
+      !['left', 'right', 'ammo', 'turret'].includes(choice) || (choice === 'turret' && !this.turret)) return false;
     this.junctionSupply = choice;
     return true;
   }
@@ -245,6 +271,9 @@ export class Simulation {
     this.gash = null;
     this.junctionGashOpened = false;
     this.junctionSupply = null;
+    this.junctionSupplyLocked = false;
+    this.junctionSurgeIndex = 0;
+    this.waveStartedAt = 0;
     this.reinforcement = null;
     this.intermission = 0;
     this.settling = false;
@@ -292,15 +321,20 @@ export class Simulation {
     this.phase = 'combat';
     this.intermission = 0;
     this.spawnIndex = 0;
+    this.junctionSurgeIndex = 0;
+    this.waveStartedAt = this.clock;
     this.spawnCountdown = this.wave === 1 ? 0.8 : 0.65;
-    this.remaining = this.missions[this.wave - 1].species.length;
+    const mission = this.missions[this.wave - 1];
+    this.remaining = (mission.arrivals ?? mission.species).length;
     this.applyJunctionSupply();
     this.events.push({ type: 'wave', wave: this.wave, stage: 'start' });
   }
 
   applyJunctionSupply() {
     const choice = this.junctionSupply;
+    const movedTurret = this.junctionSupplyLocked;
     this.junctionSupply = null;
+    this.junctionSupplyLocked = false;
     this.reinforcement = null;
     if (choice === 'ammo') {
       const player = this.player;
@@ -311,9 +345,11 @@ export class Simulation {
       player.reserve -= rounds;
       this.reloading = 0;
       this.events.push({ type: 'junctionSupply', choice, amount });
-    } else if (choice) {
-      this.reinforcement = { branch: choice, remaining: REINFORCEMENT_TIME, duration: REINFORCEMENT_TIME };
+    } else if (choice === 'left' || choice === 'right') {
+      this.reinforcement = { branch: choice, remaining: REINFORCEMENT_TIME, duration: REINFORCEMENT_TIME, started: false };
       this.events.push({ type: 'junctionSupply', choice, ...JUNCTION_INLETS[choice] });
+    } else if (movedTurret) {
+      this.events.push({ type: 'junctionSupply', choice });
     }
   }
 
@@ -416,18 +452,27 @@ export class Simulation {
     }
 
     const mission = this.missions[this.wave - 1];
-    if (this.reinforcement) {
+    if (this.reinforcement?.started) {
       this.reinforcement.remaining = Math.max(0, this.reinforcement.remaining - dt);
       if (this.reinforcement.remaining === 0) this.reinforcement = null;
     }
-    this.spawnCountdown -= dt;
-    if (this.spawnIndex < mission.species.length && this.spawnCountdown <= 0) {
-      this.spawn(mission.species[this.spawnIndex]);
-      this.spawnCountdown += mission.delays?.[this.spawnIndex - 1] ?? mission.cadence ?? 0;
+    if (mission.arrivals) {
+      const elapsed = this.clock - this.waveStartedAt;
+      let arrival = mission.arrivals[this.spawnIndex];
+      while (arrival && arrival.at <= elapsed + 1e-9) {
+        this.spawnJunctionEnemy(arrival);
+        arrival = mission.arrivals[this.spawnIndex];
+      }
+    } else {
+      this.spawnCountdown -= dt;
+      if (this.spawnIndex < mission.species.length && this.spawnCountdown <= 0) {
+        this.spawn(mission.species[this.spawnIndex]);
+        this.spawnCountdown += mission.cadence;
+      }
     }
     this.advanceEnemies(dt);
     this.advanceProjectiles(dt);
-    this.remaining = mission.species.length - this.spawnIndex + this.enemies.length;
+    this.remaining = (mission.arrivals ?? mission.species).length - this.spawnIndex + this.enemies.length;
 
     if (this.failedNode) {
       this.endMission('lost', 'tissue');
@@ -607,15 +652,17 @@ export class Simulation {
 
   deployTurret() {
     if (this.tutorial) return false;
+    const redeploying = this.canRedeployTurret;
     const point = this.turretPlacement;
     if (!point) {
       const { x, y, z } = this.player;
-      this.events.push({ type: 'turret', stage: this.turretCharges ? 'invalid' : 'empty', x, y, z });
+      this.events.push({ type: 'turret', stage: this.turretCharges || redeploying ? 'invalid' : 'empty', x, y, z });
       return false;
     }
     this.turret = { ...point, yaw: Math.PI + this.player.yaw, pitch: 0, cooldown: .6, targetId: null };
-    this.turretCharges -= 1;
-    this.events.push({ type: 'turret', stage: 'deployed', ...point });
+    if (redeploying) this.junctionSupplyLocked = true;
+    else this.turretCharges -= 1;
+    this.events.push({ type: 'turret', stage: redeploying ? 'redeployed' : 'deployed', ...point });
     return true;
   }
 
@@ -737,24 +784,29 @@ export class Simulation {
     const lane = (index + this.wave - 1) % this.nodes.length;
     const route = ENTRANCES[lane];
     const [x, z] = route[(Math.floor(index / this.nodes.length) + this.wave - 1) % route.length];
-    let spawnX = index === 0 ? x : x + Math.sin(index * 2.4 + this.wave) * 1.35;
-    let spawnZ = z + Math.cos(index * 1.9 + this.wave) * 0.85;
-    let node = this.nodes[lane];
-    let branch;
-    const junctionWave = this.junctionWave;
-    if (junctionWave) {
-      branch = junctionWave.branches[index];
-      node = this.nodes[branch === 'left' ? 0 : 1];
-      spawnX = Math.sign(JUNCTION_INLETS[branch].x) * (22.6 + Math.sin(index * 1.7) * .47);
-      spawnZ = -24.9 + Math.cos(index * 2.2) * .47;
-    }
+    const spawnX = index === 0 ? x : x + Math.sin(index * 2.4 + this.wave) * 1.35;
+    const spawnZ = z + Math.cos(index * 1.9 + this.wave) * 0.85;
+    this.enemies.push(this.createEnemy(type, spawnX, spawnZ, this.nodes[lane]));
+  }
+
+  spawnJunctionEnemy({ type, branch, surge }) {
+    const index = this.spawnIndex++;
+    const inlet = JUNCTION_INLETS[branch];
+    const node = this.nodes[JUNCTION_NODE_INDEX[branch]];
+    const spawnX = Math.sign(inlet.x) * (22.6 + Math.sin(index * 1.7) * .47);
+    const spawnZ = -24.9 + Math.cos(index * 2.2) * .47;
     const enemy = this.createEnemy(type, spawnX, spawnZ, node);
-    if (branch) {
-      enemy.branch = branch;
-      if (junctionWave.breach && type === 'bacillus') enemy.attackAnchor = JUNCTION_GASH_SITES[branch];
-      if (this.reinforcement?.branch === branch) enemy.inletHold = REINFORCEMENT_HOLD;
-      this.events.push({ type: 'branch', branch, x: enemy.x, y: enemy.y, z: enemy.z });
+    enemy.branch = branch;
+    if (type === 'bacillus') enemy.attackAnchor = JUNCTION_GASH_SITES[branch];
+    if (this.reinforcement?.branch === branch) {
+      this.reinforcement.started = true;
+      enemy.inletHold = REINFORCEMENT_HOLD;
     }
+    if (surge) {
+      this.junctionSurgeIndex += 1;
+      this.events.push({ type: 'surge', stage: 'arrival', ...surge, ...inlet });
+    }
+    this.events.push({ type: 'branch', branch, x: enemy.x, y: enemy.y, z: enemy.z });
     this.enemies.push(enemy);
   }
 

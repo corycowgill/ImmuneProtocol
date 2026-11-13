@@ -1999,7 +1999,7 @@ export class World {
       for (const event of events) {
         if (event.type === 'shot') this.addShot(event);
         if (event.type === 'turret' && event.stage === 'fire') this.addTurretShot(event, reduceMotion);
-        if (event.type === 'turret' && event.stage === 'deployed' && !reduceMotion) {
+        if (event.type === 'turret' && (event.stage === 'deployed' || event.stage === 'redeployed') && !reduceMotion) {
           this.burst(event.x, floorHeight(event.x, event.z) + .11, event.z, 0xb78079, 15, 1.2);
         }
         if (event.type === 'hit' && this.enemyViews.has(event.id)) this.enemyViews.get(event.id).hit = 1;

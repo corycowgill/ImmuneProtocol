@@ -41,7 +41,7 @@ git subtree push --prefix=dist origin gh-pages
 | Sprint | Shift |
 | Reload | R |
 | Repair | Hold E near a damaged tissue node or open gash |
-| Deploy auto-turret | Q |
+| Deploy or redeploy auto-turret | Q |
 | Pause | Esc or P |
 
 When mouse capture is unavailable, drag the view to look. On touchscreens, move with the joystick, drag to look, and use the action buttons.
@@ -52,7 +52,9 @@ Settings is available from the main menu and pause screen. Look sensitivity appl
 
 Viruses coil before lunging toward a fixed landing point. Spores swell before spitting a slow projectile. Step sideways during the windup to evade either attack. Bacilli head straight for the tissue, brace, and tear until you dislodge them.
 
-Capillary Junction has three waves with different threats. Read the forecast during each break, then use **1**, **2**, or **3** to reinforce Amber, reinforce Teal, or take extra ammo. You can also select the options on screen. Reinforcing an inlet delays its attackers in the next wave.
+Capillary Junction has three waves with staggered attacks. The HUD names the next targeted node, the incoming pathogen, and the time until it enters. In Wave 3, an Amber virus rush arrives six seconds before the Teal bacillus breach.
+
+During each break, use **1** to reinforce Amber, **2** to reinforce Teal, **3** for extra ammo, or **4** to redeploy a turret you've already placed. You can also select the options on screen. Reinforcement starts when the first attacker enters the chosen inlet. After choosing redeploy, face clear ground and press **Q** or tap **Turret** before the next wave. A successful move uses your support choice for that break. The turret keeps its position until you find a valid new spot.
 
 In the breach wave, a bacillus tear can leave a gash that keeps draining tissue after the attacker dies. Move to the marked wound and hold Repair. Completed sealing pulses stay applied when you stop to fight or dodge. If a gash is still open after the last enemy falls, seal it to extract.
 
