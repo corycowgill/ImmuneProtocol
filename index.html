@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#120b0b">
-  <meta name="description" content="Deploy as a nano-soldier, fight five waves of infection, and repair the damaged tissue inside a living artery.">
+  <meta name="description" content="Deploy as a nano-soldier, defend tissue nodes against waves of infection, and fight through three chambers inside a living host.">
   <title>Immune Protocol</title>
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="preload" as="image" href="assets/hero.webp">
@@ -82,15 +82,25 @@
     </section>
 
     <section id="game" class="game" aria-label="Game" hidden>
-      <canvas id="world" aria-label="First-person view inside the artery"></canvas>
+      <canvas id="world" aria-label="First-person view inside the host"></canvas>
       <div class="game-vignette" aria-hidden="true"></div>
       <div id="damage-flash" class="damage-flash" aria-hidden="true"></div>
 
       <div class="hud">
         <div class="host-panel">
-          <div class="hud-label"><svg aria-hidden="true"><use href="#pulse"></use></svg> HOST TISSUE <strong id="tissue-value">100%</strong></div>
-          <div class="meter" role="meter" id="tissue-meter" aria-label="Host tissue integrity" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="tissue-fill"></div></div>
-          <div id="host-state" class="host-state" role="status">VITALS STABLE</div>
+          <div class="hud-label"><svg aria-hidden="true"><use href="#pulse"></use></svg> TISSUE NODES</div>
+          <div id="node-status" class="node-status" role="group" aria-label="Tissue node integrity">
+            <div class="node-row" data-tissue-node="0" data-branch="left">
+              <div class="node-readout"><span id="primary-node-name" data-node-name>Primary</span><strong data-node-value>100%</strong></div>
+              <div class="meter" role="meter" data-node-meter aria-labelledby="primary-node-name" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div></div></div>
+              <span class="node-state" data-node-state hidden></span>
+            </div>
+            <div class="node-row" data-tissue-node="1">
+              <div class="node-readout"><span id="secondary-node-name" data-node-name>Secondary</span><strong data-node-value>100%</strong></div>
+              <div class="meter" role="meter" data-node-meter aria-labelledby="secondary-node-name" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div></div></div>
+              <span class="node-state" data-node-state hidden></span>
+            </div>
+          </div>
           <div id="gash-status" class="gash-status" role="status" hidden></div>
         </div>
         <div class="wave-panel">
@@ -106,17 +116,24 @@
           <div id="valve-readout" class="valve-readout" hidden>
             <div class="meter" aria-hidden="true"><div id="valve-fill"></div></div>
             <span id="colony-status">COLONY INTACT</span>
+            <span id="flank-status" class="flank-status" hidden></span>
           </div>
         </div>
         <div class="game-actions">
           <button class="icon-button audio-button" type="button" data-mute aria-pressed="false" aria-label="Mute audio" title="Mute audio"><svg aria-hidden="true"><use href="#sound"></use></svg></button>
           <button id="pause" class="icon-button" type="button" aria-label="Pause game" title="Pause game"><svg aria-hidden="true"><use href="#pause-icon"></use></svg></button>
         </div>
-        <div id="objective-marker" class="objective-marker" aria-hidden="true" hidden><span></span><strong id="marker-label">TISSUE NODE</strong><small id="marker-distance"></small></div>
-        <div id="objective-edge" class="objective-edge" aria-hidden="true" hidden>
+        <div id="objective-marker" class="objective-marker" data-branch="left" aria-hidden="true" hidden><span></span><strong id="marker-label">TISSUE NODE</strong><small id="marker-distance"></small></div>
+        <div id="objective-edge" class="objective-edge" data-branch="left" aria-hidden="true" hidden>
           <svg id="objective-edge-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 9l5-5 5 5M8 4v9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <strong id="objective-edge-label">TISSUE</strong>
         </div>
+        <div id="secondary-marker" class="objective-marker" aria-hidden="true" hidden><span></span><strong id="secondary-marker-label">TISSUE NODE</strong><small id="secondary-marker-distance"></small></div>
+        <div id="secondary-edge" class="objective-edge" aria-hidden="true" hidden>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 9l5-5 5 5M8 4v9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <strong id="secondary-edge-label">TISSUE</strong>
+        </div>
+        <div id="turret-marker" class="objective-marker turret-marker" aria-hidden="true" hidden><span></span><strong>AUTO TURRET</strong><small id="turret-marker-distance"></small></div>
         <div id="gash-marker" class="objective-marker gash-marker" aria-hidden="true" hidden><span></span><strong id="gash-label">OPEN GASH</strong><small id="gash-distance"></small></div>
         <div id="gash-edge" class="objective-edge gash-edge" aria-hidden="true" hidden>
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 9l5-5 5 5M8 4v9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -157,13 +174,17 @@
           <strong id="ammo-value">30</strong><span id="reserve-value"> / 150</span>
           <div id="reload-state">FULL AUTO</div>
           <div id="campaign-equipped" class="campaign-equipped" hidden></div>
+          <div id="turret-status" class="turret-status" hidden><kbd aria-hidden="true">Q</kbd><span id="turret-status-value">TURRET READY</span></div>
         </div>
         <div id="field-hint" class="field-hint">WASD MOVE <span></span> R RELOAD <span></span> E REPAIR</div>
       </div>
       <div id="touch-controls" class="touch-controls" hidden>
         <div id="joystick" class="joystick" aria-label="Movement joystick"><div></div></div>
         <div class="touch-actions">
-          <button type="button" data-touch="reload">Reload</button><button type="button" data-touch="repair">Repair</button><button type="button" data-touch="fire" class="touch-fire">Fire</button>
+          <button type="button" data-touch="reload">Reload</button>
+          <button type="button" data-touch="repair">Repair</button>
+          <button type="button" data-touch="fire" class="touch-fire">Fire</button>
+          <button id="touch-turret" type="button" data-touch="turret" aria-label="Deploy auto turret" disabled>Turret</button>
         </div>
       </div>
     </section>
@@ -172,11 +193,12 @@
       <button class="icon-button close-dialog" data-close="manual-dialog" type="button" aria-label="Close field manual"><svg aria-hidden="true"><use href="#close"></use></svg></button>
       <p class="eyebrow"><span></span> OPERATIONS BRIEF</p>
       <h2>Field manual</h2>
-      <p>Keep tissue and suit integrity above zero. Your carbine is resupplied between waves. Survive five waves to unlock Capillary Junction, where pathogens approach from the amber and teal inlets. Hold repair near the tissue node to restore it.</p>
+      <p>Defend both tissue nodes and keep your suit intact. If either node fails, the mission ends. Follow the node markers and hold repair near damaged tissue.</p>
+      <p>Deploy one auto turret per mission. Face the spot where you want it, near one approach while you defend the other. It fires infrequently and briefly slows enemies it hits. Once deployed, it stays in place.</p>
       <p>Viruses recoil before lunging. Spores swell before spitting a slow projectile. Move sideways to dodge either attack. Shoot latched bacilli before they tear more tissue.</p>
       <p>In Capillary Junction, watch the forecast and pick an inlet reinforcement or extra ammo between waves. Open gashes drain tissue even after the attacker is gone. Follow the gash marker and hold repair in range to seal it. Once the chamber is secure, extract or stay for an optional bonus wave.</p>
-      <p>Clear Capillary Junction to unlock Heart Valve. Shoot the colony through the open valve. Seal the wound while the valve is closed.</p>
-      <p>In a campaign, choose a field upgrade after the first two missions. Your final report shows the tissue integrity you preserved in each chamber.</p>
+      <p>At Heart Valve, shoot the colony through the opening and repair the valve wound while it is closed. You can repair the other node at any time. Restore both to secure the chamber.</p>
+      <p>Choose a field upgrade after each of the first two campaign missions. Your final report shows the average tissue integrity across all three chambers.</p>
       <dl class="controls-list">
         <div><dt>Move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dd></div>
         <div><dt>Look / Aim</dt><dd><kbd>Mouse</kbd><kbd>Right click</kbd></dd></div>
@@ -184,9 +206,10 @@
         <div><dt>Sprint</dt><dd><kbd>Shift</kbd></dd></div>
         <div><dt>Reload</dt><dd><kbd>R</kbd></dd></div>
         <div><dt>Repair tissue</dt><dd><kbd>Hold E</kbd></dd></div>
+        <div><dt>Deploy auto turret</dt><dd><kbd>Q</kbd></dd></div>
         <div><dt>Pause</dt><dd><kbd>Esc</kbd><kbd>P</kbd></dd></div>
       </dl>
-      <p id="touch-manual" hidden>On touchscreens, use the joystick to move and drag the view to look. Use the on-screen buttons to fire, reload, or hold repair.</p>
+      <p id="touch-manual" hidden>On touchscreens, use the joystick to move and drag the view to look. Tap Turret to deploy it. Hold Repair to seal damaged tissue.</p>
       <button class="button primary full-button" data-close="manual-dialog" type="button">Return to briefing <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
     </dialog>
 
@@ -219,12 +242,13 @@
     <dialog id="extraction-dialog" class="panel extraction-panel" aria-labelledby="extraction-title" aria-describedby="extraction-detail">
       <p class="eyebrow"><span></span> CAPILLARY JUNCTION</p>
       <h2 id="extraction-title">Extraction ready</h2>
-      <p id="extraction-detail">Extract to secure the chamber. Overtime carries over your tissue, suit, and ammo, and a loss means retrying Capillary Junction.</p>
+      <p id="extraction-detail">Extract to secure the chamber. Overtime carries over your nodes, suit, ammo, and turret. A loss means retrying Capillary Junction.</p>
       <dl class="result-stats extraction-stats">
-        <div><dt>Host tissue</dt><dd id="extraction-tissue">100%</dd></div>
+        <div><dt>Tissue average</dt><dd id="extraction-tissue">100%</dd></div>
         <div><dt>Suit integrity</dt><dd id="extraction-suit">100%</dd></div>
         <div><dt>Loaded / reserve</dt><dd id="extraction-ammo">30 / 150</dd></div>
       </dl>
+      <dl id="extraction-nodes" class="node-breakdown" aria-label="Tissue node integrity" hidden></dl>
       <div class="overtime-forecast">
         <div class="overtime-forecast-heading">
           <h3>Overtime forecast</h3>
@@ -242,7 +266,8 @@
       <p id="result-kicker" class="eyebrow"><span></span> MISSION REPORT</p>
       <h2 id="result-title">Host stabilized</h2>
       <p id="result-detail"></p>
-      <dl id="result-stats" class="result-stats"><div><dt>Score</dt><dd id="result-score"></dd></div><div><dt>Neutralized</dt><dd id="result-kills"></dd></div><div id="result-tissue-stat"><dt>Host tissue</dt><dd id="result-tissue"></dd></div></dl>
+      <dl id="result-stats" class="result-stats"><div><dt>Score</dt><dd id="result-score"></dd></div><div><dt>Neutralized</dt><dd id="result-kills"></dd></div><div id="result-tissue-stat"><dt>Tissue average</dt><dd id="result-tissue"></dd></div></dl>
+      <dl id="result-nodes" class="node-breakdown" aria-label="Final tissue node integrity" hidden></dl>
       <section id="campaign-reward" class="campaign-section" aria-labelledby="campaign-reward-title" hidden>
         <div class="campaign-heading">
           <h3 id="campaign-reward-title">Choose a field upgrade</h3>
