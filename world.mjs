@@ -3,6 +3,7 @@ import { createCarbine } from './carbine.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve, createValveColony } from './heart-valve.mjs';
 import { createTurret } from './turret.mjs';
+import { createOrganEnemies, createOrganEnvironment, organProfile } from './organ-world.mjs';
 import { JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, TISSUE_NODES } from './simulation.mjs';
 
 const TAU = Math.PI * 2;
@@ -438,8 +439,8 @@ function makeRoom(scene, tile, normal, glow, random) {
     return material;
   };
 
-  addMesh(scene, floorGeometry(), skin({ vertexColors: true, roughness: .46 }));
-  addMesh(scene, wallGeometry(), skin({ vertexColors: true, side: THREE.DoubleSide, roughness: .56 }));
+  const floor = addMesh(scene, floorGeometry(), skin({ vertexColors: true, roughness: .46 }));
+  const wall = addMesh(scene, wallGeometry(), skin({ vertexColors: true, side: THREE.DoubleSide, roughness: .56 }));
 
   const roof = new THREE.PlaneGeometry(CHAMBER_WIDTH * 2, CHAMBER_DEPTH * 2, 54, 76);
   roof.rotateX(Math.PI / 2);
@@ -553,7 +554,7 @@ function makeRoom(scene, tile, normal, glow, random) {
 
   const junctionDetails = makeJunction(scene, skin, glow);
   const heartDetails = makeHeartChamber(scene, skin, glow);
-  return { surfaces, arteryDetails, junctionDetails, heartDetails, canopy, growths, cilia };
+  return { surfaces, arteryDetails, junctionDetails, heartDetails, floor, wall, canopy, growths, cilia };
 }
 
 function makeAtmosphere(scene, glow, random) {
@@ -1248,11 +1249,13 @@ function reflectionTexture() {
 }
 
 const MAX_PARTICLES = 288;
-const SPECIES_COLORS = { virus: 0xff6d4a, bacillus: 0xffd078, spore: 0xf384ff, colony: 0xffb572 };
+const SPECIES_COLORS = { virus: 0xff6d4a, bacillus: 0xffd078, spore: 0xf384ff, colony: 0xffb572, guard: 0xe89a6d, splitter: 0xeb91cf };
 const ATTACK_GLOW = {
   virus: new THREE.Color(0xde653b),
   bacillus: new THREE.Color(0xef9b46),
   spore: new THREE.Color(0xd681b9),
+  guard: new THREE.Color(0xfe8e66),
+  splitter: new THREE.Color(0xe798f5),
 };
 const HEALTHY = new THREE.Color(0xffc6ad);
 const HEALTHY_FLANK = new THREE.Color(0xf1c1d5);
@@ -1289,7 +1292,8 @@ export class World {
     this.shots = [];
     this.lastEvents = null;
 
-    this.scene.add(new THREE.HemisphereLight(0xf6d4ba, 0x5c3c4e, .93));
+    const ambient = new THREE.HemisphereLight(0xf6d4ba, 0x5c3c4e, .93);
+    this.scene.add(ambient);
     const backlight = new THREE.DirectionalLight(0xffbd9e, 1.4);
     backlight.position.set(-12, 10, -16);
     this.scene.add(backlight);
@@ -1351,8 +1355,10 @@ export class World {
     const tile = configureTile(fallbackTissue(), anisotropy, true);
     const normal = normalFromImage(tile.image, anisotropy);
     this.room = makeRoom(this.scene, tile, normal, this.glow, this.random);
-    this.areaLights = { backlight, warm, side };
+    this.areaLights = { ambient, backlight, fill, warm, side };
     this.atmosphere = makeAtmosphere(this.scene, this.glow, this.random);
+    this.organEnvironments = new Map();
+    this.baseShellMaterials = [this.room.floor.material, this.room.wall.material, this.room.canopy.material];
     this.tissueViews = [
       makeTissue(this.scene, this.glow, normal, this.random),
       makeTissue(this.scene, this.glow, normal, randomSource(327113), true),
@@ -1451,23 +1457,53 @@ export class World {
   setArea(area) {
     const junction = area === 'junction';
     const heart = area === 'heart';
-    this.area = heart ? 'heart' : junction ? 'junction' : 'artery';
-    const { arteryDetails, junctionDetails, heartDetails, canopy } = this.room;
-    arteryDetails.visible = !junction && !heart;
+    const profile = organProfile(area);
+    this.area = heart || junction || profile ? area : 'artery';
+    const { arteryDetails, junctionDetails, heartDetails, floor, wall, canopy, growths, cilia } = this.room;
+    arteryDetails.visible = this.area === 'artery';
     junctionDetails.visible = junction;
     heartDetails.visible = heart;
+    growths.visible = !profile;
+    cilia.visible = !profile;
     if (heart && !this.heart) this.heart = this.makeHeart();
     if (this.heart) this.heart.group.visible = heart;
-    canopy.scale.y = heart ? .54 : junction ? .63 : 1;
-    this.scene.background.setHex(heart ? 0x26181f : junction ? 0x1d1115 : 0x230f11);
-    this.scene.fog.color.setHex(heart ? 0x3c2228 : junction ? 0x332528 : 0x462524);
-    this.scene.fog.density = heart ? .024 : junction ? .029 : .030;
+    if (profile && !this.organEnvironments.has(area)) {
+      const environment = createOrganEnvironment(area, { membraneMaps, floorHeight, glow: this.glow });
+      environment.shell = this.baseShellMaterials.map((source, index) => {
+        const material = source.clone();
+        Object.assign(material, environment.maps);
+        material.color.setHex([profile.floor, profile.wall, profile.ceiling][index]);
+        material.normalScale.setScalar(index === 0 ? .32 : .53);
+        material.roughness = index === 0 ? .83 : .76;
+        material.clearcoat = index === 0 ? .29 : .37;
+        return material;
+      });
+      this.scene.add(environment.root);
+      this.organEnvironments.set(area, environment);
+    }
+    for (const [name, environment] of this.organEnvironments) environment.root.visible = name === this.area;
+    this.organEnvironment = this.organEnvironments.get(this.area);
+    if (profile && !this.templates.guard) Object.assign(this.templates, createOrganEnemies(membraneMaps, texturedLobe(1, 25, 16, .16)));
+    [floor.material, wall.material, canopy.material] = this.organEnvironment?.shell ?? this.baseShellMaterials;
+    canopy.scale.y = heart ? .54 : junction ? .63 : profile ? .85 : 1;
+    this.scene.background.setHex(profile?.background ?? (heart ? 0x26181f : junction ? 0x1d1115 : 0x230f11));
+    this.scene.fog.color.setHex(profile?.fog ?? (heart ? 0x3c2228 : junction ? 0x332528 : 0x462524));
+    this.scene.fog.density = profile?.density ?? (heart ? .024 : junction ? .029 : .030);
 
-    const { backlight, warm, side } = this.areaLights;
-    backlight.color.setHex(heart ? 0xeab5b9 : junction ? 0xd2a79e : 0xffbd9e);
+    const { ambient, backlight, fill, warm, side } = this.areaLights;
+    ambient.color.setHex(profile?.back ?? 0xf6d4ba);
+    ambient.groundColor.setHex(profile?.low ?? 0x5c3c4e);
+    fill.color.setHex(profile?.key ?? 0xb3c9e3);
+    backlight.color.setHex(profile?.back ?? (heart ? 0xeab5b9 : junction ? 0xd2a79e : 0xffbd9e));
     backlight.intensity = heart ? .89 : junction ? 1.13 : 1.4;
-    warm.intensity = heart ? 47 : junction ? 42 : 72;
+    warm.color.setHex(profile?.accent ?? 0xff8969);
+    warm.intensity = profile ? 93 : heart ? 47 : junction ? 42 : 72;
     side.visible = !junction && !heart;
+    side.color.setHex(profile?.key ?? 0xff7561);
+    const { cells, motes, clouds } = this.atmosphere;
+    cells.visible = !profile;
+    motes.material.color.setHex(profile?.atmosphere ?? 0xffffff);
+    clouds.forEach(({ cloud }, index) => cloud.material.color.setHex(profile?.atmosphere ?? (index > 4 ? 0xb77266 : 0xfac597)));
     this.updateEnemies([], 0);
     this.updateProjectiles([], false);
     for (const shot of this.shots) {
@@ -1648,6 +1684,8 @@ export class World {
           membraneIntensity: membrane?.material.emissiveIntensity,
           spikes: model.getObjectByName('virus-spikes'),
           fringe: model.getObjectByName('spore-fringe'),
+          guard: model.getObjectByName('guard-carapace'),
+          sacs: model.children.filter(part => part.name === 'splitter-sac'),
         };
         this.enemyViews.set(enemy.id, view);
       }
@@ -1677,6 +1715,17 @@ export class World {
       view.model.scale.set(pulse, pulse - view.hit * .18, pulse);
       this.poseEnemyAttack(enemy, view, reduceMotion);
       if (enemy.latched) this.updateTethers(enemy, view, angle, reduceMotion);
+      if (view.guard && !enemy.latched) {
+        view.model.rotation.set(reduceMotion ? 0 : Math.sin(angle * 3) * .042, enemy.heading, 0);
+      }
+      if (view.guard) view.guard.rotation.x = view.strike > 0 && !reduceMotion ? Math.sin(view.strike / .23 * Math.PI) * .22 : 0;
+      if (!reduceMotion && view.sacs.length) {
+        view.sacs.forEach((sac, index) => {
+          const swell = 1 + Math.sin(angle * 7 + index * Math.PI) * .085;
+          sac.scale.set(.54 * swell, .66 / swell, .78 * swell);
+        });
+      }
+      if (enemy.fragment) view.model.scale.multiplyScalar(.62);
       view.shadow.position.set(enemy.x, floorHeight(enemy.x, enemy.z) + .1, enemy.z);
       view.shadow.scale.setScalar((enemy.radius || .9) * 1.4);
     }
@@ -1766,7 +1815,8 @@ export class World {
     const windup = enemy.action === 'bacillus-windup' ? progress : 0;
     const tear = enemy.action === 'bacillus-tear' ? Math.sin(progress * Math.PI) : 0;
     const motion = reduceMotion ? .55 : 1;
-    const pull = .58 + (reduceMotion ? 0 : Math.sin(angle * 3) * .06) - windup * .44 * motion + tear * .69 * motion;
+    const lean = view.guard ? .65 : 1;
+    const pull = (.58 + (reduceMotion ? 0 : Math.sin(angle * 3) * .06) - windup * .44 * motion + tear * .69 * motion) * lean;
     view.model.rotation.set(z * pull, Math.atan2(x, z), -x * pull);
     view.model.position.x -= x * (windup * .23 - tear * .18) * motion;
     view.model.position.z -= z * (windup * .23 - tear * .18) * motion;
@@ -2023,6 +2073,11 @@ export class World {
         if (event.type === 'valve' && event.stage === 'blocked') {
           this.burst(event.x, event.y, event.z + .16, 0xdb806d, 7, 1.7);
         }
+        if (event.type === 'guard' && event.stage === 'block') {
+          const guard = this.enemyViews.get(event.id);
+          if (guard) guard.strike = .23;
+          this.burst(event.x, event.y, event.z, 0xfce5a9, 8, 2.0);
+        }
       }
     }
     let count = 0;
@@ -2052,6 +2107,7 @@ export class World {
     }
     this.camera.updateMatrixWorld();
     this.updateAtmosphere(dt);
+    this.organEnvironment?.update(sim.organ, this.clock, reduceMotion);
     if (sim.valve) this.heart.update(sim.valve, dt, reduceMotion, this.quality === 'low');
     this.updateTissue(sim, dt, reduceMotion);
     if (this.area === 'junction') this.updateJunctionField(sim, dt, reduceMotion);

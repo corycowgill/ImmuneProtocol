@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#120b0b">
-  <meta name="description" content="Deploy as a nano-soldier, defend tissue nodes against waves of infection, and fight through three chambers inside a living host.">
+  <meta name="description" content="Deploy as a nano-soldier and defend tissue from infection in an eight-mission campaign through a living host.">
   <title>Immune Protocol</title>
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="preload" as="image" href="assets/hero.webp">
@@ -57,16 +57,12 @@
           <h1>IMMUNE<span>PROTOCOL</span></h1>
           <p class="summary">Deploy inside a living body. Fight the infection and repair damaged tissue before the host flatlines.</p>
           <div class="menu-buttons">
-            <button id="deploy" class="button primary" type="button">Start campaign <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+            <button id="resume-campaign" class="button primary" type="button" hidden><span id="resume-campaign-label">Resume campaign</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+            <button id="deploy" class="button primary" type="button"><span>Start campaign</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          </div>
+          <div class="menu-secondary">
+            <button id="mission-select" class="button outline" type="button"><svg aria-hidden="true"><use href="#target"></use></svg> Mission select</button>
             <button id="manual" class="button outline" type="button"><svg aria-hidden="true"><use href="#book"></use></svg> Field manual</button>
-          </div>
-          <div class="mission-entry">
-            <button id="deploy-junction" class="button outline" type="button" aria-describedby="junction-status" disabled>Practice Capillary Junction <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-            <p id="junction-status">Clear all five waves to unlock.</p>
-          </div>
-          <div class="mission-entry">
-            <button id="deploy-heart" class="button outline" type="button" aria-describedby="heart-status" disabled>Practice Heart Valve <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-            <p id="heart-status">Secure Capillary Junction to unlock.</p>
           </div>
           <p id="menu-error" class="menu-error" role="alert" hidden></p>
         </div>
@@ -75,7 +71,7 @@
 
       <footer class="menu-footer" aria-label="Mission briefing">
         <div class="brief-item"><svg aria-hidden="true"><use href="#target"></use></svg><div><small>INSERTION SITE</small><strong>Arterial Junction</strong></div></div>
-        <div class="brief-item"><svg aria-hidden="true"><use href="#pulse"></use></svg><div><small>THREAT FORECAST</small><strong>5 infection waves</strong></div></div>
+        <div class="brief-item"><svg aria-hidden="true"><use href="#pulse"></use></svg><div><small>CAMPAIGN</small><strong>8 missions</strong></div></div>
         <div class="brief-item"><svg aria-hidden="true"><use href="#shield"></use></svg><div><small>PRIMARY DIRECTIVE</small><strong>Preserve the host</strong></div></div>
         <span id="high-score" class="high-score" hidden></span>
       </footer>
@@ -122,6 +118,11 @@
             <div class="meter" aria-hidden="true"><div id="valve-fill"></div></div>
             <span id="colony-status">COLONY INTACT</span>
             <span id="flank-status" class="flank-status" hidden></span>
+          </div>
+          <div id="organ-hazard" class="organ-hazard" role="group" aria-label="Organ conditions" hidden>
+            <span id="organ-hazard-label" class="organ-hazard-label" role="status"></span>
+            <span id="organ-hazard-detail" class="organ-hazard-detail"></span>
+            <span id="organ-hazard-time" class="organ-hazard-time" role="timer"></span>
           </div>
         </div>
         <div class="game-actions">
@@ -196,6 +197,50 @@
       </div>
     </section>
 
+    <dialog id="mission-dialog" class="panel mission-panel" aria-labelledby="mission-title" aria-describedby="mission-intro">
+      <button class="icon-button close-dialog" data-close="mission-dialog" type="button" aria-label="Close mission select" autofocus><svg aria-hidden="true"><use href="#close"></use></svg></button>
+      <div class="mission-heading">
+        <h2 id="mission-title">Mission select</h2>
+        <p id="mission-count" class="mission-count"></p>
+      </div>
+      <p id="mission-intro">Clear missions in order to unlock new insertion sites. Launch any unlocked mission for practice.</p>
+      <p id="mission-error" class="menu-error" role="alert" hidden></p>
+      <ol id="mission-list" class="mission-list">
+        <li>
+          <button id="deploy-artery" class="mission-card" data-deploy-area="artery" aria-describedby="artery-status" type="button"><span data-mission-name>Arterial Junction</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="artery-status" data-mission-status="artery">Unlocked</p>
+        </li>
+        <li>
+          <button id="deploy-junction" class="mission-card" data-deploy-area="junction" aria-describedby="junction-status" type="button" disabled><span data-mission-name>Capillary Junction</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="junction-status" data-mission-status="junction">Locked</p>
+        </li>
+        <li>
+          <button id="deploy-heart" class="mission-card" data-deploy-area="heart" aria-describedby="heart-status" type="button" disabled><span data-mission-name>Heart Valve</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="heart-status" data-mission-status="heart">Locked</p>
+        </li>
+        <li>
+          <button id="deploy-lungs" class="mission-card" data-deploy-area="lungs" aria-describedby="lungs-status" type="button" disabled><span data-mission-name>Bronchial Fork</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="lungs-status" data-mission-status="lungs">Locked</p>
+        </li>
+        <li>
+          <button id="deploy-stomach" class="mission-card" data-deploy-area="stomach" aria-describedby="stomach-status" type="button" disabled><span data-mission-name>Gastric Chamber</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="stomach-status" data-mission-status="stomach">Locked</p>
+        </li>
+        <li>
+          <button id="deploy-intestines" class="mission-card" data-deploy-area="intestines" aria-describedby="intestines-status" type="button" disabled><span data-mission-name>Intestinal Bend</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="intestines-status" data-mission-status="intestines">Locked</p>
+        </li>
+        <li>
+          <button id="deploy-ear" class="mission-card" data-deploy-area="ear" aria-describedby="ear-status" type="button" disabled><span data-mission-name>Inner Ear</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="ear-status" data-mission-status="ear">Locked</p>
+        </li>
+        <li>
+          <button id="deploy-brain" class="mission-card" data-deploy-area="brain" aria-describedby="brain-status" type="button" disabled><span data-mission-name>Neural Cortex</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="brain-status" data-mission-status="brain">Locked</p>
+        </li>
+      </ol>
+    </dialog>
+
     <dialog id="manual-dialog" class="panel">
       <button class="icon-button close-dialog" data-close="manual-dialog" type="button" aria-label="Close field manual"><svg aria-hidden="true"><use href="#close"></use></svg></button>
       <p class="eyebrow"><span></span> OPERATIONS BRIEF</p>
@@ -203,10 +248,11 @@
       <p>Defend both tissue nodes and keep your suit intact. If either node fails, the mission ends. Follow the node markers and hold repair near damaged tissue.</p>
       <p>Face clear ground to deploy your auto turret. It briefly slows enemies it hits. Place it near one approach while you defend the other.</p>
       <p>Viruses recoil before lunging. Spores swell before spitting a slow projectile. Move sideways to dodge either attack. Shoot latched bacilli before they tear more tissue.</p>
+      <p>Armored pathogens block shots from the front. Flank them to hit their exposed tissue. Splitting pathogens release two smaller viruses when killed.</p>
       <p>In Capillary Junction, the attack countdown shows which node is next and what is coming. Between waves, choose an inlet reinforcement, ammo, or turret redeployment. To move an active turret, select Redeploy turret, face clear ground, and press Q or tap Turret before the break ends.</p>
       <p>Open gashes drain tissue even after the attacker is gone. Follow the gash marker and hold repair in range to seal it. Once Capillary Junction is secure, extract or stay for an optional bonus wave.</p>
       <p>At Heart Valve, shoot the colony through the opening and repair the valve wound while it is closed. You can repair the other node at any time. Restore both to secure the chamber.</p>
-      <p>Choose a field upgrade after each of the first two campaign missions. Your final report shows the average tissue integrity across all three chambers.</p>
+      <p>Watch the organ status during later missions for hazard warnings and advice. Your campaign checkpoint keeps completed missions and your field upgrade. The final report shows tissue integrity across all eight missions.</p>
       <dl class="controls-list">
         <div><dt>Move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dd></div>
         <div><dt>Look / Aim</dt><dd><kbd>Mouse</kbd><kbd>Right click</kbd></dd></div>
@@ -224,7 +270,7 @@
     <dialog id="pause-dialog" class="panel">
       <p class="eyebrow"><span></span> UPLINK SUSPENDED</p>
       <h2>Mission paused</h2>
-      <p id="pause-detail">Resume when you're ready to re-enter the artery.</p>
+      <p id="pause-detail">Resume when you’re ready to return to the mission.</p>
       <div class="dialog-buttons"><button id="resume" class="button primary" type="button">Resume <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button class="button outline" type="button" data-settings>Settings</button><button id="quit" class="button outline" type="button">Main menu</button></div>
     </dialog>
 
@@ -301,8 +347,7 @@
         <div class="campaign-total"><span>Average tissue preserved</span><strong id="campaign-average"></strong></div>
       </section>
       <p id="result-launch-error" role="alert" hidden></p>
-      <button id="continue-junction" class="button primary full-button result-next" type="button" hidden>Enter Capillary Junction <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-      <button id="continue-heart" class="button primary full-button result-next" type="button" hidden>Enter Heart Valve <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+      <button id="continue-mission" class="button primary full-button result-next" type="button" hidden><span id="continue-mission-label">Continue campaign</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
       <div class="dialog-buttons"><button id="replay" class="button primary" type="button"><span id="replay-label">Redeploy</span> <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button id="return-menu" class="button outline" type="button">Main menu</button></div>
     </dialog>
   </main>

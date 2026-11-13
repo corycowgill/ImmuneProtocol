@@ -1,4 +1,5 @@
 import { Simulation, JUNCTION_INLETS, RULES } from './simulation.mjs';
+import { ORGAN_MISSIONS } from './organs.mjs';
 import { GameAudio } from './audio.mjs';
 
 const byId = id => document.getElementById(id);
@@ -6,12 +7,21 @@ const menu = byId('menu');
 const game = byId('game');
 const canvas = byId('world');
 const deploy = byId('deploy');
-const junctionDeploy = byId('deploy-junction');
-const junctionStatus = byId('junction-status');
-const continueJunction = byId('continue-junction');
-const heartDeploy = byId('deploy-heart');
-const heartStatus = byId('heart-status');
-const continueHeart = byId('continue-heart');
+const deployLabel = deploy.querySelector('span');
+const missionSelect = byId('mission-select');
+const missionDialog = byId('mission-dialog');
+const missionCount = byId('mission-count');
+const missionError = byId('mission-error');
+const missionEntries = [...document.querySelectorAll('[data-deploy-area]')].map(button => ({
+  area: button.dataset.deployArea,
+  button,
+  label: button.querySelector('[data-mission-name]'),
+  status: document.querySelector('[data-mission-status="' + button.dataset.deployArea + '"]'),
+}));
+const continueButton = byId('continue-mission');
+const continueLabel = byId('continue-mission-label');
+const resumeCampaignButton = byId('resume-campaign');
+const resumeCampaignLabel = byId('resume-campaign-label');
 const replay = byId('replay');
 const replayLabel = byId('replay-label');
 const resultLaunchError = byId('result-launch-error');
@@ -96,6 +106,10 @@ const valveReadout = byId('valve-readout');
 const valveFill = byId('valve-fill');
 const colonyStatus = byId('colony-status');
 const flankStatus = byId('flank-status');
+const organHazard = byId('organ-hazard');
+const organHazardLabel = byId('organ-hazard-label');
+const organHazardDetail = byId('organ-hazard-detail');
+const organHazardTime = byId('organ-hazard-time');
 const branches = {
   left: { name: 'AMBER', badge: byId('branch-left'), marker: byId('inlet-left') },
   right: { name: 'TEAL', badge: byId('branch-right'), marker: byId('inlet-right') },
@@ -124,13 +138,24 @@ const heartKey = 'immune-protocol.heart-unlocked';
 const tutorialKey = 'immune-protocol.training-complete';
 const sensitivityKey = 'immune-protocol.look-sensitivity';
 const qualityKey = 'immune-protocol.graphics-quality';
-const campaignAreas = ['artery', 'junction', 'heart'];
-const missionNames = { artery: 'Arterial Junction', junction: 'Capillary Junction', heart: 'Heart Valve' };
+const checkpointKey = 'immune-protocol.campaign-checkpoint';
+const unlockedKey = 'immune-protocol.unlocked-mission';
+const campaignAreas = ['artery', 'junction', 'heart', 'lungs', 'stomach', 'intestines', 'ear', 'brain'];
+const missions = {
+  artery: { name: 'Arterial Junction', briefing: 'Defend the core and lateral branch through five waves.' },
+  junction: { name: 'Capillary Junction', briefing: 'Read the attack forecast and defend both inlets.' },
+  heart: { name: 'Heart Valve', briefing: 'Time your shots through the valve and defend the outer wall.' },
+  ...ORGAN_MISSIONS,
+};
+const missionName = area => missions[area].name;
+const nextMission = area => campaignAreas[campaignAreas.indexOf(area) + 1];
 const upgradeNames = { 'fast-sealer': 'Fast Sealer', 'deep-magazine': 'Deep Magazine' };
 const attackWarnings = {
   'virus-windup': 'VIRUS ABOUT TO LUNGE',
   'spore-windup': 'SPORE CHARGING',
   'bacillus-windup': 'BACILLUS TEARING TISSUE',
+  'guard-windup': 'SHELLBACK TEARING TISSUE',
+  'splitter-windup': 'SPLITTER ABOUT TO LUNGE',
 };
 const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo', Digit4: 'turret' };
 
@@ -154,13 +179,17 @@ let damageTimer = 0;
 const nodeHitUntil = new Map();
 let restoredNode = null;
 let announcementTimer = 0;
+let guardHintUntil = 0;
 let lastFrame = 0;
 let animation = 0;
 let drawnWave = '';
 let bestScore = Number(readSetting(bestKey)) || 0;
 let muted = readSetting(muteKey) === 'true';
-let junctionUnlocked = readSetting(junctionKey) === 'true';
-let heartUnlocked = readSetting(heartKey) === 'true';
+let unlockedMission = Math.max(
+  campaignAreas.indexOf(readSetting(unlockedKey)),
+  readSetting(heartKey) === 'true' ? 2 : readSetting(junctionKey) === 'true' ? 1 : 0,
+);
+let checkpoint = readCheckpoint();
 let trainingComplete = readSetting(tutorialKey) === 'true';
 let sensitivity = clamp(Number.parseFloat(readSetting(sensitivityKey)) || 1, 0.5, 2.5);
 let graphicsQuality = readSetting(qualityKey) === 'low' ? 'low' : 'high';
@@ -171,6 +200,26 @@ function readSetting(key) {
 
 function writeSetting(key, value) {
   try { localStorage.setItem(key, value); } catch { /* Private browsing may block storage. */ }
+}
+
+function readCheckpoint() {
+  try {
+    const saved = JSON.parse(readSetting(checkpointKey));
+    if (!saved || !Array.isArray(saved.results) || saved.results.length >= campaignAreas.length) return null;
+    if (saved.upgrade !== null && !Object.hasOwn(upgradeNames, saved.upgrade)) return null;
+    const valid = saved.results.every((result, index) => result?.area === campaignAreas[index] &&
+      [result.tissue, result.score, result.kills].every(Number.isFinite) &&
+      Array.isArray(result.nodes) && result.nodes.length === 2 &&
+      result.nodes.every(node => typeof node?.name === 'string' && Number.isFinite(node.health)));
+    return valid && saved.results.length <= unlockedMission ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCheckpoint(run) {
+  checkpoint = run;
+  writeSetting(checkpointKey, JSON.stringify(run));
 }
 
 function syncSettings() {
@@ -209,10 +258,19 @@ function displayBest() {
 }
 
 function displayMissionAccess() {
-  junctionDeploy.disabled = loading || !junctionUnlocked;
-  setText(junctionStatus, junctionUnlocked ? 'Defend the Amber and Teal tissue nodes.' : 'Clear all five waves to unlock.');
-  heartDeploy.disabled = loading || !heartUnlocked;
-  setText(heartStatus, heartUnlocked ? 'Fight the colony and defend the outer wall.' : 'Secure Capillary Junction to unlock.');
+  for (const { area, button, label, status } of missionEntries) {
+    const index = campaignAreas.indexOf(area);
+    const available = index >= 0 && index <= unlockedMission;
+    button.disabled = loading || !available;
+    setText(label, missionName(area));
+    setText(status, available ? missions[area].briefing : 'Clear ' + missionName(campaignAreas[index - 1]) + ' to unlock.');
+  }
+  missionSelect.disabled = loading;
+  setText(missionCount, (unlockedMission + 1) + ' of ' + campaignAreas.length + ' missions unlocked');
+  resumeCampaignButton.hidden = !checkpoint;
+  resumeCampaignButton.disabled = loading;
+  if (deployLabel) setText(deployLabel, checkpoint ? 'Start new campaign' : 'Start campaign');
+  if (checkpoint) setText(resumeCampaignLabel, 'Resume at ' + missionName(campaignAreas[checkpoint.results.length]));
 }
 
 function requestMouse() {
@@ -258,16 +316,20 @@ function announce(title, detail = '', duration = 2.45) {
 async function launch(area, run = null) {
   const junction = area === 'junction';
   const heart = area === 'heart';
-  if (loading || running || (junction && !junctionUnlocked) || (heart && !heartUnlocked)) return;
+  const index = campaignAreas.indexOf(area);
+  if (loading || running || index < 0 || index > unlockedMission) return;
   const fromResult = resultDialog.open;
+  const fromMissionList = missionDialog.open;
   const previousControl = document.activeElement;
   const previousSim = sim;
   const previousRun = campaign;
   const previousUpgrade = selectedUpgrade;
   loading = true;
   deploy.disabled = true;
+  missionDialog.close();
   displayMissionAccess();
   byId('menu-error').hidden = true;
+  missionError.hidden = true;
   resultLaunchError.hidden = true;
   resultDialog.close();
   game.hidden = false;
@@ -293,7 +355,7 @@ async function launch(area, run = null) {
     campaignEquipped.hidden = !equipped;
     setText(campaignEquipped, equipped || '');
     game.dataset.area = sim.area;
-    canvas.setAttribute('aria-label', 'First-person view inside ' + (heart ? 'the heart valve' : junction ? 'Capillary Junction' : 'the artery'));
+    canvas.setAttribute('aria-label', 'First-person view of ' + missionName(area));
     branchReadout.hidden = !junction;
     valveReadout.hidden = !heart;
     gashMarker.hidden = gashEdge.hidden = true;
@@ -306,6 +368,7 @@ async function launch(area, run = null) {
     attackerMarkers.clear();
     tissueAttackers.replaceChildren();
     hitTimer = 0;
+    guardHintUntil = 0;
     drawnWave = '';
     running = true;
     paused = false;
@@ -317,12 +380,14 @@ async function launch(area, run = null) {
     }).catch(() => {});
     if (heart) announce('HEART VALVE', 'HIT THE COLONY · DEFEND THE FLANK', 3.2);
     else if (junction) announce('CAPILLARY JUNCTION', 'DEFEND BOTH INLETS', 2.8);
+    else if (nextSim.organ) announce(missionName(area).toUpperCase(), missions[area].briefing, 3.5);
     else if (!sim.tutorial) announce('WAVE 01', 'DEFEND BOTH TISSUE NODES', 3.1);
     else {
       announcementTimer = 0;
       alertBox.replaceChildren();
     }
     drawHud();
+    if (run) saveCheckpoint(run);
     cancelAnimationFrame(animation);
     animation = requestAnimationFrame(frame);
   } catch (error) {
@@ -344,13 +409,15 @@ async function launch(area, run = null) {
     game.hidden = true;
     menu.hidden = false;
     syncMusic();
-    const message = byId('menu-error');
+    const message = fromMissionList ? missionError : byId('menu-error');
     message.textContent = 'Could not initialize 3D graphics. Try a browser with WebGL 2 and hardware acceleration enabled.';
     message.hidden = false;
+    if (fromMissionList) missionDialog.showModal();
   } finally {
     deploy.disabled = false;
     loading = false;
     displayMissionAccess();
+    if (fromMissionList && missionDialog.open) previousControl?.focus();
   }
 }
 
@@ -423,6 +490,7 @@ function mainMenu() {
   releaseMouse();
   cancelAnimationFrame(animation);
   settingsDialog.close();
+  missionDialog.close();
   pauseDialog.close();
   extractionDialog.close();
   resultDialog.close();
@@ -431,7 +499,7 @@ function mainMenu() {
   syncMusic();
   displayBest();
   displayMissionAccess();
-  deploy.focus();
+  (checkpoint ? resumeCampaignButton : deploy).focus();
 }
 
 function startCampaign() {
@@ -443,10 +511,11 @@ function missionResult() {
   return { area: sim.area, tissue: sim.tissue, nodes, score: sim.score, kills: sim.kills };
 }
 
-function continueMission(area) {
-  if (!resultDialog.open || sim.phase !== 'won' || campaignAreas[campaignAreas.indexOf(sim.area) + 1] !== area) return;
-  if (campaign && !selectedUpgrade) return;
-  const run = campaign ? { results: [...campaign.results, missionResult()], upgrade: selectedUpgrade } : null;
+function continueMission() {
+  if (!resultDialog.open || sim.phase !== 'won') return;
+  const area = nextMission(sim.area);
+  if (!area) return;
+  const run = campaign ? checkpoint : null;
   launch(area, run);
 }
 
@@ -454,13 +523,8 @@ function updateUpgradeChoice() {
   for (const button of upgradeButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.upgrade === selectedUpgrade));
   }
-  const nextArea = campaignAreas[campaignAreas.indexOf(sim.area) + 1];
-  const nextButton = nextArea === 'junction' ? continueJunction : continueHeart;
-  nextButton.disabled = !selectedUpgrade;
-  const nextName = missionNames[nextArea];
-  if (selectedUpgrade) setText(upgradeNote, upgradeNames[selectedUpgrade] + ' selected for ' + nextName + '.');
-  else if (campaign.upgrade) setText(upgradeNote, 'You have ' + upgradeNames[campaign.upgrade] + '. Keep it or switch for ' + nextName + '.');
-  else setText(upgradeNote, 'Choose an upgrade for ' + nextName + '.');
+  setText(upgradeNote, upgradeNames[selectedUpgrade] + ' selected for ' + missionName(nextMission(sim.area)) + '.');
+  saveCheckpoint({ results: [...campaign.results, missionResult()], upgrade: selectedUpgrade });
 }
 
 function drawCampaignReport(results) {
@@ -468,7 +532,7 @@ function drawCampaignReport(results) {
     const row = document.createElement('div');
     const title = document.createElement('dt');
     const tissue = document.createElement('dd');
-    title.textContent = missionNames[result.area];
+    title.textContent = missionName(result.area);
     tissue.textContent = Math.round(result.tissue) + '%';
     const breakdown = document.createElement('small');
     breakdown.className = 'campaign-node-detail';
@@ -505,17 +569,15 @@ function finish() {
   const won = sim.phase === 'won';
   const junction = sim.area === 'junction';
   const heart = sim.area === 'heart';
-  const next = won ? (junction ? continueHeart : heart ? null : continueJunction) : null;
+  const next = won ? nextMission(sim.area) : null;
   const reward = Boolean(campaign && next);
-  const complete = Boolean(campaign && won && heart);
-  if (next === continueJunction && !junctionUnlocked) {
-    junctionUnlocked = true;
-    writeSetting(junctionKey, 'true');
+  const complete = Boolean(campaign && won && !next);
+  if (next && campaignAreas.indexOf(next) > unlockedMission) {
+    unlockedMission = campaignAreas.indexOf(next);
+    writeSetting(unlockedKey, next);
   }
-  if (next === continueHeart && !heartUnlocked) {
-    heartUnlocked = true;
-    writeSetting(heartKey, 'true');
-  }
+  if (reward) selectedUpgrade = campaign.upgrade ?? 'fast-sealer';
+  if (complete) saveCheckpoint(null);
   displayMissionAccess();
   audio.play({ type: won ? 'won' : 'lost' });
   if (sim.score > bestScore) {
@@ -523,14 +585,13 @@ function finish() {
     writeSetting(bestKey, bestScore);
   }
   byId('result-title').textContent = complete ? 'Campaign complete'
-    : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : 'Host stabilized') : 'Mission failed';
+    : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : sim.organ ? missionName(sim.area) + ' secured' : 'Artery secured') : 'Mission failed';
   let detail;
-  if (next === continueJunction) detail = 'All five waves were contained. Capillary Junction is open for deployment.';
-  else if (next === continueHeart && sim.overtimeBonus > 0) {
-    detail = 'Overtime cleared. +' + sim.overtimeBonus.toLocaleString() + ' score. Heart Valve is open for deployment.';
+  if (complete) detail = 'The infection was contained across all eight missions.';
+  else if (won) {
+    const opening = next ? missionName(next) + ' is open for deployment.' : 'Both tissue nodes are secure.';
+    detail = sim.overtimeBonus > 0 ? 'Overtime cleared. +' + sim.overtimeBonus.toLocaleString() + ' score. ' + opening : opening;
   }
-  else if (next === continueHeart) detail = 'Both inlets are clear. Heart Valve is open for deployment.';
-  else if (won) detail = 'The colony is neutralized and both tissue nodes are restored.';
   else if (sim.overtime) {
     const cause = sim.failedNode ? sim.failedNode.name + ' failed.' : 'Your suit failed.';
     detail = cause + ' Redeploy to retry Capillary Junction from Wave 1.';
@@ -545,9 +606,8 @@ function finish() {
   resultTissueStat.hidden = complete;
   if (complete) resultNodes.hidden = true;
   else drawNodeBreakdown(resultNodes, result.nodes);
-  continueJunction.hidden = next !== continueJunction;
-  continueHeart.hidden = next !== continueHeart;
-  continueJunction.disabled = continueHeart.disabled = false;
+  continueButton.hidden = !next;
+  if (next) setText(continueLabel, 'Enter ' + missionName(next));
   campaignReward.hidden = !reward;
   campaignReport.hidden = !complete;
   if (reward) {
@@ -556,11 +616,12 @@ function finish() {
   }
   if (complete) drawCampaignReport(results);
   setText(replayLabel, complete ? 'Restart campaign' : campaign ? 'Retry mission' : 'Redeploy');
+  replay.hidden = reward;
   replay.classList.toggle('primary', !next);
   replay.classList.toggle('outline', !!next);
   resultDialog.showModal();
   if (reward) upgradeButtons[0]?.focus();
-  else next?.focus();
+  else if (next) continueButton.focus();
 }
 
 function setText(element, value) {
@@ -687,12 +748,24 @@ function drawTurretHud() {
   const ready = (sim.turretCharges > 0 || moving) && !sim.tutorial;
   touchTurret.hidden = !!sim.tutorial;
   touchTurret.disabled = !ready;
-  const state = ready ? (sim.turretPlacement ? 'ready' : 'blocked') : (turret?.targetId == null ? 'online' : 'engaging');
+  const state = ready ? (sim.turretPlacement ? 'ready' : 'blocked') :
+    turret?.jammed ? 'jammed' : turret?.targetId == null ? 'online' : 'engaging';
   turretStatus.dataset.state = state;
   setText(turretStatusValue, {
-    online: 'TURRET ONLINE', engaging: 'TURRET ENGAGING',
+    online: 'TURRET ONLINE', engaging: 'TURRET ENGAGING', jammed: 'TURRET JAMMED',
     ready: moving ? 'REDEPLOY READY' : 'TURRET READY', blocked: 'FIND CLEAR GROUND',
   }[state]);
+}
+
+function drawOrganHazard() {
+  const hazard = sim.organ;
+  organHazard.hidden = !hazard || (sim.phase !== 'combat' && sim.phase !== 'intermission');
+  if (!hazard) return;
+  organHazard.dataset.phase = hazard.phase;
+  setText(organHazardLabel, hazard.label);
+  setText(organHazardDetail, hazard.detail);
+  const leadTime = hazard.phase === 'recovery' ? ORGAN_MISSIONS[sim.area].hazard.warning : 0;
+  setText(organHazardTime, Math.max(1, Math.ceil(hazard.remaining + leadTime)) + 's');
 }
 
 function drawHud() {
@@ -700,6 +773,7 @@ function drawHud() {
   const suitPercent = Math.ceil(player.health);
   drawNodeHud();
   drawTurretHud();
+  drawOrganHazard();
   setText(suitValue, suitPercent);
   fillMeter(healthMeter, healthFill, suitPercent);
   setText(equipmentLabel, sim.repairing ? 'TISSUE SEALER' : 'NEEDLE CARBINE');
@@ -711,7 +785,7 @@ function drawHud() {
   const waveLabel = pad(wave) + ' / ' + pad(waves);
   if (valve) drawValve(valve);
   else {
-    setText(waveMode, junction ? 'CAPILLARY JUNCTION' : 'INFECTION WAVE');
+    setText(waveMode, junction || sim.organ ? missionName(sim.area).toUpperCase() : 'INFECTION WAVE');
     if (waveLabel !== drawnWave) {
       drawnWave = waveLabel;
       const total = document.createElement('span');
@@ -743,6 +817,9 @@ function drawHud() {
   else if (restoringHere) prompt = nearby.name.toUpperCase() + ' RESTORED · 100%';
   else if (repairing) prompt = 'REPAIRING ' + repairingNode.name.toUpperCase();
   else if (sim.canRepair && nearby) prompt = repairKey + ' TO REPAIR ' + nearby.name.toUpperCase();
+  else if (sim.organ?.repairBlocked && nearby?.id === sim.organ.nodeId && nearby.health < 100) {
+    prompt = nearby.name.toUpperCase() + ' REPAIRS BLOCKED DURING OVERLOAD';
+  }
   else if (valve && nearby === sim.objective && nearby.health < 100 && valve.phase !== 'closed' && valve.colonyDefeated) {
     prompt = 'REPAIR ' + nearby.name.toUpperCase() + ' WHEN THE VALVE CLOSES';
   }
@@ -886,7 +963,9 @@ function drawAttackers() {
   const active = new Set();
   const captions = [];
   for (const enemy of sim.enemies) {
-    const warning = enemy.tutorial ? '' : attackWarnings[enemy.action];
+    const telegraph = enemy.type + '-windup';
+    const warning = enemy.tutorial ? '' : enemy.action.endsWith('-windup') ?
+      attackWarnings[telegraph] ?? attackWarnings[enemy.action] : '';
     if (!enemy.attackingTissue && !warning) continue;
     const point = world.project(enemy.x, enemy.y + enemy.radius + .17, enemy.z);
     if (!point.visible || point.y < worldMarkerTop(105) || point.x < 17 || point.x > window.innerWidth - 17) continue;
@@ -952,7 +1031,7 @@ function applyEvents() {
       announce('DEFEND BOTH TISSUE NODES', isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
       audio.play({ type: 'wave', stage: 'start' });
     }
-    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret'].includes(event.type) && Number.isFinite(event.x)) {
+    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard'].includes(event.type) && Number.isFinite(event.x)) {
       const { x, z, yaw } = sim.player;
       const dx = event.x - x;
       const dz = event.z - z;
@@ -967,6 +1046,10 @@ function applyEvents() {
     }
     if (event.type === 'surge' && event.stage === 'arrival') {
       announce(event.threat.toUpperCase(), 'INBOUND TO ' + event.nodeName.toUpperCase(), 1.65);
+    }
+    if (event.type === 'guard' && event.stage === 'block' && event.source !== 'turret' && sim.clock >= guardHintUntil) {
+      announce('FRONTAL SHELL', 'FLANK THE SHELLBACK TO HIT ITS EXPOSED TISSUE', 1.8);
+      guardHintUntil = sim.clock + 4;
     }
     if (event.type === 'gash') {
       const lane = branches[event.branch].name;
@@ -1005,7 +1088,7 @@ function applyEvents() {
         else if (support === 'ammo') detail = 'EXTRA AMMO DELIVERED';
         else if (support === 'turret') detail = 'TURRET IN POSITION';
         else if (support) detail = branches[support].name + ' INLET REINFORCED';
-        announce(pattern ? pattern.name.toUpperCase() : 'WAVE ' + pad(event.wave), detail);
+        announce(pattern ? pattern.name.toUpperCase() : sim.organWave?.toUpperCase() ?? 'WAVE ' + pad(event.wave), detail);
       } else if (sim.settling) {
         announce('INLETS CLEAR', sim.gash ? 'SEAL THE GASH TO EXTRACT' : 'REPAIR TISSUE BEFORE EXTRACTION', 2.8);
       } else if (event.wave < sim.waves) {
@@ -1109,10 +1192,15 @@ document.querySelectorAll('[data-mute]').forEach(button => button.addEventListen
   if (!muted) audio.unlock().catch(() => {});
 }));
 deploy.addEventListener('click', startCampaign);
-junctionDeploy.addEventListener('click', () => launch('junction'));
-continueJunction.addEventListener('click', () => continueMission('junction'));
-heartDeploy.addEventListener('click', () => launch('heart'));
-continueHeart.addEventListener('click', () => continueMission('heart'));
+resumeCampaignButton.addEventListener('click', () => {
+  if (checkpoint) launch(campaignAreas[checkpoint.results.length], checkpoint);
+});
+missionSelect.addEventListener('click', () => {
+  missionError.hidden = true;
+  missionDialog.showModal();
+});
+for (const { area, button } of missionEntries) button.addEventListener('click', () => launch(area));
+continueButton.addEventListener('click', continueMission);
 for (const button of upgradeButtons) {
   button.addEventListener('click', () => {
     if (!resultDialog.open || campaignReward.hidden) return;
@@ -1121,7 +1209,7 @@ for (const button of upgradeButtons) {
   });
 }
 replay.addEventListener('click', () => {
-  if (campaign && sim.area === 'heart' && sim.phase === 'won') startCampaign();
+  if (campaign && sim.area === campaignAreas.at(-1) && sim.phase === 'won') startCampaign();
   else launch(sim.area, campaign);
 });
 byId('return-menu').addEventListener('click', mainMenu);
