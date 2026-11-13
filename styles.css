@@ -78,6 +78,18 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 #result-stats:has(#result-tissue-stat[hidden]){grid-template-columns:repeat(2,minmax(0,1fr))}
 .result-stats dt{font:500 9px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .result-stats dd{font:800 37px/1 var(--display);color:var(--green);margin:4px 0 0}
+.extraction-panel h2{font-size:clamp(38px,8vw,54px);margin:16px 0 12px}
+.extraction-panel #extraction-detail{margin-bottom:13px}
+.extraction-stats{margin-top:0;padding:11px 0;grid-template-columns:1fr 1fr 1.2fr}
+.extraction-stats dd{font-size:clamp(25px,5vw,34px);white-space:nowrap}
+.overtime-forecast{margin-top:14px;padding:10px 12px;border:1px solid #ab927e70;background:#32231e8c}
+.overtime-forecast-heading{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:3px 12px}
+.overtime-forecast h3{margin:0;font:800 22px/1 var(--display);letter-spacing:.03em;text-transform:uppercase}
+.overtime-forecast-heading>strong{color:#ffc19d;font:500 11px var(--mono);white-space:nowrap}
+.panel .overtime-forecast p{margin:7px 0 0;font-size:12px;line-height:1.45}
+.overtime-forecast [data-branch]{color:var(--branch)}
+.extraction-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:8px;margin-top:15px}
+.extraction-actions .button{min-height:46px;padding:5px 6px;white-space:normal;text-align:center}
 #result-launch-error{margin:12px 0 0;color:#ffab9d;font:500 11px/1.45 var(--mono)}
 .campaign-section {
   margin-top: 20px;

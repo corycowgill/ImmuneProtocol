@@ -26,6 +26,13 @@ const campaignAverage = byId('campaign-average');
 const manual = byId('manual-dialog');
 const pauseDialog = byId('pause-dialog');
 const resultDialog = byId('result-dialog');
+const extractionDialog = byId('extraction-dialog');
+const extractionTissue = byId('extraction-tissue');
+const extractionSuit = byId('extraction-suit');
+const extractionAmmo = byId('extraction-ammo');
+const extractionBonus = byId('extraction-bonus');
+const extractNow = byId('extract-now');
+const stayOvertime = byId('stay-overtime');
 const settingsDialog = byId('settings-dialog');
 const sensitivityControl = byId('look-sensitivity');
 const sensitivityValue = byId('look-sensitivity-value');
@@ -330,7 +337,7 @@ async function launch(area, run = null) {
 }
 
 function pause() {
-  if (!running || paused) return;
+  if (!running || paused || sim.extractionPending) return;
   paused = true;
   cancelAnimationFrame(animation);
   animation = 0;
@@ -357,6 +364,36 @@ function resume() {
   animation = requestAnimationFrame(frame);
 }
 
+function offerExtraction() {
+  clearControls();
+  audio.setActive(false);
+  syncMusic();
+  releaseMouse();
+  setText(extractionTissue, Math.ceil(sim.tissue) + '%');
+  setText(extractionSuit, Math.ceil(sim.player.health) + '%');
+  setText(extractionAmmo, sim.player.ammo + ' / ' + sim.player.reserve);
+  setText(extractionBonus, '+' + sim.overtimeForecast.bonus.toLocaleString() + ' score');
+  extractionDialog.showModal();
+  extractNow.focus();
+}
+
+function chooseExtraction(choice) {
+  if (!running || !extractionDialog.open || !sim.chooseExtraction(choice)) return;
+  extractionDialog.close();
+  clearControls();
+  if (choice === 'extract') {
+    finish();
+    return;
+  }
+  lastFrame = 0;
+  audio.unlock().catch(() => {});
+  audio.setActive(true);
+  syncMusic();
+  requestMouse();
+  applyEvents();
+  animation = requestAnimationFrame(frame);
+}
+
 function mainMenu() {
   running = false;
   paused = false;
@@ -368,6 +405,7 @@ function mainMenu() {
   cancelAnimationFrame(animation);
   settingsDialog.close();
   pauseDialog.close();
+  extractionDialog.close();
   resultDialog.close();
   game.hidden = true;
   menu.hidden = false;
@@ -422,6 +460,7 @@ function drawCampaignReport(results) {
 
 function finish() {
   running = false;
+  extractionDialog.close();
   clearControls();
   releaseMouse();
   audio.setActive(false);
@@ -450,8 +489,12 @@ function finish() {
     : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : 'Host stabilized') : 'Mission failed';
   let detail;
   if (next === continueJunction) detail = 'All five waves were contained. Capillary Junction is open for deployment.';
+  else if (next === continueHeart && sim.overtimeBonus > 0) {
+    detail = 'Overtime cleared. +' + sim.overtimeBonus.toLocaleString() + ' score. Heart Valve is open for deployment.';
+  }
   else if (next === continueHeart) detail = 'Both inlets are clear. Heart Valve is open for deployment.';
   else if (won) detail = 'The colony is neutralized and the valve wound is sealed.';
+  else if (sim.overtime) detail = 'Overtime failed. Redeploy to try Capillary Junction again.';
   else detail = sim.tissue <= 0 ? 'The infection overwhelmed the tissue node.' : 'Your suit failed under pathogen attack.';
   byId('result-detail').textContent = detail;
   const result = missionResult();
@@ -587,6 +630,7 @@ function drawHud() {
     }
     let status = remaining + (remaining === 1 ? ' THREAT LEFT' : ' THREATS LEFT');
     if (sim.tutorial) status = 'FIELD TRAINING';
+    else if (sim.extractionPending) status = 'EXTRACTION READY';
     else if (phase === 'intermission') {
       status = sim.settling && sim.gash ? 'SEAL GASH TO EXTRACT'
         : (sim.settling ? 'EXTRACT IN ' : 'NEXT WAVE IN ') + Math.ceil(intermission) + 's';
@@ -824,7 +868,7 @@ function applyEvents() {
         const pattern = sim.junctionWave;
         const lane = pattern && branches[pattern.lane]?.name;
         const support = sim.events.find(item => item.type === 'junctionSupply')?.choice;
-        const detail = support === 'ammo' ? 'EXTRA AMMO DELIVERED'
+        const detail = sim.overtime ? 'TEAL BREACH · AMBER SPORE PRESSURE' : support === 'ammo' ? 'EXTRA AMMO DELIVERED'
           : support ? branches[support].name + ' INLET REINFORCED' : lane ? lane + ' INLET' : 'PATHOGENS INBOUND';
         announce(pattern ? pattern.name.toUpperCase() : 'WAVE ' + pad(event.wave), detail);
       } else if (sim.settling) {
@@ -885,6 +929,10 @@ function frame(now) {
     drawAttackers();
     drawBranches();
     drawCombatFeedback(aiming);
+    if (sim.extractionPending) {
+      offerExtraction();
+      return;
+    }
     if (sim.phase === 'won' || sim.phase === 'lost') {
       finish();
       return;
@@ -897,7 +945,7 @@ byId('manual').addEventListener('click', () => manual.showModal());
 byId('touch-manual').hidden = !isTouch;
 for (const button of supplyButtons) {
   button.addEventListener('click', () => {
-    if (!running || paused || !sim.selectJunctionSupply(button.dataset.junctionSupply)) return;
+    if (!running || paused || sim.extractionPending || !sim.selectJunctionSupply(button.dataset.junctionSupply)) return;
     drawJunctionStatus();
   });
 }
@@ -945,6 +993,9 @@ byId('return-menu').addEventListener('click', mainMenu);
 byId('quit').addEventListener('click', mainMenu);
 byId('pause').addEventListener('click', pause);
 byId('resume').addEventListener('click', resume);
+extractNow.addEventListener('click', () => chooseExtraction('extract'));
+stayOvertime.addEventListener('click', () => chooseExtraction('stay'));
+extractionDialog.addEventListener('cancel', event => event.preventDefault());
 pauseDialog.addEventListener('cancel', event => { event.preventDefault(); resume(); });
 resultDialog.addEventListener('cancel', event => { event.preventDefault(); mainMenu(); });
 
@@ -959,7 +1010,7 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('blur', () => { if (running) pause(); });
 window.addEventListener('keydown', event => {
-  if (!running || paused) return;
+  if (!running || paused || sim.extractionPending) return;
   const supply = supplyKeys[event.code];
   if (supply && !junctionSupply.hidden) {
     event.preventDefault();
@@ -979,14 +1030,14 @@ window.addEventListener('keydown', event => {
 });
 window.addEventListener('keyup', event => keys.delete(event.code));
 window.addEventListener('mousemove', event => {
-  if (running && !paused && locked) {
+  if (running && !paused && !sim.extractionPending && locked) {
     input.lookX += event.movementX * sensitivity;
     input.lookY += event.movementY * sensitivity;
   }
 });
 canvas.addEventListener('contextmenu', event => event.preventDefault());
 canvas.addEventListener('mousedown', event => {
-  if (!running || paused) return;
+  if (!running || paused || sim.extractionPending) return;
   if (event.button === 0) {
     leftButton = true;
     fireTap = true;
@@ -998,7 +1049,7 @@ window.addEventListener('mouseup', event => {
   if (event.button === 2) rightButton = false;
 });
 canvas.addEventListener('pointerdown', event => {
-  if (!running || paused || locked) return;
+  if (!running || paused || sim.extractionPending || locked) return;
   if (event.pointerType === 'touch') event.preventDefault();
   lookPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
   canvas.setPointerCapture(event.pointerId);
@@ -1016,6 +1067,7 @@ window.addEventListener('pointerup', event => {
 });
 canvas.addEventListener('pointercancel', () => { lookPointer = null; leftButton = false; rightButton = false; });
 joystick.addEventListener('pointerdown', event => {
+  if (!running || paused || sim.extractionPending) return;
   event.preventDefault();
   stickPointer = event.pointerId;
   joystick.setPointerCapture(event.pointerId);
@@ -1045,6 +1097,7 @@ for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
 touchControls.querySelectorAll('[data-touch]').forEach(button => {
   const name = button.dataset.touch;
   button.addEventListener('pointerdown', event => {
+    if (!running || paused || sim.extractionPending) return;
     event.preventDefault();
     touch[name] = true;
     if (name === 'fire') fireTap = true;

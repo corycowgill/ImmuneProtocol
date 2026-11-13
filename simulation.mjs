@@ -57,6 +57,14 @@ const JUNCTION_MISSIONS = [
   },
 ];
 
+const JUNCTION_OVERTIME = {
+  name: 'Overtime', lane: 'both', breach: true, bonus: 2000,
+  species: ['bacillus', 'virus', 'spore', 'spore', 'virus', 'spore', 'virus'],
+  branches: ['right', 'right', 'left', 'left', 'right', 'left', 'right'],
+  // Amber spore volleys start before the teal bacillus can latch.
+  delays: [.68, .85, .73, 1.2, .95, 1.2],
+};
+
 const HEART_MISSIONS = [{ species: ['colony'] }];
 const HEART_CLOSED_TIME = 3.8;
 const HEART_OPEN_TIME = 3.4;
@@ -140,13 +148,35 @@ export class Simulation {
     return this.area === 'junction' ? this.missions[this.wave] ?? null : null;
   }
 
+  get overtimeForecast() {
+    return this.area === 'junction' && !this.overtime ? JUNCTION_OVERTIME : null;
+  }
+
   selectJunctionSupply(choice) {
     if (this.phase !== 'intermission' || !this.junctionForecast || !['left', 'right', 'ammo'].includes(choice)) return false;
     this.junctionSupply = choice;
     return true;
   }
 
+  chooseExtraction(choice) {
+    if (!this.extractionPending || (choice !== 'extract' && choice !== 'stay')) return false;
+    this.extractionPending = false;
+    this.events = [];
+    if (choice === 'extract') {
+      this.endMission('won');
+    } else {
+      this.overtime = true;
+      this.settling = false;
+      this.junctionGashOpened = false;
+      this.missions = [...JUNCTION_MISSIONS, JUNCTION_OVERTIME];
+      this.waves = this.missions.length;
+      this.beginWave();
+    }
+    return true;
+  }
+
   reset() {
+    if (this.overtime) this.missions = JUNCTION_MISSIONS;
     this.valve = this.area === 'heart' ? {
       phase: 'closed', duration: HEART_CLOSED_TIME, remaining: HEART_CLOSED_TIME,
       openness: 0, exposed: false, colonyDefeated: false,
@@ -176,6 +206,9 @@ export class Simulation {
     this.reinforcement = null;
     this.intermission = 0;
     this.settling = false;
+    this.extractionPending = false;
+    this.overtime = false;
+    this.overtimeBonus = 0;
     this.reloading = 0;
     this.fireCooldown = 0;
     this.reloadHeld = false;
@@ -243,7 +276,7 @@ export class Simulation {
     this.score += 250 * this.wave;
     this.events.push({ type: 'wave', wave: this.wave, stage: 'clear' });
     if (this.wave === this.waves) {
-      if (this.area === 'junction' && (this.gash || this.tissue < RULES.tissue)) {
+      if (this.area === 'junction') {
         this.settling = true;
         this.phase = 'intermission';
         this.intermission = JUNCTION_REPAIR_TIME;
@@ -260,6 +293,10 @@ export class Simulation {
   }
 
   endMission(outcome, reason) {
+    if (outcome === 'won' && this.overtime && !this.overtimeBonus) {
+      this.overtimeBonus = JUNCTION_OVERTIME.bonus;
+      this.score += this.overtimeBonus;
+    }
     this.phase = outcome;
     this.projectiles.length = 0;
     this.events.push({ type: 'mission', outcome, reason });
@@ -267,7 +304,7 @@ export class Simulation {
 
   step(dt, input = {}) {
     this.events = [];
-    if (this.phase !== 'combat' && this.phase !== 'intermission') return;
+    if (this.extractionPending || (this.phase !== 'combat' && this.phase !== 'intermission')) return;
     dt = clamp(dt, 0, 0.1);
     this.clock += dt;
     if (this.valve) {
@@ -320,8 +357,9 @@ export class Simulation {
       }
       this.intermission = Math.max(0, this.intermission - dt);
       if (this.intermission === 0) {
-        if (this.settling) this.endMission('won');
-        else this.beginWave();
+        if (!this.settling) this.beginWave();
+        else if (this.overtime) this.endMission('won');
+        else this.openExtractionChoice();
       }
       return;
     }
@@ -347,6 +385,18 @@ export class Simulation {
     } else if (this.remaining === 0 && this.projectiles.length === 0) {
       this.clearWave();
     }
+  }
+
+  openExtractionChoice() {
+    this.extractionPending = true;
+    this.canRepair = false;
+    this.repairProgress = 0;
+    this.repairTarget = null;
+    if (this.repairing) {
+      this.repairing = false;
+      this.events.push({ type: 'repairStop' });
+    }
+    this.events.push({ type: 'extraction', stage: 'ready' });
   }
 
   updateValve() {
