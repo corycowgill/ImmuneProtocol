@@ -84,7 +84,12 @@ const waveValue = byId('wave-value');
 const branchReadout = byId('branch-readout');
 const junctionWaveName = byId('junction-wave-name');
 const junctionForecast = byId('junction-forecast');
+const junctionSurge = byId('junction-surge');
+const junctionSurgeTarget = byId('junction-surge-target');
+const junctionSurgeThreat = byId('junction-surge-threat');
+const junctionSurgeTime = byId('junction-surge-time');
 const junctionSupply = byId('junction-supply');
+const junctionSupplyPlan = byId('junction-supply-plan');
 const junctionSupplyNote = byId('junction-supply-note');
 const supplyButtons = [...document.querySelectorAll('[data-junction-supply]')];
 const valveReadout = byId('valve-readout');
@@ -127,7 +132,7 @@ const attackWarnings = {
   'spore-windup': 'SPORE CHARGING',
   'bacillus-windup': 'BACILLUS TEARING TISSUE',
 };
-const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo' };
+const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo', Digit4: 'turret' };
 
 let world;
 let sim;
@@ -610,24 +615,42 @@ function drawJunctionStatus() {
   const junction = sim.area === 'junction';
   const current = sim.junctionWave;
   const forecast = sim.junctionForecast;
+  const surge = sim.junctionSurge;
   const planning = junction && sim.phase === 'intermission' && !sim.settling && !!forecast;
   junctionWaveName.hidden = !junction || !current;
   junctionForecast.hidden = !planning;
   junctionSupply.hidden = !planning;
+  junctionSupplyPlan.hidden = !planning;
+  junctionSurge.hidden = !surge;
+  if (surge) {
+    junctionSurge.dataset.branch = surge.branch;
+    junctionSurge.dataset.urgent = String(surge.remaining <= 3);
+    setText(junctionSurgeTarget, surge.nodeName);
+    setText(junctionSurgeThreat, surge.threat);
+    setText(junctionSurgeTime, Math.max(1, Math.ceil(surge.remaining)) + 's');
+  }
   gashStatus.hidden = !sim.gash;
   if (sim.gash) setText(gashStatus, branches[sim.gash.branch].name + ' GASH · LEAKING');
   if (current) setText(junctionWaveName, current.name);
   if (!planning) return;
 
-  const lane = branches[forecast.lane]?.name || 'BOTH INLETS';
-  setText(junctionForecast, 'NEXT: ' + forecast.name + ' · ' + lane);
+  setText(junctionForecast, 'NEXT WAVE · ' + forecast.name);
+  setText(junctionSupplyPlan, forecast.surges.slice(0, 2).map(group =>
+    (group.branch === 'left' ? 'Amber' : 'Teal') + ' ' + group.threat.toLowerCase()
+  ).join(' → '));
   const choice = sim.junctionSupply;
   for (const button of supplyButtons) {
-    const pressed = String(button.dataset.junctionSupply === choice);
+    const option = button.dataset.junctionSupply;
+    const pressed = String(option === choice);
     if (button.getAttribute('aria-pressed') !== pressed) button.setAttribute('aria-pressed', pressed);
+    const disabled = sim.junctionSupplyLocked || (option === 'turret' && !sim.turret);
+    if (button.disabled !== disabled) button.disabled = disabled;
   }
-  const note = choice === 'ammo' ? 'Extra ammo selected.'
-    : choice ? branches[choice].name + ' inlet reinforcement selected.' : 'Choose support for the next wave.';
+  let note = 'Choose one support option.';
+  if (sim.junctionSupplyLocked) note = 'Turret moved. Support used for this wave.';
+  else if (choice === 'turret') note = isTouch ? 'Face clear ground and tap Turret to move it.' : 'Face clear ground and press Q to move the turret.';
+  else if (choice === 'ammo') note = 'Extra ammo selected.';
+  else if (choice) note = branches[choice].name + ' inlet reinforcement selected.';
   setText(junctionSupplyNote, note);
 }
 
@@ -660,12 +683,16 @@ function drawNodeHud() {
 function drawTurretHud() {
   turretStatus.hidden = !!sim.tutorial;
   const turret = sim.turret;
-  const ready = sim.turretCharges > 0 && !sim.tutorial;
+  const moving = sim.canRedeployTurret;
+  const ready = (sim.turretCharges > 0 || moving) && !sim.tutorial;
   touchTurret.hidden = !!sim.tutorial;
   touchTurret.disabled = !ready;
-  const state = turret ? (turret.targetId == null ? 'online' : 'engaging') : (sim.turretPlacement ? 'ready' : 'blocked');
+  const state = ready ? (sim.turretPlacement ? 'ready' : 'blocked') : (turret?.targetId == null ? 'online' : 'engaging');
   turretStatus.dataset.state = state;
-  setText(turretStatusValue, { online: 'TURRET ONLINE', engaging: 'TURRET ENGAGING', ready: 'TURRET READY', blocked: 'FIND CLEAR GROUND' }[state]);
+  setText(turretStatusValue, {
+    online: 'TURRET ONLINE', engaging: 'TURRET ENGAGING',
+    ready: moving ? 'REDEPLOY READY' : 'TURRET READY', blocked: 'FIND CLEAR GROUND',
+  }[state]);
 }
 
 function drawHud() {
@@ -935,7 +962,11 @@ function applyEvents() {
     } else if (event.type !== 'mission') audio.play(event);
     if (event.type === 'turret') {
       if (event.stage === 'deployed') announce('AUTO-TURRET ONLINE', 'COVERING THIS POSITION', 1.8);
+      if (event.stage === 'redeployed') announce('AUTO-TURRET REDEPLOYED', 'COVERING THE NEW POSITION', 1.8);
       if (event.stage === 'invalid') announce('PLACEMENT BLOCKED', 'FACE CLEAR GROUND AND TRY AGAIN', 1.8);
+    }
+    if (event.type === 'surge' && event.stage === 'arrival') {
+      announce(event.threat.toUpperCase(), 'INBOUND TO ' + event.nodeName.toUpperCase(), 1.65);
     }
     if (event.type === 'gash') {
       const lane = branches[event.branch].name;
@@ -969,8 +1000,11 @@ function applyEvents() {
         const pattern = sim.junctionWave;
         const lane = pattern && branches[pattern.lane]?.name;
         const support = sim.events.find(item => item.type === 'junctionSupply')?.choice;
-        const detail = sim.overtime ? 'TEAL BREACH · AMBER SPORE PRESSURE' : support === 'ammo' ? 'EXTRA AMMO DELIVERED'
-          : support ? branches[support].name + ' INLET REINFORCED' : lane ? lane + ' INLET' : 'PATHOGENS INBOUND';
+        let detail = lane ? lane + ' INLET' : 'PATHOGENS INBOUND';
+        if (sim.overtime) detail = 'TEAL BREACH · AMBER SPORE PRESSURE';
+        else if (support === 'ammo') detail = 'EXTRA AMMO DELIVERED';
+        else if (support === 'turret') detail = 'TURRET IN POSITION';
+        else if (support) detail = branches[support].name + ' INLET REINFORCED';
         announce(pattern ? pattern.name.toUpperCase() : 'WAVE ' + pad(event.wave), detail);
       } else if (sim.settling) {
         announce('INLETS CLEAR', sim.gash ? 'SEAL THE GASH TO EXTRACT' : 'REPAIR TISSUE BEFORE EXTRACTION', 2.8);
@@ -1047,6 +1081,7 @@ for (const button of supplyButtons) {
   button.addEventListener('click', () => {
     if (!running || paused || sim.extractionPending || !sim.selectJunctionSupply(button.dataset.junctionSupply)) return;
     drawJunctionStatus();
+    drawTurretHud();
   });
 }
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => byId(button.dataset.close).close()));
@@ -1096,7 +1131,7 @@ byId('resume').addEventListener('click', resume);
 extractNow.addEventListener('click', () => chooseExtraction('extract'));
 stayOvertime.addEventListener('click', () => chooseExtraction('stay'));
 touchTurret.addEventListener('click', () => {
-  if (running && !paused && !sim.extractionPending && !sim.tutorial) deployTap = true;
+  if (running && !paused && !sim.extractionPending && !sim.tutorial && (sim.turretCharges > 0 || sim.canRedeployTurret)) deployTap = true;
 });
 extractionDialog.addEventListener('cancel', event => event.preventDefault());
 pauseDialog.addEventListener('cancel', event => { event.preventDefault(); resume(); });
@@ -1117,7 +1152,10 @@ window.addEventListener('keydown', event => {
   const supply = supplyKeys[event.code];
   if (supply && !junctionSupply.hidden) {
     event.preventDefault();
-    if (!event.repeat && sim.selectJunctionSupply(supply)) drawJunctionStatus();
+    if (!event.repeat && sim.selectJunctionSupply(supply)) {
+      drawJunctionStatus();
+      drawTurretHud();
+    }
     return;
   }
   if (!controlKeys.has(event.code)) return;
@@ -1129,7 +1167,7 @@ window.addEventListener('keydown', event => {
   }
   if (!event.repeat && event.code === 'Space') fireTap = true;
   if (!event.repeat && event.code === 'KeyR') reloadTap = true;
-  if (!event.repeat && event.code === 'KeyQ' && !sim.tutorial && sim.turretCharges > 0) deployTap = true;
+  if (!event.repeat && event.code === 'KeyQ' && !sim.tutorial && (sim.turretCharges > 0 || sim.canRedeployTurret)) deployTap = true;
   keys.add(event.code);
 });
 window.addEventListener('keyup', event => keys.delete(event.code));

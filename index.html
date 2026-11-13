@@ -113,6 +113,11 @@
           </div>
           <div id="junction-wave-name" class="junction-wave-name" hidden></div>
           <div id="junction-forecast" class="junction-forecast" role="status" hidden></div>
+          <div id="junction-surge" class="junction-surge" role="group" aria-label="Upcoming attack" hidden>
+            <span id="junction-surge-target" class="junction-surge-target"></span>
+            <span id="junction-surge-time" class="junction-surge-time" role="timer"></span>
+            <span id="junction-surge-threat" class="junction-surge-threat"></span>
+          </div>
           <div id="valve-readout" class="valve-readout" hidden>
             <div class="meter" aria-hidden="true"><div id="valve-fill"></div></div>
             <span id="colony-status">COLONY INTACT</span>
@@ -153,12 +158,14 @@
         </div>
         <section id="junction-supply" class="junction-supply" aria-labelledby="junction-supply-title" hidden>
           <h2 id="junction-supply-title">Prepare for the next wave</h2>
+          <p id="junction-supply-plan" class="junction-supply-plan" hidden></p>
           <div class="junction-supply-options">
             <button type="button" data-junction-supply="left" data-branch="left" aria-keyshortcuts="1" aria-pressed="false"><kbd aria-hidden="true">1</kbd><span>Reinforce Amber</span></button>
             <button type="button" data-junction-supply="right" data-branch="right" aria-keyshortcuts="2" aria-pressed="false"><kbd aria-hidden="true">2</kbd><span>Reinforce Teal</span></button>
             <button type="button" data-junction-supply="ammo" aria-keyshortcuts="3" aria-pressed="false"><kbd aria-hidden="true">3</kbd><span>Extra ammo</span></button>
+            <button type="button" data-junction-supply="turret" aria-keyshortcuts="4" aria-pressed="false" disabled><kbd aria-hidden="true">4</kbd><span>Redeploy turret</span></button>
           </div>
-          <p id="junction-supply-note" role="status">Reinforcing slows enemies at that inlet.</p>
+          <p id="junction-supply-note" role="status">Choose one support option.</p>
         </section>
         <div id="action-prompt" class="action-prompt" hidden>
           <span id="prompt-text"></span>
@@ -194,9 +201,10 @@
       <p class="eyebrow"><span></span> OPERATIONS BRIEF</p>
       <h2>Field manual</h2>
       <p>Defend both tissue nodes and keep your suit intact. If either node fails, the mission ends. Follow the node markers and hold repair near damaged tissue.</p>
-      <p>Deploy one auto turret per mission. Face the spot where you want it, near one approach while you defend the other. It fires infrequently and briefly slows enemies it hits. Once deployed, it stays in place.</p>
+      <p>Face clear ground to deploy your auto turret. It briefly slows enemies it hits. Place it near one approach while you defend the other.</p>
       <p>Viruses recoil before lunging. Spores swell before spitting a slow projectile. Move sideways to dodge either attack. Shoot latched bacilli before they tear more tissue.</p>
-      <p>In Capillary Junction, watch the forecast and pick an inlet reinforcement or extra ammo between waves. Open gashes drain tissue even after the attacker is gone. Follow the gash marker and hold repair in range to seal it. Once the chamber is secure, extract or stay for an optional bonus wave.</p>
+      <p>In Capillary Junction, the attack countdown shows which node is next and what is coming. Between waves, choose an inlet reinforcement, ammo, or turret redeployment. To move an active turret, select Redeploy turret, face clear ground, and press Q or tap Turret before the break ends.</p>
+      <p>Open gashes drain tissue even after the attacker is gone. Follow the gash marker and hold repair in range to seal it. Once Capillary Junction is secure, extract or stay for an optional bonus wave.</p>
       <p>At Heart Valve, shoot the colony through the opening and repair the valve wound while it is closed. You can repair the other node at any time. Restore both to secure the chamber.</p>
       <p>Choose a field upgrade after each of the first two campaign missions. Your final report shows the average tissue integrity across all three chambers.</p>
       <dl class="controls-list">
