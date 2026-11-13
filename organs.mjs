@@ -82,7 +82,7 @@ export const ORGAN_MISSIONS = {
     waves: [
       wave('Signal Breach', .96, ['guard', 'splitter', 'spore', 'bacillus', 'guard', 'virus', 'spore', 'splitter', 'bacillus'], 'LLRLRRLLR'),
       wave('Synaptic Cascade', .78, ['guard', 'spore', 'splitter', 'bacillus', 'virus', 'guard', 'splitter', 'spore', 'bacillus', 'spore', 'virus', 'splitter'], 'RRLRLLRLRLLR'),
-      wave('Cortical Siege', .70, ['guard', 'splitter', 'spore', 'guard', 'splitter', 'bacillus', 'virus', 'bacillus', 'splitter', 'spore', 'guard', 'splitter', 'virus', 'spore', 'bacillus'], 'LRRLLRLRLRLRRLL'),
+      { name: 'Mega Virus', boss: true, species: [] },
     ],
   },
 };

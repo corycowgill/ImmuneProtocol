@@ -100,6 +100,20 @@
           <div id="gash-status" class="gash-status" role="status" hidden></div>
         </div>
         <div class="wave-panel">
+          <section id="boss-hud" class="boss-hud" aria-labelledby="boss-name" data-state="sealed" hidden>
+            <div class="boss-heading">
+              <h2 id="boss-name">Mega Virus</h2>
+              <span id="boss-phase" class="boss-phase"></span>
+            </div>
+            <div id="boss-health" class="meter boss-health" role="meter" aria-label="Mega Virus health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+              <div id="boss-health-fill"></div>
+            </div>
+            <div class="boss-readout">
+              <span id="boss-status" class="boss-status" role="status"></span>
+              <span id="boss-status-detail" class="boss-status-detail"></span>
+              <span id="boss-time" class="boss-time" role="timer"></span>
+            </div>
+          </section>
           <span class="hud-label" id="wave-mode">INFECTION WAVE</span>
           <strong id="wave-value">01 <span>/ 05</span></strong>
           <small id="threats">THREATS INBOUND</small>
@@ -140,6 +154,7 @@
           <strong id="secondary-edge-label">TISSUE</strong>
         </div>
         <div id="turret-marker" class="objective-marker turret-marker" aria-hidden="true" hidden><span></span><strong>AUTO TURRET</strong><small id="turret-marker-distance"></small></div>
+        <div id="boss-marker" class="boss-marker" aria-hidden="true" hidden><strong id="boss-marker-label">CORE EXPOSED</strong></div>
         <div id="gash-marker" class="objective-marker gash-marker" aria-hidden="true" hidden><span></span><strong id="gash-label">OPEN GASH</strong><small id="gash-distance"></small></div>
         <div id="gash-edge" class="objective-edge gash-edge" aria-hidden="true" hidden>
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 9l5-5 5 5M8 4v9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -252,6 +267,7 @@
       <p>In Capillary Junction, the attack countdown shows which node is next and what is coming. Between waves, choose an inlet reinforcement, ammo, or turret redeployment. To move an active turret, select Redeploy turret, face clear ground, and press Q or tap Turret before the break ends.</p>
       <p>Open gashes drain tissue even after the attacker is gone. Follow the gash marker and hold repair in range to seal it. Once Capillary Junction is secure, extract or stay for an optional bonus wave.</p>
       <p>At Heart Valve, shoot the colony through the opening and repair the valve wound while it is closed. You can repair the other node at any time. Restore both to secure the chamber.</p>
+      <p>In the Neural Cortex finale, fire at the Mega Virus’s glowing cores when their shells open. Use the time between openings to intercept its offspring and repair the tissue nodes.</p>
       <p>Watch the organ status during later missions for hazard warnings and advice. Your campaign checkpoint keeps completed missions and your field upgrade. The final report shows tissue integrity across all eight missions.</p>
       <dl class="controls-list">
         <div><dt>Move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dd></div>

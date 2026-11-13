@@ -110,6 +110,15 @@ const organHazard = byId('organ-hazard');
 const organHazardLabel = byId('organ-hazard-label');
 const organHazardDetail = byId('organ-hazard-detail');
 const organHazardTime = byId('organ-hazard-time');
+const bossHud = byId('boss-hud');
+const bossPhase = byId('boss-phase');
+const bossHealth = byId('boss-health');
+const bossHealthFill = byId('boss-health-fill');
+const bossStatus = byId('boss-status');
+const bossStatusDetail = byId('boss-status-detail');
+const bossTime = byId('boss-time');
+const bossMarker = byId('boss-marker');
+const bossMarkerLabel = byId('boss-marker-label');
 const branches = {
   left: { name: 'AMBER', badge: byId('branch-left'), marker: byId('inlet-left') },
   right: { name: 'TEAL', badge: byId('branch-right'), marker: byId('inlet-right') },
@@ -587,9 +596,9 @@ function finish() {
   byId('result-title').textContent = complete ? 'Campaign complete'
     : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : sim.organ ? missionName(sim.area) + ' secured' : 'Artery secured') : 'Mission failed';
   let detail;
-  if (complete) detail = 'The infection was contained across all eight missions.';
+  if (complete) detail = 'The Mega Virus is down. The infection is contained across all eight missions.';
   else if (won) {
-    const opening = next ? missionName(next) + ' is open for deployment.' : 'Both tissue nodes are secure.';
+    const opening = next ? missionName(next) + ' is open for deployment.' : 'The Mega Virus is down and both tissue nodes survived.';
     detail = sim.overtimeBonus > 0 ? 'Overtime cleared. +' + sim.overtimeBonus.toLocaleString() + ' score. ' + opening : opening;
   }
   else if (sim.overtime) {
@@ -759,13 +768,38 @@ function drawTurretHud() {
 
 function drawOrganHazard() {
   const hazard = sim.organ;
-  organHazard.hidden = !hazard || (sim.phase !== 'combat' && sim.phase !== 'intermission');
+  organHazard.hidden = !hazard || sim.boss?.state === 'defeated' || (sim.phase !== 'combat' && sim.phase !== 'intermission');
   if (!hazard) return;
   organHazard.dataset.phase = hazard.phase;
   setText(organHazardLabel, hazard.label);
   setText(organHazardDetail, hazard.detail);
-  const leadTime = hazard.phase === 'recovery' ? ORGAN_MISSIONS[sim.area].hazard.warning : 0;
+  organHazardTime.hidden = !!sim.boss;
+  const leadTime = hazard.phase === 'recovery' && !sim.boss ? ORGAN_MISSIONS[sim.area].hazard.warning : 0;
   setText(organHazardTime, Math.max(1, Math.ceil(hazard.remaining + leadTime)) + 's');
+}
+
+function drawBossHud() {
+  const boss = sim.boss;
+  bossHud.hidden = !boss;
+  if (!boss) return;
+  const { state, phase, health, maxHealth, weakPoint } = boss;
+  bossHud.dataset.state = state;
+  setText(bossPhase, 'Phase ' + phase + ' / 3');
+  const percent = Math.ceil(health * 100 / maxHealth);
+  if (bossHealth.getAttribute('aria-valuenow') !== String(percent)) {
+    bossHealth.setAttribute('aria-valuenow', percent);
+    bossHealthFill.style.width = percent + '%';
+  }
+  const status = {
+    sealed: ['Shell sealed', 'Clear the swarm or repair'],
+    warning: ['Core pulsing', weakPoint?.label + ' opens next'],
+    exposed: ['Core exposed', 'Shoot the ' + weakPoint?.label?.toLowerCase()],
+    defeated: ['Mega Virus down', sim.enemies.length ? 'Clear surviving pathogens' : 'Both tissue nodes secure'],
+  }[state];
+  setText(bossStatus, status[0]);
+  setText(bossStatusDetail, status[1]);
+  bossTime.hidden = state === 'defeated';
+  setText(bossTime, Math.max(1, Math.ceil(boss.remaining)) + 's');
 }
 
 function drawHud() {
@@ -774,6 +808,7 @@ function drawHud() {
   drawNodeHud();
   drawTurretHud();
   drawOrganHazard();
+  drawBossHud();
   setText(suitValue, suitPercent);
   fillMeter(healthMeter, healthFill, suitPercent);
   setText(equipmentLabel, sim.repairing ? 'TISSUE SEALER' : 'NEEDLE CARBINE');
@@ -793,7 +828,9 @@ function drawHud() {
       waveValue.replaceChildren(document.createTextNode(pad(wave) + ' '), total);
     }
     let status = remaining + (remaining === 1 ? ' THREAT LEFT' : ' THREATS LEFT');
-    if (sim.tutorial) status = 'FIELD TRAINING';
+    if (sim.boss) status = sim.enemies.length ?
+      sim.enemies.length + (sim.enemies.length === 1 ? ' PATHOGEN ACTIVE' : ' PATHOGENS ACTIVE') : '';
+    else if (sim.tutorial) status = 'FIELD TRAINING';
     else if (sim.extractionPending) status = 'EXTRACTION READY';
     else if (phase === 'intermission') {
       status = sim.settling && sim.gash ? 'SEAL GASH TO EXTRACT'
@@ -885,6 +922,20 @@ function drawMarkers() {
   }
   drawGash(edgePositions);
   drawTurretMarker(top, width, height);
+  const weakPoint = sim.boss?.state === 'exposed' ? sim.boss.weakPoint : null;
+  bossMarker.hidden = true;
+  if (weakPoint) {
+    const point = world.project(weakPoint.x, weakPoint.y + weakPoint.radius + .24, weakPoint.z);
+    const hazardBounds = organHazard.getBoundingClientRect();
+    const clear = organHazard.hidden || point.y > hazardBounds.bottom + 28 ||
+      point.x + 50 < hazardBounds.left || point.x - 50 > hazardBounds.right;
+    if (point.visible && clear && point.y > top + 12 && point.y < height * .76 && point.x > 51 && point.x < width - 51) {
+      bossMarker.style.left = point.x + 'px';
+      bossMarker.style.top = point.y + 'px';
+      setText(bossMarkerLabel, weakPoint.label);
+      bossMarker.hidden = false;
+    }
+  }
 }
 
 function positionEdgeMarker(edge, point, dx, dz, top, width, height, occupied) {
@@ -1031,7 +1082,7 @@ function applyEvents() {
       announce('DEFEND BOTH TISSUE NODES', isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
       audio.play({ type: 'wave', stage: 'start' });
     }
-    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard'].includes(event.type) && Number.isFinite(event.x)) {
+    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss'].includes(event.type) && Number.isFinite(event.x)) {
       const { x, z, yaw } = sim.player;
       const dx = event.x - x;
       const dz = event.z - z;
@@ -1039,6 +1090,14 @@ function applyEvents() {
       const pan = (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / Math.max(1, distance);
       audio.play({ ...event, pan, distance });
     } else if (event.type !== 'mission') audio.play(event);
+    if (event.type === 'boss') {
+      if (event.stage === 'phase' && event.phase > 1) {
+        const text = event.phase === 2 ? 'THE SIGNAL IS JUMPING BETWEEN CORES' : 'SHELLBACKS AND SPLITTERS INBOUND';
+        announce('MEGA VIRUS · PHASE ' + event.phase, text, 2.5);
+      } else if (event.stage === 'defeated') {
+        announce('MEGA VIRUS DOWN', 'CLEAR SURVIVING PATHOGENS', 2.5);
+      }
+    }
     if (event.type === 'turret') {
       if (event.stage === 'deployed') announce('AUTO-TURRET ONLINE', 'COVERING THIS POSITION', 1.8);
       if (event.stage === 'redeployed') announce('AUTO-TURRET REDEPLOYED', 'COVERING THE NEW POSITION', 1.8);
@@ -1084,11 +1143,12 @@ function applyEvents() {
         const lane = pattern && branches[pattern.lane]?.name;
         const support = sim.events.find(item => item.type === 'junctionSupply')?.choice;
         let detail = lane ? lane + ' INLET' : 'PATHOGENS INBOUND';
-        if (sim.overtime) detail = 'TEAL BREACH · AMBER SPORE PRESSURE';
+        if (sim.boss) detail = 'WATCH FOR THE PULSING CORE';
+        else if (sim.overtime) detail = 'TEAL BREACH · AMBER SPORE PRESSURE';
         else if (support === 'ammo') detail = 'EXTRA AMMO DELIVERED';
         else if (support === 'turret') detail = 'TURRET IN POSITION';
         else if (support) detail = branches[support].name + ' INLET REINFORCED';
-        announce(pattern ? pattern.name.toUpperCase() : sim.organWave?.toUpperCase() ?? 'WAVE ' + pad(event.wave), detail);
+        announce(sim.boss ? 'MEGA VIRUS' : pattern ? pattern.name.toUpperCase() : sim.organWave?.toUpperCase() ?? 'WAVE ' + pad(event.wave), detail);
       } else if (sim.settling) {
         announce('INLETS CLEAR', sim.gash ? 'SEAL THE GASH TO EXTRACT' : 'REPAIR TISSUE BEFORE EXTRACTION', 2.8);
       } else if (event.wave < sim.waves) {

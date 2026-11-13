@@ -23,6 +23,7 @@ const EFFECTS = [
   'field/repair-start', 'field/repair-loop', 'field/repair-pulse', 'field/repair-complete',
   'field/wave-start', 'field/wave-clear', 'field/won', 'field/lost',
   'field/valve-open', 'field/valve-close', 'field/valve-blocked',
+  'field/mega-pulse', 'field/mega-membrane', 'field/mega-collapse',
   ...Object.values(ENEMY_CUES).flatMap(stages => Object.values(stages).map(([name]) => name)),
 ];
 
@@ -291,6 +292,19 @@ export class GameAudio {
           }
         }
         break;
+      case 'boss': {
+        const pan = this.spatialPan(event) * .75;
+        if (event.stage === 'phase') this.playSample('field/mega-pulse', .63, { pan, rate: .82 });
+        else if (event.stage === 'warning') this.playSample('field/mega-pulse', .56, { pan, rate: 1 });
+        else if (event.stage === 'expose') this.playSample('field/mega-membrane', .52, { pan });
+        else if (event.stage === 'defeated') this.playSample('field/mega-collapse', .62, { pan });
+        else if (event.stage === 'block' && this.context.currentTime - this.valveBlockedAt >= .14) {
+          if (this.playSample('field/valve-blocked', .26, { pan, rate: .83 })) {
+            this.valveBlockedAt = this.context.currentTime;
+          }
+        }
+        break;
+      }
       case 'valve': {
         const pan = this.spatialPan(event) * .7;
         if (event.stage === 'open') this.playSample('field/valve-open', .36, { pan });

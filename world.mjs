@@ -4,6 +4,7 @@ import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve, createValveColony } from './heart-valve.mjs';
 import { createTurret } from './turret.mjs';
 import { createOrganEnemies, createOrganEnvironment, organProfile } from './organ-world.mjs';
+import { createMegaVirus } from './mega-virus.mjs';
 import { JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, TISSUE_NODES } from './simulation.mjs';
 
 const TAU = Math.PI * 2;
@@ -1455,6 +1456,7 @@ export class World {
   }
 
   setArea(area) {
+    this.megaVirus?.update(null, 0, 0, true);
     const junction = area === 'junction';
     const heart = area === 'heart';
     const profile = organProfile(area);
@@ -2078,6 +2080,12 @@ export class World {
           if (guard) guard.strike = .23;
           this.burst(event.x, event.y, event.z, 0xfce5a9, 8, 2.0);
         }
+        if (event.type === 'boss') {
+          if (event.stage === 'block') this.burst(event.x, event.y, event.z, 0xe6dbbd, 7, 1.7);
+          if (event.stage === 'hit') this.burst(event.x, event.y, event.z, 0xf8ad58, 11, 2.5);
+          if (event.stage === 'spawn') this.burst(event.x, event.y, event.z, 0xc576ba, 24, 3.7);
+          if (event.stage === 'defeated') this.burst(event.x, event.y, event.z, 0xfa9686, reduceMotion ? 18 : 85, 7.2);
+        }
       }
     }
     let count = 0;
@@ -2108,6 +2116,11 @@ export class World {
     this.camera.updateMatrixWorld();
     this.updateAtmosphere(dt);
     this.organEnvironment?.update(sim.organ, this.clock, reduceMotion);
+    if (sim.boss && !this.megaVirus) {
+      this.megaVirus = createMegaVirus(membraneMaps, this.glow);
+      this.scene.add(this.megaVirus.root);
+    }
+    this.megaVirus?.update(sim.boss, this.clock, dt, reduceMotion);
     if (sim.valve) this.heart.update(sim.valve, dt, reduceMotion, this.quality === 'low');
     this.updateTissue(sim, dt, reduceMotion);
     if (this.area === 'junction') this.updateJunctionField(sim, dt, reduceMotion);
