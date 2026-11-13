@@ -1,4 +1,5 @@
 import { ORGAN_MISSIONS } from './organs.mjs';
+import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 
 export const OBJECTIVE = Object.freeze({ x: 0, y: 1.25, z: -8 });
 export const TISSUE_NODES = Object.freeze({
@@ -325,6 +326,7 @@ export class Simulation {
     this.events = [];
     this.organCycle = 0;
     this.organNextDamage = 0;
+    this.boss = null;
     this.organ = this.organMission ? this.createOrganPhase('recovery') : null;
   }
 
@@ -361,7 +363,8 @@ export class Simulation {
     }
     this.spawnCountdown = this.wave === 1 ? 0.8 : 0.65;
     const mission = this.missions[this.wave - 1];
-    this.remaining = (mission.arrivals ?? mission.species).length;
+    if (mission.boss) createBrainBoss(this);
+    this.remaining = mission.boss ? 1 : (mission.arrivals ?? mission.species).length;
     this.applyJunctionSupply();
     this.events.push({ type: 'wave', wave: this.wave, stage: 'start' });
   }
@@ -436,7 +439,8 @@ export class Simulation {
       this.advanceColony(dt);
       this.spawnHeartPatrol();
     }
-    if (this.organ) this.updateOrgan(dt);
+    if (this.boss) stepBrainBoss(this, dt);
+    else if (this.organ) this.updateOrgan(dt);
     this.movePlayer(dt, input);
     if (this.organ?.phase === 'active') this.applyOrganHazard(dt);
     if (this.gash) {
@@ -518,13 +522,14 @@ export class Simulation {
     }
     this.advanceEnemies(dt);
     this.advanceProjectiles(dt);
-    this.remaining = (mission.arrivals ?? mission.species).length - this.spawnIndex + this.enemies.length;
+    this.remaining = (mission.arrivals ?? mission.species).length - this.spawnIndex + this.enemies.length +
+      Number(!!this.boss && this.boss.state !== 'defeated');
 
     if (this.failedNode) {
       this.endMission('lost', 'tissue');
     } else if (this.player.health === 0) {
       this.endMission('lost', 'suit');
-    } else if (this.remaining === 0 && this.projectiles.length === 0) {
+    } else if (this.remaining === 0 && this.projectiles.length === 0 && !(this.boss?.remaining > 0)) {
       this.clearWave();
     }
   }
@@ -860,9 +865,16 @@ export class Simulation {
       }
     }
 
+    const bossHit = traceBrainBoss(this.boss, player, { x: dx, y: dy, z: dz }, distance);
+    if (bossHit) distance = bossHit.distance;
     const impact = {
       x: player.x + dx * distance, y: player.y + dy * distance, z: player.z + dz * distance,
     };
+    if (bossHit) {
+      this.events.push({ type: 'shot', hit: bossHit.vulnerable, crit: bossHit.vulnerable, ...impact });
+      hitBrainBoss(this, bossHit, impact);
+      return;
+    }
     if (target?.type === 'guard' && guardFaces(target, player)) {
       this.events.push({ type: 'shot', hit: false, crit: false, ...impact });
       this.blockGuardHit(target, impact, 'player');

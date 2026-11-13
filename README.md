@@ -31,7 +31,7 @@ Choose **Start campaign** to deploy into Arterial Junction. Between missions, eq
 | Gastric Chamber | Fight from the sides when acid floods the central basin. |
 | Intestinal Bend | Move into the side channels to evade the pressure wave. |
 | Inner Ear | Place your turret outside the resonance zones to keep it firing. |
-| Neural Cortex | Rotate between nodes as neural overload temporarily blocks repairs and amplifies attacks. |
+| Neural Cortex | Survive two waves, then fight the Mega Virus as its connected bodies take turns exposing their cores. |
 
 ## Publish updates
 
@@ -75,6 +75,8 @@ After securing Capillary Junction, choose **Extract** to bank the result or **St
 
 In Heart Valve, fire through the opening to hit the colony. Use each closed window to repair the valve wound. The outer wall can be repaired at any time. The mission ends when the colony and flank threats are gone and both nodes are restored. Unlocks are saved in the browser.
 
+The **Mega Virus** is Neural Cortex's third wave. Its connected membranes protect three cores. Follow the pulse to the core about to open, then shoot the exposed tissue. When the shell closes, clear spawned viruses, reload, and repair. Neural overload blocks repairs at the highlighted node during exposure. In the final phase, Shellbacks and Splitters pressure opposite sides. Clear any survivors after the boss falls.
+
 The original soundtrack fades between **Arterial Drift** in the menu and between waves, and **Immune Response** during combat. It starts after you interact with the game. The speaker button mutes both the soundtrack and sound effects.
 
 ## Architecture
@@ -100,6 +102,7 @@ flowchart LR
 | [`dist/world.mjs`](dist/world.mjs) | Arena geometry, lighting, atmosphere, enemies, and effects. The missions share the renderer and switch anatomy and lighting when the area changes. |
 | [`dist/organs.mjs`](dist/organs.mjs) | Mission data for the five new organs, including node coordinates, wave compositions, and hazard timings. |
 | [`dist/organ-world.mjs`](dist/organ-world.mjs) | Procedural anatomy, organ-specific materials, and animated hazard geometry. |
+| [`dist/brain-boss.mjs`](dist/brain-boss.mjs), [`dist/mega-virus.mjs`](dist/mega-virus.mjs) | The finale's phase rules, physical shot gates, and connected 3D creature. |
 | [`dist/carbine.mjs`](dist/carbine.mjs) | The 3D carbine and armored gloves, including the articulated magazine, bolt, and hand poses. |
 | [`dist/repair-tool.mjs`](dist/repair-tool.mjs) | The 3D tissue sealer that replaces the carbine while the player repairs the wound. |
 | [`dist/heart-valve.mjs`](dist/heart-valve.mjs) | The moving valve and attached colony. The scene follows the same timing as the simulation's shot and repair windows. |

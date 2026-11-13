@@ -269,6 +269,41 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .organ-hazard-detail{grid-area:detail;color:#ead8c9;font-size:9px;overflow-wrap:anywhere}
 .organ-hazard-time{grid-area:time;min-width:2ch;color:var(--condition);font:800 22px/.9 var(--display);text-align:right}
 .organ-hazard-time:empty{display:none}
+.game:has(#boss-hud:not([hidden])) .host-panel{width:min(232px,25vw)}
+.wave-panel:has(#boss-hud:not([hidden])){width:min(346px,40vw);padding:0 0 5px;background:none}
+.wave-panel:has(#boss-hud:not([hidden])) :is(#wave-mode,#wave-value){display:none}
+.boss-hud {
+  --boss-color:#d9b9ec;
+  padding:9px 11px 8px;
+  border:1px solid #d9b9ec55;
+  border-top:2px solid var(--boss-color);
+  background:linear-gradient(145deg,#241827f0,#16121bee);
+  text-align:left;
+}
+.boss-hud[data-state="warning"]{--boss-color:#ffbd90}
+.boss-hud[data-state="exposed"]{--boss-color:#e2f9a7}
+.boss-hud[data-state="defeated"]{--boss-color:#c4e8cc}
+.boss-heading{display:flex;align-items:baseline;justify-content:space-between;gap:5px 9px}
+.boss-heading h2{margin:0;color:#fcf0f6;font:800 30px/.92 var(--display);letter-spacing:.07em;text-transform:uppercase}
+.boss-phase{color:var(--boss-color);font-size:9px;letter-spacing:.07em;text-align:right;text-transform:uppercase}
+.boss-health{position:relative;height:7px;margin:7px 0 6px;background:#dbc2e139}
+.boss-health::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(90deg,transparent calc(33.333% - 1px),#251729 calc(33.333% - 1px) calc(33.333% + 1px),transparent calc(33.333% + 1px) calc(66.667% - 1px),#251729 calc(66.667% - 1px) calc(66.667% + 1px),transparent calc(66.667% + 1px));
+}
+.boss-health>div{background:linear-gradient(90deg,#b16592,#e7aac2);box-shadow:none}
+.boss-readout{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"status time" "detail time";align-items:center;gap:2px 9px;letter-spacing:.04em;line-height:1.2}
+.boss-status{grid-area:status;color:var(--boss-color);font-weight:700;text-transform:uppercase}
+.boss-status-detail{grid-area:detail;color:#eddbe8;font-size:9px;overflow-wrap:anywhere}
+.boss-status-detail:empty,.boss-time:empty{display:none}
+.boss-time{grid-area:time;color:var(--boss-color);font:800 24px/.96 var(--display);font-variant-numeric:tabular-nums}
+.wave-panel:has(#boss-hud:not([hidden])) #threats{display:block;margin:4px auto 0;color:#edcce8}
+.wave-panel:has(#boss-hud:not([hidden])) .organ-hazard{width:100%;margin-top:4px}
+.boss-marker{position:absolute;z-index:1;transform:translate(-50%,calc(-100% - 5px));color:#e2f9a7;white-space:nowrap;text-transform:uppercase;font-size:9px;letter-spacing:.06em}
+.boss-marker strong{display:block;padding:3px 5px;background:#21251bea;border:1px solid #effbc683}
+.boss-marker::after{content:"";position:absolute;top:100%;left:50%;height:5px;width:1px;background:currentColor}
 [data-branch="left"]{--branch:#ffbd7e}
 [data-branch="right"]{--branch:#8fe4dd}
 .game-actions{position:absolute;right:25px;top:25px;display:flex;gap:7px;pointer-events:auto}
@@ -309,6 +344,9 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .game:has(#junction-surge:not([hidden])) .game-alert{font-size:clamp(22px,3.25vw,40px)}
 .mission-guidance:has(.training-hint:not([hidden])){top:clamp(128px,18%,170px)}
 .game:has(#organ-hazard:not([hidden])) .mission-guidance{top:max(195px,25%)}
+.game:has(#boss-hud:not([hidden])) .mission-guidance{top:79px;right:25px;left:auto;transform:none;width:min(220px,27vw)}
+.game:has(#boss-hud:not([hidden])) .game-alert{font-size:clamp(20px,2.45vw,31px)}
+.game:has(#boss-hud:not([hidden])) .game-alert small{margin-top:6px}
 .training-hint{width:fit-content;padding:9px 14px 10px;background:#1b1412e8;border:1px solid #d7c5ab45;border-top-color:var(--green)}
 .training-hint strong{display:block;color:var(--green);font:800 clamp(19px,2.5vw,26px)/1.1 var(--display);letter-spacing:.045em;text-transform:uppercase}
 .training-hint p{max-width:35ch;margin:3px 0 0;color:var(--paper);font:500 clamp(10px,1.35vw,12px)/1.4 var(--mono);letter-spacing:0}
@@ -548,6 +586,28 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 }
 @media(max-width:720px),(max-height:500px){
   .turret-status{margin-top:5px;padding-top:4px;font-size:8px}
+  .boss-hud{padding:6px 7px}
+  .boss-heading h2{font-size:23px}
+  .boss-phase,.boss-status-detail{font-size:8px}
+  .boss-status{font-size:9px}
+  .boss-time{font-size:21px}
+  .boss-health{height:5px;margin:6px 0 5px}
+}
+@media(max-width:480px){
+  .game:has(#boss-hud:not([hidden])) .host-panel{width:44vw}
+  .game .wave-panel:has(#boss-hud:not([hidden])){width:44vw;min-width:0;padding:0}
+  .boss-heading h2{font-size:20px;letter-spacing:.045em}
+  .boss-heading{align-items:center}
+  .boss-readout{column-gap:5px}
+  .boss-time{font-size:18px}
+  .game:has(#boss-hud:not([hidden])) .mission-guidance{top:120px;left:12px;transform:none;width:44vw}
+  .game:has(#boss-hud:not([hidden])) .game-alert{font-size:19px}
+  .game:has(#boss-hud:not([hidden])) .game-alert small{font-size:8px}
+}
+@media(orientation:landscape) and (max-height:500px){
+  .game:has(#boss-hud:not([hidden])) .mission-guidance{top:clamp(54px,18vh,84px);right:12px;bottom:auto;left:auto;transform:none;width:min(150px,23vw)}
+  .game:has(#boss-hud:not([hidden])) .game-alert{font-size:19px}
+  .game:has(#boss-hud:not([hidden])) .game-alert small{font-size:8px}
 }
 @media(pointer:coarse){.field-hint,.junction-supply-options kbd,.turret-status kbd{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
