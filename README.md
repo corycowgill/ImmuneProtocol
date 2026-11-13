@@ -53,6 +53,8 @@ Capillary Junction has three waves with different threats. Read the forecast dur
 
 In the breach wave, a bacillus tear can leave a gash that keeps draining tissue after the attacker dies. Move to the marked wound and hold Repair. Completed sealing pulses stay applied when you stop to fight or dodge. If a gash is still open after the last enemy falls, seal it to extract.
 
+After securing Capillary Junction, choose **Extract** to bank the result or **Stay for overtime**. Your remaining tissue integrity, suit health, and ammo carry into overtime. Stop the Teal breach, clear the Amber spore pressure, and seal any gash to earn 2,000 bonus points. If you lose in overtime, retry Capillary Junction from Wave 1.
+
 In Heart Valve, fire through the opening to hit the colony. Use each closed window to repair the wound. The mission ends when you destroy the colony and fully seal the valve tissue. Unlocks are saved in the browser.
 
 The original soundtrack fades between **Arterial Drift** in the menu and between waves, and **Immune Response** during combat. It starts after you interact with the game. The speaker button mutes both the soundtrack and sound effects.
