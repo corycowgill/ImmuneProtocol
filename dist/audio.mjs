@@ -222,14 +222,24 @@ export class GameAudio {
         this.playSample(sample, 0.66, { rate: 0.97 + Math.random() * 0.06 });
         break;
       }
+      case 'turret': {
+        const pan = this.spatialPan(event);
+        if (event.stage === 'deployed') {
+          this.playSample('weapon/reload-complete', .48, { pan, rate: .78 });
+        } else if (event.stage === 'fire') {
+          const attenuation = 1 / (1 + (event.distance ?? 0) * .085);
+          this.playSample('weapon/shot-3', .48 * attenuation, { pan, rate: .81 + Math.random() * .08 });
+        }
+        break;
+      }
       case 'dry':
         this.playSample('weapon/dry', 0.42);
         break;
       case 'hit':
-        if (!event.lethal) this.playSample('weapon/hit', event.crit ? 0.43 : 0.36, { pan: this.spatialPan(event) });
+        if (!event.lethal) this.playSample('weapon/hit', event.source === 'turret' ? .18 : event.crit ? .43 : .36, { pan: this.spatialPan(event) });
         break;
       case 'kill':
-        this.playSample('weapon/kill', 0.45, { pan: this.spatialPan(event) });
+        this.playSample('weapon/kill', event.source === 'turret' ? .25 : .45, { pan: this.spatialPan(event) });
         break;
       case 'branch': {
         const { branch } = event;

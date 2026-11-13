@@ -1,6 +1,6 @@
 # Immune Protocol
 
-A browser FPS about a nano-soldier injected into a patient. Fight five waves of viruses, bacilli, and spores in the Arterial Junction, and repair the tissue node to keep the host alive. Surviving the artery unlocks Capillary Junction, where pathogens attack from two branches. Clear both inlets to unlock Heart Valve, where the heartbeat determines when you can shoot and repair.
+A browser FPS about a nano-soldier injected into a patient. Fight waves of viruses, bacilli, and spores across three chambers, each with two tissue nodes to defend. Place an auto-turret to delay an attack at one node while you move to the other. Clear Arterial Junction to unlock Capillary Junction, then enter Heart Valve to fight the colony and defend the outer wall.
 
 [Play on GitHub Pages](https://corycowgill.github.io/ImmuneProtocol/) · [Watch the demo](https://corycowgill.github.io/ImmuneProtocol/demo/)
 
@@ -16,7 +16,7 @@ Open [http://127.0.0.1:8017](http://127.0.0.1:8017). The command serves `dist/` 
 
 The Hallucinated Games studio intro plays before the main menu. Use Skip intro, press Escape, or open the game with `?nointro` to go straight to the menu.
 
-Your first Arterial Junction deployment begins with one guided breach. Shoot the bacillus off the tissue, move into repair range, and hold Repair until the wound seals. The rest of Wave 1 starts after the seal. The browser remembers completed training for later deployments.
+Your first Arterial Junction deployment begins with one guided breach. Shoot the bacillus off the tissue, move into repair range, and hold Repair until the wound seals. The second node and turret become available as the rest of Wave 1 begins. The browser remembers completed training for later deployments.
 
 Choose **Start campaign** to play Arterial Junction, Capillary Junction, and Heart Valve in order. After the first two missions, equip **Fast Sealer** to restore 18 tissue points per pulse or **Deep Magazine** to carry 42 rounds before reloading. You can keep your pick or switch at the second checkpoint. A retry keeps the upgrade you brought into that mission. The final report shows tissue integrity for all three missions and the campaign totals for score and neutralized pathogens.
 
@@ -40,10 +40,13 @@ git subtree push --prefix=dist origin gh-pages
 | Aim | Hold right click |
 | Sprint | Shift |
 | Reload | R |
-| Repair | Hold E next to the tissue node |
+| Repair | Hold E near a damaged tissue node or open gash |
+| Deploy auto-turret | Q |
 | Pause | Esc or P |
 
 When mouse capture is unavailable, drag the view to look. On touchscreens, move with the joystick, drag to look, and use the action buttons.
+
+Each node has its own integrity meter and direction marker. Losing either node ends the mission. You can deploy one turret per mission on clear ground ahead of you. It stays where you place it and fires one shot every 2.6 seconds at targets within about 10 meters. Hits damage and briefly slow pathogens. Put it near an approach to the node you plan to leave.
 
 Settings is available from the main menu and pause screen. Look sensitivity applies to mouse and touch aiming. Low graphics reduces rendering load on slower devices. Both settings are saved in the browser.
 
@@ -53,9 +56,9 @@ Capillary Junction has three waves with different threats. Read the forecast dur
 
 In the breach wave, a bacillus tear can leave a gash that keeps draining tissue after the attacker dies. Move to the marked wound and hold Repair. Completed sealing pulses stay applied when you stop to fight or dodge. If a gash is still open after the last enemy falls, seal it to extract.
 
-After securing Capillary Junction, choose **Extract** to bank the result or **Stay for overtime**. Your remaining tissue integrity, suit health, and ammo carry into overtime. Stop the Teal breach, clear the Amber spore pressure, and seal any gash to earn 2,000 bonus points. If you lose in overtime, retry Capillary Junction from Wave 1.
+After securing Capillary Junction, choose **Extract** to bank the result or **Stay for overtime**. Both nodes, your remaining suit health and ammo, and your turret carry into overtime. Stop the Teal breach, clear the Amber spore pressure, and seal any gash to earn 2,000 bonus points. If you lose in overtime, retry Capillary Junction from Wave 1.
 
-In Heart Valve, fire through the opening to hit the colony. Use each closed window to repair the wound. The mission ends when you destroy the colony and fully seal the valve tissue. Unlocks are saved in the browser.
+In Heart Valve, fire through the opening to hit the colony. Use each closed window to repair the valve wound. The outer wall can be repaired at any time. The mission ends when the colony and flank threats are gone and both nodes are restored. Unlocks are saved in the browser.
 
 The original soundtrack fades between **Arterial Drift** in the menu and between waves, and **Immune Response** during combat. It starts after you interact with the game. The speaker button mutes both the soundtrack and sound effects.
 
@@ -78,11 +81,12 @@ flowchart LR
 | --- | --- |
 | [`dist/index.html`](dist/index.html), [`dist/styles.css`](dist/styles.css) | Menus, HUD, canvas, and touch controls. |
 | [`dist/game.mjs`](dist/game.mjs) | Input, mouse capture, frame timing, and screen transitions. Browser storage remembers training completion, controls and graphics settings, mission unlocks, best score, and mute setting. |
-| [`dist/simulation.mjs`](dist/simulation.mjs) | Movement, shooting, enemy targeting, wave progression, health, scoring, and tissue repair. It runs independently of the DOM and Three.js. |
+| [`dist/simulation.mjs`](dist/simulation.mjs) | Movement, shooting, lane and node targeting, turret behavior, wave progression, scoring, and repair. It runs independently of the DOM and Three.js. |
 | [`dist/world.mjs`](dist/world.mjs) | Arena geometry, lighting, atmosphere, enemies, and effects. The missions share the renderer and switch anatomy and lighting when the area changes. |
 | [`dist/carbine.mjs`](dist/carbine.mjs) | The 3D carbine and armored gloves, including the articulated magazine, bolt, and hand poses. |
 | [`dist/repair-tool.mjs`](dist/repair-tool.mjs) | The 3D tissue sealer that replaces the carbine while the player repairs the wound. |
 | [`dist/heart-valve.mjs`](dist/heart-valve.mjs) | The moving valve and attached colony. The scene follows the same timing as the simulation's shot and repair windows. |
+| [`dist/turret.mjs`](dist/turret.mjs) | The 3D auto-turret with its aiming mount, deployment animation, and recoil. |
 | [`dist/audio.mjs`](dist/audio.mjs) | Mixes original [sound effects](dist/assets/sfx) and two synchronized [soundtrack loops](dist/assets/music). Impacts and inlet activity pan with their position relative to the player. |
 
 ## How it was built
@@ -91,6 +95,6 @@ The artery is a real-time 3D scene. Code builds the vessel branches, membrane fo
 
 The carbine and gloves are built from 3D meshes with physically based materials. The renderer draws the arena first, clears the depth buffer, and draws the weapon in a separately lit scene. This keeps the foreground model visible near walls while letting it sway, aim, recoil, and reload. The generated [title artwork](dist/assets/hero.webp) appears on the menu.
 
-Tissue integrity controls how far the membrane splits open. As the player repairs it, the wound edges draw together while the sealing tool replaces the carbine in the foreground.
+Each node's integrity controls how far its membrane splits open. As the player repairs a node, its wound edges draw together while the sealing tool replaces the carbine in the foreground.
 
 The effects use original samples made from layered transients, filtered noise, and short reflections. The mixer varies the carbine shots, syncs magazine sounds to the reload animation, and gives tissue hits and repair tools distinct textures over the arterial room tone.

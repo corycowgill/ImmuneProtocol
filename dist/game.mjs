@@ -1,4 +1,4 @@
-import { Simulation, JUNCTION_INLETS } from './simulation.mjs';
+import { Simulation, JUNCTION_INLETS, RULES } from './simulation.mjs';
 import { GameAudio } from './audio.mjs';
 
 const byId = id => document.getElementById(id);
@@ -16,6 +16,7 @@ const replay = byId('replay');
 const replayLabel = byId('replay-label');
 const resultLaunchError = byId('result-launch-error');
 const resultTissueStat = byId('result-tissue-stat');
+const resultNodes = byId('result-nodes');
 const campaignReward = byId('campaign-reward');
 const campaignProgress = byId('campaign-progress');
 const upgradeNote = byId('campaign-upgrade-note');
@@ -28,6 +29,7 @@ const pauseDialog = byId('pause-dialog');
 const resultDialog = byId('result-dialog');
 const extractionDialog = byId('extraction-dialog');
 const extractionTissue = byId('extraction-tissue');
+const extractionNodes = byId('extraction-nodes');
 const extractionSuit = byId('extraction-suit');
 const extractionAmmo = byId('extraction-ammo');
 const extractionBonus = byId('extraction-bonus');
@@ -41,9 +43,22 @@ const reticle = byId('reticle');
 const hitMarker = byId('hit-marker');
 const damageFlash = byId('damage-flash');
 const alertBox = byId('game-alert');
-const marker = byId('objective-marker');
-const objectiveEdge = byId('objective-edge');
-const objectiveEdgeLabel = byId('objective-edge-label');
+const nodeRows = [...document.querySelectorAll('[data-tissue-node]')].map(row => ({
+  row,
+  name: row.querySelector('[data-node-name]'),
+  value: row.querySelector('[data-node-value]'),
+  meter: row.querySelector('[data-node-meter]'),
+  state: row.querySelector('[data-node-state]'),
+}));
+const nodeMarkers = [
+  { marker: byId('objective-marker'), label: byId('marker-label'), distance: byId('marker-distance'), edge: byId('objective-edge'), edgeLabel: byId('objective-edge-label') },
+  { marker: byId('secondary-marker'), label: byId('secondary-marker-label'), distance: byId('secondary-marker-distance'), edge: byId('secondary-edge'), edgeLabel: byId('secondary-edge-label') },
+];
+const turretStatus = byId('turret-status');
+const turretStatusValue = byId('turret-status-value');
+const turretMarker = byId('turret-marker');
+const turretMarkerDistance = byId('turret-marker-distance');
+const touchTurret = byId('touch-turret');
 const gashMarker = byId('gash-marker');
 const gashDistance = byId('gash-distance');
 const gashLabel = byId('gash-label');
@@ -60,7 +75,6 @@ const joystick = byId('joystick');
 const touchControls = byId('touch-controls');
 
 const suitValue = byId('health-value');
-const tissueValue = byId('tissue-value');
 const equipmentLabel = byId('equipment-label');
 const campaignEquipped = byId('campaign-equipped');
 const ammoValue = byId('ammo-value');
@@ -76,29 +90,26 @@ const supplyButtons = [...document.querySelectorAll('[data-junction-supply]')];
 const valveReadout = byId('valve-readout');
 const valveFill = byId('valve-fill');
 const colonyStatus = byId('colony-status');
+const flankStatus = byId('flank-status');
 const branches = {
   left: { name: 'AMBER', badge: byId('branch-left'), marker: byId('inlet-left') },
   right: { name: 'TEAL', badge: byId('branch-right'), marker: byId('inlet-right') },
 };
-const hostState = byId('host-state');
 const threats = byId('threats');
 const reloadState = byId('reload-state');
-const markerDistance = byId('marker-distance');
 const promptText = byId('prompt-text');
 const repairMeter = byId('repair-meter');
 const repairFill = byId('repair-fill');
 const healthMeter = byId('health-meter');
-const tissueMeter = byId('tissue-meter');
 const healthFill = byId('health-fill');
-const tissueFill = byId('tissue-fill');
 
 const audio = new GameAudio();
 const keys = new Set();
 const touch = { fire: false, repair: false, reload: false, x: 0, z: 0 };
-const input = { moveX: 0, moveZ: 0, lookX: 0, lookY: 0, fire: false, reload: false, repair: false, sprint: false, aim: false };
+const input = { moveX: 0, moveZ: 0, lookX: 0, lookY: 0, fire: false, reload: false, repair: false, deploy: false, sprint: false, aim: false };
 const isTouch = matchMedia('(pointer: coarse)').matches;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const controlKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyR', 'KeyP', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'Escape']);
+const controlKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyR', 'KeyQ', 'KeyP', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'Escape']);
 const pad = number => String(number).padStart(2, '0');
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const bestKey = 'immune-protocol.best-score';
@@ -130,12 +141,13 @@ let leftButton = false;
 let rightButton = false;
 let fireTap = false;
 let reloadTap = false;
+let deployTap = false;
 let lookPointer = null;
 let stickPointer = null;
 let hitTimer = 0;
 let damageTimer = 0;
-let tissueHitTimer = 0;
-let restoredTimer = 0;
+const nodeHitUntil = new Map();
+let restoredNode = null;
 let announcementTimer = 0;
 let lastFrame = 0;
 let animation = 0;
@@ -193,9 +205,9 @@ function displayBest() {
 
 function displayMissionAccess() {
   junctionDeploy.disabled = loading || !junctionUnlocked;
-  setText(junctionStatus, junctionUnlocked ? 'Defend the node from both inlets.' : 'Clear all five waves to unlock.');
+  setText(junctionStatus, junctionUnlocked ? 'Defend the Amber and Teal tissue nodes.' : 'Clear all five waves to unlock.');
   heartDeploy.disabled = loading || !heartUnlocked;
-  setText(heartStatus, heartUnlocked ? 'Time your shots and repairs to the valve.' : 'Secure Capillary Junction to unlock.');
+  setText(heartStatus, heartUnlocked ? 'Fight the colony and defend the outer wall.' : 'Secure Capillary Junction to unlock.');
 }
 
 function requestMouse() {
@@ -216,6 +228,7 @@ function clearControls() {
   rightButton = false;
   fireTap = false;
   reloadTap = false;
+  deployTap = false;
   lookPointer = null;
   stickPointer = null;
   touch.fire = false;
@@ -283,8 +296,8 @@ async function launch(area, run = null) {
     for (const branch of Object.values(branches)) branch.marker.hidden = true;
     lastFrame = 0;
     damageTimer = 0;
-    tissueHitTimer = 0;
-    restoredTimer = 0;
+    nodeHitUntil.clear();
+    restoredNode = null;
     attackerMarkers.clear();
     tissueAttackers.replaceChildren();
     hitTimer = 0;
@@ -297,9 +310,9 @@ async function launch(area, run = null) {
     Promise.resolve(unlocked).then(() => {
       if (running && !paused && sim === mission && sim.clock < 1.25) audio.play({ type: 'deploy' });
     }).catch(() => {});
-    if (heart) announce('HEART VALVE', 'FIRE WHEN OPEN · SEAL WHEN CLOSED', 3.2);
-    else if (junction) announce('CAPILLARY JUNCTION', 'WATCH THE AMBER INLET', 2.8);
-    else if (!sim.tutorial) announce('WAVE 01', 'DEFEND THE TISSUE NODE', 3.1);
+    if (heart) announce('HEART VALVE', 'HIT THE COLONY · DEFEND THE FLANK', 3.2);
+    else if (junction) announce('CAPILLARY JUNCTION', 'DEFEND BOTH INLETS', 2.8);
+    else if (!sim.tutorial) announce('WAVE 01', 'DEFEND BOTH TISSUE NODES', 3.1);
     else {
       announcementTimer = 0;
       alertBox.replaceChildren();
@@ -369,7 +382,8 @@ function offerExtraction() {
   audio.setActive(false);
   syncMusic();
   releaseMouse();
-  setText(extractionTissue, Math.ceil(sim.tissue) + '%');
+  setText(extractionTissue, Math.round(sim.tissue) + '%');
+  drawNodeBreakdown(extractionNodes, sim.nodes);
   setText(extractionSuit, Math.ceil(sim.player.health) + '%');
   setText(extractionAmmo, sim.player.ammo + ' / ' + sim.player.reserve);
   setText(extractionBonus, '+' + sim.overtimeForecast.bonus.toLocaleString() + ' score');
@@ -420,7 +434,8 @@ function startCampaign() {
 }
 
 function missionResult() {
-  return { area: sim.area, tissue: Math.ceil(sim.tissue), score: sim.score, kills: sim.kills };
+  const nodes = sim.nodes.map(({ name, health }) => ({ name, health }));
+  return { area: sim.area, tissue: sim.tissue, nodes, score: sim.score, kills: sim.kills };
 }
 
 function continueMission(area) {
@@ -449,13 +464,30 @@ function drawCampaignReport(results) {
     const title = document.createElement('dt');
     const tissue = document.createElement('dd');
     title.textContent = missionNames[result.area];
-    tissue.textContent = result.tissue + '%';
+    tissue.textContent = Math.round(result.tissue) + '%';
+    const breakdown = document.createElement('small');
+    breakdown.className = 'campaign-node-detail';
+    breakdown.textContent = result.nodes.map(node => node.name + ' ' + Math.ceil(node.health) + '%').join(' · ');
+    title.append(breakdown);
     row.append(title, tissue);
     return row;
   });
   campaignTissueList.replaceChildren(...rows);
   const total = results.reduce((sum, result) => sum + result.tissue, 0);
   setText(campaignAverage, Math.round(total / results.length) + '%');
+}
+
+function drawNodeBreakdown(container, nodes) {
+  container.replaceChildren(...nodes.map(node => {
+    const row = document.createElement('div');
+    const label = document.createElement('dt');
+    const value = document.createElement('dd');
+    label.textContent = node.name;
+    value.textContent = Math.ceil(node.health) + '%';
+    row.append(label, value);
+    return row;
+  }));
+  container.hidden = false;
 }
 
 function finish() {
@@ -493,16 +525,21 @@ function finish() {
     detail = 'Overtime cleared. +' + sim.overtimeBonus.toLocaleString() + ' score. Heart Valve is open for deployment.';
   }
   else if (next === continueHeart) detail = 'Both inlets are clear. Heart Valve is open for deployment.';
-  else if (won) detail = 'The colony is neutralized and the valve wound is sealed.';
-  else if (sim.overtime) detail = 'Overtime failed. Redeploy to try Capillary Junction again.';
-  else detail = sim.tissue <= 0 ? 'The infection overwhelmed the tissue node.' : 'Your suit failed under pathogen attack.';
+  else if (won) detail = 'The colony is neutralized and both tissue nodes are restored.';
+  else if (sim.overtime) {
+    const cause = sim.failedNode ? sim.failedNode.name + ' failed.' : 'Your suit failed.';
+    detail = cause + ' Redeploy to retry Capillary Junction from Wave 1.';
+  }
+  else detail = sim.failedNode ? sim.failedNode.name + ' tissue failed under pathogen attack.' : 'Your suit failed under pathogen attack.';
   byId('result-detail').textContent = detail;
   const result = missionResult();
   const results = complete ? [...campaign.results, result] : [result];
   byId('result-score').textContent = results.reduce((sum, result) => sum + result.score, 0).toLocaleString();
   byId('result-kills').textContent = results.reduce((sum, result) => sum + result.kills, 0).toLocaleString();
-  byId('result-tissue').textContent = result.tissue + '%';
+  byId('result-tissue').textContent = Math.round(result.tissue) + '%';
   resultTissueStat.hidden = complete;
+  if (complete) resultNodes.hidden = true;
+  else drawNodeBreakdown(resultNodes, result.nodes);
   continueJunction.hidden = next !== continueJunction;
   continueHeart.hidden = next !== continueHeart;
   continueJunction.disabled = continueHeart.disabled = false;
@@ -563,7 +600,10 @@ function drawValve(valve) {
   valveFill.style.width = (100 * clamp(valve.remaining / valve.duration, 0, 1)).toFixed(1) + '%';
   const colony = sim.enemies.find(enemy => enemy.type === 'colony');
   const health = colony ? Math.ceil(100 * colony.health / colony.maxHealth) : 0;
+  const adds = sim.enemies.length - Number(!!colony);
   setText(colonyStatus, valve.colonyDefeated ? 'COLONY NEUTRALIZED' : 'COLONY ' + health + '%');
+  flankStatus.hidden = adds === 0;
+  setText(flankStatus, adds + ' FLANK ' + (adds === 1 ? 'THREAT' : 'THREATS'));
 }
 
 function drawJunctionStatus() {
@@ -591,27 +631,50 @@ function drawJunctionStatus() {
   setText(junctionSupplyNote, note);
 }
 
+function nodeStatus(node) {
+  if (node.health <= 0) return 'FAILED';
+  if (sim.gash?.nodeId === node.id) return 'GASH';
+  if (node.underAttack || nodeHitUntil.get(node.id) > sim.clock) return 'UNDER ATTACK';
+  if (sim.repairTarget === node) return 'REPAIRING';
+  if (node.health <= 32) return 'CRITICAL';
+  if (restoredNode?.id === node.id && restoredNode.until > sim.clock && node.health === 100) return 'RESTORED';
+  return '';
+}
+
+function drawNodeHud() {
+  for (const [index, node] of sim.nodes.entries()) {
+    const { row, name, value, meter, state } = nodeRows[index];
+    row.hidden = index > 0 && !!sim.tutorial;
+    if (row.hidden) continue;
+    const label = nodeStatus(node);
+    const integrity = Math.ceil(node.health);
+    setText(name, node.name);
+    setText(value, integrity + '%');
+    fillMeter(meter, meter.firstElementChild, integrity);
+    setText(state, label);
+    state.hidden = !label;
+    row.classList.toggle('under-attack', label === 'UNDER ATTACK' || label === 'GASH');
+  }
+}
+
+function drawTurretHud() {
+  turretStatus.hidden = !!sim.tutorial;
+  const turret = sim.turret;
+  const ready = sim.turretCharges > 0 && !sim.tutorial;
+  touchTurret.hidden = !!sim.tutorial;
+  touchTurret.disabled = !ready;
+  const state = turret ? (turret.targetId == null ? 'online' : 'engaging') : (sim.turretPlacement ? 'ready' : 'blocked');
+  turretStatus.dataset.state = state;
+  setText(turretStatusValue, { online: 'TURRET ONLINE', engaging: 'TURRET ENGAGING', ready: 'TURRET READY', blocked: 'FIND CLEAR GROUND' }[state]);
+}
+
 function drawHud() {
   const { player, tissue, wave, waves, remaining, phase, intermission, valve } = sim;
-  const tissuePercent = Math.ceil(tissue);
   const suitPercent = Math.ceil(player.health);
-  const tissueAttacked = sim.enemies.some(enemy => enemy.attackingTissue);
-  const restored = restoredTimer > 0 && tissuePercent === 100;
-  hostState.parentElement.classList.toggle('under-attack', tissueAttacked || tissueHitTimer > 0 || !!sim.gash);
-  hostState.parentElement.classList.toggle('restored', restored);
+  drawNodeHud();
+  drawTurretHud();
   setText(suitValue, suitPercent);
-  setText(tissueValue, tissuePercent + '%');
   fillMeter(healthMeter, healthFill, suitPercent);
-  fillMeter(tissueMeter, tissueFill, tissuePercent);
-  let tissueStatus = 'VITALS STABLE';
-  if (tissuePercent <= 32) tissueStatus = 'TISSUE CRITICAL';
-  else if (tissuePercent < 100) tissueStatus = 'TISSUE DAMAGED';
-  if (sim.repairing) tissueStatus = 'REPAIR IN PROGRESS';
-  if (restored) tissueStatus = 'TISSUE RESTORED';
-  if (tissueAttacked) tissueStatus = 'TISSUE UNDER ATTACK';
-  else if (tissueHitTimer > 0) tissueStatus = 'TISSUE HIT';
-  if (sim.enemies.some(enemy => enemy.latched && enemy.type === 'bacillus')) tissueStatus = 'BACILLUS LATCHED';
-  setText(hostState, tissueStatus);
   setText(equipmentLabel, sim.repairing ? 'TISSUE SEALER' : 'NEEDLE CARBINE');
   ammoValue.hidden = reserveValue.hidden = reloadState.hidden = sim.repairing;
   setText(ammoValue, pad(player.ammo));
@@ -638,27 +701,30 @@ function drawHud() {
     else if (remaining === 0 && sim.projectiles.length) status = 'SPORE SHOTS IN FLIGHT';
     setText(threats, status);
   }
-  const restoringHere = restored && sim.nearTissue;
+  const nearby = sim.nearNode;
+  const repairingNode = sim.repairTarget;
+  const restoringHere = !!nearby && restoredNode?.id === nearby.id && restoredNode.until > sim.clock && nearby.health === 100;
+  const repairKey = isTouch ? 'HOLD REPAIR' : 'HOLD E';
   const repairing = sim.repairing && !restoringHere;
   let prompt = '';
   if (repairing && sim.gash && sim.repairTarget === sim.gash) prompt = 'SEALING GASH';
   else if (sim.gash && sim.nearGash) {
     const sealed = Math.floor(100 * (1 - sim.gash.sealRemaining / sim.gash.sealRequired));
-    prompt = (isTouch ? 'HOLD REPAIR TO SEAL GASH' : 'HOLD E TO SEAL GASH') + (sealed ? ' · ' + sealed + '%' : '');
+    prompt = repairKey + ' TO SEAL GASH' + (sealed ? ' · ' + sealed + '%' : '');
   }
   else if (sim.gash && sim.settling) prompt = 'MOVE TO THE GASH TO SEAL IT';
-  else if (restoringHere) prompt = 'TISSUE RESTORED · 100%';
-  else if (repairing) prompt = 'REPAIRING TISSUE';
-  else if (sim.canRepair) prompt = isTouch ? 'HOLD REPAIR TO RESTORE TISSUE' : 'HOLD E TO REPAIR TISSUE';
-  else if (valve && tissuePercent < 100 && (valve.colonyDefeated || valve.phase === 'closed')) {
-    prompt = sim.nearTissue ? 'SEAL THE WOUND WHEN THE VALVE CLOSES' : 'MOVE TO THE WOUND TO REPAIR';
+  else if (restoringHere) prompt = nearby.name.toUpperCase() + ' RESTORED · 100%';
+  else if (repairing) prompt = 'REPAIRING ' + repairingNode.name.toUpperCase();
+  else if (sim.canRepair && nearby) prompt = repairKey + ' TO REPAIR ' + nearby.name.toUpperCase();
+  else if (valve && nearby === sim.objective && nearby.health < 100 && valve.phase !== 'closed' && valve.colonyDefeated) {
+    prompt = 'REPAIR ' + nearby.name.toUpperCase() + ' WHEN THE VALVE CLOSES';
   }
   else if (valve?.exposed && !valve.colonyDefeated && player.ammo > 0) prompt = 'SHOOT THE EXPOSED COLONY';
-  else if (sim.settling && tissuePercent < 100) prompt = 'MOVE TO THE TISSUE NODE TO REPAIR';
+  else if (sim.settling && tissue < 100) prompt = 'MOVE TO A DAMAGED NODE TO REPAIR';
   else if (player.ammo === 0) {
     prompt = player.reserve ? (isTouch ? 'RELOAD CARBINE' : 'PRESS R TO RELOAD') : 'AWAITING RESUPPLY';
-  } else if (phase === 'intermission' && tissuePercent < 100) {
-    prompt = 'MOVE TO THE TISSUE NODE TO REPAIR';
+  } else if (phase === 'intermission' && tissue < 100) {
+    prompt = 'MOVE TO A DAMAGED NODE TO REPAIR';
   }
   actionPrompt.hidden = !prompt;
   actionPrompt.classList.toggle('restored', restoringHere);
@@ -676,37 +742,48 @@ function drawHud() {
   drawJunctionStatus();
 }
 
-function drawMarker() {
-  if (sim.valve?.exposed && !sim.valve.colonyDefeated) {
-    marker.hidden = objectiveEdge.hidden = true;
-    return;
-  }
-  const { x, y, z } = sim.objective;
+function drawMarkers() {
   const player = sim.player;
-  const dx = x - player.x;
-  const dz = z - player.z;
-  const distance = Math.hypot(dx, dz);
-  const point = world.project(x, y + (sim.valve ? .96 : 1.65), z);
   const width = window.innerWidth;
   const height = window.innerHeight;
-  const top = worldMarkerTop(width <= 720 ? 104 : 128);
-  marker.hidden = !!sim.gash || !point.visible || sim.nearTissue || point.y < top;
-  if (!marker.hidden) {
-    marker.style.left = point.x + 'px';
-    marker.style.top = point.y + 'px';
-    markerDistance.textContent = Math.round(distance) + ' m';
+  const top = worldMarkerTop(width <= 720 ? 120 : 132);
+  const edgePositions = [];
+  for (const [index, node] of sim.nodes.entries()) {
+    const { marker, label, distance: distanceLabel, edge, edgeLabel } = nodeMarkers[index];
+    const { x, y, z } = node;
+    const dx = x - player.x;
+    const dz = z - player.z;
+    const distance = Math.hypot(dx, dz);
+    const valveNode = index === 0 && !!sim.valve;
+    const point = world.project(x, y + (valveNode ? .96 : 1.65), z);
+    const visible = point.visible && point.y >= top && point.y < height * .84 && point.x > 58 && point.x < width - 58;
+    const concealed = (index > 0 && !!sim.tutorial) || (valveNode && sim.valve.exposed && !sim.valve.colonyDefeated) || sim.gash?.nodeId === node.id;
+    const status = nodeStatus(node);
+    const danger = status === 'UNDER ATTACK' || status === 'CRITICAL';
+    const nearby = distance <= RULES.repairRadius && !danger;
+    marker.hidden = concealed || !visible || nearby;
+    edge.hidden = concealed || visible || nearby;
+    for (const element of [marker, edge]) {
+      element.classList.toggle('under-attack', status === 'UNDER ATTACK');
+      element.classList.toggle('critical', node.health <= 32);
+    }
+    if (!marker.hidden) {
+      marker.style.left = point.x + 'px';
+      marker.style.top = point.y + 'px';
+      setText(label, node.name);
+      setText(distanceLabel, Math.round(distance) + ' m');
+    }
+    if (!edge.hidden) {
+      const position = positionEdgeMarker(edge, point, dx, dz, top, width, height, edgePositions);
+      edgePositions.push(position);
+      setText(edgeLabel, node.name + ' · ' + (danger ? Math.ceil(node.health) + '%' : Math.round(distance) + ' m'));
+    }
   }
-
-  const attacking = sim.enemies.some(enemy => enemy.attackingTissue);
-  const seekingRepair = !sim.nearTissue && (sim.tutorial === 'repair' || ((sim.phase === 'intermission' || sim.valve) && sim.tissue < 100));
-  objectiveEdge.hidden = !!sim.gash || (point.visible && point.y >= top) || !(attacking || seekingRepair || sim.tutorial === 'observe');
-  if (objectiveEdge.hidden) return;
-
-  positionEdgeMarker(objectiveEdge, point, dx, dz, top, width, height);
-  setText(objectiveEdgeLabel, attacking ? 'TISSUE UNDER ATTACK' : seekingRepair ? 'REPAIR TISSUE' : 'TISSUE NODE');
+  drawGash(edgePositions);
+  drawTurretMarker(top, width, height);
 }
 
-function positionEdgeMarker(edge, point, dx, dz, top, width, height) {
+function positionEdgeMarker(edge, point, dx, dz, top, width, height, occupied) {
   const player = sim.player;
   const side = dx * Math.cos(player.yaw) - dz * Math.sin(player.yaw);
   const forward = -dx * Math.sin(player.yaw) - dz * Math.cos(player.yaw);
@@ -719,12 +796,18 @@ function positionEdgeMarker(edge, point, dx, dz, top, width, height) {
   const towardX = forward > 0 ? point.x - width / 2 : Math.sign(side || 1) * width;
   const towardY = forward > 0 ? point.y - middleY : 0;
   const scale = 1 / Math.max(Math.abs(towardX) / halfWidth, Math.abs(towardY) / halfHeight, 0.01);
-  edge.style.setProperty('--objective-x', width / 2 + towardX * scale + 'px');
-  edge.style.setProperty('--objective-y', middleY + towardY * scale + 'px');
+  const x = width / 2 + towardX * scale;
+  let y = middleY + towardY * scale;
+  for (const other of occupied) {
+    if (Math.abs(other.x - x) < 130 && Math.abs(other.y - y) < 38) y = y + 40 <= bottom ? y + 40 : y - 40;
+  }
+  edge.style.setProperty('--objective-x', x + 'px');
+  edge.style.setProperty('--objective-y', y + 'px');
   edge.style.setProperty('--objective-angle', Math.atan2(towardX, -towardY) + 'rad');
+  return { x, y };
 }
 
-function drawGash() {
+function drawGash(edgePositions) {
   const gash = sim.gash;
   if (!gash) {
     gashMarker.hidden = gashEdge.hidden = true;
@@ -748,13 +831,28 @@ function drawGash() {
     setText(gashDistance, Math.round(Math.hypot(dx, dz)) + ' m');
   }
   if (!gashEdge.hidden) {
-    positionEdgeMarker(gashEdge, point, dx, dz, top, width, height);
+    positionEdgeMarker(gashEdge, point, dx, dz, top, width, height, edgePositions);
     setText(gashEdgeLabel, label);
   }
 }
 
+function drawTurretMarker(top, width, height) {
+  const turret = sim.turret;
+  if (!turret) {
+    turretMarker.hidden = true;
+    return;
+  }
+  const distance = Math.hypot(turret.x - sim.player.x, turret.z - sim.player.z);
+  const point = world.project(turret.x, turret.y + 1.75, turret.z);
+  turretMarker.hidden = !point.visible || distance < 4 || point.y < top || point.y > height * .78 || point.x < 52 || point.x > width - 52;
+  if (turretMarker.hidden) return;
+  turretMarker.style.left = point.x + 'px';
+  turretMarker.style.top = point.y + 'px';
+  setText(turretMarkerDistance, Math.round(distance) + ' m');
+}
+
 function worldMarkerTop(defaultTop) {
-  return sim.area !== 'artery' && window.innerWidth <= 480 ? 166 : defaultTop;
+  return window.innerWidth <= 480 ? Math.max(defaultTop, 156) : defaultTop;
 }
 
 function drawAttackers() {
@@ -776,9 +874,8 @@ function drawAttackers() {
       attackerMarkers.set(enemy.id, icon);
       tissueAttackers.append(icon);
     }
-    const branch = branches[enemy.branch];
-    const label = enemy.latched ? (branch ? branch.name + ' LATCHED' : 'LATCHED ON TISSUE')
-      : (branch ? branch.name + ' ATTACKING' : 'ATTACKING TISSUE');
+    const node = sim.nodes.find(node => node.id === enemy.nodeId);
+    const label = (enemy.latched ? 'LATCHED · ' : 'ATTACKING · ') + (node?.name.toUpperCase() ?? 'TISSUE');
     const text = warning && enemy.actionTarget === 'player' ? warning + ' · MOVE' : warning || label;
     icon.classList.toggle('winding-up', !!warning);
     setText(icon.firstElementChild, text);
@@ -825,10 +922,10 @@ function applyEvents() {
     if (event.type === 'tutorial' && event.stage === 'complete') {
       trainingComplete = true;
       writeSetting(tutorialKey, true);
-      announce('WAVE 01', 'PATHOGENS INBOUND', 2.8);
+      announce('DEFEND BOTH TISSUE NODES', isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
       audio.play({ type: 'wave', stage: 'start' });
     }
-    if (event.type === 'branch' || event.type === 'valve' || event.type === 'enemyAttack' || event.type === 'damage' || event.type === 'hit' || event.type === 'kill') {
+    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret'].includes(event.type) && Number.isFinite(event.x)) {
       const { x, z, yaw } = sim.player;
       const dx = event.x - x;
       const dz = event.z - z;
@@ -836,16 +933,20 @@ function applyEvents() {
       const pan = (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / Math.max(1, distance);
       audio.play({ ...event, pan, distance });
     } else if (event.type !== 'mission') audio.play(event);
+    if (event.type === 'turret') {
+      if (event.stage === 'deployed') announce('AUTO-TURRET ONLINE', 'COVERING THIS POSITION', 1.8);
+      if (event.stage === 'invalid') announce('PLACEMENT BLOCKED', 'FACE CLEAR GROUND AND TRY AGAIN', 1.8);
+    }
     if (event.type === 'gash') {
       const lane = branches[event.branch].name;
       if (event.stage === 'open') announce(lane + ' GASH OPEN', 'SEAL IT TO STOP TISSUE LOSS', 2.5);
       else if (event.stage === 'closed') {
         announce(lane + ' GASH SEALED', sim.settling ? 'PREPARE FOR EXTRACTION' : 'TISSUE LOSS STOPPED', 2.2);
-        if (sim.tissue < 100) audio.play({ type: 'repair', complete: true });
+        if (sim.nodes.some(node => node.id === event.nodeId && node.health < 100)) audio.play({ type: 'repair', complete: true });
       }
     }
     if (event.type === 'kill' && event.enemyType === 'colony' && sim.tissue < 100) {
-      announce('COLONY NEUTRALIZED', 'SEAL THE WOUND WHEN THE VALVE CLOSES', 3);
+      announce('COLONY NEUTRALIZED', 'CLEAR THE FLANK AND RESTORE BOTH NODES', 3);
     }
     if (event.type === 'shot' && event.hit) {
       hitTimer = 0.19;
@@ -853,11 +954,11 @@ function applyEvents() {
     }
     if (event.type === 'damage' && event.target === 'player') damageTimer = 0.46;
     if (event.type === 'damage' && event.target === 'tissue') {
-      tissueHitTimer = .9;
-      restoredTimer = 0;
+      if (event.nodeId) nodeHitUntil.set(event.nodeId, sim.clock + .9);
+      if (restoredNode?.id === event.nodeId) restoredNode = null;
     }
-    if (event.type === 'repair' && event.complete) {
-      restoredTimer = 2.4;
+    if (event.type === 'repair' && event.complete && event.nodeId) {
+      restoredNode = { id: event.nodeId, until: sim.clock + 2.4 };
       if (sim.settling) {
         announcementTimer = 0;
         alertBox.replaceChildren();
@@ -899,12 +1000,11 @@ function frame(now) {
     input.fire = fireTap || leftButton || touch.fire || keys.has('Space');
     input.reload = reloadTap || keys.has('KeyR') || touch.reload;
     input.repair = keys.has('KeyE') || touch.repair;
+    input.deploy = deployTap;
     input.sprint = keys.has('ShiftLeft') || keys.has('ShiftRight');
     input.aim = rightButton;
     hitTimer = Math.max(0, hitTimer - dt);
     damageTimer = Math.max(0, damageTimer - dt);
-    tissueHitTimer = Math.max(0, tissueHitTimer - dt);
-    restoredTimer = Math.max(0, restoredTimer - dt);
     if (announcementTimer > 0) {
       announcementTimer -= dt;
       if (announcementTimer <= 0) alertBox.replaceChildren();
@@ -918,14 +1018,14 @@ function frame(now) {
       applyEvents();
       fireTap = false;
       reloadTap = false;
+      deployTap = false;
       touch.reload = false;
     }
     const aiming = world.render(sim, dt, input, reducedMotion);
     input.lookX = 0;
     input.lookY = 0;
     drawHud();
-    drawMarker();
-    drawGash();
+    drawMarkers();
     drawAttackers();
     drawBranches();
     drawCombatFeedback(aiming);
@@ -995,6 +1095,9 @@ byId('pause').addEventListener('click', pause);
 byId('resume').addEventListener('click', resume);
 extractNow.addEventListener('click', () => chooseExtraction('extract'));
 stayOvertime.addEventListener('click', () => chooseExtraction('stay'));
+touchTurret.addEventListener('click', () => {
+  if (running && !paused && !sim.extractionPending && !sim.tutorial) deployTap = true;
+});
 extractionDialog.addEventListener('cancel', event => event.preventDefault());
 pauseDialog.addEventListener('cancel', event => { event.preventDefault(); resume(); });
 resultDialog.addEventListener('cancel', event => { event.preventDefault(); mainMenu(); });
@@ -1026,6 +1129,7 @@ window.addEventListener('keydown', event => {
   }
   if (!event.repeat && event.code === 'Space') fireTap = true;
   if (!event.repeat && event.code === 'KeyR') reloadTap = true;
+  if (!event.repeat && event.code === 'KeyQ' && !sim.tutorial && sim.turretCharges > 0) deployTap = true;
   keys.add(event.code);
 });
 window.addEventListener('keyup', event => keys.delete(event.code));
@@ -1094,7 +1198,7 @@ for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
     joystick.firstElementChild.style.transform = '';
   });
 }
-touchControls.querySelectorAll('[data-touch]').forEach(button => {
+touchControls.querySelectorAll('[data-touch]:not([data-touch="turret"])').forEach(button => {
   const name = button.dataset.touch;
   button.addEventListener('pointerdown', event => {
     if (!running || paused || sim.extractionPending) return;

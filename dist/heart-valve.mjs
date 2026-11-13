@@ -83,7 +83,7 @@ function sleeve() {
   const { position: positions, uv } = geometry.attributes;
   for (let row = 0; row <= rows; row++) {
     const v = row / rows;
-    const z = 19.9 - v * 32.7;
+    const z = .72 - v * 13.52;
     const choke = Math.exp(-(((z + .06) / 3.6) ** 2));
     for (let column = 0; column <= columns; column++) {
       const theta = column / columns * TAU;
