@@ -258,6 +258,9 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .attacker-marker[data-branch]{color:var(--branch)}
 .attacker-marker[data-branch] strong{border-color:var(--branch);background:#151718e8}
 .attacker-marker[data-branch] span{border-color:var(--branch)}
+.attacker-marker.winding-up{color:#ffd18a}
+.attacker-marker.winding-up strong{border-color:#ffb86d;background:#2b1711ef}
+.attacker-marker.winding-up span{border-color:#ffb86d}
 .touch-controls{position:absolute;inset:0;pointer-events:none}
 .joystick{position:absolute;bottom:95px;left:25px;width:105px;height:105px;background:#25170f57;border:1px solid #f6edcf66;border-radius:50%;display:grid;place-items:center;pointer-events:auto}
 .joystick div{width:39px;height:39px;border-radius:50%;background:#ceef97a6;border:1px solid #eefacd}
