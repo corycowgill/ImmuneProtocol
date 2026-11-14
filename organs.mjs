@@ -9,7 +9,7 @@ function wave(name, cadence, species, lanes) {
 export const ORGAN_MISSIONS = {
   lungs: {
     name: 'Bronchial Fork',
-    briefing: 'Move into a side pocket before each exhale pushes you down the central airway.',
+    briefing: 'Shelter from the exhale. After two waves, reopen both bronchi and hold them through one full breath.',
     nodes: [node('lungs-left', 'Left Alveoli', -11, -7), node('lungs-right', 'Right Alveoli', 11, -7)],
     entry: [0, 15],
     inlets: [[[-18, -24], [-24, -12], [-17, 20]], [[18, -24], [24, -12], [17, 20]]],

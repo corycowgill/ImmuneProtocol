@@ -1470,7 +1470,9 @@ export class World {
     if (heart && !this.heart) this.heart = this.makeHeart();
     if (this.heart) this.heart.group.visible = heart;
     if (profile && !this.organEnvironments.has(area)) {
-      const environment = createOrganEnvironment(area, { membraneMaps, floorHeight, glow: this.glow });
+      const environment = createOrganEnvironment(area, {
+        membraneMaps, floorHeight, glow: this.glow, nodes: TISSUE_NODES[area],
+      });
       environment.shell = this.baseShellMaterials.map((source, index) => {
         const material = source.clone();
         Object.assign(material, environment.maps);
@@ -1609,7 +1611,7 @@ export class World {
       const view = this.tissueViews[i];
       const state = THREE.MathUtils.clamp(node.health / 100, 0, 1);
       const { organ, core, fiber, glowOrb, light, channel, wound } = view;
-      view.root.visible = !sim.tutorial || i === 0;
+      view.root.visible = !sim.airway && (!sim.tutorial || i === 0);
       const healing = sim.repairing && sim.repairTarget === node;
       const residualDamage = Math.max(0, 100 - node.health - (healing ? sim.repairProgress * 10 : 0));
       const target = Math.min(1, Math.sqrt(residualDamage / 43));
@@ -2116,6 +2118,7 @@ export class World {
     this.camera.updateMatrixWorld();
     this.updateAtmosphere(dt);
     this.organEnvironment?.update(sim.organ, this.clock, reduceMotion);
+    this.organEnvironment?.updateAirways?.(sim, this.clock, dt, reduceMotion);
     if (sim.boss && !this.megaVirus) {
       this.megaVirus = createMegaVirus(membraneMaps, this.glow);
       this.scene.add(this.megaVirus.root);

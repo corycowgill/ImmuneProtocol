@@ -172,6 +172,133 @@ function makeLungs(root, skin, lobe, random, glow) {
   };
 }
 
+function airwaySurface(rows, columns, sample) {
+  const positions = [];
+  const uvs = [];
+  const indices = [];
+  for (let row = 0; row <= rows; row++) {
+    for (let column = 0; column <= columns; column++) {
+      positions.push(...sample(row / rows, column / columns * TAU));
+      uvs.push(column / columns, row / rows);
+      if (!row || !column) continue;
+      const corner = row * (columns + 1) + column;
+      const before = corner - columns - 1;
+      indices.push(before - 1, before, corner - 1, before, corner, corner - 1);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function portPoint(radius, angle, z) {
+  const ripple = 1 + .051 * Math.cos(angle * 5 + z * 2) + .029 * Math.sin(angle * 9 - z * 3);
+  return [radius * ripple * Math.cos(angle), radius * ripple * Math.sin(angle) * .85, z];
+}
+
+function makeBronchialPorts(root, skin, lobe, glow, floorHeight, nodes) {
+  const vents = new THREE.Group();
+  root.add(vents);
+  vents.visible = false;
+  const cartilage = skin(0xcd8f8b, { roughness: .48 });
+  const lining = skin(0x643642, { side: THREE.DoubleSide, roughness: .49 });
+  const clots = skin(0x602335, { side: THREE.DoubleSide, roughness: .55, emissive: 0x8b1c27, emissiveIntensity: .18 });
+  const mucosa = skin(0xa45555, { roughness: .44, clearcoat: .77 });
+  const shade = new THREE.MeshBasicMaterial({ color: 0x150e1a, side: THREE.DoubleSide });
+
+  const ports = nodes.map((node, index) => {
+    const valve = new THREE.Group();
+    valve.position.set(node.x, floorHeight(node.x, node.z), node.z);
+    valve.rotation.y = index === 0 ? .19 : -.19;
+    vents.add(valve);
+    const mouth = new THREE.Group();
+    mouth.position.set(0, 1.38, .80);
+    valve.add(mouth);
+    const chamber = airwaySurface(15, 48, (t, angle) => portPoint(1.18 - t * .53, angle, -t * 2.05));
+    place(mouth, chamber, lining, 0, 0, 0);
+    place(mouth, new THREE.CircleGeometry(.69, 42), shade, 0, 0, -2.07).scale.y = .85;
+    for (let ring = 0; ring < 4; ring++) {
+      const z = .045 - ring * .48;
+      const radius = 1.23 - ring * .126;
+      const rim = airwaySurface(10, 48, (t, angle) => {
+        const round = t * TAU;
+        return portPoint(radius + .105 * Math.cos(round), angle, z + .14 * Math.sin(round));
+      });
+      place(mouth, rim, cartilage, 0, 0, 0);
+    }
+    const base = place(valve, lobe, mucosa, 0, .24, -.86);
+    base.scale.set(1.52, .43, 1.8);
+    for (const side of [-1, 1]) {
+      const roots = [
+        tube([[side * .89, 1.63, .23], [side * 1.33, 1.0, -.57], [side * 1.76, .38, -1.62], [side * 2.68, .13, -2.63]], .15, 16),
+        tube([[side * 1.1, 1.18, -.20], [side * 1.49, .49, .56], [side * 1.81, .28, 1.10], [side * 2.65, .11, 1.64]], .075, 12),
+      ];
+      tubes(valve, roots, mucosa);
+    }
+
+    const membrane = airwaySurface(8, 48, (t, angle) => portPoint(.035 + t * 1.125, angle, .08));
+    const membraneMesh = place(mouth, membrane, clots, 0, 0, .09);
+    membraneMesh.frustumCulled = false;
+    const folds = membrane.attributes.position;
+    const air = new THREE.BufferGeometry();
+    const airMotes = new THREE.BufferAttribute(new Float32Array(48), 3);
+    air.setAttribute('position', airMotes);
+    const airflow = new THREE.Points(air, new THREE.PointsMaterial({
+      color: 0xa9edee, map: glow, transparent: true, opacity: .52, alphaTest: .03, depthWrite: false,
+      blending: THREE.AdditiveBlending, size: .24,
+    }));
+    airflow.frustumCulled = false;
+    mouth.add(airflow);
+    const light = new THREE.PointLight(0x94e0e9, 0, 5, 2);
+    light.position.set(0, 0, .34);
+    mouth.add(light);
+    return { node, folds, membrane, airflow, airMotes, light, openness: 0, lastOpening: -1 };
+  });
+
+  return (sim, clock, dt, reduced) => {
+    vents.visible = !!sim?.airway;
+    if (!vents.visible) {
+      for (const port of ports) port.openness = 0;
+      return;
+    }
+    for (const [index, port] of ports.entries()) {
+      const { node, folds, membrane, airflow, airMotes, light } = port;
+      const state = sim.airway.ports[index];
+      const patching = !state.open && sim.repairing && sim.repairTarget?.id === node.id;
+      const pulse = patching ? sim.repairProgress * sim.repairAmount / sim.airway.sealPoints : 0;
+      const target = state.open ? 1 : Math.min(.98, state.progress + pulse);
+      port.openness = reduced ? target : THREE.MathUtils.damp(port.openness, target, 10, dt);
+      const open = port.openness;
+      if (Math.abs(open - port.lastOpening) > .002) {
+        for (let vertex = 0; vertex < folds.count; vertex++) {
+          const row = Math.floor(vertex / 49) / 8;
+          const angle = vertex % 49 / 48 * TAU;
+          const lip = .025 + open * (.94 + .075 * Math.cos(angle * 5));
+          const radius = THREE.MathUtils.lerp(lip, 1.16, row);
+          const billow = (1 - row) * (.23 * (1 - open) + .09 * Math.sin(angle * 5 + row * 7) + .036 * Math.cos(angle * 12));
+          folds.setXYZ(vertex, ...portPoint(radius, angle, billow));
+        }
+        folds.needsUpdate = true;
+        membrane.computeVertexNormals();
+        port.lastOpening = open;
+      }
+      airflow.visible = state.open && open > .78;
+      light.intensity = state.open ? 10 * open : 1.8 * open;
+      if (!airflow.visible) continue;
+      for (let mote = 0; mote < airMotes.count; mote++) {
+        const age = ((reduced ? .3 : clock * (sim.organ?.phase === 'active' ? .85 : .48)) + mote * .618) % 1;
+        const angle = mote * 2.39996;
+        const radius = .35 + .065 * mote;
+        airMotes.setXYZ(mote, Math.cos(angle) * radius * age, Math.sin(angle) * radius * age + age * .40, -.8 + age * 3.35);
+      }
+      airMotes.needsUpdate = true;
+    }
+  };
+}
+
 function makeStomach(root, skin, lobe, random, glow) {
   const rugae = [];
   const creases = [];
@@ -425,7 +552,7 @@ function hazardSurface(area, root, profile, floorHeight) {
   };
 }
 
-export function createOrganEnvironment(area, { membraneMaps, floorHeight, glow }) {
+export function createOrganEnvironment(area, { membraneMaps, floorHeight, glow, nodes }) {
   const profile = PROFILES[area];
   const root = new THREE.Group();
   const maps = membraneMaps(profile.seed, profile.tissue);
@@ -433,10 +560,12 @@ export function createOrganEnvironment(area, { membraneMaps, floorHeight, glow }
     ...maps, color, roughness: .44, clearcoat: .62, clearcoatRoughness: .25,
     normalScale: new THREE.Vector2(.9, .9), ...overrides,
   });
-  const updateAnatomy = BUILDERS[area](root, skin, tissueLobe(), seedRandom(profile.seed), glow);
+  const lobe = tissueLobe();
+  const updateAnatomy = BUILDERS[area](root, skin, lobe, seedRandom(profile.seed), glow);
   const updateHazard = hazardSurface(area, root, profile, floorHeight);
+  const updateAirways = area === 'lungs' ? makeBronchialPorts(root, skin, lobe, glow, floorHeight, nodes) : null;
   return {
-    root, maps,
+    root, maps, updateAirways,
     update(state, time, reduced) {
       updateAnatomy(reduced ? 0 : time, !reduced && state?.phase === 'active');
       updateHazard(state, time, reduced);

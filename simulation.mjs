@@ -107,6 +107,14 @@ const HEART_MIN_PLAYER_Z = -9.8;
 const HEART_MAX_PLAYER_Z = 21;
 const HEART_MAX_PLAYER_X = 14;
 const HEART_PATROL = ['virus', 'spore', 'bacillus', 'spore'];
+const AIRWAY_SEAL_POINTS = 36;
+const AIRWAY_MINIMUM_INTEGRITY = 45;
+const AIRWAY_ATTACK_WARNING = 2.4;
+const AIRWAY_ATTACKS = [
+  { lane: 1, delay: 4.6, species: ['spore'] },
+  { lane: 0, delay: 3.4, species: ['bacillus', 'virus'] },
+  { lane: 1, delay: 6.8, species: ['spore', 'virus'] },
+];
 
 const ENTRANCES = [
   [[-3, -34], [-14, -28], [-22, -18], [-25, 1], [-19, 23], [-6, 33]],
@@ -327,6 +335,7 @@ export class Simulation {
     this.organCycle = 0;
     this.organNextDamage = 0;
     this.boss = null;
+    this.airway = null;
     this.organ = this.organMission ? this.createOrganPhase('recovery') : null;
   }
 
@@ -402,6 +411,8 @@ export class Simulation {
         this.settling = true;
         this.phase = 'intermission';
         this.intermission = JUNCTION_REPAIR_TIME;
+      } else if (this.area === 'lungs') {
+        this.startAirwayObjective();
       } else {
         this.endMission('won');
       }
@@ -506,7 +517,9 @@ export class Simulation {
       this.reinforcement.remaining = Math.max(0, this.reinforcement.remaining - dt);
       if (this.reinforcement.remaining === 0) this.reinforcement = null;
     }
-    if (mission.arrivals) {
+    if (this.airway) {
+      this.advanceAirwayAttacks();
+    } else if (mission.arrivals) {
       const elapsed = this.clock - this.waveStartedAt;
       let arrival = mission.arrivals[this.spawnIndex];
       while (arrival && arrival.at <= elapsed + 1e-9) {
@@ -529,8 +542,111 @@ export class Simulation {
       this.endMission('lost', 'tissue');
     } else if (this.player.health === 0) {
       this.endMission('lost', 'suit');
+    } else if (this.airway) {
+      this.advanceAirwayObjective();
     } else if (this.remaining === 0 && this.projectiles.length === 0 && !(this.boss?.remaining > 0)) {
       this.clearWave();
+    }
+  }
+
+  startAirwayObjective() {
+    const { recovery, warning, active } = this.organMission.hazard;
+    const duration = recovery + warning + active;
+    this.airway = {
+      state: 'reopen', duration, remaining: duration, sealPoints: AIRWAY_SEAL_POINTS,
+      minimumIntegrity: AIRWAY_MINIMUM_INTEGRITY, exhaled: false, incoming: null,
+      ports: this.nodes.map((node, index) => ({
+        nodeId: node.id, name: index === 0 ? 'Left bronchus' : 'Right bronchus', open: false, progress: 0,
+      })),
+      arrivals: AIRWAY_ATTACKS.map((attack, index) => ({
+        ...attack, at: index === 0 ? this.clock + attack.delay : null, warned: false, spawned: false,
+      })),
+    };
+    this.player.reserve = Math.max(this.player.reserve, this.magazineSize * 2);
+    this.events.push({ type: 'airway', stage: 'start' });
+  }
+
+  emitAirwayPort(stage, lane) {
+    const { name, nodeId } = this.airway.ports[lane];
+    const { x, y, z } = this.nodes[lane];
+    this.events.push({ type: 'airway', stage, nodeId, name, x, y, z });
+  }
+
+  sealAirwayPort(node) {
+    const port = this.airway?.ports.find(item => item.nodeId === node.id);
+    if (!port || port.open) return;
+    port.progress = Math.min(1, port.progress + this.repairAmount / this.airway.sealPoints);
+    if (port.progress === 1 && node.health >= this.airway.minimumIntegrity) {
+      port.open = true;
+      this.emitAirwayPort('opened', this.nodes.indexOf(node));
+    }
+  }
+
+  advanceAirwayAttacks() {
+    const { airway, clock } = this;
+    airway.incoming = null;
+    for (const attack of airway.arrivals) {
+      if (attack.at === null || attack.spawned) continue;
+      const remaining = attack.at - clock;
+      if (remaining <= AIRWAY_ATTACK_WARNING && !attack.warned) {
+        attack.warned = true;
+        this.emitAirwayPort('incoming', attack.lane);
+      }
+      if (remaining <= 0) {
+        attack.spawned = true;
+        const node = this.nodes[attack.lane];
+        const direction = Math.sign(node.x);
+        for (const [index, type] of attack.species.entries()) {
+          this.enemies.push(this.createEnemy(type, node.x + direction * (3.5 + index), node.z - 12 + index * 2, node));
+        }
+        this.emitAirwayPort('reinforcements', attack.lane);
+      } else if (attack.warned && (!airway.incoming || remaining < airway.incoming.remaining)) {
+        const { nodeId, name } = airway.ports[attack.lane];
+        airway.incoming = { remaining, nodeIds: [nodeId], names: [name] };
+      }
+    }
+    if (!this.player.ammo && !this.player.reserve && this.enemies.length) {
+      this.player.reserve = this.magazineSize;
+    }
+  }
+
+  advanceAirwayObjective() {
+    const { airway } = this;
+    for (const [lane, port] of airway.ports.entries()) {
+      if (port.open && this.nodes[lane].health < airway.minimumIntegrity) {
+        port.open = false;
+        port.progress = 0;
+        this.emitAirwayPort('blocked', lane);
+      }
+    }
+    if (airway.ports.some(port => !port.open)) {
+      airway.state = 'reopen';
+      airway.remaining = airway.duration;
+      return;
+    }
+    if (airway.state === 'reopen') {
+      airway.state = 'holding';
+      airway.exhaled = false;
+      this.organ = this.createOrganPhase('recovery');
+      for (const attack of airway.arrivals) {
+        if (attack.at === null) attack.at = this.clock + attack.delay;
+      }
+      this.events.push({ type: 'airway', stage: 'hold' });
+    } else if (airway.state === 'holding') {
+      const { phase, remaining } = this.organ;
+      const { warning, active } = this.organMission.hazard;
+      if (phase === 'active') airway.exhaled = true;
+      if (phase === 'recovery' && airway.exhaled) {
+        airway.state = 'secured';
+        airway.remaining = 0;
+        this.events.push({ type: 'airway', stage: 'secured' });
+      } else {
+        airway.remaining = remaining + (phase === 'recovery' ? warning + active : phase === 'warning' ? active : 0);
+      }
+    }
+    if (airway.state === 'secured' && this.remaining === 0 && this.projectiles.length === 0) {
+      this.score += 600;
+      this.endMission('won');
     }
   }
 
@@ -681,7 +797,8 @@ export class Simulation {
         nearestDistance = distance;
       }
       const overloaded = this.organ?.repairBlocked && this.organ.nodeId === node.id;
-      if (node.health < RULES.tissue && distance <= repairDistance && !overloaded &&
+      const port = this.airway?.ports.find(item => item.nodeId === node.id);
+      if ((node.health < RULES.tissue || port?.open === false) && distance <= repairDistance && !overloaded &&
         (!this.valve || node !== this.objective || this.valve.phase === 'closed')) {
         target = node;
         repairDistance = distance;
@@ -709,6 +826,7 @@ export class Simulation {
       const node = sealing ? gash.node : target;
       const amount = Math.min(this.repairAmount, RULES.tissue - node.health);
       node.health += amount;
+      this.sealAirwayPort(node);
       if (!this.tutorial) this.score += amount * 8;
       this.repairProgress -= 1;
       if (sealing) {
@@ -718,8 +836,10 @@ export class Simulation {
           this.events.push({ type: 'gash', stage: 'closed', branch: gash.branch, nodeId: node.id, x: gash.x, y: gash.y, z: gash.z });
         }
       }
-      const complete = this.gash?.node !== node && node.health === RULES.tissue;
-      this.canRepair = sealing ? !!this.gash : node.health < RULES.tissue;
+      const port = this.airway?.ports.find(item => item.nodeId === node.id);
+      const needsRepair = node.health < RULES.tissue || port?.open === false;
+      const complete = this.gash?.node !== node && !needsRepair;
+      this.canRepair = sealing ? !!this.gash : needsRepair;
       this.events.push({ type: 'repair', amount, complete, gash: sealing, nodeId: node.id, x: target.x, y: target.y, z: target.z });
     }
     return true;
