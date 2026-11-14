@@ -2117,8 +2117,9 @@ export class World {
     }
     this.camera.updateMatrixWorld();
     this.updateAtmosphere(dt);
-    this.organEnvironment?.update(sim.organ, this.clock, reduceMotion);
+    this.organEnvironment?.update(sim.organ, this.clock, reduceMotion, sim.gastric);
     this.organEnvironment?.updateAirways?.(sim, this.clock, dt, reduceMotion);
+    this.organEnvironment?.updateGastric?.(sim, this.clock, dt, reduceMotion);
     if (sim.boss && !this.megaVirus) {
       this.megaVirus = createMegaVirus(membraneMaps, this.glow);
       this.scene.add(this.megaVirus.root);

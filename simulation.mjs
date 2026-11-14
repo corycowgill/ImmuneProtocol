@@ -1,5 +1,9 @@
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
+import {
+  GASTRIC_REPAIR_RADIUS, advanceGastric, createGastric, gastricValve, pendingGastricEnemies,
+  repairGastricValve, shapeGastricHazard, startGastric,
+} from './gastric.mjs';
 
 export const OBJECTIVE = Object.freeze({ x: 0, y: 1.25, z: -8 });
 export const TISSUE_NODES = Object.freeze({
@@ -305,6 +309,7 @@ export class Simulation {
     this.nearTissue = false;
     this.nearNode = null;
     this.nearGash = false;
+    this.nearGastricValve = null;
     this.canRepair = false;
     this.gash = null;
     this.junctionGashOpened = false;
@@ -336,6 +341,7 @@ export class Simulation {
     this.organNextDamage = 0;
     this.boss = null;
     this.airway = null;
+    this.gastric = this.area === 'stomach' ? createGastric() : null;
     this.organ = this.organMission ? this.createOrganPhase('recovery') : null;
   }
 
@@ -427,6 +433,7 @@ export class Simulation {
     this.intermission = junction ? JUNCTION_BREAK_TIME : INTERMISSION_TIME;
     this.player.reserve = Math.min(RULES.reserveCap, this.player.reserve + (junction ? 12 : 55));
     this.player.health = Math.min(RULES.health, this.player.health + (junction ? 12 : 18));
+    if (this.gastric) startGastric(this);
   }
 
   endMission(outcome, reason) {
@@ -461,7 +468,7 @@ export class Simulation {
       this.endMission('lost', 'tissue');
       return;
     }
-    if (this.organ && this.player.health === 0) {
+    if ((this.organ || this.gastric) && this.player.health === 0) {
       this.endMission('lost', 'suit');
       return;
     }
@@ -498,7 +505,7 @@ export class Simulation {
       return;
     }
 
-    if (this.phase === 'intermission') {
+    if (this.phase === 'intermission' && !this.gastric) {
       if (this.settling && this.gash) return;
       if (this.settling && this.tissue === RULES.tissue) {
         this.intermission = Math.min(this.intermission, JUNCTION_EXTRACT_DELAY);
@@ -512,6 +519,7 @@ export class Simulation {
       return;
     }
 
+    if (this.gastric && this.gastric.stage !== 'flooded') advanceGastric(this, dt);
     const mission = this.missions[this.wave - 1];
     if (this.reinforcement?.started) {
       this.reinforcement.remaining = Math.max(0, this.reinforcement.remaining - dt);
@@ -526,7 +534,7 @@ export class Simulation {
         this.spawnJunctionEnemy(arrival);
         arrival = mission.arrivals[this.spawnIndex];
       }
-    } else {
+    } else if (this.phase === 'combat') {
       this.spawnCountdown -= dt;
       if (this.spawnIndex < mission.species.length && this.spawnCountdown <= 0) {
         this.spawn(mission.species[this.spawnIndex]);
@@ -536,6 +544,7 @@ export class Simulation {
     this.advanceEnemies(dt);
     this.advanceProjectiles(dt);
     this.remaining = (mission.arrivals ?? mission.species).length - this.spawnIndex + this.enemies.length +
+      pendingGastricEnemies(this.gastric) +
       Number(!!this.boss && this.boss.state !== 'defeated');
 
     if (this.failedNode) {
@@ -544,7 +553,7 @@ export class Simulation {
       this.endMission('lost', 'suit');
     } else if (this.airway) {
       this.advanceAirwayObjective();
-    } else if (this.remaining === 0 && this.projectiles.length === 0 && !(this.boss?.remaining > 0)) {
+    } else if (this.phase === 'combat' && this.remaining === 0 && this.projectiles.length === 0 && !(this.boss?.remaining > 0)) {
       this.clearWave();
     }
   }
@@ -682,7 +691,7 @@ export class Simulation {
   }
 
   updateOrgan(dt) {
-    if (this.phase !== 'combat') {
+    if (this.phase !== 'combat' && !this.gastric) {
       this.organ.remaining = this.intermission + this.organMission.hazard.recovery;
       return;
     }
@@ -692,6 +701,7 @@ export class Simulation {
       if (state.phase === 'active') this.organCycle += 1;
       const next = state.phase === 'recovery' ? 'warning' : state.phase === 'warning' ? 'active' : 'recovery';
       state = this.organ = this.createOrganPhase(next);
+      shapeGastricHazard(this);
       this.organNextDamage = this.clock;
       this.events.push({ type: 'organ', stage: next, area: this.area, x: state.x, y: .8, z: state.z });
     }
@@ -808,6 +818,14 @@ export class Simulation {
     const gash = this.gash;
     this.nearGash = !!gash && Math.hypot(this.player.x - gash.x, this.player.z - gash.z) <= JUNCTION_GASH_REPAIR_RADIUS;
     if (this.nearGash) target = gash;
+    if (this.gastric) {
+      const { intake, drain } = this.gastric;
+      const { x, z } = this.player;
+      this.nearGastricValve = [intake, drain].find(valve =>
+        Math.hypot(x - valve.x, z - valve.z) <= GASTRIC_REPAIR_RADIUS) ?? null;
+      const valve = gastricValve(this.gastric);
+      if (valve && valve === this.nearGastricValve) target = valve;
+    }
     const mayRepair = !this.tutorial || this.tutorial === 'repair';
     this.canRepair = mayRepair && !!target;
 
@@ -822,6 +840,13 @@ export class Simulation {
 
     this.repairProgress += dt / REPAIR_TIME;
     if (this.repairProgress >= 1) {
+      if (target === this.nearGastricValve) {
+        const complete = repairGastricValve(this, target);
+        this.repairProgress -= 1;
+        this.canRepair = !complete;
+        this.events.push({ type: 'repair', valveId: target.id, complete, x: target.x, y: target.y, z: target.z });
+        return true;
+      }
       const sealing = target === gash;
       const node = sealing ? gash.node : target;
       const amount = Math.min(this.repairAmount, RULES.tissue - node.health);
