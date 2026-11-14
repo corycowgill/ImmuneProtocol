@@ -1,5 +1,6 @@
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
+import { FIELD_UPGRADES } from './loadouts.mjs';
 import {
   GASTRIC_REPAIR_RADIUS, advanceGastric, createGastric, gastricValve, pendingGastricEnemies,
   repairGastricValve, shapeGastricHazard, startGastric,
@@ -131,8 +132,6 @@ const SHOT_INTERVAL = 0.118;
 const RELOAD_TIME = 1.35;
 const REPAIR_TIME = 0.82;
 const REPAIR_PER_CYCLE = 13;
-const FAST_SEALER_REPAIR = 18;
-const DEEP_MAGAZINE_CAPACITY = 42;
 const INTERMISSION_TIME = 6.5;
 const JUNCTION_BREAK_TIME = 8;
 const JUNCTION_REPAIR_TIME = 9;
@@ -194,14 +193,17 @@ function guardFaces(enemy, source) {
 }
 
 export class Simulation {
-  constructor(area = 'artery', { tutorial = false, upgrades = [] } = {}) {
+  constructor(area = 'artery', { tutorial = false, upgrades = [], bossPractice = false } = {}) {
     this.organMission = Object.hasOwn(ORGAN_MISSIONS, area) ? ORGAN_MISSIONS[area] : null;
     this.area = this.organMission || area === 'heart' || area === 'junction' ? area : 'artery';
     this.missions = this.organMission?.waves ?? (this.area === 'heart' ? HEART_MISSIONS : this.area === 'junction' ? JUNCTION_MISSIONS : MISSIONS);
     this.hasTutorial = tutorial && this.area === 'artery';
+    this.bossPractice = bossPractice && this.area === 'brain';
     const activeUpgrades = !this.hasTutorial && Array.isArray(upgrades) ? upgrades : [];
-    this.magazineSize = activeUpgrades.includes('deep-magazine') ? DEEP_MAGAZINE_CAPACITY : RULES.magazine;
-    this.repairAmount = activeUpgrades.includes('fast-sealer') ? FAST_SEALER_REPAIR : REPAIR_PER_CYCLE;
+    this.magazineSize = activeUpgrades.includes('deep-magazine') ? FIELD_UPGRADES['deep-magazine'].magazineSize : RULES.magazine;
+    this.repairAmount = activeUpgrades.includes('fast-sealer') ? FIELD_UPGRADES['fast-sealer'].repairAmount : REPAIR_PER_CYCLE;
+    this.hazardDamageMultiplier = activeUpgrades.includes('insulated-suit') ? FIELD_UPGRADES['insulated-suit'].damageMultiplier : 1;
+    this.turretSlowDuration = activeUpgrades.includes('turret-stabilizer') ? FIELD_UPGRADES['turret-stabilizer'].slowDuration : TURRET_SLOW_TIME;
     this.reset();
   }
 
@@ -347,6 +349,7 @@ export class Simulation {
 
   start() {
     this.reset();
+    if (this.bossPractice) this.wave = this.missions.findIndex(mission => mission.boss);
     this.beginWave();
     if (this.valve) {
       this.objective.health = RULES.tissue - 2 * REPAIR_PER_CYCLE;
@@ -721,7 +724,8 @@ export class Simulation {
     }
     if (damage && this.clock >= this.organNextDamage) {
       this.organNextDamage = this.clock + .65;
-      this.damageTarget(player, 'player', damage);
+      const insulated = this.area === 'stomach' || this.area === 'intestines';
+      this.damageTarget(player, 'player', insulated ? damage * this.hazardDamageMultiplier : damage);
     }
   }
 
@@ -953,7 +957,7 @@ export class Simulation {
     if (turret.cooldown > 0) return;
 
     turret.cooldown = TURRET_INTERVAL;
-    target.slowRemaining = TURRET_SLOW_TIME;
+    target.slowRemaining = this.turretSlowDuration;
     if (!target.latched && target.action.endsWith('-windup')) {
       this.setEnemyAction(target, 'idle');
       target.attackCooldown = TURRET_SLOW_TIME * .6;

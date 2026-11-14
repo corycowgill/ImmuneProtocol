@@ -18,7 +18,16 @@ The Hallucinated Games studio intro plays before the main menu. Use Skip intro, 
 
 Your first Arterial Junction deployment begins with one guided breach. Shoot the bacillus off the tissue, move into repair range, and hold Repair until the wound seals. The second node and turret become available as the rest of Wave 1 begins. The browser remembers completed training for later deployments.
 
-Choose **Start campaign** to deploy into Arterial Junction. Between missions, equip **Fast Sealer** to restore 18 tissue points per pulse or **Deep Magazine** to carry 42 rounds before reloading. Your browser saves completed missions and the chosen upgrade at each checkpoint. Use **Resume** to return to the start of the current mission. The final report shows the tissue preserved in all eight missions, total score, and pathogens neutralized. Open **Mission select** to replay unlocked areas with standard equipment.
+Choose **Start campaign** to deploy into Arterial Junction. Between missions, equip one field upgrade. Your browser saves completed missions and the chosen upgrade at each checkpoint. Use **Resume** to return to the start of the current mission. The final report shows the tissue preserved in all eight missions, total score, and pathogens neutralized.
+
+| Field upgrade | Effect |
+| --- | --- |
+| Fast Sealer | Restores 18 tissue points per repair pulse. |
+| Deep Magazine | Holds 42 rounds per magazine. |
+| Insulated Suit | Reduces suit damage from stomach acid and intestinal pressure waves by 40%. |
+| Turret Stabilizer | Extends the turret's slow from 1.4 to 2.2 seconds. It still fires every 2.6 seconds. |
+
+Open **Mission select** to replay unlocked areas with standard equipment or any one upgrade. Reaching the Mega Virus in Neural Cortex unlocks **Mega Virus Practice**, which starts directly at Wave 3 with fresh supplies. Boss practice has its own result screen and does not update your campaign checkpoint or best score.
 
 ## Campaign missions
 
