@@ -1,5 +1,6 @@
 import { Simulation, JUNCTION_INLETS, RULES } from './simulation.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
+import { FIELD_UPGRADES } from './loadouts.mjs';
 import { GameAudio } from './audio.mjs';
 
 const byId = id => document.getElementById(id);
@@ -12,6 +13,10 @@ const missionSelect = byId('mission-select');
 const missionDialog = byId('mission-dialog');
 const missionCount = byId('mission-count');
 const missionError = byId('mission-error');
+const practiceLoadout = byId('practice-loadout');
+const practiceLoadoutDetail = byId('practice-loadout-detail');
+const megaVirusDeploy = byId('deploy-mega-virus');
+const megaVirusStatus = byId('mega-virus-status');
 const missionEntries = [...document.querySelectorAll('[data-deploy-area]')].map(button => ({
   area: button.dataset.deployArea,
   button,
@@ -174,6 +179,8 @@ const sensitivityKey = 'immune-protocol.look-sensitivity';
 const qualityKey = 'immune-protocol.graphics-quality';
 const checkpointKey = 'immune-protocol.campaign-checkpoint';
 const unlockedKey = 'immune-protocol.unlocked-mission';
+const practiceLoadoutKey = 'immune-protocol.practice-loadout';
+const megaVirusKey = 'immune-protocol.mega-virus-reached';
 const campaignAreas = ['artery', 'junction', 'heart', 'lungs', 'stomach', 'intestines', 'ear', 'brain'];
 const missions = {
   artery: { name: 'Arterial Junction', briefing: 'Defend the core and lateral branch through five waves.' },
@@ -183,7 +190,6 @@ const missions = {
 };
 const missionName = area => missions[area].name;
 const nextMission = area => campaignAreas[campaignAreas.indexOf(area) + 1];
-const upgradeNames = { 'fast-sealer': 'Fast Sealer', 'deep-magazine': 'Deep Magazine' };
 const attackWarnings = {
   'virus-windup': 'VIRUS ABOUT TO LUNGE',
   'spore-windup': 'SPORE CHARGING',
@@ -197,6 +203,7 @@ let world;
 let sim;
 let campaign = null;
 let selectedUpgrade = null;
+let practice = null;
 let running = false;
 let loading = false;
 let paused = false;
@@ -224,6 +231,7 @@ let unlockedMission = Math.max(
   readSetting(heartKey) === 'true' ? 2 : readSetting(junctionKey) === 'true' ? 1 : 0,
 );
 let checkpoint = readCheckpoint();
+let megaVirusReached = readSetting(megaVirusKey) === 'true';
 let trainingComplete = readSetting(tutorialKey) === 'true';
 let sensitivity = clamp(Number.parseFloat(readSetting(sensitivityKey)) || 1, 0.5, 2.5);
 let graphicsQuality = readSetting(qualityKey) === 'low' ? 'low' : 'high';
@@ -240,7 +248,7 @@ function readCheckpoint() {
   try {
     const saved = JSON.parse(readSetting(checkpointKey));
     if (!saved || !Array.isArray(saved.results) || saved.results.length >= campaignAreas.length) return null;
-    if (saved.upgrade !== null && !Object.hasOwn(upgradeNames, saved.upgrade)) return null;
+    if (saved.upgrade !== null && !Object.hasOwn(FIELD_UPGRADES, saved.upgrade)) return null;
     const valid = saved.results.every((result, index) => result?.area === campaignAreas[index] &&
       [result.tissue, result.score, result.kills].every(Number.isFinite) &&
       Array.isArray(result.nodes) && result.nodes.length === 2 &&
@@ -301,11 +309,32 @@ function displayMissionAccess() {
     setText(status, available ? missions[area].briefing : 'Clear ' + missionName(campaignAreas[index - 1]) + ' to unlock.');
   }
   missionSelect.disabled = loading;
+  practiceLoadout.disabled = loading;
+  megaVirusDeploy.disabled = loading || !megaVirusReached || unlockedMission < campaignAreas.indexOf('brain');
+  setText(megaVirusStatus, megaVirusReached ? 'Start at Wave 3 with fresh supplies.' : 'Reach the Mega Virus in Neural Cortex to unlock.');
   setText(missionCount, (unlockedMission + 1) + ' of ' + campaignAreas.length + ' missions unlocked');
   resumeCampaignButton.hidden = !checkpoint;
   resumeCampaignButton.disabled = loading;
   if (deployLabel) setText(deployLabel, checkpoint ? 'Start new campaign' : 'Start campaign');
   if (checkpoint) setText(resumeCampaignLabel, 'Resume at ' + missionName(campaignAreas[checkpoint.results.length]));
+}
+
+function updatePracticeLoadout() {
+  const id = practiceLoadout.value;
+  const upgrade = FIELD_UPGRADES[id];
+  setText(practiceLoadoutDetail, upgrade?.description ?? 'Standard equipment without a field upgrade.');
+}
+
+function setupLoadouts() {
+  const saved = readSetting(practiceLoadoutKey);
+  practiceLoadout.value = Object.hasOwn(FIELD_UPGRADES, saved) ? saved : 'standard';
+  for (const button of upgradeButtons) {
+    const { name, description } = FIELD_UPGRADES[button.dataset.upgrade];
+    setText(button.querySelector('strong'), name);
+    const detail = button.querySelector('[data-upgrade-detail]') ?? button.querySelector('span');
+    setText(detail, description);
+  }
+  updatePracticeLoadout();
 }
 
 function requestMouse() {
@@ -348,16 +377,18 @@ function announce(title, detail = '', duration = 2.45) {
   announcementTimer = duration;
 }
 
-async function launch(area, run = null) {
+async function launch(area, run = null, drill = null) {
   const junction = area === 'junction';
   const heart = area === 'heart';
   const index = campaignAreas.indexOf(area);
   if (loading || running || index < 0 || index > unlockedMission) return;
+  if (drill?.bossPractice && (area !== 'brain' || !megaVirusReached)) return;
   const fromResult = resultDialog.open;
   const fromMissionList = missionDialog.open;
   const previousControl = document.activeElement;
   const previousSim = sim;
   const previousRun = campaign;
+  const previousPractice = practice;
   const previousUpgrade = selectedUpgrade;
   loading = true;
   deploy.disabled = true;
@@ -375,18 +406,21 @@ async function launch(area, run = null) {
     if (!world) world = new World(canvas);
     world.setArea(area);
     world.setQuality(graphicsQuality);
+    const upgrade = run?.upgrade ?? drill?.upgrade;
     const nextSim = new Simulation(area, {
-      tutorial: area === 'artery' && !trainingComplete,
-      upgrades: run?.upgrade ? [run.upgrade] : [],
+      tutorial: area === 'artery' && !trainingComplete && !drill,
+      upgrades: upgrade ? [upgrade] : [],
+      bossPractice: !!drill?.bossPractice,
     });
     nextSim.start();
     sim = nextSim;
     campaign = run;
+    practice = drill;
     selectedUpgrade = null;
     menu.hidden = true;
     touchControls.hidden = !isTouch;
     clearControls();
-    const equipped = run?.upgrade && upgradeNames[run.upgrade];
+    const equipped = upgrade && FIELD_UPGRADES[upgrade]?.name;
     campaignEquipped.hidden = !equipped;
     setText(campaignEquipped, equipped || '');
     game.dataset.area = sim.area;
@@ -413,7 +447,8 @@ async function launch(area, run = null) {
     Promise.resolve(unlocked).then(() => {
       if (running && !paused && sim === mission && sim.clock < 1.25) audio.play({ type: 'deploy' });
     }).catch(() => {});
-    if (heart) announce('HEART VALVE', 'HIT THE COLONY · DEFEND THE FLANK', 3.2);
+    if (drill?.bossPractice) announce('MEGA VIRUS PRACTICE', 'WATCH FOR THE PULSING CORE', 3.2);
+    else if (heart) announce('HEART VALVE', 'HIT THE COLONY · DEFEND THE FLANK', 3.2);
     else if (junction) announce('CAPILLARY JUNCTION', 'DEFEND BOTH INLETS', 2.8);
     else if (nextSim.organ) announce(missionName(area).toUpperCase(), missions[area].briefing, 3.5);
     else if (!sim.tutorial) announce('WAVE 01', 'DEFEND BOTH TISSUE NODES', 3.1);
@@ -432,6 +467,7 @@ async function launch(area, run = null) {
     releaseMouse();
     sim = previousSim;
     campaign = previousRun;
+    practice = previousPractice;
     selectedUpgrade = previousUpgrade;
     if (fromResult) {
       game.dataset.area = sim.area;
@@ -519,6 +555,7 @@ function mainMenu() {
   running = false;
   paused = false;
   campaign = null;
+  practice = null;
   selectedUpgrade = null;
   clearControls();
   audio.setActive(false);
@@ -551,14 +588,14 @@ function continueMission() {
   const area = nextMission(sim.area);
   if (!area) return;
   const run = campaign ? checkpoint : null;
-  launch(area, run);
+  launch(area, run, practice);
 }
 
 function updateUpgradeChoice() {
   for (const button of upgradeButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.upgrade === selectedUpgrade));
   }
-  setText(upgradeNote, upgradeNames[selectedUpgrade] + ' selected for ' + missionName(nextMission(sim.area)) + '.');
+  setText(upgradeNote, FIELD_UPGRADES[selectedUpgrade].name + ' selected for ' + missionName(nextMission(sim.area)) + '.');
   saveCheckpoint({ results: [...campaign.results, missionResult()], upgrade: selectedUpgrade });
 }
 
@@ -604,7 +641,8 @@ function finish() {
   const won = sim.phase === 'won';
   const junction = sim.area === 'junction';
   const heart = sim.area === 'heart';
-  const next = won ? nextMission(sim.area) : null;
+  const bossPractice = !!practice?.bossPractice;
+  const next = won && !bossPractice ? nextMission(sim.area) : null;
   const reward = Boolean(campaign && next);
   const complete = Boolean(campaign && won && !next);
   if (next && campaignAreas.indexOf(next) > unlockedMission) {
@@ -615,11 +653,11 @@ function finish() {
   if (complete) saveCheckpoint(null);
   displayMissionAccess();
   audio.play({ type: won ? 'won' : 'lost' });
-  if (sim.score > bestScore) {
+  if (!bossPractice && sim.score > bestScore) {
     bestScore = sim.score;
     writeSetting(bestKey, bestScore);
   }
-  byId('result-title').textContent = complete ? 'Campaign complete'
+  byId('result-title').textContent = complete ? 'Campaign complete' : won && bossPractice ? 'Mega Virus defeated'
     : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : sim.organMission ? missionName(sim.area) + ' secured' : 'Artery secured') : 'Mission failed';
   let detail;
   if (complete) detail = 'The Mega Virus is down. The infection is contained across all eight missions.';
@@ -652,7 +690,7 @@ function finish() {
     updateUpgradeChoice();
   }
   if (complete) drawCampaignReport(results);
-  setText(replayLabel, complete ? 'Restart campaign' : campaign ? 'Retry mission' : 'Redeploy');
+  setText(replayLabel, complete ? 'Restart campaign' : bossPractice ? 'Practice again' : campaign ? 'Retry mission' : 'Redeploy');
   replay.hidden = reward;
   replay.classList.toggle('primary', !next);
   replay.classList.toggle('outline', !!next);
@@ -1344,6 +1382,10 @@ function frame(now) {
       const colonyDefeated = sim.valve?.colonyDefeated;
       const enemiesActive = sim.enemies.length > 0;
       sim.step(dt, input);
+      if (!megaVirusReached && sim.boss && !practice?.bossPractice) {
+        megaVirusReached = true;
+        writeSetting(megaVirusKey, 'true');
+      }
       if (sim.phase !== phase || sim.tutorial !== tutorial || sim.valve?.colonyDefeated !== colonyDefeated ||
         (sim.gastric && sim.phase === 'intermission' && (sim.enemies.length > 0) !== enemiesActive)) syncMusic();
       applyEvents();
@@ -1413,7 +1455,14 @@ missionSelect.addEventListener('click', () => {
   missionError.hidden = true;
   missionDialog.showModal();
 });
-for (const { area, button } of missionEntries) button.addEventListener('click', () => launch(area));
+practiceLoadout.addEventListener('change', () => {
+  writeSetting(practiceLoadoutKey, practiceLoadout.value);
+  updatePracticeLoadout();
+});
+for (const { area, button } of missionEntries) {
+  button.addEventListener('click', () => launch(area, null, { upgrade: practiceLoadout.value }));
+}
+megaVirusDeploy.addEventListener('click', () => launch('brain', null, { upgrade: practiceLoadout.value, bossPractice: true }));
 continueButton.addEventListener('click', continueMission);
 for (const button of upgradeButtons) {
   button.addEventListener('click', () => {
@@ -1424,7 +1473,7 @@ for (const button of upgradeButtons) {
 }
 replay.addEventListener('click', () => {
   if (campaign && sim.area === campaignAreas.at(-1) && sim.phase === 'won') startCampaign();
-  else launch(sim.area, campaign);
+  else launch(sim.area, campaign, practice);
 });
 byId('return-menu').addEventListener('click', mainMenu);
 byId('quit').addEventListener('click', mainMenu);
@@ -1557,4 +1606,5 @@ syncSettings();
 audio.preloadEffects();
 syncMusic();
 displayBest();
+setupLoadouts();
 displayMissionAccess();

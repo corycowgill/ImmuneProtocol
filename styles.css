@@ -66,16 +66,23 @@ h1 span{display:block;color:var(--green);margin-top:.105em}
 .mission-panel .mission-count:not(.eyebrow){margin-bottom:10px;color:var(--green);font:500 10px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase}
 .mission-panel #mission-intro{max-width:48ch;font-size:13px;line-height:1.45;margin-bottom:14px}
 .mission-panel #mission-error{color:#ffab9d;font:500 11px/1.45 var(--mono)}
+.practice-loadout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:5px 10px;padding:7px 10px;margin:0 0 9px;background:#292018;border:1px solid var(--line)}
+.practice-loadout label{color:var(--paper);font:700 10px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.practice-loadout select{min-height:44px;padding:0 7px;border:1px solid #d7c5ab68;background:#201712;color:var(--paper);font:inherit;font-size:13px;cursor:pointer}
+.practice-loadout select:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.mission-panel .practice-loadout p:not(.eyebrow){grid-column:1/-1;margin:0;font:500 10px/1.4 var(--mono)}
 .mission-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:0;padding:0;list-style:none}
-.mission-list>li{min-width:0;background:linear-gradient(135deg,#39262170,#24201c70);border:1px solid var(--line)}
-.mission-list>li:has(button:not(:disabled)){border-left:2px solid var(--mission-color,var(--green))}
-.mission-list>li:has(button:not(:disabled):hover){border-color:var(--mission-color,var(--green));background:#322a21}
+.mission-list>li,.boss-practice{min-width:0;background:linear-gradient(135deg,#39262170,#24201c70);border:1px solid var(--line)}
+:is(.mission-list>li,.boss-practice):has(button:not(:disabled)){border-left:2px solid var(--mission-color,var(--green))}
+:is(.mission-list>li,.boss-practice):has(button:not(:disabled):hover){border-color:var(--mission-color,var(--green));background:#322a21}
 .mission-card{width:100%;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:8px 11px 4px;border:0;background:none;text-align:left;color:var(--mission-color,var(--green));font:800 22px/.96 var(--display);letter-spacing:.015em;text-transform:uppercase}
-.mission-card svg{width:17px;height:17px}
+.mission-card svg{width:17px;height:17px;flex:none}
 .mission-card:disabled{color:#c4b4a8;cursor:default}
 .mission-card:disabled svg{opacity:.3}
 .mission-card:focus-visible{outline-offset:-3px}
-.mission-list p:not(.eyebrow){margin:0;padding:0 11px 8px;font:500 9px/1.35 var(--mono);letter-spacing:.035em}
+.mission-panel :is(.mission-list,.boss-practice) p:not(.eyebrow){margin:0;padding:0 11px 8px;font:500 9px/1.35 var(--mono);letter-spacing:.035em}
+.boss-practice{--mission-color:#dcb7f5;margin-top:9px}
+.boss-practice #mega-virus-status{padding-bottom:4px}
 .mission-list>li:has([data-deploy-area="junction"]){--mission-color:#ffb88c}
 .mission-list>li:has([data-deploy-area="heart"]){--mission-color:#f7a0a6}
 .mission-list>li:has([data-deploy-area="lungs"]){--mission-color:#99ded5}
@@ -611,7 +618,7 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
   .mission-panel .close-dialog{top:12px;right:12px}
   .mission-card{font-size:18px;padding-inline:8px}
   .mission-card svg{width:13px;height:13px}
-  .mission-list p:not(.eyebrow){padding-inline:8px}
+  .mission-panel :is(.mission-list,.boss-practice) p:not(.eyebrow){padding-inline:8px}
   .host-panel{width:44vw}
   .game .wave-panel{top:49px;left:auto;right:12px;transform:none;max-width:46vw;padding:3px 7px 12px}
   .game:has(#organ-hazard:not([hidden])) .mission-guidance{top:max(204px,25%)}
@@ -642,7 +649,7 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
   .mission-panel h2{font-size:32px}
   .mission-list{grid-template-columns:repeat(4,minmax(0,1fr))}
   .mission-card{font-size:18px;padding-inline:8px}
-  .mission-list p:not(.eyebrow){padding-inline:8px}
+  .mission-panel :is(.mission-list,.boss-practice) p:not(.eyebrow){padding-inline:8px}
   .game:has(#organ-hazard:not([hidden])) .mission-guidance{left:50%;top:auto;bottom:21%;width:min(340px,53vw)}
   .game:has(#organ-hazard:not([hidden])) .game-alert{font-size:21px}
   .game:has(#organ-hazard:not([hidden])) .game-alert small{margin-top:5px;font-size:8px}

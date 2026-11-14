@@ -265,8 +265,19 @@
         <h2 id="mission-title">Mission select</h2>
         <p id="mission-count" class="mission-count"></p>
       </div>
-      <p id="mission-intro">Clear missions in order to unlock new insertion sites. Launch any unlocked mission for practice.</p>
+      <p id="mission-intro">Clear missions in order to unlock new insertion sites. Choose a loadout and launch any unlocked mission for practice.</p>
       <p id="mission-error" class="menu-error" role="alert" hidden></p>
+      <div class="practice-loadout">
+        <label for="practice-loadout">Practice loadout</label>
+        <select id="practice-loadout" aria-describedby="practice-loadout-detail">
+          <option value="standard">Standard</option>
+          <option value="fast-sealer">Fast Sealer</option>
+          <option value="deep-magazine">Deep Magazine</option>
+          <option value="insulated-suit">Insulated Suit</option>
+          <option value="turret-stabilizer">Turret Stabilizer</option>
+        </select>
+        <p id="practice-loadout-detail" role="status">Standard equipment with no field upgrade.</p>
+      </div>
       <ol id="mission-list" class="mission-list">
         <li>
           <button id="deploy-artery" class="mission-card" data-deploy-area="artery" aria-describedby="artery-status" type="button"><span data-mission-name>Arterial Junction</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
@@ -301,6 +312,11 @@
           <p id="brain-status" data-mission-status="brain">Locked</p>
         </li>
       </ol>
+      <div class="boss-practice">
+        <button id="deploy-mega-virus" class="mission-card" aria-describedby="mega-virus-status mega-virus-rules" type="button" disabled><span>Practice Mega Virus</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+        <p id="mega-virus-status">Reach the Mega Virus in Neural Cortex to unlock.</p>
+        <p id="mega-virus-rules">Starts at Wave 3. Practice never advances your campaign.</p>
+      </div>
     </dialog>
 
     <dialog id="manual-dialog" class="panel">
@@ -317,6 +333,7 @@
       <p>In Bronchial Fork, hold Repair near each bronchus after wave two to reopen it. Keep both open through one full breath. An airway blocks again if its tissue falls below 45%.</p>
       <p>In Gastric Chamber, hold Repair at the intake valve after wave one to close it. Watch for redirected acid as you cross to the opposite bank and open the drain. Once the basin drains, watch the exposed lower passage for flanking pathogens.</p>
       <p>In the Neural Cortex finale, fire at the Mega Virus’s glowing cores when their shells open. Use the time between openings to intercept its offspring and repair the tissue nodes.</p>
+      <p>Equip one field upgrade at each checkpoint. Insulated Suit reduces acid and pressure damage, and Turret Stabilizer extends the slow effect. Mission Select lets you try any loadout and practice the Mega Virus after you first reach it.</p>
       <p>Watch the organ status during later missions for hazard warnings and advice. Your campaign checkpoint keeps completed missions and your field upgrade. The final report shows tissue integrity across all eight missions.</p>
       <dl class="controls-list">
         <div><dt>Move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dd></div>
@@ -395,11 +412,19 @@
         <div class="campaign-choices">
           <button class="campaign-choice" type="button" data-upgrade="fast-sealer" aria-pressed="false">
             <strong>Fast Sealer</strong>
-            <span>Restores 18% tissue per pulse</span>
+            <span data-upgrade-detail>Restores 18% tissue per pulse</span>
           </button>
           <button class="campaign-choice" type="button" data-upgrade="deep-magazine" aria-pressed="false">
             <strong>Deep Magazine</strong>
-            <span>42 rounds per magazine</span>
+            <span data-upgrade-detail>42 rounds per magazine</span>
+          </button>
+          <button class="campaign-choice" type="button" data-upgrade="insulated-suit" aria-pressed="false">
+            <strong>Insulated Suit</strong>
+            <span data-upgrade-detail>40% less damage from acid and pressure waves</span>
+          </button>
+          <button class="campaign-choice" type="button" data-upgrade="turret-stabilizer" aria-pressed="false">
+            <strong>Turret Stabilizer</strong>
+            <span data-upgrade-detail>Turret slow lasts 2.2s instead of 1.4s</span>
           </button>
         </div>
         <p id="campaign-upgrade-note" class="campaign-note" role="status"></p>
