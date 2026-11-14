@@ -119,6 +119,15 @@ const bossStatusDetail = byId('boss-status-detail');
 const bossTime = byId('boss-time');
 const bossMarker = byId('boss-marker');
 const bossMarkerLabel = byId('boss-marker-label');
+const airwayHud = byId('airway-hud');
+const airwayStatus = byId('airway-status');
+const airwayDetail = byId('airway-detail');
+const airwayTime = byId('airway-time');
+const airwayHold = byId('airway-hold');
+const airwayReadouts = ['left', 'right'].map(side => ({
+  status: byId('airway-' + side + '-status'),
+  label: byId('airway-' + side + '-label'),
+}));
 const branches = {
   left: { name: 'AMBER', badge: byId('branch-left'), marker: byId('inlet-left') },
   right: { name: 'TEAL', badge: byId('branch-right'), marker: byId('inlet-right') },
@@ -600,6 +609,7 @@ function finish() {
   else if (won) {
     const opening = next ? missionName(next) + ' is open for deployment.' : 'The Mega Virus is down and both tissue nodes survived.';
     detail = sim.overtimeBonus > 0 ? 'Overtime cleared. +' + sim.overtimeBonus.toLocaleString() + ' score. ' + opening : opening;
+    if (sim.airway?.state === 'secured') detail = 'Both bronchi stayed open through a full breath. ' + opening;
   }
   else if (sim.overtime) {
     const cause = sim.failedNode ? sim.failedNode.name + ' failed.' : 'Your suit failed.';
@@ -802,6 +812,30 @@ function drawBossHud() {
   setText(bossTime, Math.max(1, Math.ceil(boss.remaining)) + 's');
 }
 
+function drawAirwayHud() {
+  const airway = sim.airway;
+  airwayHud.hidden = !airway;
+  if (!airway) return;
+  const { state, remaining, duration, ports, minimumIntegrity, incoming } = airway;
+  airwayHud.dataset.state = state;
+  for (const [index, { nodeId, open, progress }] of ports.entries()) {
+    const { status, label } = airwayReadouts[index];
+    status.dataset.state = open ? 'open' : sim.repairTarget?.id === nodeId ? 'repairing' : 'blocked';
+    setText(label, open ? 'Open' : progress > 0 ? 'Blocked · ' + Math.floor(progress * 100) + '% cleared' : 'Blocked');
+  }
+  const holding = state === 'holding';
+  const secured = state === 'secured';
+  setText(airwayStatus, secured ? 'Airflow restored' : holding ? 'Maintain both airways' : 'Reopen both bronchi');
+  const target = incoming?.names.length === 1 ? incoming.names[0] : 'Both bronchi';
+  const detail = secured ? 'Clear remaining pathogens' : holding ?
+    'Keep both nodes at ' + minimumIntegrity + '% or higher' : 'Repair each blocked bronchus';
+  setText(airwayDetail, incoming ? 'Attack on ' + target.toLowerCase() + ' in ' + Math.max(1, Math.ceil(incoming.remaining)) + 's' : detail);
+  setText(airwayTime, holding ? Math.max(1, Math.ceil(remaining)) + 's' : '');
+  airwayHold.hidden = state === 'reopen';
+  const progress = secured ? 100 : Math.floor(100 * (1 - remaining / duration));
+  if (airwayHold.value !== progress) airwayHold.value = progress;
+}
+
 function drawHud() {
   const { player, tissue, wave, waves, remaining, phase, intermission, valve } = sim;
   const suitPercent = Math.ceil(player.health);
@@ -809,6 +843,7 @@ function drawHud() {
   drawTurretHud();
   drawOrganHazard();
   drawBossHud();
+  drawAirwayHud();
   setText(suitValue, suitPercent);
   fillMeter(healthMeter, healthFill, suitPercent);
   setText(equipmentLabel, sim.repairing ? 'TISSUE SEALER' : 'NEEDLE CARBINE');
@@ -828,7 +863,7 @@ function drawHud() {
       waveValue.replaceChildren(document.createTextNode(pad(wave) + ' '), total);
     }
     let status = remaining + (remaining === 1 ? ' THREAT LEFT' : ' THREATS LEFT');
-    if (sim.boss) status = sim.enemies.length ?
+    if (sim.boss || sim.airway) status = sim.enemies.length ?
       sim.enemies.length + (sim.enemies.length === 1 ? ' PATHOGEN ACTIVE' : ' PATHOGENS ACTIVE') : '';
     else if (sim.tutorial) status = 'FIELD TRAINING';
     else if (sim.extractionPending) status = 'EXTRACTION READY';
@@ -843,7 +878,8 @@ function drawHud() {
   const repairingNode = sim.repairTarget;
   const restoringHere = !!nearby && restoredNode?.id === nearby.id && restoredNode.until > sim.clock && nearby.health === 100;
   const repairKey = isTouch ? 'HOLD REPAIR' : 'HOLD E';
-  const repairing = sim.repairing && !restoringHere;
+  const blockedPort = sim.airway?.ports.find(port => port.nodeId === nearby?.id && !port.open);
+  const repairing = sim.repairing && (!restoringHere || !!blockedPort);
   let prompt = '';
   if (repairing && sim.gash && sim.repairTarget === sim.gash) prompt = 'SEALING GASH';
   else if (sim.gash && sim.nearGash) {
@@ -851,6 +887,8 @@ function drawHud() {
     prompt = repairKey + ' TO SEAL GASH' + (sealed ? ' · ' + sealed + '%' : '');
   }
   else if (sim.gash && sim.settling) prompt = 'MOVE TO THE GASH TO SEAL IT';
+  else if (blockedPort && sim.canRepair) prompt = repairing ?
+    'REOPENING ' + blockedPort.name.toUpperCase() : repairKey + ' TO REOPEN ' + blockedPort.name.toUpperCase();
   else if (restoringHere) prompt = nearby.name.toUpperCase() + ' RESTORED · 100%';
   else if (repairing) prompt = 'REPAIRING ' + repairingNode.name.toUpperCase();
   else if (sim.canRepair && nearby) prompt = repairKey + ' TO REPAIR ' + nearby.name.toUpperCase();
@@ -873,9 +911,11 @@ function drawHud() {
   repairMeter.hidden = !repairing;
   if (repairing) {
     const gash = sim.repairTarget === sim.gash && sim.gash;
+    const port = sim.airway?.ports.find(item => item.nodeId === sim.repairTarget?.id && !item.open);
     const value = gash ? Math.floor(100 * clamp(
       (gash.sealRequired - gash.sealRemaining + sim.repairProgress * sim.repairAmount) / gash.sealRequired, 0, 1,
-    )) : Math.floor(sim.repairProgress * 100);
+    )) : port ? Math.min(99, Math.floor(100 * (port.progress + sim.repairProgress * sim.repairAmount / sim.airway.sealPoints)))
+      : Math.floor(sim.repairProgress * 100);
     repairFill.style.width = value + '%';
     if (repairMeter.getAttribute('aria-valuenow') !== String(value)) repairMeter.setAttribute('aria-valuenow', value);
   }
@@ -900,6 +940,8 @@ function drawMarkers() {
     const visible = point.visible && point.y >= top && point.y < height * .84 && point.x > 58 && point.x < width - 58;
     const concealed = (index > 0 && !!sim.tutorial) || (valveNode && sim.valve.exposed && !sim.valve.colonyDefeated) || sim.gash?.nodeId === node.id;
     const status = nodeStatus(node);
+    const port = sim.airway?.ports[index];
+    const markerName = port?.name ?? node.name;
     const danger = status === 'UNDER ATTACK' || status === 'CRITICAL';
     const nearby = distance <= RULES.repairRadius && !danger;
     marker.hidden = concealed || !visible || nearby;
@@ -911,13 +953,13 @@ function drawMarkers() {
     if (!marker.hidden) {
       marker.style.left = point.x + 'px';
       marker.style.top = point.y + 'px';
-      setText(label, node.name);
-      setText(distanceLabel, Math.round(distance) + ' m');
+      setText(label, markerName);
+      setText(distanceLabel, (port && !port.open ? 'Blocked · ' : '') + Math.round(distance) + ' m');
     }
     if (!edge.hidden) {
       const position = positionEdgeMarker(edge, point, dx, dz, top, width, height, edgePositions);
       edgePositions.push(position);
-      setText(edgeLabel, node.name + ' · ' + (danger ? Math.ceil(node.health) + '%' : Math.round(distance) + ' m'));
+      setText(edgeLabel, markerName + ' · ' + (danger ? Math.ceil(node.health) + '%' : port && !port.open ? 'Blocked' : Math.round(distance) + ' m'));
     }
   }
   drawGash(edgePositions);
@@ -1082,7 +1124,7 @@ function applyEvents() {
       announce('DEFEND BOTH TISSUE NODES', isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
       audio.play({ type: 'wave', stage: 'start' });
     }
-    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss'].includes(event.type) && Number.isFinite(event.x)) {
+    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss', 'airway'].includes(event.type) && Number.isFinite(event.x)) {
       const { x, z, yaw } = sim.player;
       const dx = event.x - x;
       const dz = event.z - z;
@@ -1097,6 +1139,14 @@ function applyEvents() {
       } else if (event.stage === 'defeated') {
         announce('MEGA VIRUS DOWN', 'CLEAR SURVIVING PATHOGENS', 2.5);
       }
+    }
+    if (event.type === 'airway') {
+      if (event.stage === 'start') announce('AIRWAY OBSTRUCTION', 'MOVE TO EACH BRONCHUS AND HOLD REPAIR', 3);
+      if (event.stage === 'opened') announce(event.name.toUpperCase() + ' OPEN', 'WATCH THE TISSUE INTEGRITY', 1.8);
+      if (event.stage === 'blocked') announce(event.name.toUpperCase() + ' BLOCKED', 'REOPEN IT TO RESTART THE BREATH', 2.6);
+      if (event.stage === 'hold') announce('BOTH BRONCHI OPEN', 'HOLD THROUGH ONE FULL BREATH', 2.8);
+      if (event.stage === 'secured') announce('AIRFLOW RESTORED', sim.enemies.length ? 'CLEAR SURVIVING PATHOGENS' : '', 2.4);
+      if (event.stage === 'incoming') announce('PATHOGENS INBOUND', event.name.toUpperCase(), 1.9);
     }
     if (event.type === 'turret') {
       if (event.stage === 'deployed') announce('AUTO-TURRET ONLINE', 'COVERING THIS POSITION', 1.8);

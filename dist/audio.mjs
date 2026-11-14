@@ -305,6 +305,19 @@ export class GameAudio {
         }
         break;
       }
+      case 'airway': {
+        const pan = this.spatialPan(event) * .8;
+        if (event.stage === 'start' || event.stage === 'blocked') {
+          this.playSample('field/valve-close', .41, { pan, rate: .77 });
+        } else if (event.stage === 'opened') {
+          this.playSample('field/valve-open', .48, { pan, rate: .93 });
+        } else if (event.stage === 'hold') {
+          this.playSample('field/branch', .27, { pan, rate: .92 });
+        } else if (event.stage === 'incoming') {
+          this.playSample('field/virus-windup', .43, { pan, rate: .87 });
+        }
+        break;
+      }
       case 'valve': {
         const pan = this.spatialPan(event) * .7;
         if (event.stage === 'open') this.playSample('field/valve-open', .36, { pan });

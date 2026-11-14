@@ -114,6 +114,25 @@
               <span id="boss-time" class="boss-time" role="timer"></span>
             </div>
           </section>
+          <section id="airway-hud" class="airway-hud" aria-labelledby="airway-title" data-state="reopen" hidden>
+            <h2 id="airway-title">Airway recovery</h2>
+            <div class="airway-ports">
+              <div id="airway-left-status" class="airway-port" data-state="blocked">
+                <span>Left bronchus</span>
+                <span id="airway-left-label" class="airway-port-state">Blocked</span>
+              </div>
+              <div id="airway-right-status" class="airway-port" data-state="blocked">
+                <span>Right bronchus</span>
+                <span id="airway-right-label" class="airway-port-state">Blocked</span>
+              </div>
+            </div>
+            <div class="airway-readout">
+              <span id="airway-status" class="airway-status" role="status">Reopen both bronchi</span>
+              <span id="airway-detail" class="airway-detail"></span>
+              <span id="airway-time" class="airway-time" role="timer"></span>
+            </div>
+            <progress id="airway-hold" class="airway-hold" max="100" value="0" aria-label="Breath cycle complete" hidden></progress>
+          </section>
           <span class="hud-label" id="wave-mode">INFECTION WAVE</span>
           <strong id="wave-value">01 <span>/ 05</span></strong>
           <small id="threats">THREATS INBOUND</small>
@@ -267,6 +286,7 @@
       <p>In Capillary Junction, the attack countdown shows which node is next and what is coming. Between waves, choose an inlet reinforcement, ammo, or turret redeployment. To move an active turret, select Redeploy turret, face clear ground, and press Q or tap Turret before the break ends.</p>
       <p>Open gashes drain tissue even after the attacker is gone. Follow the gash marker and hold repair in range to seal it. Once Capillary Junction is secure, extract or stay for an optional bonus wave.</p>
       <p>At Heart Valve, shoot the colony through the opening and repair the valve wound while it is closed. You can repair the other node at any time. Restore both to secure the chamber.</p>
+      <p>In Bronchial Fork, hold Repair near each bronchus after wave two to reopen it. Keep both open through one full breath. An airway blocks again if its tissue falls below 45%.</p>
       <p>In the Neural Cortex finale, fire at the Mega Virus’s glowing cores when their shells open. Use the time between openings to intercept its offspring and repair the tissue nodes.</p>
       <p>Watch the organ status during later missions for hazard warnings and advice. Your campaign checkpoint keeps completed missions and your field upgrade. The final report shows tissue integrity across all eight missions.</p>
       <dl class="controls-list">

@@ -304,6 +304,46 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .boss-marker{position:absolute;z-index:1;transform:translate(-50%,calc(-100% - 5px));color:#e2f9a7;white-space:nowrap;text-transform:uppercase;font-size:9px;letter-spacing:.06em}
 .boss-marker strong{display:block;padding:3px 5px;background:#21251bea;border:1px solid #effbc683}
 .boss-marker::after{content:"";position:absolute;top:100%;left:50%;height:5px;width:1px;background:currentColor}
+.game:has(#airway-hud:not([hidden])) .host-panel{width:min(232px,25vw)}
+.wave-panel:has(#airway-hud:not([hidden])){width:min(320px,39vw);padding:0 0 5px;background:none}
+.wave-panel:has(#airway-hud:not([hidden])) :is(#wave-mode,#wave-value){display:none}
+.wave-panel:has(#airway-hud:not([hidden])) #threats{display:block;margin:4px auto 0;color:#e6decd}
+.wave-panel:has(#airway-hud:not([hidden])) .organ-hazard{width:100%;margin-top:4px}
+.airway-hud{
+  --airway:#ffbd90;
+  padding:8px 10px;
+  border:1px solid #9ed2c65c;
+  border-top:2px solid var(--airway);
+  background:linear-gradient(145deg,#1b2725f2,#141916f2);
+  text-align:left;
+}
+.airway-hud[data-state="holding"],.airway-hud[data-state="secured"]{--airway:#b5eee0}
+.airway-hud h2{margin:0 0 7px;color:#e8f2ed;font:800 27px/.95 var(--display);letter-spacing:.06em;text-transform:uppercase}
+.airway-ports{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-bottom:7px}
+.airway-port{
+  --port:#ffbd90;
+  display:grid;gap:2px;
+  padding:4px 5px;
+  border:1px solid #a9d4c34d;
+  border-left:2px solid var(--port);
+  color:#eee4d4;
+  background:#120d0b82;
+  font-size:9px;
+  letter-spacing:.02em;
+  overflow-wrap:anywhere;
+}
+.airway-port[data-state="repairing"]{--port:#f6d998}
+.airway-port[data-state="open"]{--port:#9adfbe}
+.airway-port-state{color:var(--port);text-transform:uppercase;font-weight:700}
+.airway-readout{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"status time" "detail time";align-items:center;gap:2px 6px;letter-spacing:.04em;line-height:1.2}
+.airway-status{grid-area:status;color:var(--airway);font-weight:700;text-transform:uppercase}
+.airway-detail{grid-area:detail;color:#e3ded0;font-size:9px;overflow-wrap:anywhere}
+.airway-time{grid-area:time;color:var(--airway);font:800 24px/.96 var(--display);font-variant-numeric:tabular-nums}
+.airway-detail:empty,.airway-time:empty{display:none}
+.airway-hold{appearance:none;display:block;width:100%;height:4px;margin-top:6px;border:0;background:#bedcc443;color:var(--airway)}
+.airway-hold::-webkit-progress-bar{background:#bedcc443}
+.airway-hold::-webkit-progress-value{background:var(--airway)}
+.airway-hold::-moz-progress-bar{background:var(--airway)}
 [data-branch="left"]{--branch:#ffbd7e}
 [data-branch="right"]{--branch:#8fe4dd}
 .game-actions{position:absolute;right:25px;top:25px;display:flex;gap:7px;pointer-events:auto}
@@ -608,6 +648,49 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
   .game:has(#boss-hud:not([hidden])) .mission-guidance{top:clamp(54px,18vh,84px);right:12px;bottom:auto;left:auto;transform:none;width:min(150px,23vw)}
   .game:has(#boss-hud:not([hidden])) .game-alert{font-size:19px}
   .game:has(#boss-hud:not([hidden])) .game-alert small{font-size:8px}
+}
+.game:has(#airway-hud:not([hidden])) .mission-guidance{top:79px;right:25px;bottom:auto;left:auto;transform:none;width:min(212px,24vw)}
+.game:has(#airway-hud:not([hidden])) .game-alert{font-size:clamp(18px,2.6vw,31px)}
+.game:has(#airway-hud:not([hidden])) .game-alert small{margin-top:6px}
+@media(max-width:720px),(max-height:500px){
+  .airway-hud{padding:6px 7px}
+  .airway-hud h2{font-size:21px;margin-bottom:5px}
+  .airway-ports{gap:4px;margin-bottom:5px}
+  .airway-port{padding:3px 4px;font-size:8px}
+  .airway-status{font-size:9px}
+  .airway-detail{font-size:8px}
+  .airway-time{font-size:20px}
+}
+@media(max-width:480px){
+  .game:has(#airway-hud:not([hidden])) .host-panel{width:44vw}
+  .game .wave-panel:has(#airway-hud:not([hidden])){top:51px;width:44vw;min-width:0;padding:0}
+  .airway-hud h2{font-size:19px;letter-spacing:.03em}
+  .airway-time{font-size:18px}
+  .game:has(#airway-hud:not([hidden])) .mission-guidance{top:120px;right:auto;left:12px;width:44vw}
+  .game:has(#airway-hud:not([hidden])) .game-alert small{font-size:8px}
+}
+@media(orientation:landscape) and (max-height:500px){
+  .game .wave-panel:has(#airway-hud:not([hidden])){top:10px}
+  .airway-hud{padding:4px 6px}
+  .airway-hud h2{font-size:20px;margin-bottom:4px}
+  .airway-ports{margin-bottom:4px}
+  .airway-port{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:3px;padding:3px;font-size:7px}
+  .airway-hold{margin-top:4px}
+  .wave-panel:has(#airway-hud:not([hidden])) .organ-hazard{padding:4px 5px;gap:2px 5px;font-size:9px}
+  .wave-panel:has(#airway-hud:not([hidden])) .organ-hazard-time{font-size:17px}
+  .game:has(#airway-hud:not([hidden])) .mission-guidance{top:57px;right:12px;width:min(150px,23vw)}
+  .game:has(#airway-hud:not([hidden])) .game-alert small{font-size:8px}
+}
+@media(orientation:landscape) and (max-height:380px) and (max-width:720px){
+  .wave-panel:has(#airway-hud:not([hidden])) .organ-hazard{position:absolute;left:calc(100% + 8px);top:44px;width:min(140px,25vw);margin:0}
+  .game:has(#airway-hud:not([hidden])) .mission-guidance{top:116px;right:auto;left:12px;width:min(150px,25vw)}
+}
+@media(max-width:350px){
+  .airway-hud{padding:5px}
+  .airway-hud h2{font-size:18px;margin-bottom:4px}
+  .airway-ports{margin-bottom:4px}
+  .airway-port{padding:2px 3px;font-size:7px;gap:1px}
+  .airway-hold{margin-top:4px}
 }
 @media(pointer:coarse){.field-hint,.junction-supply-options kbd,.turret-status kbd{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}

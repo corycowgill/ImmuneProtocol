@@ -27,7 +27,7 @@ Choose **Start campaign** to deploy into Arterial Junction. Between missions, eq
 | Arterial Junction | Learn to intercept attackers and repair the core before defending both nodes through five waves. |
 | Capillary Junction | Read the Amber and Teal attack forecasts, deploy support between waves, and choose whether to stay for Overtime. |
 | Heart Valve | Shoot the colony through the open valve and defend the Septal Node against flank attacks. |
-| Bronchial Fork | Step out of the central airway before each exhale pushes through it. |
+| Bronchial Fork | Survive two waves, reopen both bronchi, and keep them open through a full breath. |
 | Gastric Chamber | Fight from the sides when acid floods the central basin. |
 | Intestinal Bend | Move into the side channels to evade the pressure wave. |
 | Inner Ear | Place your turret outside the resonance zones to keep it firing. |
@@ -74,6 +74,8 @@ In the breach wave, a bacillus tear can leave a gash that keeps draining tissue 
 After securing Capillary Junction, choose **Extract** to bank the result or **Stay for overtime**. Both nodes, your remaining suit health and ammo, and your turret carry into overtime. Stop the Teal breach, clear the Amber spore pressure, and seal any gash to earn 2,000 bonus points. If you lose in overtime, retry Capillary Junction from Wave 1.
 
 In Heart Valve, fire through the opening to hit the colony. Use each closed window to repair the valve wound. The outer wall can be repaired at any time. The mission ends when the colony and flank threats are gone and both nodes are restored. Unlocks are saved in the browser.
+
+In **Bronchial Fork**, move to each blocked bronchus after the second wave and hold Repair to reopen it. Completed pulses carry over while you stop to fight. Once both bronchi are open, keep both tissue nodes at **45% integrity or higher** through one full breath. If integrity drops below 45%, that side clogs again. Watch the exhale timer when crossing the central airway, and clear any surviving pathogens before leaving.
 
 The **Mega Virus** is Neural Cortex's third wave. Its connected membranes protect three cores. Follow the pulse to the core about to open, then shoot the exposed tissue. When the shell closes, clear spawned viruses, reload, and repair. Neural overload blocks repairs at the highlighted node during exposure. In the final phase, Shellbacks and Splitters pressure opposite sides. Clear any survivors after the boss falls.
 
