@@ -133,6 +133,29 @@
             </div>
             <progress id="airway-hold" class="airway-hold" max="100" value="0" aria-label="Breath cycle complete" hidden></progress>
           </section>
+          <section id="gastric-hud" class="gastric-hud" aria-labelledby="gastric-title" data-state="intake" hidden>
+            <div class="gastric-heading">
+              <h2 id="gastric-title">Basin drainage</h2>
+              <span id="gastric-flow" class="gastric-flow">Acid cycling</span>
+            </div>
+            <div class="gastric-valves" role="group" aria-label="Drainage valves">
+              <div id="gastric-intake" class="gastric-valve" data-state="ready">
+                <span>Intake valve</span>
+                <span id="gastric-intake-state" class="gastric-valve-state">Open</span>
+                <progress id="gastric-intake-progress" max="100" value="0" aria-label="Intake valve closure"></progress>
+              </div>
+              <div id="gastric-drain" class="gastric-valve" data-state="locked">
+                <span>Drain valve</span>
+                <span id="gastric-drain-state" class="gastric-valve-state">Locked</span>
+                <progress id="gastric-drain-progress" max="100" value="0" aria-label="Drain valve opening"></progress>
+              </div>
+            </div>
+            <div class="gastric-readout">
+              <span id="gastric-status" class="gastric-status" role="status">Close the intake</span>
+              <span id="gastric-detail" class="gastric-detail">Hold Repair at the intake valve</span>
+              <span id="gastric-time" class="gastric-time" role="timer"></span>
+            </div>
+          </section>
           <span class="hud-label" id="wave-mode">INFECTION WAVE</span>
           <strong id="wave-value">01 <span>/ 05</span></strong>
           <small id="threats">THREATS INBOUND</small>
@@ -178,6 +201,11 @@
         <div id="gash-edge" class="objective-edge gash-edge" aria-hidden="true" hidden>
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 9l5-5 5 5M8 4v9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <strong id="gash-edge-label">OPEN GASH</strong>
+        </div>
+        <div id="gastric-marker" class="objective-marker gastric-marker" aria-hidden="true" hidden><span></span><strong id="gastric-marker-label">INTAKE VALVE</strong><small id="gastric-marker-distance"></small></div>
+        <div id="gastric-edge" class="objective-edge gastric-edge" aria-hidden="true" hidden>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 9l5-5 5 5M8 4v9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <strong id="gastric-edge-label">INTAKE VALVE</strong>
         </div>
         <div id="inlet-left" class="inlet-marker" data-branch="left" aria-hidden="true" hidden>AMBER INLET</div>
         <div id="inlet-right" class="inlet-marker" data-branch="right" aria-hidden="true" hidden>TEAL INLET</div>
@@ -287,6 +315,7 @@
       <p>Open gashes drain tissue even after the attacker is gone. Follow the gash marker and hold repair in range to seal it. Once Capillary Junction is secure, extract or stay for an optional bonus wave.</p>
       <p>At Heart Valve, shoot the colony through the opening and repair the valve wound while it is closed. You can repair the other node at any time. Restore both to secure the chamber.</p>
       <p>In Bronchial Fork, hold Repair near each bronchus after wave two to reopen it. Keep both open through one full breath. An airway blocks again if its tissue falls below 45%.</p>
+      <p>In Gastric Chamber, hold Repair at the intake valve after wave one to close it. Watch for redirected acid as you cross to the opposite bank and open the drain. Once the basin drains, watch the exposed lower passage for flanking pathogens.</p>
       <p>In the Neural Cortex finale, fire at the Mega Virus’s glowing cores when their shells open. Use the time between openings to intercept its offspring and repair the tissue nodes.</p>
       <p>Watch the organ status during later missions for hazard warnings and advice. Your campaign checkpoint keeps completed missions and your field upgrade. The final report shows tissue integrity across all eight missions.</p>
       <dl class="controls-list">

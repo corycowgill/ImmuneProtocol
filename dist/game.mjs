@@ -128,6 +128,22 @@ const airwayReadouts = ['left', 'right'].map(side => ({
   status: byId('airway-' + side + '-status'),
   label: byId('airway-' + side + '-label'),
 }));
+const gastricHud = byId('gastric-hud');
+const gastricStatus = byId('gastric-status');
+const gastricDetail = byId('gastric-detail');
+const gastricTime = byId('gastric-time');
+const gastricFlow = byId('gastric-flow');
+const gastricValves = ['intake', 'drain'].map(id => ({
+  row: byId('gastric-' + id),
+  state: byId('gastric-' + id + '-state'),
+  progress: byId('gastric-' + id + '-progress'),
+  id,
+}));
+const gastricMarker = byId('gastric-marker');
+const gastricMarkerLabel = byId('gastric-marker-label');
+const gastricMarkerDistance = byId('gastric-marker-distance');
+const gastricEdge = byId('gastric-edge');
+const gastricEdgeLabel = byId('gastric-edge-label');
 const branches = {
   left: { name: 'AMBER', badge: byId('branch-left'), marker: byId('inlet-left') },
   right: { name: 'TEAL', badge: byId('branch-right'), marker: byId('inlet-right') },
@@ -262,8 +278,9 @@ function setMuted(value) {
 function syncMusic() {
   let mode = 'silent';
   if (!paused && !document.hidden) {
-    const recovering = running && (sim.phase === 'intermission' || sim.tutorial === 'repair' || sim.valve?.colonyDefeated);
-    if (running && sim.phase === 'combat' && !recovering) mode = 'combat';
+    const counterattack = running && sim.gastric && sim.phase === 'intermission' && sim.enemies.length > 0;
+    const recovering = running && ((sim.phase === 'intermission' && !counterattack) || sim.tutorial === 'repair' || sim.valve?.colonyDefeated);
+    if (running && (sim.phase === 'combat' || counterattack) && !recovering) mode = 'combat';
     else if (!menu.hidden || recovering) mode = 'drift';
   }
   audio.setMusic(mode);
@@ -603,13 +620,14 @@ function finish() {
     writeSetting(bestKey, bestScore);
   }
   byId('result-title').textContent = complete ? 'Campaign complete'
-    : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : sim.organ ? missionName(sim.area) + ' secured' : 'Artery secured') : 'Mission failed';
+    : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : sim.organMission ? missionName(sim.area) + ' secured' : 'Artery secured') : 'Mission failed';
   let detail;
   if (complete) detail = 'The Mega Virus is down. The infection is contained across all eight missions.';
   else if (won) {
     const opening = next ? missionName(next) + ' is open for deployment.' : 'The Mega Virus is down and both tissue nodes survived.';
     detail = sim.overtimeBonus > 0 ? 'Overtime cleared. +' + sim.overtimeBonus.toLocaleString() + ' score. ' + opening : opening;
     if (sim.airway?.state === 'secured') detail = 'Both bronchi stayed open through a full breath. ' + opening;
+    if (sim.gastric?.stage === 'drained') detail = 'The basin is drained and the lower passage is clear. ' + opening;
   }
   else if (sim.overtime) {
     const cause = sim.failedNode ? sim.failedNode.name + ' failed.' : 'Your suit failed.';
@@ -836,6 +854,47 @@ function drawAirwayHud() {
   if (airwayHold.value !== progress) airwayHold.value = progress;
 }
 
+function currentGastricValve() {
+  const gastric = sim.gastric;
+  return gastric?.stage === 'intake' || gastric?.stage === 'drain' ? gastric[gastric.stage] : null;
+}
+
+function gastricProgress(valve) {
+  const partial = sim.repairTarget === valve ? sim.repairProgress * sim.repairAmount / sim.gastric.sealPoints : 0;
+  return valve.progress >= 1 ? 100 : Math.min(99, Math.floor((valve.progress + partial) * 100));
+}
+
+function drawGastricHud() {
+  const gastric = sim.gastric;
+  gastricHud.hidden = !gastric || gastric.stage === 'flooded';
+  if (gastricHud.hidden) return;
+  const { stage, remaining, flankRemaining, incoming } = gastric;
+  gastricHud.dataset.state = stage === 'draining' ? 'drain' : stage;
+  const target = currentGastricValve();
+  for (const { row, state, progress, id } of gastricValves) {
+    const valve = gastric[id];
+    const done = valve.progress >= 1;
+    const active = valve === target;
+    const working = active && sim.repairTarget === valve;
+    row.dataset.state = done ? 'done' : working ? 'repairing' : active ? 'ready' : 'locked';
+    setText(state, done ? (id === 'intake' ? 'Closed' : 'Open') : working ? 'Working' : active ? 'Ready' : 'Locked');
+    const value = gastricProgress(valve);
+    if (value !== progress.value) progress.value = value;
+  }
+  const notes = {
+    intake: ['Close the intake', 'Head to the west bank', 'Acid in the central basin'],
+    drain: ['Open the drain', 'Cross to the east bank', 'Acid rerouted to the drain channel'],
+    draining: ['Basin draining', 'Watch the lower passage', 'Acid level falling'],
+    drained: ['Lower passage open', 'Defend both tissue nodes', 'Basin drained'],
+  }[stage];
+  setText(gastricStatus, notes[0]);
+  setText(gastricFlow, notes[2]);
+  const imminent = stage === 'drained' && flankRemaining > 0;
+  setText(gastricDetail, imminent ? 'Flank attack from the lower passage' : incoming ? 'Attack on ' + incoming.name : notes[1]);
+  const timer = stage === 'draining' ? remaining : imminent ? flankRemaining : incoming?.remaining;
+  setText(gastricTime, timer > 0 ? Math.ceil(timer) + 's' : '');
+}
+
 function drawHud() {
   const { player, tissue, wave, waves, remaining, phase, intermission, valve } = sim;
   const suitPercent = Math.ceil(player.health);
@@ -844,6 +903,7 @@ function drawHud() {
   drawOrganHazard();
   drawBossHud();
   drawAirwayHud();
+  drawGastricHud();
   setText(suitValue, suitPercent);
   fillMeter(healthMeter, healthFill, suitPercent);
   setText(equipmentLabel, sim.repairing ? 'TISSUE SEALER' : 'NEEDLE CARBINE');
@@ -855,7 +915,7 @@ function drawHud() {
   const waveLabel = pad(wave) + ' / ' + pad(waves);
   if (valve) drawValve(valve);
   else {
-    setText(waveMode, junction || sim.organ ? missionName(sim.area).toUpperCase() : 'INFECTION WAVE');
+    setText(waveMode, junction || sim.organMission ? missionName(sim.area).toUpperCase() : 'INFECTION WAVE');
     if (waveLabel !== drawnWave) {
       drawnWave = waveLabel;
       const total = document.createElement('span');
@@ -863,7 +923,7 @@ function drawHud() {
       waveValue.replaceChildren(document.createTextNode(pad(wave) + ' '), total);
     }
     let status = remaining + (remaining === 1 ? ' THREAT LEFT' : ' THREATS LEFT');
-    if (sim.boss || sim.airway) status = sim.enemies.length ?
+    if (sim.boss || sim.airway || currentGastricValve() || sim.gastric?.stage === 'draining') status = sim.enemies.length ?
       sim.enemies.length + (sim.enemies.length === 1 ? ' PATHOGEN ACTIVE' : ' PATHOGENS ACTIVE') : '';
     else if (sim.tutorial) status = 'FIELD TRAINING';
     else if (sim.extractionPending) status = 'EXTRACTION READY';
@@ -879,7 +939,10 @@ function drawHud() {
   const restoringHere = !!nearby && restoredNode?.id === nearby.id && restoredNode.until > sim.clock && nearby.health === 100;
   const repairKey = isTouch ? 'HOLD REPAIR' : 'HOLD E';
   const blockedPort = sim.airway?.ports.find(port => port.nodeId === nearby?.id && !port.open);
-  const repairing = sim.repairing && (!restoringHere || !!blockedPort);
+  const nearValve = sim.nearGastricValve;
+  const valveTarget = currentGastricValve();
+  const workingValve = !!valveTarget && repairingNode === valveTarget;
+  const repairing = sim.repairing && (!restoringHere || !!blockedPort || workingValve);
   let prompt = '';
   if (repairing && sim.gash && sim.repairTarget === sim.gash) prompt = 'SEALING GASH';
   else if (sim.gash && sim.nearGash) {
@@ -887,11 +950,18 @@ function drawHud() {
     prompt = repairKey + ' TO SEAL GASH' + (sealed ? ' · ' + sealed + '%' : '');
   }
   else if (sim.gash && sim.settling) prompt = 'MOVE TO THE GASH TO SEAL IT';
+  else if (workingValve || (valveTarget && nearValve === valveTarget)) {
+    const intake = valveTarget === sim.gastric.intake;
+    prompt = repairing && workingValve
+      ? (intake ? 'CLOSING INTAKE VALVE' : 'OPENING DRAIN VALVE')
+      : repairKey + (intake ? ' TO CLOSE INTAKE VALVE' : ' TO OPEN DRAIN VALVE');
+  }
   else if (blockedPort && sim.canRepair) prompt = repairing ?
     'REOPENING ' + blockedPort.name.toUpperCase() : repairKey + ' TO REOPEN ' + blockedPort.name.toUpperCase();
   else if (restoringHere) prompt = nearby.name.toUpperCase() + ' RESTORED · 100%';
   else if (repairing) prompt = 'REPAIRING ' + repairingNode.name.toUpperCase();
   else if (sim.canRepair && nearby) prompt = repairKey + ' TO REPAIR ' + nearby.name.toUpperCase();
+  else if (sim.gastric?.stage === 'intake' && nearValve === sim.gastric.drain) prompt = 'CLOSE THE INTAKE FIRST';
   else if (sim.organ?.repairBlocked && nearby?.id === sim.organ.nodeId && nearby.health < 100) {
     prompt = nearby.name.toUpperCase() + ' REPAIRS BLOCKED DURING OVERLOAD';
   }
@@ -914,7 +984,8 @@ function drawHud() {
     const port = sim.airway?.ports.find(item => item.nodeId === sim.repairTarget?.id && !item.open);
     const value = gash ? Math.floor(100 * clamp(
       (gash.sealRequired - gash.sealRemaining + sim.repairProgress * sim.repairAmount) / gash.sealRequired, 0, 1,
-    )) : port ? Math.min(99, Math.floor(100 * (port.progress + sim.repairProgress * sim.repairAmount / sim.airway.sealPoints)))
+    )) : workingValve ? gastricProgress(valveTarget)
+      : port ? Math.min(99, Math.floor(100 * (port.progress + sim.repairProgress * sim.repairAmount / sim.airway.sealPoints)))
       : Math.floor(sim.repairProgress * 100);
     repairFill.style.width = value + '%';
     if (repairMeter.getAttribute('aria-valuenow') !== String(value)) repairMeter.setAttribute('aria-valuenow', value);
@@ -964,6 +1035,7 @@ function drawMarkers() {
   }
   drawGash(edgePositions);
   drawTurretMarker(top, width, height);
+  drawGastricMarker(top, width, height, edgePositions);
   const weakPoint = sim.boss?.state === 'exposed' ? sim.boss.weakPoint : null;
   bossMarker.hidden = true;
   if (weakPoint) {
@@ -977,6 +1049,29 @@ function drawMarkers() {
       setText(bossMarkerLabel, weakPoint.label);
       bossMarker.hidden = false;
     }
+  }
+}
+
+function drawGastricMarker(top, width, height, occupied) {
+  const target = currentGastricValve();
+  gastricMarker.hidden = gastricEdge.hidden = !target || sim.nearGastricValve === target;
+  if (gastricMarker.hidden) return;
+  const dx = target.x - sim.player.x;
+  const dz = target.z - sim.player.z;
+  const point = world.project(target.x, target.y + 1.8, target.z);
+  const distance = Math.round(Math.hypot(dx, dz)) + ' m';
+  const label = target === sim.gastric.intake ? 'Close intake' : 'Open drain';
+  const visible = point.visible && point.y >= top && point.y < height * .84 && point.x > 65 && point.x < width - 65;
+  gastricMarker.hidden = !visible;
+  gastricEdge.hidden = visible;
+  if (visible) {
+    gastricMarker.style.left = point.x + 'px';
+    gastricMarker.style.top = point.y + 'px';
+    setText(gastricMarkerLabel, label);
+    setText(gastricMarkerDistance, distance);
+  } else {
+    positionEdgeMarker(gastricEdge, point, dx, dz, top, width, height, occupied);
+    setText(gastricEdgeLabel, label + ' · ' + distance);
   }
 }
 
@@ -1124,7 +1219,7 @@ function applyEvents() {
       announce('DEFEND BOTH TISSUE NODES', isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
       audio.play({ type: 'wave', stage: 'start' });
     }
-    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss', 'airway'].includes(event.type) && Number.isFinite(event.x)) {
+    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss', 'airway', 'gastric'].includes(event.type) && Number.isFinite(event.x)) {
       const { x, z, yaw } = sim.player;
       const dx = event.x - x;
       const dz = event.z - z;
@@ -1147,6 +1242,13 @@ function applyEvents() {
       if (event.stage === 'hold') announce('BOTH BRONCHI OPEN', 'HOLD THROUGH ONE FULL BREATH', 2.8);
       if (event.stage === 'secured') announce('AIRFLOW RESTORED', sim.enemies.length ? 'CLEAR SURVIVING PATHOGENS' : '', 2.4);
       if (event.stage === 'incoming') announce('PATHOGENS INBOUND', event.name.toUpperCase(), 1.9);
+    }
+    if (event.type === 'gastric') {
+      if (event.stage === 'start') announce('CLOSE THE INTAKE', 'HOLD REPAIR AT THE WEST BANK', 2.8);
+      if (event.stage === 'intake-closed') announce('INTAKE CLOSED', 'ACID REROUTED · HEAD TO THE DRAIN', 2.7);
+      if (event.stage === 'draining') announce('DRAIN OPEN', 'WATCH THE LOWER PASSAGE', 2.5);
+      if (event.stage === 'flank') announce('FLANK ATTACK', 'DEFEND BOTH TISSUE NODES', 2.5);
+      if (event.stage === 'counterattack') announce('PATHOGENS INBOUND', event.name, 2);
     }
     if (event.type === 'turret') {
       if (event.stage === 'deployed') announce('AUTO-TURRET ONLINE', 'COVERING THIS POSITION', 1.8);
@@ -1201,7 +1303,7 @@ function applyEvents() {
         announce(sim.boss ? 'MEGA VIRUS' : pattern ? pattern.name.toUpperCase() : sim.organWave?.toUpperCase() ?? 'WAVE ' + pad(event.wave), detail);
       } else if (sim.settling) {
         announce('INLETS CLEAR', sim.gash ? 'SEAL THE GASH TO EXTRACT' : 'REPAIR TISSUE BEFORE EXTRACTION', 2.8);
-      } else if (event.wave < sim.waves) {
+      } else if (event.wave < sim.waves && sim.gastric?.stage !== 'intake') {
         announce('WAVE CONTAINED', sim.junctionForecast ? 'CHOOSE SUPPORT FOR THE NEXT WAVE' : 'RESUPPLIED  /  REPAIR TISSUE', 3);
       }
     }
@@ -1240,8 +1342,10 @@ function frame(now) {
       const phase = sim.phase;
       const tutorial = sim.tutorial;
       const colonyDefeated = sim.valve?.colonyDefeated;
+      const enemiesActive = sim.enemies.length > 0;
       sim.step(dt, input);
-      if (sim.phase !== phase || sim.tutorial !== tutorial || sim.valve?.colonyDefeated !== colonyDefeated) syncMusic();
+      if (sim.phase !== phase || sim.tutorial !== tutorial || sim.valve?.colonyDefeated !== colonyDefeated ||
+        (sim.gastric && sim.phase === 'intermission' && (sim.enemies.length > 0) !== enemiesActive)) syncMusic();
       applyEvents();
       fireTap = false;
       reloadTap = false;

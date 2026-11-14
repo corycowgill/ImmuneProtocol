@@ -344,6 +344,56 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .airway-hold::-webkit-progress-bar{background:#bedcc443}
 .airway-hold::-webkit-progress-value{background:var(--airway)}
 .airway-hold::-moz-progress-bar{background:var(--airway)}
+.game:has(#gastric-hud:not([hidden])) .host-panel{width:min(232px,25vw)}
+.wave-panel:has(#gastric-hud:not([hidden])){width:min(336px,40vw);padding:0;background:none}
+.wave-panel:has(#gastric-hud:not([hidden])) :is(#wave-mode,#wave-value){display:none}
+.wave-panel:has(#gastric-hud:not([hidden])) #threats{display:block;margin:4px auto 0;color:#e6decd}
+.wave-panel:has(#gastric-hud:not([hidden])) .organ-hazard{width:100%;margin-top:4px}
+.gastric-hud{
+  --drainage:#f4c98a;
+  padding:8px 10px;
+  border:1px solid #dfbc8055;
+  border-top:2px solid var(--drainage);
+  background:linear-gradient(145deg,#30241aef,#191714f4);
+  text-align:left;
+}
+.gastric-hud[data-state="drain"]{--drainage:#ffc091}
+.gastric-hud[data-state="drained"]{--drainage:#b8ebcb}
+.gastric-heading{display:flex;align-items:baseline;justify-content:space-between;gap:4px 8px;flex-wrap:wrap;margin-bottom:7px}
+.gastric-heading h2{margin:0;color:#f5ecdb;font:800 27px/.95 var(--display);letter-spacing:.045em;text-transform:uppercase}
+.gastric-flow{color:var(--drainage);font-size:8px;letter-spacing:.035em;text-transform:uppercase}
+.gastric-flow:empty{display:none}
+.gastric-valves{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-bottom:7px}
+.gastric-valve{
+  --valve-color:#f6d798;
+  min-width:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:baseline;
+  gap:3px 5px;
+  padding:4px 5px 5px;
+  border:1px solid #e1c59a42;
+  border-left:2px solid var(--valve-color);
+  background:#130f0b92;
+  color:#eee4d4;
+  font-size:9px;
+  line-height:1.2;
+  letter-spacing:.02em;
+  overflow-wrap:anywhere;
+}
+.gastric-valve[data-state="locked"]{--valve-color:#bbb0a2}
+.gastric-valve[data-state="repairing"]{--valve-color:#ffd69f}
+.gastric-valve[data-state="done"]{--valve-color:#9adfbe}
+.gastric-valve-state{color:var(--valve-color);text-transform:uppercase;text-align:right;font-weight:700}
+.gastric-valve progress{appearance:none;grid-column:1/-1;width:100%;height:3px;border:0;background:#d9c59b35;color:var(--valve-color)}
+.gastric-valve progress::-webkit-progress-bar{background:#d9c59b35}
+.gastric-valve progress::-webkit-progress-value{background:var(--valve-color)}
+.gastric-valve progress::-moz-progress-bar{background:var(--valve-color)}
+.gastric-readout{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"status time" "detail time";align-items:center;gap:2px 6px;letter-spacing:.04em;line-height:1.2}
+.gastric-status{grid-area:status;color:var(--drainage);font-weight:700;text-transform:uppercase}
+.gastric-detail{grid-area:detail;color:#e8ddcb;font-size:9px;overflow-wrap:anywhere}
+.gastric-time{grid-area:time;color:var(--drainage);font:800 24px/.96 var(--display);font-variant-numeric:tabular-nums}
+.gastric-detail:empty,.gastric-time:empty{display:none}
 [data-branch="left"]{--branch:#ffbd7e}
 [data-branch="right"]{--branch:#8fe4dd}
 .game-actions{position:absolute;right:25px;top:25px;display:flex;gap:7px;pointer-events:auto}
@@ -402,6 +452,9 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .objective-edge{position:absolute;left:var(--objective-x,50%);top:var(--objective-y,50%);transform:translate(-50%,-50%);display:flex;align-items:center;gap:5px;padding:4px 6px;border:1px solid #c8f79480;background:#171614e8;color:var(--green);font-size:9px;line-height:1.15;max-width:min(152px,46vw)}
 .objective-edge strong{overflow-wrap:anywhere}
 .objective-edge svg{width:14px;height:14px;transform:rotate(var(--objective-angle,0deg))}
+.gastric-marker,.gastric-edge{color:#ffe1a4}
+.gastric-marker>span{background:#432e17b8}
+.gastric-edge{border-color:#ffdd9998;background:#2a2014ed}
 .game[data-area="junction"] #objective-marker,.game[data-area="junction"] #objective-edge{color:var(--branch)}
 .game[data-area="junction"] #objective-edge{border-color:#ffbd7e80}
 .game[data-area="junction"] #objective-marker.under-attack,.game[data-area="junction"] #objective-edge.under-attack{color:#ffbd92}
@@ -691,6 +744,49 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
   .airway-ports{margin-bottom:4px}
   .airway-port{padding:2px 3px;font-size:7px;gap:1px}
   .airway-hold{margin-top:4px}
+}
+.game:has(#gastric-hud:not([hidden])) .mission-guidance{top:79px;right:25px;bottom:auto;left:auto;transform:none;width:min(212px,24vw)}
+.game:has(#gastric-hud:not([hidden])) .game-alert{font-size:clamp(18px,2.6vw,31px)}
+.game:has(#gastric-hud:not([hidden])) .game-alert small{margin-top:6px}
+@media(max-width:720px),(max-height:500px){
+  .gastric-hud{padding:6px 7px}
+  .gastric-heading h2{font-size:21px}
+  .gastric-heading,.gastric-valves{margin-bottom:5px}
+  .gastric-valves{gap:4px}
+  .gastric-valve{padding:3px;font-size:8px}
+  .gastric-status{font-size:9px}
+  .gastric-detail{font-size:8px}
+  .gastric-time{font-size:20px}
+}
+@media(max-width:480px){
+  .game:has(#gastric-hud:not([hidden])) .host-panel{width:44vw}
+  .game .wave-panel:has(#gastric-hud:not([hidden])){top:51px;width:44vw;min-width:0;padding:0}
+  .gastric-heading h2{font-size:19px}
+  .gastric-valve{grid-template-columns:minmax(0,1fr);gap:2px}
+  .gastric-valve-state{text-align:left}
+  .gastric-time{font-size:18px}
+  .game:has(#gastric-hud:not([hidden])) .mission-guidance{top:120px;right:auto;left:12px;width:44vw}
+  .game:has(#gastric-hud:not([hidden])) .game-alert small{font-size:8px}
+}
+@media(orientation:landscape) and (max-height:500px){
+  .game .wave-panel:has(#gastric-hud:not([hidden])){top:10px}
+  .gastric-hud{padding:4px 6px}
+  .gastric-heading h2{font-size:20px}
+  .gastric-heading,.gastric-valves{margin-bottom:4px}
+  .gastric-valve{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:2px 3px;font-size:7px}
+  .wave-panel:has(#gastric-hud:not([hidden])) .organ-hazard{padding:4px 5px;gap:2px 5px;font-size:9px}
+  .wave-panel:has(#gastric-hud:not([hidden])) .organ-hazard-time{font-size:17px}
+  .game:has(#gastric-hud:not([hidden])) .mission-guidance{top:57px;right:12px;width:min(150px,23vw)}
+  .game:has(#gastric-hud:not([hidden])) .game-alert small{font-size:8px}
+}
+@media(orientation:landscape) and (max-height:380px) and (max-width:720px){
+  .wave-panel:has(#gastric-hud:not([hidden])) .organ-hazard{position:absolute;left:calc(100% + 8px);top:44px;width:min(140px,25vw);margin:0}
+  .game:has(#gastric-hud:not([hidden])) .mission-guidance{top:116px;right:auto;left:12px;width:min(150px,25vw)}
+}
+@media(max-width:350px){
+  .gastric-hud{padding:5px}
+  .gastric-heading h2{font-size:18px}
+  .gastric-valve{font-size:7px}
 }
 @media(pointer:coarse){.field-hint,.junction-supply-options kbd,.turret-status kbd{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}

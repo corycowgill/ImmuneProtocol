@@ -24,7 +24,7 @@ export const ORGAN_MISSIONS = {
   },
   stomach: {
     name: 'Gastric Chamber',
-    briefing: 'Circle the raised banks before acid floods the center basin.',
+    briefing: 'Use the banks during acid surges. Shut the intake and open the drain to reach the final wave.',
     nodes: [node('stomach-wall', 'Gastric Wall', -13, -8), node('stomach-lining', 'Pyloric Lining', 12, 3)],
     entry: [4, 15],
     inlets: [[[-22, -18], [-24, 4], [-17, -27]], [[23, -15], [20, 19], [13, -31]]],

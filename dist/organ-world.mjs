@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import { GASTRIC_PASSAGE, GASTRIC_VALVES } from './gastric.mjs';
 
 const TAU = 2 * Math.PI;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -336,7 +337,142 @@ function makeStomach(root, skin, lobe, random, glow) {
     return { position: [Math.cos(angle) * 31 * radial, .13 + random() ** 2 * 1.8, Math.sin(angle) * 34 * radial],
       scale: [size, size * 1.3, size], angles: [0, angle, .1], brightness: .6 + random() * .4 };
   });
-  return (time, active) => { droplets.position.y = Math.sin(time * 1.6) * (active ? .25 : .1); };
+  return (time, active, gastric) => {
+    droplets.visible = gastric?.stage !== 'drained';
+    droplets.position.y = Math.sin(time * 1.6) * (active ? .25 : .1);
+  };
+}
+
+function sphincterPoint(radius, angle, depth, flatten) {
+  const fold = 1 + .067 * Math.cos(angle * 7 - depth * 1.7) + .031 * Math.sin(angle * 13 + depth * 3);
+  return [Math.cos(angle) * radius * fold, Math.sin(angle) * radius * fold * flatten, depth];
+}
+
+function buildSphincter(parent, skin, size, length, flatten, shade) {
+  const lining = skin(0x9a4a4a, { side: THREE.DoubleSide, roughness: .53, clearcoat: .61 });
+  const rimSkin = skin(0xd08b6c, { side: THREE.DoubleSide, roughness: .42, clearcoat: .78 });
+  const tissue = skin(0x8a3144, { side: THREE.DoubleSide, roughness: .41, clearcoat: .74 });
+  const wall = airwaySurface(20, 48, (t, angle) => sphincterPoint(size * (1 - t * .32), angle, -t * length, flatten));
+  place(parent, wall, lining, 0, 0, 0);
+  place(parent, airwaySurface(4, 48, (t, angle) =>
+    sphincterPoint(size * (.67 * t), angle, -length - .015, flatten)), shade, 0, 0, 0);
+
+  for (let ring = 0; ring < 5; ring++) {
+    const depth = -ring * length / 6.7;
+    const radius = size * (1 - ring * .045);
+    const fold = size * (.15 - .013 * ring);
+    const geometry = airwaySurface(10, 48, (ratio, angle) => {
+      const step = ratio * TAU;
+      return sphincterPoint(radius + fold * Math.cos(step), angle, depth + fold * Math.sin(step), flatten);
+    });
+    place(parent, geometry, ring % 2 ? lining : rimSkin, 0, 0, .055);
+  }
+
+  const segments = 48;
+  const rows = 7;
+  const membrane = airwaySurface(rows, segments, () => [0, 0, 0]);
+  const opening = place(parent, membrane, tissue, 0, 0, 0);
+  opening.frustumCulled = false;
+  const vertices = membrane.attributes.position;
+  let previous = Infinity;
+  return (openness, time) => {
+    opening.visible = openness < .972;
+    if (!opening.visible) return;
+    const flex = Math.sin(time * 2.8) * .014 * (1 - openness);
+    const shape = openness + flex;
+    if (Math.abs(previous - shape) < .003) return;
+    for (let index = 0; index < vertices.count; index++) {
+      const ratio = Math.floor(index / (segments + 1)) / rows;
+      const angle = index % (segments + 1) / segments * TAU;
+      const hole = size * Math.max(.005, shape * (.90 + .045 * Math.sin(angle * 7)));
+      const ripple = Math.cos(angle * 7 + ratio * 4.5) * .09 + Math.sin(angle * 12) * .025;
+      const depth = size * (.12 + (ripple + .14) * (1 - ratio) * (1 - openness));
+      vertices.setXYZ(index, ...sphincterPoint(THREE.MathUtils.lerp(hole, size * .96, ratio), angle, depth, flatten));
+    }
+    vertices.needsUpdate = true;
+    membrane.computeVertexNormals();
+    previous = shape;
+  };
+}
+
+function makeGastricValves(root, skin, lobe, glow, floorHeight) {
+  const tissue = skin(0xa85b55, { roughness: .46, clearcoat: .83 });
+  const membrane = skin(0xb47055, { roughness: .49, clearcoat: .66 });
+  const shade = new THREE.MeshBasicMaterial({ color: 0x1e0c14, side: THREE.DoubleSide });
+  const valves = GASTRIC_VALVES.map((valve, index) => {
+    const base = new THREE.Group();
+    base.position.set(valve.x, floorHeight(valve.x, valve.z), valve.z);
+    base.rotation.y = index === 0 ? .45 : -.45;
+    root.add(base);
+    const chamber = new THREE.Group();
+    chamber.position.set(0, valve.y, .45);
+    base.add(chamber);
+    const reshape = buildSphincter(chamber, skin, 1.52, 1.9, .78, shade);
+    const body = place(base, lobe, tissue, 0, .31, -1.1);
+    body.scale.set(1.83, .49, 1.63);
+    tubes(base, [-1, 1].flatMap(side => [
+      tube([[side * 1.28, 1.26, .15], [side * 1.76, .62, -.10], [side * 2.45, .25, -1.3], [side * 3.45, .09, -2.52]], .21, 21, 8),
+      tube([[side * .98, 1.74, -.27], [side * 1.55, 1.22, -.88], [side * 1.96, .51, -1.84], [side * 1.75, .12, -2.57]], .11, 17, 7),
+      tube([[side * 1.45, .72, -.12], [side * 1.98, .2, .51], [side * 2.55, .08, 1.48]], .12, 16, 7),
+    ]), membrane);
+    const indicator = new THREE.PointLight(index === 0 ? 0xcbd978 : 0xffb16d, 0, 6.2, 2);
+    indicator.position.set(0, .25, 1.1);
+    chamber.add(indicator);
+    return { reshape, indicator, openness: index === 0 ? 1 : 0 };
+  });
+
+  const passage = new THREE.Group();
+  const { x, y, z } = GASTRIC_PASSAGE;
+  passage.position.set(x, y + floorHeight(x, z), z);
+  passage.rotation.y = Math.PI;
+  root.add(passage);
+  const reshapePassage = buildSphincter(passage, skin, 2.85, 5.1, .62, shade);
+  const mound = place(passage, lobe, tissue, 0, -1.61, -2.8);
+  mound.scale.set(3.45, .47, 4.12);
+  tubes(passage, [-1, 1].flatMap(side => [
+    tube([[side * 2.3, .04, .29], [side * 2.97, -.22, -1.12], [side * 4.3, -.8, -1.79], [side * 5.28, -1.39, -4.46]], .31, 25, 9),
+    tube([[side * 2.65, -.31, -.58], [side * 3.35, -.79, -.15], [side * 4.72, -1.36, .97]], .17, 23, 8),
+  ]), tissue);
+  const seam = new THREE.PointLight(0xf9af6e, 0, 10.8, 2);
+  seam.position.set(0, .40, -.7);
+  passage.add(seam);
+  const mist = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: glow, color: 0xeb7553, opacity: 0, transparent: true, depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  mist.position.set(0, -.24, -.2);
+  mist.scale.set(5.8, 3, 1);
+  passage.add(mist);
+  let exposure = 0;
+  let previousState;
+
+  return (sim, time, dt, reduced) => {
+    const state = sim?.gastric;
+    const reset = state !== previousState;
+    previousState = state;
+    const stage = state?.stage;
+    const clock = reduced ? 0 : time;
+    const stationValues = [state?.intake, state?.drain];
+    for (const [index, valve] of valves.entries()) {
+      const station = stationValues[index];
+      const repairing = sim?.repairing && sim.repairTarget?.id === station?.id;
+      const pulse = repairing ? sim.repairProgress * sim.repairAmount / state.sealPoints : 0;
+      const completion = Math.min(1, (station?.progress ?? 0) + pulse);
+      const target = index === 0 ? 1 - completion : completion;
+      valve.openness = reset || reduced ? target : THREE.MathUtils.damp(valve.openness, target, 10, dt);
+      valve.reshape(valve.openness, clock);
+      const ready = stage === (index === 0 ? 'intake' : 'drain');
+      const finished = station?.progress === 1;
+      valve.indicator.intensity = ready ? 15 + 3.4 * Math.sin(clock * 4.4) : finished ? 6.5 : 0;
+    }
+    const drained = stage === 'drained';
+    const clearing = stage === 'draining';
+    const target = drained ? 1 : clearing ? Math.max(0, 1 - (state.level ?? 0) / .68) : 0;
+    exposure = reset || reduced ? target : THREE.MathUtils.damp(exposure, target, 5.8, dt);
+    reshapePassage(exposure, clock);
+    seam.intensity = (27 + 4 * Math.sin(clock * 8)) * exposure;
+    mist.material.opacity = exposure * (drained ? .17 : .32);
+  };
 }
 
 function makeIntestines(root, skin, lobe, random, glow) {
@@ -528,10 +664,12 @@ function hazardSurface(area, root, profile, floorHeight) {
   const positions = geometry.attributes.position;
   const coords = Float32Array.from(positions.array);
   let previous = [Infinity, Infinity, Infinity, Infinity];
-  return (state, time, reduced) => {
-    const visible = !!state && state.phase !== 'recovery';
+  return (state, time, reduced, gastric) => {
+    const draining = gastric?.stage === 'draining';
+    const visible = !!state && gastric?.stage !== 'drained' && (state.phase !== 'recovery' || draining);
     field.visible = visible;
     if (!visible) return;
+    const level = gastric?.level ?? 1;
     const width = circle ? state.radius : state.width / 2;
     const depth = circle ? state.radius : state.depth / 2;
     if (![state.x, state.z, width, depth].every(Number.isFinite) || width <= 0 || depth <= 0) {
@@ -548,7 +686,7 @@ function hazardSurface(area, root, profile, floorHeight) {
       previous = [state.x, state.z, width, depth];
     }
     material.uniforms.time.value = reduced ? 0 : time;
-    material.uniforms.intensity.value = state.phase === 'warning' ? .49 : .94;
+    material.uniforms.intensity.value = draining ? .25 + .69 * level / .68 : state.phase === 'warning' ? .49 : .94;
   };
 }
 
@@ -564,11 +702,12 @@ export function createOrganEnvironment(area, { membraneMaps, floorHeight, glow, 
   const updateAnatomy = BUILDERS[area](root, skin, lobe, seedRandom(profile.seed), glow);
   const updateHazard = hazardSurface(area, root, profile, floorHeight);
   const updateAirways = area === 'lungs' ? makeBronchialPorts(root, skin, lobe, glow, floorHeight, nodes) : null;
+  const updateGastric = area === 'stomach' ? makeGastricValves(root, skin, lobe, glow, floorHeight) : null;
   return {
-    root, maps, updateAirways,
-    update(state, time, reduced) {
-      updateAnatomy(reduced ? 0 : time, !reduced && state?.phase === 'active');
-      updateHazard(state, time, reduced);
+    root, maps, updateAirways, updateGastric,
+    update(state, time, reduced, gastric) {
+      updateAnatomy(reduced ? 0 : time, !reduced && state?.phase === 'active', gastric);
+      updateHazard(state, time, reduced, gastric);
     },
   };
 }

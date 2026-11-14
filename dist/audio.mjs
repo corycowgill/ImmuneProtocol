@@ -318,6 +318,16 @@ export class GameAudio {
         }
         break;
       }
+      case 'gastric': {
+        const pan = this.spatialPan(event) * .8;
+        if (event.stage === 'intake-closed') this.playSample('field/valve-close', .54, { pan, rate: .72 });
+        else if (event.stage === 'draining') this.playSample('field/valve-open', .53, { pan, rate: .69 });
+        else if (event.stage === 'drained') this.playSample('field/repair-complete', .29, { pan, rate: .82 });
+        else if (event.stage === 'flank' || event.stage === 'counterattack') {
+          this.playSample('field/branch', .39, { pan, rate: .89 });
+        }
+        break;
+      }
       case 'valve': {
         const pan = this.spatialPan(event) * .7;
         if (event.stage === 'open') this.playSample('field/valve-open', .36, { pan });
