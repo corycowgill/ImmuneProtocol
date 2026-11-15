@@ -1,7 +1,7 @@
 import { Simulation, JUNCTION_INLETS, RULES } from './simulation.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
-import { WEAPON_FINISHES, WEAPON_MODS } from './weapon-mods.mjs';
+import { DEFAULT_WEAPON_LOADOUT, WEAPON_ACCENTS, WEAPON_FINISHES, WEAPON_SLOTS, legacyWeaponLoadout, normalizeWeaponLoadout, weaponStats } from './weapon-mods.mjs';
 import { FIELD_UPGRADE_ART, prepareArmoryArt } from './armory-art.mjs';
 import { World } from './world.mjs';
 import { GameAudio } from './audio.mjs';
@@ -21,11 +21,11 @@ const armoryDialog = byId('armory-dialog');
 const armoryTitle = byId('armory-title');
 const armoryContext = byId('armory-context');
 const armoryDone = byId('armory-done');
+const armoryReset = byId('armory-reset');
 const armoryPreview = byId('armory-preview');
-const armoryEquipped = byId('armory-equipped');
 const armoryStats = byId('armory-stats');
-const armoryFinishes = byId('armory-finishes');
-const armoryMods = byId('armory-mods');
+const armoryTabs = byId('armory-slots');
+const armoryOptions = byId('armory-options');
 const missionSelect = byId('mission-select');
 const missionDialog = byId('mission-dialog');
 const missionCount = byId('mission-count');
@@ -199,6 +199,7 @@ const qualityKey = 'immune-protocol.graphics-quality';
 const checkpointKey = 'immune-protocol.campaign-checkpoint';
 const unlockedKey = 'immune-protocol.unlocked-mission';
 const practiceLoadoutKey = 'immune-protocol.practice-loadout';
+const weaponLoadoutKey = 'immune-protocol.weapon-loadout';
 const weaponModKey = 'immune-protocol.weapon-mod';
 const weaponFinishKey = 'immune-protocol.weapon-finish';
 const megaVirusKey = 'immune-protocol.mega-virus-reached';
@@ -219,11 +220,28 @@ const attackWarnings = {
   'splitter-windup': 'SPLITTER ABOUT TO LUNGE',
 };
 const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo', Digit4: 'turret' };
+const armorySlots = {
+  ...WEAPON_SLOTS,
+  finish: { name: 'Body finish', options: WEAPON_FINISHES },
+  accent: { name: 'Accent color', options: WEAPON_ACCENTS },
+};
+const armoryMetrics = [
+  { name: 'Body damage', value: stats => stats.bodyDamage },
+  { name: 'Critical damage', value: stats => stats.criticalDamage },
+  { name: 'Fire rate', value: stats => Math.round(60 / stats.interval), unit: ' RPM', delta: 'RPM' },
+  { name: 'Capacity', value: (stats, baseCapacity) => baseCapacity + stats.magazineDelta, unit: ' rds', delta: 'rounds' },
+  { name: 'Reload time', value: stats => stats.reloadSeconds, unit: ' s', digits: 2, delta: 's reload' },
+  { name: 'Aimed crit zone', value: stats => Math.round(stats.aimCritical * 100), unit: '%', points: true },
+  { name: 'Hip-fire crit zone', value: stats => Math.round(stats.hipCritical * 100), unit: '%', points: true },
+  { name: 'Aim turn speed', value: stats => Math.round(stats.aimSensitivity * 100), unit: '%', points: true },
+  { name: 'Muzzle flash', value: stats => Math.round(stats.muzzleFlash * 100), unit: '%', points: true },
+];
 
 let world;
 let ready = false;
 let armoryArt;
 let armoryRound = 0;
+let activeArmorySlot = Object.keys(WEAPON_SLOTS)[0];
 let sim;
 let campaign = null;
 let selectedUpgrade = null;
@@ -259,8 +277,7 @@ let megaVirusReached = readSetting(megaVirusKey) === 'true';
 let trainingComplete = readSetting(tutorialKey) === 'true';
 let sensitivity = clamp(Number.parseFloat(readSetting(sensitivityKey)) || 1, 0.5, 2.5);
 let graphicsQuality = readSetting(qualityKey) === 'low' ? 'low' : 'high';
-let weaponMod = savedChoice(weaponModKey, WEAPON_MODS, 'standard');
-let weaponFinish = savedChoice(weaponFinishKey, WEAPON_FINISHES, 'factory');
+let weaponLoadout = readWeaponLoadout();
 
 function readSetting(key) {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -270,9 +287,12 @@ function writeSetting(key, value) {
   try { localStorage.setItem(key, value); } catch { /* Private browsing may block storage. */ }
 }
 
-function savedChoice(key, records, fallback) {
-  const saved = readSetting(key);
-  return Object.hasOwn(records, saved) ? saved : fallback;
+function readWeaponLoadout() {
+  try {
+    const saved = JSON.parse(readSetting(weaponLoadoutKey));
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) return normalizeWeaponLoadout(saved);
+  } catch { /* Recover from a malformed setting using the legacy preferences. */ }
+  return legacyWeaponLoadout(readSetting(weaponModKey), readSetting(weaponFinishKey));
 }
 
 function readCheckpoint() {
@@ -367,41 +387,124 @@ function setupLoadouts() {
   updatePracticeLoadout();
 }
 
+function compareWeaponStats(current, alternative, baseCapacity) {
+  return armoryMetrics.flatMap(metric => {
+    const difference = Number((metric.value(alternative, baseCapacity) - metric.value(current, baseCapacity)).toFixed(metric.digits ?? 0));
+    if (!difference) return [];
+    const sign = difference > 0 ? '+' : '−';
+    const suffix = metric.points ? ' pp ' + metric.name.toLowerCase() : ' ' + (metric.delta ?? metric.name.toLowerCase());
+    return [sign + Math.abs(difference) + suffix];
+  }).join(' · ');
+}
+
+function drawArmoryOptions(stats, baseCapacity) {
+  for (const tab of armoryTabs.children) {
+    const slot = tab.dataset.slot;
+    const active = slot === activeArmorySlot;
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+    setText(tab.lastElementChild, armorySlots[slot].options[weaponLoadout[slot]].name);
+  }
+  for (const panel of armoryOptions.children) {
+    const slot = panel.dataset.slot;
+    panel.hidden = slot !== activeArmorySlot;
+    if (panel.hidden) continue;
+    for (const card of panel.children) {
+      const part = card.dataset.option;
+      const equipped = weaponLoadout[slot] === part;
+      card.setAttribute('aria-pressed', String(equipped));
+      const comparison = card.querySelector('.armory-compare');
+      if (equipped) setText(comparison, 'Equipped');
+      else if (!Object.hasOwn(WEAPON_SLOTS, slot)) setText(comparison, '');
+      else setText(comparison, compareWeaponStats(stats, weaponStats({ ...weaponLoadout, [slot]: part }), baseCapacity) || 'No stat change');
+    }
+  }
+}
+
+function armoryBaseCapacity() {
+  return armoryRound ? sim.baseMagazineSize : RULES.magazine;
+}
+
 function drawArmory() {
-  const { name, bodyDamage, criticalDamage, interval } = WEAPON_MODS[weaponMod];
-  const preview = armoryArt[weaponMod][weaponFinish];
-  preview.alt = name + ' in ' + WEAPON_FINISHES[weaponFinish].name;
+  const stats = weaponStats(weaponLoadout);
+  const baseCapacity = armoryBaseCapacity();
+  const preview = armoryArt.render(weaponLoadout);
+  preview.setAttribute('role', 'img');
+  preview.setAttribute('aria-label', 'Needle Carbine in ' + WEAPON_FINISHES[weaponLoadout.finish].name +
+    ' with ' + WEAPON_ACCENTS[weaponLoadout.accent].name + ' accents');
   if (armoryPreview.firstElementChild !== preview) armoryPreview.replaceChildren(preview);
-  setText(armoryEquipped, name);
-  setText(armoryStats, bodyDamage + ' body · ' + criticalDamage + ' critical · ' + Math.round(60 / interval) + ' RPM');
-  for (const button of armoryMods.children) button.setAttribute('aria-pressed', String(button.dataset.weaponMod === weaponMod));
-  for (const button of armoryFinishes.children) button.setAttribute('aria-pressed', String(button.dataset.weaponFinish === weaponFinish));
+  armoryMetrics.forEach((metric, index) => {
+    const value = metric.value(stats, baseCapacity).toFixed(metric.digits ?? 0);
+    setText(armoryStats.children[index].lastElementChild, value + (metric.unit ?? ''));
+  });
+  drawArmoryOptions(stats, baseCapacity);
 }
 
 function setupArmory() {
-  for (const [id, { name, detail }] of Object.entries(WEAPON_MODS)) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'armory-card';
-    button.dataset.weaponMod = id;
-    const picture = armoryArt[id].factory.cloneNode();
-    picture.alt = '';
-    const label = document.createElement('strong');
+  armoryStats.replaceChildren();
+  armoryTabs.replaceChildren();
+  armoryOptions.replaceChildren();
+  for (const { name } of armoryMetrics) {
+    const stat = document.createElement('div');
+    const label = document.createElement('dt');
     label.textContent = name;
-    const text = document.createElement('small');
-    text.textContent = detail;
-    button.append(picture, label, text);
-    armoryMods.append(button);
+    stat.append(label, document.createElement('dd'));
+    armoryStats.append(stat);
   }
-  for (const [id, { name, color }] of Object.entries(WEAPON_FINISHES)) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'finish-button';
-    button.dataset.weaponFinish = id;
-    button.style.setProperty('--finish', color);
-    button.textContent = name;
-    armoryFinishes.append(button);
+  for (const [slot, { name, options }] of Object.entries(armorySlots)) {
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'armory-slot';
+    tab.id = 'armory-slot-' + slot;
+    tab.dataset.slot = slot;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-controls', 'armory-options-' + slot);
+    const slotLabel = document.createElement('strong');
+    slotLabel.textContent = name;
+    tab.append(slotLabel, document.createElement('span'));
+    armoryTabs.append(tab);
+
+    const panel = document.createElement('div');
+    panel.className = 'armory-cards';
+    panel.id = 'armory-options-' + slot;
+    panel.dataset.slot = slot;
+    panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', tab.id);
+    for (const [id, option] of Object.entries(options)) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'armory-card';
+      card.dataset.option = id;
+      const label = document.createElement('strong');
+      label.textContent = option.name;
+      if (option.color) {
+        card.classList.add('armory-color');
+        card.style.setProperty('--swatch', option.color);
+        const swatch = document.createElement('span');
+        swatch.className = 'armory-swatch';
+        swatch.setAttribute('aria-hidden', 'true');
+        card.append(swatch, label);
+      } else {
+        const picture = armoryArt.thumbnails[slot][id].cloneNode();
+        picture.alt = '';
+        const detail = document.createElement('small');
+        detail.textContent = option.detail;
+        card.append(picture, label, detail);
+      }
+      const comparison = document.createElement('span');
+      comparison.className = 'armory-compare';
+      card.append(comparison);
+      panel.append(card);
+    }
+    armoryOptions.append(panel);
   }
+  drawArmoryOptions(weaponStats(weaponLoadout), RULES.magazine);
+}
+
+function equipWeaponLoadout(loadout) {
+  weaponLoadout = normalizeWeaponLoadout(loadout);
+  writeSetting(weaponLoadoutKey, JSON.stringify(weaponLoadout));
+  if (armoryRound) sim.setWeaponLoadout(weaponLoadout);
   drawArmory();
 }
 
@@ -512,11 +615,10 @@ async function launch(area, run = null, drill = null) {
       tutorial: area === 'artery' && !trainingComplete && !drill,
       upgrades: upgrade ? [upgrade] : [],
       bossPractice: !!drill?.bossPractice,
-      weaponMod,
+      weaponLoadout,
     });
     nextSim.start();
     sim = nextSim;
-    sim.weaponFinish = weaponFinish;
     armoryRound = 0;
     campaign = run;
     practice = drill;
@@ -617,7 +719,7 @@ function suspendCombat() {
 function openArmory(round = 0) {
   if (!ready || armoryDialog.open) return;
   if (round) suspendCombat();
-  setText(armoryContext, round ? 'Wave ' + round + ' complete. Equip a mod before resuming.' : 'One modification and one finish.');
+  setText(armoryContext, round ? 'Wave ' + round + ' complete. Adjust your build before resuming.' : 'Choose one part per slot and compare its effect on your build.');
   armoryDone.firstChild.textContent = round ? 'Resume mission ' : 'Done ';
   drawArmory();
   armoryDialog.showModal();
@@ -1571,23 +1673,34 @@ armoryDialog.addEventListener('cancel', event => {
   event.preventDefault();
   closeArmory();
 });
-armoryMods.addEventListener('click', event => {
-  const button = event.target.closest('[data-weapon-mod]');
-  if (!button) return;
-  weaponMod = button.dataset.weaponMod;
-  writeSetting(weaponModKey, weaponMod);
-  if (armoryRound) {
-    sim.setWeaponMod(weaponMod);
-  }
-  drawArmory();
+armoryReset.addEventListener('click', () => equipWeaponLoadout(DEFAULT_WEAPON_LOADOUT));
+armoryTabs.addEventListener('click', event => {
+  const tab = event.target.closest('[role="tab"]');
+  if (!tab) return;
+  activeArmorySlot = tab.dataset.slot;
+  drawArmoryOptions(weaponStats(weaponLoadout), armoryBaseCapacity());
 });
-armoryFinishes.addEventListener('click', event => {
-  const button = event.target.closest('[data-weapon-finish]');
-  if (!button) return;
-  weaponFinish = button.dataset.weaponFinish;
-  writeSetting(weaponFinishKey, weaponFinish);
-  if (armoryRound) sim.weaponFinish = weaponFinish;
-  drawArmory();
+armoryTabs.addEventListener('keydown', event => {
+  const tabs = [...armoryTabs.children];
+  const index = tabs.indexOf(event.target);
+  if (index < 0) return;
+  const nextIndex = {
+    ArrowLeft: (index + tabs.length - 1) % tabs.length,
+    ArrowRight: (index + 1) % tabs.length,
+    Home: 0,
+    End: tabs.length - 1,
+  }[event.key];
+  if (nextIndex === undefined) return;
+  event.preventDefault();
+  tabs[nextIndex].click();
+  tabs[nextIndex].focus();
+});
+armoryOptions.addEventListener('click', event => {
+  const card = event.target.closest('[data-option]');
+  if (!card) return;
+  const slot = card.parentElement.dataset.slot;
+  const part = card.dataset.option;
+  if (weaponLoadout[slot] !== part) equipWeaponLoadout({ ...weaponLoadout, [slot]: part });
 });
 byId('touch-manual').hidden = !isTouch;
 for (const button of supplyButtons) {

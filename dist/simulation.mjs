@@ -1,7 +1,9 @@
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
-import { WEAPON_MODS } from './weapon-mods.mjs';
+import {
+  DEFAULT_WEAPON_STATS, WEAPON_SLOTS, legacyWeaponLoadout, normalizeWeaponLoadout, weaponStats,
+} from './weapon-mods.mjs';
 import {
   GASTRIC_REPAIR_RADIUS, advanceGastric, createGastric, gastricValve, pendingGastricEnemies,
   repairGastricValve, shapeGastricHazard, startGastric,
@@ -130,7 +132,6 @@ const ENTRANCES = [
 
 const TURN_SENSITIVITY = 0.00225;
 const RIFLE_RANGE = 68;
-const RELOAD_TIME = 1.35;
 const REPAIR_TIME = 0.82;
 const REPAIR_PER_CYCLE = 13;
 const INTERMISSION_TIME = 6.5;
@@ -194,34 +195,54 @@ function guardFaces(enemy, source) {
 }
 
 export class Simulation {
-  constructor(area = 'artery', { tutorial = false, upgrades = [], bossPractice = false, weaponMod = 'standard' } = {}) {
+  constructor(area = 'artery', {
+    tutorial = false, upgrades = [], bossPractice = false, weaponLoadout, weaponMod = 'standard',
+  } = {}) {
     this.organMission = Object.hasOwn(ORGAN_MISSIONS, area) ? ORGAN_MISSIONS[area] : null;
     this.area = this.organMission || area === 'heart' || area === 'junction' ? area : 'artery';
     this.missions = this.organMission?.waves ?? (this.area === 'heart' ? HEART_MISSIONS : this.area === 'junction' ? JUNCTION_MISSIONS : MISSIONS);
     this.hasTutorial = tutorial && this.area === 'artery';
     this.bossPractice = bossPractice && this.area === 'brain';
     const activeUpgrades = !this.hasTutorial && Array.isArray(upgrades) ? upgrades : [];
-    this.magazineSize = activeUpgrades.includes('deep-magazine') ? FIELD_UPGRADES['deep-magazine'].magazineSize : RULES.magazine;
+    this.baseMagazineSize = activeUpgrades.includes('deep-magazine') ? FIELD_UPGRADES['deep-magazine'].magazineSize : RULES.magazine;
     this.repairAmount = activeUpgrades.includes('fast-sealer') ? FIELD_UPGRADES['fast-sealer'].repairAmount : REPAIR_PER_CYCLE;
     this.hazardDamageMultiplier = activeUpgrades.includes('insulated-suit') ? FIELD_UPGRADES['insulated-suit'].damageMultiplier : 1;
     this.turretSlowDuration = activeUpgrades.includes('turret-stabilizer') ? FIELD_UPGRADES['turret-stabilizer'].slowDuration : TURRET_SLOW_TIME;
-    this.weaponMod = 'standard';
-    this.setWeaponMod(weaponMod);
+    this.weaponLoadout = Object.freeze(normalizeWeaponLoadout(weaponLoadout ?? legacyWeaponLoadout(weaponMod)));
+    this.configuredWeapon = weaponStats(this.weaponLoadout);
     this.reset();
   }
 
+  setWeaponLoadout(value) {
+    const previousReload = this.weapon.reloadSeconds;
+    this.weaponLoadout = Object.freeze(normalizeWeaponLoadout(value));
+    this.configuredWeapon = weaponStats(this.weaponLoadout);
+    const { player, magazineSize } = this;
+    // Return loose rounds to the reserve even if it is already at its refill limit.
+    const extraRounds = Math.max(0, player.ammo - magazineSize);
+    player.ammo -= extraRounds;
+    player.reserve += extraRounds;
+    if (player.ammo === magazineSize) this.reloading = 0;
+    else if (this.reloading > 0) this.reloading *= this.weapon.reloadSeconds / previousReload;
+  }
+
   setWeaponMod(id) {
-    if (!Object.hasOwn(WEAPON_MODS, id)) return false;
-    this.weaponMod = id;
+    const loadout = legacyWeaponLoadout(id, this.weaponLoadout.finish);
+    if (!Object.keys(WEAPON_SLOTS).some(slot => loadout[slot] === id)) return false;
+    this.setWeaponLoadout({ ...loadout, accent: this.weaponLoadout.accent });
     return true;
   }
 
   get weapon() {
-    return WEAPON_MODS[this.tutorial ? 'standard' : this.weaponMod];
+    return this.tutorial || (this.phase === 'ready' && this.hasTutorial) ? DEFAULT_WEAPON_STATS : this.configuredWeapon;
+  }
+
+  get magazineSize() {
+    return this.baseMagazineSize + this.weapon.magazineDelta;
   }
 
   get reloadProgress() {
-    return this.reloading > 0 ? 1 - this.reloading / RELOAD_TIME : 0;
+    return this.reloading > 0 ? 1 - this.reloading / this.weapon.reloadSeconds : 0;
   }
 
   get organWave() {
@@ -302,13 +323,13 @@ export class Simulation {
       phase: 'closed', duration: HEART_CLOSED_TIME, remaining: HEART_CLOSED_TIME,
       openness: 0, exposed: false, colonyDefeated: false,
     } : null;
+    this.phase = 'ready';
+    this.tutorial = null;
     this.player = {
       x: 0, y: 1.7, z: this.valve ? 2 : this.area === 'junction' ? 13 : 18, yaw: 0, pitch: 0,
       health: RULES.health, ammo: this.magazineSize, reserve: RULES.initialReserve,
     };
     if (this.organMission) [this.player.x, this.player.z] = this.organMission.entry;
-    this.phase = 'ready';
-    this.tutorial = null;
     this.nodes = TISSUE_NODES[this.area].map(node => ({ ...node, health: RULES.tissue, underAttack: false }));
     this.objective = this.nodes[0];
     this.failedNode = null;
@@ -408,7 +429,7 @@ export class Simulation {
     this.reinforcement = null;
     if (choice === 'ammo') {
       const player = this.player;
-      const amount = Math.min(JUNCTION_SUPPLY_AMMO, RULES.reserveCap - player.reserve);
+      const amount = Math.min(JUNCTION_SUPPLY_AMMO, Math.max(0, RULES.reserveCap - player.reserve));
       player.reserve += amount;
       const rounds = Math.min(this.magazineSize - player.ammo, player.reserve);
       player.ammo += rounds;
@@ -447,7 +468,7 @@ export class Simulation {
     }
     const junction = this.area === 'junction';
     this.intermission = junction ? JUNCTION_BREAK_TIME : INTERMISSION_TIME;
-    this.player.reserve = Math.min(RULES.reserveCap, this.player.reserve + (junction ? 12 : 55));
+    this.player.reserve += Math.min(junction ? 12 : 55, Math.max(0, RULES.reserveCap - this.player.reserve));
     this.player.health = Math.min(RULES.health, this.player.health + (junction ? 12 : 18));
     if (this.gastric) startGastric(this);
   }
@@ -906,7 +927,7 @@ export class Simulation {
     if (repairing || this.reloading > 0) return;
     if (reloadPressed || (input.fire && player.ammo === 0)) {
       if (player.ammo < this.magazineSize && player.reserve > 0) {
-        this.reloading = RELOAD_TIME;
+        this.reloading = this.weapon.reloadSeconds;
         this.events.push({ type: 'reload', stage: 'start' });
         return;
       }
@@ -1035,7 +1056,7 @@ export class Simulation {
     if (bossHit) {
       if (bossHit.vulnerable) {
         // Preserve multiple core openings even with the fastest receiver.
-        this.fireCooldown = Math.max(this.fireCooldown, WEAPON_MODS.standard.interval);
+        this.fireCooldown = Math.max(this.fireCooldown, DEFAULT_WEAPON_STATS.interval);
       }
       this.events.push({ type: 'shot', hit: bossHit.vulnerable, crit: bossHit.vulnerable, ...impact });
       hitBrainBoss(this, bossHit, impact);

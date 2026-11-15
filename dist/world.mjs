@@ -5,7 +5,7 @@ import { createHeartValve, createValveColony } from './heart-valve.mjs';
 import { createTurret } from './turret.mjs';
 import { createOrganEnemies, createOrganEnvironment, organProfile } from './organ-world.mjs';
 import { createMegaVirus } from './mega-virus.mjs';
-import { WEAPON_MODS } from './weapon-mods.mjs';
+import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS } from './weapon-mods.mjs';
 import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, TISSUE_NODES } from './simulation.mjs';
 
 const TAU = Math.PI * 2;
@@ -1349,10 +1349,6 @@ export class World {
     this.magazineRest = this.carbine.magazine.position.clone();
     this.magazineHandPosition = new THREE.Vector3();
     this.supportRest = this.carbine.supportHand.position.clone();
-    const magazineBounds = new THREE.Box3().setFromObject(this.carbine.magazine);
-    this.magazineGrip = magazineBounds.getCenter(new THREE.Vector3()).sub(this.magazineRest);
-    this.magazineGrip.x = magazineBounds.min.x - this.magazineRest.x + .007;
-    this.magazineGrip.z -= .019;
 
     const anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     const tile = configureTile(fallbackTissue(), anisotropy, true);
@@ -1502,16 +1498,25 @@ export class World {
       const armory = new Simulation('artery');
       armory.start();
       this.updateWeapon(armory, 0, PRELOAD_INPUT, false, true);
+      // Cycle slots together to upload each component without rendering every possible build.
+      const slotVariants = Object.entries(WEAPON_SLOTS).map(([slot, { options }]) => [slot, Object.keys(options)]);
+      const variantCount = Math.max(...slotVariants.map(([, options]) => options.length));
+      const warmupBuilds = Array.from({ length: variantCount }, (_, index) => ({
+        ...DEFAULT_WEAPON_LOADOUT,
+        ...Object.fromEntries(slotVariants.map(([slot, options]) => [slot, options[index] ?? 'standard'])),
+      }));
+      this.carbine.flash.visible = true;
       // The world has no shadow casters. Only the weapon needs both quality variants.
       for (const enabled of [!shadows, shadows]) {
         this.renderer.shadowMap.enabled = enabled;
         this.weaponKey.castShadow = enabled;
-        for (const mod of Object.keys(WEAPON_MODS)) {
-          this.setWeaponLoadout(mod);
+        for (const loadout of warmupBuilds) {
+          this.setWeaponLoadout(loadout);
           await this.renderer.compileAsync(this.weaponScene, this.weaponCamera);
           this.renderer.render(this.weaponScene, this.weaponCamera);
         }
       }
+      this.carbine.flash.visible = false;
       onProgress(2, total);
       for (let index = 0; index < areas.length; index++) {
         await nextTask();
@@ -1531,7 +1536,8 @@ export class World {
       }
     } finally {
       this.renderer.shadowMap.enabled = this.weaponKey.castShadow = shadows;
-      this.setWeaponLoadout('standard');
+      this.carbine.flash.visible = false;
+      this.setWeaponLoadout(DEFAULT_WEAPON_LOADOUT);
       this.setArea(startArea);
       this.prewarmingEnemies = false;
       this.resize(true);
@@ -1587,9 +1593,9 @@ export class World {
     await this.renderer.compileAsync(this.scene, this.camera);
   }
 
-  setWeaponLoadout(mod, finish = this.weaponFinish) {
-    this.weaponFinish = finish;
-    this.carbine.setLoadout(mod, finish);
+  setWeaponLoadout(loadout) {
+    this.weaponSource = null;
+    this.carbine.setLoadout(loadout);
   }
 
   setArea(area) {
@@ -2076,7 +2082,7 @@ export class World {
     pose.swayX = damp(pose.swayX, reduceMotion ? 0 : clamp(input.lookX * .001, -.027, .027), 15, dt);
     pose.swayY = damp(pose.swayY, reduceMotion ? 0 : clamp(input.lookY * .001, -.023, .023), 15, dt);
 
-    const { model, muzzle, flash, magazine, supportHand, bolt, poseHands } = this.carbine;
+    const { model, muzzle, flash, magazine, magazineGrip, supportHand, bolt, poseHands } = this.carbine;
     if (sim.events !== this.lastEvents && sim.events.some(event => event.type === 'shot')) {
       pose.recoil = Math.min(1.24, pose.recoil + (reduceMotion ? .43 : 1));
       pose.flash = reduceMotion ? 0 : .037;
@@ -2110,12 +2116,14 @@ export class World {
     magazine.position.y -= magazineTravel * .196;
     magazine.position.z += magazineTurn * .056;
     magazine.rotation.set(magazineTurn * .22, -magazineTurn * .15, -magazineTurn * .24);
-    this.magazineHandPosition.copy(this.magazineGrip).applyQuaternion(magazine.quaternion).add(magazine.position);
+    this.magazineHandPosition.copy(magazineGrip).applyQuaternion(magazine.quaternion).add(magazine.position);
     supportHand.position.copy(this.supportRest).lerp(this.magazineHandPosition,reach);
     supportHand.rotation.set(-reach * .24 + magazineTurn * .15, reach * .15, reach * .42 + magazineTurn * .17);
     bolt.position.z = Math.max(pose.recoil * .033, seat * .023);
     poseHands(reach, Math.min(pose.recoil,1));
     flash.visible = pose.flash > 0;
+    const flashStrength = sim.weapon.muzzleFlash;
+    flash.scale.setScalar(Math.sqrt(flashStrength));
     model.visible = pose.lowered < .91;
     this.updateRepairTool(sim, idle, walk, reduceMotion);
 
@@ -2123,7 +2131,7 @@ export class World {
     this.weaponKey.position.set(-1.3, 1.76, -.92)
       .applyQuaternion(this.weaponLightRotation).add(this.weaponKey.target.position);
     this.weaponScene.environmentRotation.setFromQuaternion(this.weaponLightRotation);
-    this.weaponFlash.intensity = flash.visible ? 3.4 * (pose.flash / .037) : 0;
+    this.weaponFlash.intensity = flash.visible ? 3.4 * flashStrength * (pose.flash / .037) : 0;
     muzzle.getWorldPosition(this.weaponFlash.position);
   }
 
@@ -2159,7 +2167,7 @@ export class World {
     this.toolStream.visible = true;
   }
 
-  addShot(event) {
+  addShot(event, flashStrength) {
     const start = this.carbine.muzzle.getWorldPosition(new THREE.Vector3());
     // Match the on-screen muzzle position across the two camera fields of view.
     const ratio = Math.tan(this.camera.fov * Math.PI / 360) / Math.tan(this.weaponCamera.fov * Math.PI / 360);
@@ -2170,7 +2178,7 @@ export class World {
       ? new THREE.Vector3(event.x, event.y, event.z)
       : new THREE.Vector3(0, 0, -36).applyQuaternion(this.camera.quaternion).add(this.camera.position);
     this.addTracer(start, end, this.shotMaterial, .064);
-    this.shotLight.intensity = 13;
+    this.shotLight.intensity = 13 * flashStrength;
     this.shotLight.position.copy(start);
     if (event.hit) this.burst(end.x, end.y, end.z, event.crit ? 0xffc875 : 0xff765a, event.crit ? 18 : 9, 3);
   }
@@ -2191,11 +2199,11 @@ export class World {
     this.burst(x, y, z, 0xf49b62, reduceMotion ? 3 : 11, 2.2);
   }
 
-  processEvents(events, dt, reduceMotion) {
+  processEvents(events, dt, reduceMotion, flashStrength) {
     if (events !== this.lastEvents) {
       this.lastEvents = events;
       for (const event of events) {
-        if (event.type === 'shot') this.addShot(event);
+        if (event.type === 'shot') this.addShot(event, flashStrength);
         if (event.type === 'turret' && event.stage === 'fire') this.addTurretShot(event, reduceMotion);
         if (event.type === 'turret' && (event.stage === 'deployed' || event.stage === 'redeployed') && !reduceMotion) {
           this.burst(event.x, floorHeight(event.x, event.z) + .11, event.z, 0xb78079, 15, 1.2);
@@ -2272,9 +2280,16 @@ export class World {
     this.updateProjectiles(sim.projectiles ?? [], reduceMotion);
     const { turret } = sim;
     this.turretView.update(turret, turret ? floorHeight(turret.x, turret.z) : 0, dt, reduceMotion);
-    this.setWeaponLoadout(sim.tutorial ? 'standard' : sim.weaponMod, sim.weaponFinish);
+    const { weaponLoadout, tutorial } = sim;
+    if (weaponLoadout !== this.weaponSource || tutorial !== this.weaponTutorial) {
+      this.setWeaponLoadout(tutorial ? {
+        ...DEFAULT_WEAPON_LOADOUT, finish: weaponLoadout.finish, accent: weaponLoadout.accent,
+      } : weaponLoadout);
+      this.weaponSource = weaponLoadout;
+      this.weaponTutorial = tutorial;
+    }
     this.updateWeapon(sim, dt, input, aiming, reduceMotion);
-    this.processEvents(sim.events, dt, reduceMotion);
+    this.processEvents(sim.events, dt, reduceMotion, sim.weapon.muzzleFlash);
     this.updateParticles(dt);
     this.renderer.render(this.scene, this.camera);
     // Give the close-up model its own depth buffer without clearing the artery.

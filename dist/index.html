@@ -275,20 +275,17 @@
       </header>
       <div class="armory-preview">
         <div id="armory-preview" class="armory-image"></div>
-        <div class="armory-equipped">
-          <strong id="armory-equipped"></strong>
-          <span id="armory-stats"></span>
+        <div class="armory-readout">
+          <h3>Build stats</h3>
+          <dl id="armory-stats" class="armory-stats"></dl>
         </div>
-        <fieldset class="armory-finishes">
-          <legend>Finish</legend>
-          <div id="armory-finishes"></div>
-        </fieldset>
       </div>
-      <fieldset class="armory-mods">
-        <legend>Weapon modification</legend>
-        <div id="armory-mods" class="armory-cards"></div>
-      </fieldset>
-      <button id="armory-done" class="button primary full-button" type="button">Done <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+      <div id="armory-slots" class="armory-slots" role="tablist" aria-label="Carbine customization"></div>
+      <div id="armory-options"></div>
+      <footer class="armory-actions">
+        <button id="armory-reset" class="button outline" type="button">Reset build</button>
+        <button id="armory-done" class="button primary" type="button">Done <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+      </footer>
     </dialog>
 
     <dialog id="mission-dialog" class="panel mission-panel" aria-labelledby="mission-title" aria-describedby="mission-intro">
@@ -366,7 +363,7 @@
       <p>In Gastric Chamber, hold Repair at the intake valve after wave one to close it. Watch for redirected acid as you cross to the opposite bank and open the drain. Once the basin drains, watch the exposed lower passage for flanking pathogens.</p>
       <p>In the Neural Cortex finale, fire at the Mega Virus’s glowing cores when their shells open. Use the time between openings to intercept its offspring and repair the tissue nodes.</p>
       <p>Equip one field upgrade at each checkpoint. Insulated Suit reduces acid and pressure damage, and Turret Stabilizer extends the slow effect. In Free Mode, choose any level and loadout. Reaching the Mega Virus opens a separate boss practice run.</p>
-      <p>Customize the Needle Carbine in the armory and review it between waves. Equip one modification and one cosmetic finish. A weapon modification works alongside your field upgrade.</p>
+      <p>Customize the Needle Carbine in the armory before deployment and between waves. Mix one part per slot, compare build stats, and choose a body finish and accent color. Your carbine build works alongside your field upgrade.</p>
       <p>Watch the organ status during later missions for hazard warnings and advice. Your campaign checkpoint keeps completed missions and your field upgrade. The final report shows tissue integrity across all eight missions.</p>
       <dl class="controls-list">
         <div><dt>Move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dd></div>
@@ -451,7 +448,7 @@
           <button class="campaign-choice" type="button" data-upgrade="deep-magazine" aria-pressed="false">
             <span class="upgrade-art" aria-hidden="true"></span>
             <strong>Deep Magazine</strong>
-            <span data-upgrade-detail>42 rounds per magazine</span>
+            <span data-upgrade-detail>Adds 12 rounds to magazine capacity</span>
           </button>
           <button class="campaign-choice" type="button" data-upgrade="insulated-suit" aria-pressed="false">
             <span class="upgrade-art" aria-hidden="true"></span>

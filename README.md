@@ -23,13 +23,15 @@ Choose **Start campaign** to deploy into Arterial Junction. Between missions, eq
 | Field upgrade | Effect |
 | --- | --- |
 | Fast Sealer | Restores 18 tissue points per repair pulse. |
-| Deep Magazine | Holds 42 rounds per magazine. |
+| Deep Magazine | Adds 12 rounds to the equipped magazine. |
 | Insulated Suit | Reduces suit damage from stomach acid and intestinal pressure waves by 40%. |
 | Turret Stabilizer | Extends the turret's slow from 1.4 to 2.2 seconds. It still fires every 2.6 seconds. |
 
 Open **Free Mode** to play any of the eight missions from the start with standard equipment or any one upgrade. Free Mode runs leave your campaign checkpoint, mission progression, and best score intact. Reaching the Mega Virus in Neural Cortex in either mode unlocks **Practice Mega Virus**, which starts directly at Wave 3 with fresh supplies.
 
-**Customize carbine** lets you preview and equip one weapon modification and one cosmetic finish. The armory also opens between waves. A heavy barrel trades fire rate for damage per round, a compensator widens the hip-fire critical zone, a marksman optic rewards aiming, and a rapid receiver trades damage for fire rate. The chosen configuration is saved in the browser and works alongside your field upgrade.
+**Customize carbine** lets you mix a barrel, muzzle, optic, receiver, and magazine. Each slot has three illustrated options. The armory compares each part against your equipped build and shows the combined weapon in 3D. Pick a body finish and an accent color independently. Your build is saved in the browser and works alongside your field upgrade.
+
+The armory reopens between waves. Swapping magazines preserves the rounds you carry. Changing to a smaller magazine puts excess loaded rounds into reserve. First-time Arterial Junction training uses stock weapon stats until the guided breach is sealed.
 
 The game prepares arena geometry, textures, audio, and armory previews before it enables deployment. The first load includes all eight arenas and the Mega Virus encounter.
 
@@ -120,7 +122,8 @@ flowchart LR
 | [`dist/organs.mjs`](dist/organs.mjs) | Mission data for the five new organs, including node coordinates, wave compositions, and hazard timings. |
 | [`dist/organ-world.mjs`](dist/organ-world.mjs) | Procedural anatomy, organ-specific materials, and animated hazard geometry. |
 | [`dist/brain-boss.mjs`](dist/brain-boss.mjs), [`dist/mega-virus.mjs`](dist/mega-virus.mjs) | The finale's phase rules, physical shot gates, and connected 3D creature. |
-| [`dist/carbine.mjs`](dist/carbine.mjs) | The 3D carbine and armored gloves, including the articulated magazine, bolt, and hand poses. |
+| [`dist/carbine.mjs`](dist/carbine.mjs) | The 3D carbine and armored gloves, including modular parts, finishes, and articulated reload poses. |
+| [`dist/weapon-mods.mjs`](dist/weapon-mods.mjs), [`dist/armory-art.mjs`](dist/armory-art.mjs) | Attachment stats, saved build validation, and armory images rendered from the same 3D parts used in combat. |
 | [`dist/repair-tool.mjs`](dist/repair-tool.mjs) | The 3D tissue sealer that replaces the carbine while the player repairs the wound. |
 | [`dist/heart-valve.mjs`](dist/heart-valve.mjs) | The moving valve and attached colony. The scene follows the same timing as the simulation's shot and repair windows. |
 | [`dist/turret.mjs`](dist/turret.mjs) | The 3D auto-turret with its aiming mount, deployment animation, and recoil. |
