@@ -57,12 +57,18 @@
           <h1>IMMUNE<span>PROTOCOL</span></h1>
           <p class="summary">Deploy inside a living body. Fight the infection and repair damaged tissue before the host flatlines.</p>
           <div class="menu-buttons">
-            <button id="resume-campaign" class="button primary" type="button" hidden><span id="resume-campaign-label">Resume campaign</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-            <button id="deploy" class="button primary" type="button"><span>Start campaign</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+            <button id="resume-campaign" class="button primary" type="button" disabled hidden><span id="resume-campaign-label">Resume campaign</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+            <button id="deploy" class="button primary" type="button" disabled><span>Start campaign</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
           </div>
           <div class="menu-secondary">
-            <button id="mission-select" class="button outline" type="button"><svg aria-hidden="true"><use href="#target"></use></svg> Mission select</button>
+            <button id="mission-select" class="button outline" type="button" disabled><svg aria-hidden="true"><use href="#target"></use></svg> Free Mode</button>
+            <button id="armory-open" class="button outline" type="button" disabled>Customize carbine</button>
             <button id="manual" class="button outline" type="button"><svg aria-hidden="true"><use href="#book"></use></svg> Field manual</button>
+          </div>
+          <div id="startup-load" class="startup-load">
+            <span id="startup-status" role="status">Preparing game assets</span>
+            <progress id="startup-progress" aria-label="Game loading progress" value="0" max="100"></progress>
+            <button id="startup-retry" class="button outline" type="button" hidden>Retry loading</button>
           </div>
           <p id="menu-error" class="menu-error" role="alert" hidden></p>
         </div>
@@ -259,16 +265,42 @@
       </div>
     </section>
 
-    <dialog id="mission-dialog" class="panel mission-panel" aria-labelledby="mission-title" aria-describedby="mission-intro">
-      <button class="icon-button close-dialog" data-close="mission-dialog" type="button" aria-label="Close mission select" autofocus><svg aria-hidden="true"><use href="#close"></use></svg></button>
-      <div class="mission-heading">
-        <h2 id="mission-title">Mission select</h2>
-        <p id="mission-count" class="mission-count"></p>
+    <dialog id="armory-dialog" class="panel armory-panel" aria-labelledby="armory-title" aria-describedby="armory-context">
+      <header class="armory-heading">
+        <div>
+          <p class="eyebrow"><span></span> NEEDLE CARBINE</p>
+          <h2 id="armory-title" tabindex="-1">Customize carbine</h2>
+        </div>
+        <p id="armory-context" aria-live="polite"></p>
+      </header>
+      <div class="armory-preview">
+        <div id="armory-preview" class="armory-image"></div>
+        <div class="armory-equipped">
+          <strong id="armory-equipped"></strong>
+          <span id="armory-stats"></span>
+        </div>
+        <fieldset class="armory-finishes">
+          <legend>Finish</legend>
+          <div id="armory-finishes"></div>
+        </fieldset>
       </div>
-      <p id="mission-intro">Clear missions in order to unlock new insertion sites. Choose a loadout and launch any unlocked mission for practice.</p>
+      <fieldset class="armory-mods">
+        <legend>Weapon modification</legend>
+        <div id="armory-mods" class="armory-cards"></div>
+      </fieldset>
+      <button id="armory-done" class="button primary full-button" type="button">Done <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+    </dialog>
+
+    <dialog id="mission-dialog" class="panel mission-panel" aria-labelledby="mission-title" aria-describedby="mission-intro">
+      <button class="icon-button close-dialog" data-close="mission-dialog" type="button" aria-label="Close Free Mode" autofocus><svg aria-hidden="true"><use href="#close"></use></svg></button>
+      <div class="mission-heading">
+        <h2 id="mission-title">Free Mode</h2>
+        <p id="mission-count" class="mission-count">8 levels</p>
+      </div>
+      <p id="mission-intro">Choose a loadout and jump into any level. Your campaign progress and records are separate.</p>
       <p id="mission-error" class="menu-error" role="alert" hidden></p>
       <div class="practice-loadout">
-        <label for="practice-loadout">Practice loadout</label>
+        <label for="practice-loadout">Free Mode loadout</label>
         <select id="practice-loadout" aria-describedby="practice-loadout-detail">
           <option value="standard">Standard</option>
           <option value="fast-sealer">Fast Sealer</option>
@@ -281,41 +313,41 @@
       <ol id="mission-list" class="mission-list">
         <li>
           <button id="deploy-artery" class="mission-card" data-deploy-area="artery" aria-describedby="artery-status" type="button"><span data-mission-name>Arterial Junction</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-          <p id="artery-status" data-mission-status="artery">Unlocked</p>
+          <p id="artery-status" data-mission-status="artery"></p>
         </li>
         <li>
-          <button id="deploy-junction" class="mission-card" data-deploy-area="junction" aria-describedby="junction-status" type="button" disabled><span data-mission-name>Capillary Junction</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-          <p id="junction-status" data-mission-status="junction">Locked</p>
+          <button id="deploy-junction" class="mission-card" data-deploy-area="junction" aria-describedby="junction-status" type="button"><span data-mission-name>Capillary Junction</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="junction-status" data-mission-status="junction"></p>
         </li>
         <li>
-          <button id="deploy-heart" class="mission-card" data-deploy-area="heart" aria-describedby="heart-status" type="button" disabled><span data-mission-name>Heart Valve</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-          <p id="heart-status" data-mission-status="heart">Locked</p>
+          <button id="deploy-heart" class="mission-card" data-deploy-area="heart" aria-describedby="heart-status" type="button"><span data-mission-name>Heart Valve</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="heart-status" data-mission-status="heart"></p>
         </li>
         <li>
-          <button id="deploy-lungs" class="mission-card" data-deploy-area="lungs" aria-describedby="lungs-status" type="button" disabled><span data-mission-name>Bronchial Fork</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-          <p id="lungs-status" data-mission-status="lungs">Locked</p>
+          <button id="deploy-lungs" class="mission-card" data-deploy-area="lungs" aria-describedby="lungs-status" type="button"><span data-mission-name>Bronchial Fork</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="lungs-status" data-mission-status="lungs"></p>
         </li>
         <li>
-          <button id="deploy-stomach" class="mission-card" data-deploy-area="stomach" aria-describedby="stomach-status" type="button" disabled><span data-mission-name>Gastric Chamber</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-          <p id="stomach-status" data-mission-status="stomach">Locked</p>
+          <button id="deploy-stomach" class="mission-card" data-deploy-area="stomach" aria-describedby="stomach-status" type="button"><span data-mission-name>Gastric Chamber</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="stomach-status" data-mission-status="stomach"></p>
         </li>
         <li>
-          <button id="deploy-intestines" class="mission-card" data-deploy-area="intestines" aria-describedby="intestines-status" type="button" disabled><span data-mission-name>Intestinal Bend</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-          <p id="intestines-status" data-mission-status="intestines">Locked</p>
+          <button id="deploy-intestines" class="mission-card" data-deploy-area="intestines" aria-describedby="intestines-status" type="button"><span data-mission-name>Intestinal Bend</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="intestines-status" data-mission-status="intestines"></p>
         </li>
         <li>
-          <button id="deploy-ear" class="mission-card" data-deploy-area="ear" aria-describedby="ear-status" type="button" disabled><span data-mission-name>Inner Ear</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-          <p id="ear-status" data-mission-status="ear">Locked</p>
+          <button id="deploy-ear" class="mission-card" data-deploy-area="ear" aria-describedby="ear-status" type="button"><span data-mission-name>Inner Ear</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="ear-status" data-mission-status="ear"></p>
         </li>
         <li>
-          <button id="deploy-brain" class="mission-card" data-deploy-area="brain" aria-describedby="brain-status" type="button" disabled><span data-mission-name>Neural Cortex</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-          <p id="brain-status" data-mission-status="brain">Locked</p>
+          <button id="deploy-brain" class="mission-card" data-deploy-area="brain" aria-describedby="brain-status" type="button"><span data-mission-name>Neural Cortex</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+          <p id="brain-status" data-mission-status="brain"></p>
         </li>
       </ol>
       <div class="boss-practice">
         <button id="deploy-mega-virus" class="mission-card" aria-describedby="mega-virus-status mega-virus-rules" type="button" disabled><span>Practice Mega Virus</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
         <p id="mega-virus-status">Reach the Mega Virus in Neural Cortex to unlock.</p>
-        <p id="mega-virus-rules">Starts at Wave 3. Practice never advances your campaign.</p>
+        <p id="mega-virus-rules">Starts directly at Wave 3 with fresh supplies.</p>
       </div>
     </dialog>
 
@@ -333,7 +365,8 @@
       <p>In Bronchial Fork, hold Repair near each bronchus after wave two to reopen it. Keep both open through one full breath. An airway blocks again if its tissue falls below 45%.</p>
       <p>In Gastric Chamber, hold Repair at the intake valve after wave one to close it. Watch for redirected acid as you cross to the opposite bank and open the drain. Once the basin drains, watch the exposed lower passage for flanking pathogens.</p>
       <p>In the Neural Cortex finale, fire at the Mega Virus’s glowing cores when their shells open. Use the time between openings to intercept its offspring and repair the tissue nodes.</p>
-      <p>Equip one field upgrade at each checkpoint. Insulated Suit reduces acid and pressure damage, and Turret Stabilizer extends the slow effect. Mission Select lets you try any loadout and practice the Mega Virus after you first reach it.</p>
+      <p>Equip one field upgrade at each checkpoint. Insulated Suit reduces acid and pressure damage, and Turret Stabilizer extends the slow effect. In Free Mode, choose any level and loadout. Reaching the Mega Virus opens a separate boss practice run.</p>
+      <p>Customize the Needle Carbine in the armory and review it between waves. Equip one modification and one cosmetic finish. A weapon modification works alongside your field upgrade.</p>
       <p>Watch the organ status during later missions for hazard warnings and advice. Your campaign checkpoint keeps completed missions and your field upgrade. The final report shows tissue integrity across all eight missions.</p>
       <dl class="controls-list">
         <div><dt>Move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dd></div>
@@ -411,18 +444,22 @@
         </div>
         <div class="campaign-choices">
           <button class="campaign-choice" type="button" data-upgrade="fast-sealer" aria-pressed="false">
+            <span class="upgrade-art" aria-hidden="true"></span>
             <strong>Fast Sealer</strong>
             <span data-upgrade-detail>Restores 18% tissue per pulse</span>
           </button>
           <button class="campaign-choice" type="button" data-upgrade="deep-magazine" aria-pressed="false">
+            <span class="upgrade-art" aria-hidden="true"></span>
             <strong>Deep Magazine</strong>
             <span data-upgrade-detail>42 rounds per magazine</span>
           </button>
           <button class="campaign-choice" type="button" data-upgrade="insulated-suit" aria-pressed="false">
+            <span class="upgrade-art" aria-hidden="true"></span>
             <strong>Insulated Suit</strong>
             <span data-upgrade-detail>40% less damage from acid and pressure waves</span>
           </button>
           <button class="campaign-choice" type="button" data-upgrade="turret-stabilizer" aria-pressed="false">
+            <span class="upgrade-art" aria-hidden="true"></span>
             <strong>Turret Stabilizer</strong>
             <span data-upgrade-detail>Turret slow lasts 2.2s instead of 1.4s</span>
           </button>

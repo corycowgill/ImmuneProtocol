@@ -1,6 +1,9 @@
 import { Simulation, JUNCTION_INLETS, RULES } from './simulation.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
+import { WEAPON_FINISHES, WEAPON_MODS } from './weapon-mods.mjs';
+import { FIELD_UPGRADE_ART, prepareArmoryArt } from './armory-art.mjs';
+import { World } from './world.mjs';
 import { GameAudio } from './audio.mjs';
 
 const byId = id => document.getElementById(id);
@@ -9,6 +12,20 @@ const game = byId('game');
 const canvas = byId('world');
 const deploy = byId('deploy');
 const deployLabel = deploy.querySelector('span');
+const startupLoad = byId('startup-load');
+const startupStatus = byId('startup-status');
+const startupProgress = byId('startup-progress');
+const startupRetry = byId('startup-retry');
+const armoryOpen = byId('armory-open');
+const armoryDialog = byId('armory-dialog');
+const armoryTitle = byId('armory-title');
+const armoryContext = byId('armory-context');
+const armoryDone = byId('armory-done');
+const armoryPreview = byId('armory-preview');
+const armoryEquipped = byId('armory-equipped');
+const armoryStats = byId('armory-stats');
+const armoryFinishes = byId('armory-finishes');
+const armoryMods = byId('armory-mods');
 const missionSelect = byId('mission-select');
 const missionDialog = byId('mission-dialog');
 const missionCount = byId('mission-count');
@@ -29,6 +46,8 @@ const resumeCampaignButton = byId('resume-campaign');
 const resumeCampaignLabel = byId('resume-campaign-label');
 const replay = byId('replay');
 const replayLabel = byId('replay-label');
+const resultKicker = byId('result-kicker');
+const returnMenu = byId('return-menu');
 const resultLaunchError = byId('result-launch-error');
 const resultTissueStat = byId('result-tissue-stat');
 const resultNodes = byId('result-nodes');
@@ -180,6 +199,8 @@ const qualityKey = 'immune-protocol.graphics-quality';
 const checkpointKey = 'immune-protocol.campaign-checkpoint';
 const unlockedKey = 'immune-protocol.unlocked-mission';
 const practiceLoadoutKey = 'immune-protocol.practice-loadout';
+const weaponModKey = 'immune-protocol.weapon-mod';
+const weaponFinishKey = 'immune-protocol.weapon-finish';
 const megaVirusKey = 'immune-protocol.mega-virus-reached';
 const campaignAreas = ['artery', 'junction', 'heart', 'lungs', 'stomach', 'intestines', 'ear', 'brain'];
 const missions = {
@@ -200,6 +221,9 @@ const attackWarnings = {
 const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo', Digit4: 'turret' };
 
 let world;
+let ready = false;
+let armoryArt;
+let armoryRound = 0;
 let sim;
 let campaign = null;
 let selectedUpgrade = null;
@@ -235,6 +259,8 @@ let megaVirusReached = readSetting(megaVirusKey) === 'true';
 let trainingComplete = readSetting(tutorialKey) === 'true';
 let sensitivity = clamp(Number.parseFloat(readSetting(sensitivityKey)) || 1, 0.5, 2.5);
 let graphicsQuality = readSetting(qualityKey) === 'low' ? 'low' : 'high';
+let weaponMod = savedChoice(weaponModKey, WEAPON_MODS, 'standard');
+let weaponFinish = savedChoice(weaponFinishKey, WEAPON_FINISHES, 'factory');
 
 function readSetting(key) {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -242,6 +268,11 @@ function readSetting(key) {
 
 function writeSetting(key, value) {
   try { localStorage.setItem(key, value); } catch { /* Private browsing may block storage. */ }
+}
+
+function savedChoice(key, records, fallback) {
+  const saved = readSetting(key);
+  return Object.hasOwn(records, saved) ? saved : fallback;
 }
 
 function readCheckpoint() {
@@ -301,20 +332,19 @@ function displayBest() {
 }
 
 function displayMissionAccess() {
+  const unavailable = loading || !ready;
   for (const { area, button, label, status } of missionEntries) {
-    const index = campaignAreas.indexOf(area);
-    const available = index >= 0 && index <= unlockedMission;
-    button.disabled = loading || !available;
+    button.disabled = unavailable;
     setText(label, missionName(area));
-    setText(status, available ? missions[area].briefing : 'Clear ' + missionName(campaignAreas[index - 1]) + ' to unlock.');
+    setText(status, missions[area].briefing);
   }
-  missionSelect.disabled = loading;
-  practiceLoadout.disabled = loading;
-  megaVirusDeploy.disabled = loading || !megaVirusReached || unlockedMission < campaignAreas.indexOf('brain');
-  setText(megaVirusStatus, megaVirusReached ? 'Start at Wave 3 with fresh supplies.' : 'Reach the Mega Virus in Neural Cortex to unlock.');
-  setText(missionCount, (unlockedMission + 1) + ' of ' + campaignAreas.length + ' missions unlocked');
+  deploy.disabled = missionSelect.disabled = armoryOpen.disabled = unavailable;
+  practiceLoadout.disabled = unavailable;
+  megaVirusDeploy.disabled = unavailable || !megaVirusReached;
+  megaVirusStatus.hidden = megaVirusReached;
+  setText(missionCount, campaignAreas.length + ' levels');
   resumeCampaignButton.hidden = !checkpoint;
-  resumeCampaignButton.disabled = loading;
+  resumeCampaignButton.disabled = unavailable;
   if (deployLabel) setText(deployLabel, checkpoint ? 'Start new campaign' : 'Start campaign');
   if (checkpoint) setText(resumeCampaignLabel, 'Resume at ' + missionName(campaignAreas[checkpoint.results.length]));
 }
@@ -335,6 +365,79 @@ function setupLoadouts() {
     setText(detail, description);
   }
   updatePracticeLoadout();
+}
+
+function drawArmory() {
+  const { name, bodyDamage, criticalDamage, interval } = WEAPON_MODS[weaponMod];
+  const preview = armoryArt[weaponMod][weaponFinish];
+  preview.alt = name + ' in ' + WEAPON_FINISHES[weaponFinish].name;
+  if (armoryPreview.firstElementChild !== preview) armoryPreview.replaceChildren(preview);
+  setText(armoryEquipped, name);
+  setText(armoryStats, bodyDamage + ' body · ' + criticalDamage + ' critical · ' + Math.round(60 / interval) + ' RPM');
+  for (const button of armoryMods.children) button.setAttribute('aria-pressed', String(button.dataset.weaponMod === weaponMod));
+  for (const button of armoryFinishes.children) button.setAttribute('aria-pressed', String(button.dataset.weaponFinish === weaponFinish));
+}
+
+function setupArmory() {
+  for (const [id, { name, detail }] of Object.entries(WEAPON_MODS)) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'armory-card';
+    button.dataset.weaponMod = id;
+    const picture = armoryArt[id].factory.cloneNode();
+    picture.alt = '';
+    const label = document.createElement('strong');
+    label.textContent = name;
+    const text = document.createElement('small');
+    text.textContent = detail;
+    button.append(picture, label, text);
+    armoryMods.append(button);
+  }
+  for (const [id, { name, color }] of Object.entries(WEAPON_FINISHES)) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'finish-button';
+    button.dataset.weaponFinish = id;
+    button.style.setProperty('--finish', color);
+    button.textContent = name;
+    armoryFinishes.append(button);
+  }
+  drawArmory();
+}
+
+async function prepareGame() {
+  startupRetry.hidden = true;
+  startupProgress.hidden = false;
+  startupProgress.value = 0;
+  setText(startupStatus, 'Preparing game assets');
+  await new Promise(requestAnimationFrame);
+  try {
+    if (!world) world = new World(canvas);
+    world.setQuality(graphicsQuality);
+    const upgradeArt = new Image();
+    upgradeArt.src = FIELD_UPGRADE_ART;
+    await Promise.all([
+      world.prepareAll(campaignAreas, (done, total) => {
+        startupProgress.value = Math.round(85 * done / total);
+        setText(startupStatus, 'Preparing arenas and effects · ' + done + ' / ' + total);
+      }),
+      audio.prepare(),
+      upgradeArt.decode(),
+      document.fonts.ready,
+    ]);
+    setText(startupStatus, 'Preparing carbine previews');
+    armoryArt = await prepareArmoryArt(world.renderer);
+    setupArmory();
+    startupProgress.value = 100;
+    startupLoad.hidden = true;
+    ready = true;
+    displayMissionAccess();
+  } catch (error) {
+    console.error('Could not prepare Immune Protocol', error);
+    setText(startupStatus, 'Could not prepare game assets. Check WebGL 2 and retry.');
+    startupProgress.hidden = true;
+    startupRetry.hidden = false;
+  }
 }
 
 function requestMouse() {
@@ -381,7 +484,7 @@ async function launch(area, run = null, drill = null) {
   const junction = area === 'junction';
   const heart = area === 'heart';
   const index = campaignAreas.indexOf(area);
-  if (loading || running || index < 0 || index > unlockedMission) return;
+  if (!ready || loading || running || index < 0 || (!drill && index > unlockedMission)) return;
   if (drill?.bossPractice && (area !== 'brain' || !megaVirusReached)) return;
   const fromResult = resultDialog.open;
   const fromMissionList = missionDialog.open;
@@ -402,8 +505,6 @@ async function launch(area, run = null, drill = null) {
   requestMouse();
   const unlocked = Promise.resolve(audio.unlock()).catch(() => {});
   try {
-    const { World } = await import('./world.mjs');
-    if (!world) world = new World(canvas);
     world.setArea(area);
     world.setQuality(graphicsQuality);
     const upgrade = run?.upgrade ?? drill?.upgrade;
@@ -411,9 +512,12 @@ async function launch(area, run = null, drill = null) {
       tutorial: area === 'artery' && !trainingComplete && !drill,
       upgrades: upgrade ? [upgrade] : [],
       bossPractice: !!drill?.bossPractice,
+      weaponMod,
     });
     nextSim.start();
     sim = nextSim;
+    sim.weaponFinish = weaponFinish;
+    armoryRound = 0;
     campaign = run;
     practice = drill;
     selectedUpgrade = null;
@@ -485,7 +589,6 @@ async function launch(area, run = null, drill = null) {
     message.hidden = false;
     if (fromMissionList) missionDialog.showModal();
   } finally {
-    deploy.disabled = false;
     loading = false;
     displayMissionAccess();
     if (fromMissionList && missionDialog.open) previousControl?.focus();
@@ -494,6 +597,14 @@ async function launch(area, run = null, drill = null) {
 
 function pause() {
   if (!running || paused || sim.extractionPending) return;
+  suspendCombat();
+  byId('pause-detail').textContent = isTouch
+    ? 'Resume when you’re ready to return to the fight.'
+    : 'Resume to capture the mouse. If it stays free, drag the view or use the arrow keys to look.';
+  pauseDialog.showModal();
+}
+
+function suspendCombat() {
   paused = true;
   cancelAnimationFrame(animation);
   animation = 0;
@@ -501,10 +612,24 @@ function pause() {
   audio.setActive(false);
   syncMusic();
   releaseMouse();
-  byId('pause-detail').textContent = isTouch
-    ? 'Resume when you’re ready to return to the fight.'
-    : 'Resume to capture the mouse. If it stays free, drag the view or use the arrow keys to look.';
-  pauseDialog.showModal();
+}
+
+function openArmory(round = 0) {
+  if (!ready || armoryDialog.open) return;
+  if (round) suspendCombat();
+  setText(armoryContext, round ? 'Wave ' + round + ' complete. Equip a mod before resuming.' : 'One modification and one finish.');
+  armoryDone.firstChild.textContent = round ? 'Resume mission ' : 'Done ';
+  drawArmory();
+  armoryDialog.showModal();
+  armoryDialog.scrollTop = 0;
+  armoryTitle.focus({ preventScroll: true });
+}
+
+function closeArmory() {
+  const inRound = armoryRound > 0;
+  armoryDialog.close();
+  armoryRound = 0;
+  if (inRound) resume();
 }
 
 function resume() {
@@ -557,11 +682,13 @@ function mainMenu() {
   campaign = null;
   practice = null;
   selectedUpgrade = null;
+  armoryRound = 0;
   clearControls();
   audio.setActive(false);
   releaseMouse();
   cancelAnimationFrame(animation);
   settingsDialog.close();
+  armoryDialog.close();
   missionDialog.close();
   pauseDialog.close();
   extractionDialog.close();
@@ -574,6 +701,20 @@ function mainMenu() {
   (checkpoint ? resumeCampaignButton : deploy).focus();
 }
 
+function openFreeMode() {
+  missionError.hidden = true;
+  missionDialog.showModal();
+}
+
+function returnFromResult() {
+  const freeMode = !!practice;
+  mainMenu();
+  if (freeMode) {
+    missionSelect.focus();
+    openFreeMode();
+  }
+}
+
 function startCampaign() {
   launch('artery', { results: [], upgrade: null });
 }
@@ -584,11 +725,10 @@ function missionResult() {
 }
 
 function continueMission() {
-  if (!resultDialog.open || sim.phase !== 'won') return;
+  if (!campaign || !resultDialog.open || sim.phase !== 'won') return;
   const area = nextMission(sim.area);
   if (!area) return;
-  const run = campaign ? checkpoint : null;
-  launch(area, run, practice);
+  launch(area, checkpoint);
 }
 
 function updateUpgradeChoice() {
@@ -642,7 +782,7 @@ function finish() {
   const junction = sim.area === 'junction';
   const heart = sim.area === 'heart';
   const bossPractice = !!practice?.bossPractice;
-  const next = won && !bossPractice ? nextMission(sim.area) : null;
+  const next = campaign && won ? nextMission(sim.area) : null;
   const reward = Boolean(campaign && next);
   const complete = Boolean(campaign && won && !next);
   if (next && campaignAreas.indexOf(next) > unlockedMission) {
@@ -653,19 +793,23 @@ function finish() {
   if (complete) saveCheckpoint(null);
   displayMissionAccess();
   audio.play({ type: won ? 'won' : 'lost' });
-  if (!bossPractice && sim.score > bestScore) {
+  if (campaign && sim.score > bestScore) {
     bestScore = sim.score;
     writeSetting(bestKey, bestScore);
   }
   byId('result-title').textContent = complete ? 'Campaign complete' : won && bossPractice ? 'Mega Virus defeated'
     : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : sim.organMission ? missionName(sim.area) + ' secured' : 'Artery secured') : 'Mission failed';
+  resultKicker.lastChild.textContent = practice ? ' FREE MODE REPORT' : ' MISSION REPORT';
+  setText(returnMenu, practice ? 'Free Mode' : 'Main menu');
   let detail;
   if (complete) detail = 'The Mega Virus is down. The infection is contained across all eight missions.';
   else if (won) {
-    const opening = next ? missionName(next) + ' is open for deployment.' : 'The Mega Virus is down and both tissue nodes survived.';
-    detail = sim.overtimeBonus > 0 ? 'Overtime cleared. +' + sim.overtimeBonus.toLocaleString() + ' score. ' + opening : opening;
-    if (sim.airway?.state === 'secured') detail = 'Both bronchi stayed open through a full breath. ' + opening;
-    if (sim.gastric?.stage === 'drained') detail = 'The basin is drained and the lower passage is clear. ' + opening;
+    if (sim.overtimeBonus > 0) detail = 'Overtime cleared. +' + sim.overtimeBonus.toLocaleString() + ' score.';
+    else if (sim.airway?.state === 'secured') detail = 'Both bronchi stayed open through a full breath.';
+    else if (sim.gastric?.stage === 'drained') detail = 'The basin is drained and the lower passage is clear.';
+    else if (sim.boss) detail = 'The Mega Virus is down and both tissue nodes survived.';
+    else detail = next ? '' : 'Both tissue nodes survived.';
+    if (next) detail = [detail, missionName(next) + ' is open for deployment.'].filter(Boolean).join(' ');
   }
   else if (sim.overtime) {
     const cause = sim.failedNode ? sim.failedNode.name + ' failed.' : 'Your suit failed.';
@@ -1344,6 +1488,7 @@ function applyEvents() {
       } else if (event.wave < sim.waves && sim.gastric?.stage !== 'intake') {
         announce('WAVE CONTAINED', sim.junctionForecast ? 'CHOOSE SUPPORT FOR THE NEXT WAVE' : 'RESUPPLIED  /  REPAIR TISSUE', 3);
       }
+      if (event.stage === 'clear' && (sim.phase === 'intermission' || sim.airway?.state === 'reopen')) armoryRound = event.wave;
     }
   }
 }
@@ -1410,11 +1555,40 @@ function frame(now) {
       finish();
       return;
     }
+    if (armoryRound) {
+      openArmory(armoryRound);
+      return;
+    }
   }
   animation = requestAnimationFrame(frame);
 }
 
 byId('manual').addEventListener('click', () => manual.showModal());
+startupRetry.addEventListener('click', prepareGame);
+armoryOpen.addEventListener('click', () => openArmory());
+armoryDone.addEventListener('click', closeArmory);
+armoryDialog.addEventListener('cancel', event => {
+  event.preventDefault();
+  closeArmory();
+});
+armoryMods.addEventListener('click', event => {
+  const button = event.target.closest('[data-weapon-mod]');
+  if (!button) return;
+  weaponMod = button.dataset.weaponMod;
+  writeSetting(weaponModKey, weaponMod);
+  if (armoryRound) {
+    sim.setWeaponMod(weaponMod);
+  }
+  drawArmory();
+});
+armoryFinishes.addEventListener('click', event => {
+  const button = event.target.closest('[data-weapon-finish]');
+  if (!button) return;
+  weaponFinish = button.dataset.weaponFinish;
+  writeSetting(weaponFinishKey, weaponFinish);
+  if (armoryRound) sim.weaponFinish = weaponFinish;
+  drawArmory();
+});
 byId('touch-manual').hidden = !isTouch;
 for (const button of supplyButtons) {
   button.addEventListener('click', () => {
@@ -1451,10 +1625,7 @@ deploy.addEventListener('click', startCampaign);
 resumeCampaignButton.addEventListener('click', () => {
   if (checkpoint) launch(campaignAreas[checkpoint.results.length], checkpoint);
 });
-missionSelect.addEventListener('click', () => {
-  missionError.hidden = true;
-  missionDialog.showModal();
-});
+missionSelect.addEventListener('click', openFreeMode);
 practiceLoadout.addEventListener('change', () => {
   writeSetting(practiceLoadoutKey, practiceLoadout.value);
   updatePracticeLoadout();
@@ -1475,7 +1646,7 @@ replay.addEventListener('click', () => {
   if (campaign && sim.area === campaignAreas.at(-1) && sim.phase === 'won') startCampaign();
   else launch(sim.area, campaign, practice);
 });
-byId('return-menu').addEventListener('click', mainMenu);
+returnMenu.addEventListener('click', returnFromResult);
 byId('quit').addEventListener('click', mainMenu);
 byId('pause').addEventListener('click', pause);
 byId('resume').addEventListener('click', resume);
@@ -1486,7 +1657,7 @@ touchTurret.addEventListener('click', () => {
 });
 extractionDialog.addEventListener('cancel', event => event.preventDefault());
 pauseDialog.addEventListener('cancel', event => { event.preventDefault(); resume(); });
-resultDialog.addEventListener('cancel', event => { event.preventDefault(); mainMenu(); });
+resultDialog.addEventListener('cancel', event => { event.preventDefault(); returnFromResult(); });
 
 document.addEventListener('pointerlockchange', () => {
   const wasLocked = locked;
@@ -1603,8 +1774,8 @@ touchControls.querySelectorAll('[data-touch]:not([data-touch="turret"])').forEac
 
 setMuted(muted);
 syncSettings();
-audio.preloadEffects();
 syncMusic();
 displayBest();
 setupLoadouts();
 displayMissionAccess();
+prepareGame();

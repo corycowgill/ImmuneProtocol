@@ -1,5 +1,12 @@
 import * as THREE from './vendor/three.module.js';
 
+const FINISH_COLORS = {
+  factory: { shell: 0xbeb6a3, steel: 0x7d8588, receiver: 0x383d41, trim: 0xa4a9a5, cell: 0x4c9a60, emitter: 0x4ebf74, glass: 0x548d76 },
+  obsidian: { shell: 0x343836, steel: 0x61646a, receiver: 0x252628, trim: 0x96908a, cell: 0xbd6140, emitter: 0xf5854d, glass: 0xaa6948 },
+  arctic: { shell: 0xe3e7dc, steel: 0x8daab6, receiver: 0x3b505c, trim: 0xb9cdd0, cell: 0x58a3bc, emitter: 0x6dd9ec, glass: 0x6899ae },
+  crimson: { shell: 0xa33a31, steel: 0x886f60, receiver: 0x472529, trim: 0xc09a69, cell: 0xba9a48, emitter: 0xe8ba52, glass: 0xa78553 },
+};
+
 function finishTexture(kind) {
   const size = 192;
   const pixels = new Uint8Array(size * size * 4);
@@ -53,7 +60,7 @@ function finishTexture(kind) {
   return texture;
 }
 
-export function createCarbine() {
+export function createCarbine({ showHands = true } = {}) {
   const model = new THREE.Group();
   const brushed = finishTexture('steel');
   const molded = finishTexture('polymer');
@@ -144,14 +151,16 @@ export function createCarbine() {
   for (let i = 0; i < 6; i++) panel(.088,.003,.004,.001,metal,0,.078,.111 + i * .022);
   panel(.104,.077,.266,.011,dark,0,-.012,-.399);
   tube(.023,.336,metal,0,.025,-.539);
+  const factoryMuzzle = new THREE.Group();
+  model.add(factoryMuzzle);
   const crown = new THREE.LatheGeometry([
     [.017,-.079],[.032,-.079],[.036,-.072],[.036,-.049],[.031,-.042],
     [.031,-.008],[.037,.002],[.037,.031],[.029,.044],[.021,.044],[.017,-.079],
   ].map(([radius,z]) => new THREE.Vector2(radius,z)),32);
-  mesh(crown,metal,0,.025,-.707).rotation.x = Math.PI / 2;
-  const aperture = mesh(new THREE.TorusGeometry(.024,.0025,6,28),dark,0,.025,-.787);
+  mesh(crown,metal,0,.025,-.707,factoryMuzzle).rotation.x = Math.PI / 2;
+  const aperture = mesh(new THREE.TorusGeometry(.024,.0025,6,28),dark,0,.025,-.787,factoryMuzzle);
   aperture.scale.z = .6;
-  for (let i = 0; i < 4; i++) tube(.032,.004,dark,0,.025,-.727+i*.009);
+  for (let i = 0; i < 4; i++) tube(.032,.004,dark,0,.025,-.727+i*.009,factoryMuzzle);
 
   const ventCutouts = [];
   for (let i = 0; i < 5; i++) {
@@ -188,7 +197,9 @@ export function createCarbine() {
 
   panel(.079,.020,.48,.004,dark,0,.073,-.254);
   for (let i = 0; i < 15; i++) panel(.086,.012,.014,.0028,metal,0,.086,-.504+i*.024);
-  panel(.104,.024,.112,.006,dark,0,.102,-.115);
+  const factorySight = new THREE.Group();
+  model.add(factorySight);
+  panel(.104,.024,.112,.006,dark,0,.102,-.115,factorySight);
   const optic = contour(new THREE.Shape(), [
     [-.051,-.034],[.051,-.034],[.053,.015],[.039,.035],[-.039,.035],[-.053,.015],
   ]);
@@ -198,18 +209,92 @@ export function createCarbine() {
   const opticHousing = new THREE.ExtrudeGeometry(optic, {
     depth: .055, bevelEnabled: true, bevelThickness: .006, bevelSize: .005, bevelSegments: 3,
   });
-  mesh(opticHousing, metal, 0, .142, -.153);
-  panel(.071,.038,.004,.0015,glass,0,.142,-.143);
-  mesh(new THREE.SphereGeometry(.0029,12,8),green,0,.142,-.137);
+  mesh(opticHousing, metal, 0, .142, -.153,factorySight);
+  panel(.071,.038,.004,.0015,glass,0,.142,-.143,factorySight);
+  mesh(new THREE.SphereGeometry(.0029,12,8),green,0,.142,-.137,factorySight);
   for (const x of [-.045, .045]) {
-    tube(.0054,.003,edge,x,.125,-.091);
-    tube(.0054,.003,edge,x,.154,-.091);
+    tube(.0054,.003,edge,x,.125,-.091,factorySight);
+    tube(.0054,.003,edge,x,.154,-.091,factorySight);
   }
-  const adjuster = mesh(new THREE.CylinderGeometry(.012,.012,.016,18),dark,.056,.144,-.124);
+  const adjuster = mesh(new THREE.CylinderGeometry(.012,.012,.016,18),dark,.056,.144,-.124,factorySight);
   adjuster.rotation.z = Math.PI / 2;
   const sight = new THREE.Object3D();
   sight.position.set(0,.142,-.115);
   model.add(sight);
+
+  const attachments = new Map();
+  function attachment(id) {
+    const group = new THREE.Group();
+    group.visible = false;
+    model.add(group);
+    attachments.set(id, group);
+    return group;
+  }
+
+  function bore(radius, y, z, parent) {
+    const rim = mesh(new THREE.TorusGeometry(radius, .004, 10, 32), edge, 0, y, z, parent);
+    const inner = mesh(new THREE.CircleGeometry(radius - .001, 32), rubber, 0, y, z + .003, parent);
+    inner.rotation.y = Math.PI;
+    return rim;
+  }
+
+  const heavyBarrel = attachment('heavy-barrel');
+  tube(.031,.225,metal,0,.025,-.686,heavyBarrel);
+  tube(.040,.057,dark,0,.025,-.639,heavyBarrel);
+  for (let i = 0; i < 4; i++) tube(.035,.006,edge,0,.025,-.669+i*.017,heavyBarrel);
+  panel(.090,.068,.126,.010,dark,0,.025,-.821,heavyBarrel);
+  tube(.036,.024,metal,0,.025,-.874,heavyBarrel);
+  for (const x of [-.045, .045]) {
+    for (let i = 0; i < 3; i++) {
+      panel(.004,.023,.020,.0014,rubber,x,.036,-.798-i*.023,heavyBarrel).rotation.x = -.14;
+      panel(.004,.004,.019,.0011,edge,x,.049,-.798-i*.023,heavyBarrel);
+    }
+  }
+  bore(.020,.025,-.888,heavyBarrel);
+
+  const compensator = attachment('compensator');
+  tube(.032,.104,metal,0,.025,-.665,compensator);
+  panel(.097,.068,.089,.009,metal,0,.026,-.736,compensator);
+  panel(.075,.016,.043,.003,dark,0,.061,-.737,compensator);
+  for (let i = 0; i < 3; i++) {
+    panel(.051,.003,.008,.0007,rubber,0,.070,-.714-i*.019,compensator);
+  }
+  for (const x of [-.049, .049]) {
+    panel(.004,.023,.051,.0018,dark,x,.026,-.735,compensator);
+    panel(.005,.006,.025,.0013,ivory,x,.043,-.730,compensator);
+  }
+  bore(.018,.025,-.782,compensator);
+
+  const marksmanOptic = attachment('marksman-optic');
+  panel(.089,.020,.186,.005,dark,0,.101,-.140,marksmanOptic);
+  const opticY = sight.position.y;
+  const scopeGeometry = new THREE.LatheGeometry([
+    [.023,-.096],[.036,-.096],[.041,-.085],[.040,-.066],[.028,-.050],
+    [.029,.038],[.037,.052],[.037,.081],[.026,.083],[.024,.073],[.023,-.096],
+  ].map(point => new THREE.Vector2(...point)), 36);
+  mesh(scopeGeometry, metal, 0, opticY, -.126, marksmanOptic).rotation.x = Math.PI / 2;
+  for (const z of [-.203,-.198,-.063,-.057]) {
+    mesh(new THREE.TorusGeometry(z < -.1 ? .041 : .037,.0018,8,32),edge,0,opticY,z,marksmanOptic);
+  }
+  mesh(new THREE.CircleGeometry(.027,32),glass,0,opticY,-.053,marksmanOptic);
+  mesh(new THREE.SphereGeometry(.0025,12,8),green,0,opticY,-.048,marksmanOptic);
+  mesh(new THREE.CylinderGeometry(.014,.017,.016,18),dark,0,.183,-.126,marksmanOptic);
+  const scopeDial = mesh(new THREE.CylinderGeometry(.012,.015,.014,18),edge,.031,.145,-.126,marksmanOptic);
+  scopeDial.rotation.z = Math.PI / 2;
+
+  const rapidReceiver = attachment('rapid-receiver');
+  panel(.166,.032,.189,.007,dark,0,.061,-.033,rapidReceiver);
+  for (const side of [-1,1]) {
+    panel(.027,.071,.182,.007,ivory,side*.081,.028,-.035,rapidReceiver);
+    for (let i = 0; i < 4; i++) {
+      const louver = panel(.007,.040,.011,.0022,dark,side*.096,.030,-.083+i*.025,rapidReceiver);
+      louver.rotation.x = -.36;
+    }
+    panel(.008,.009,.044,.0017,green,side*.097,.053,.021,rapidReceiver);
+    for (const x of [-.075,-.048,-.021]) {
+      panel(.007,.004,.013,.0011,edge,side*.100,-.003,x,rapidReceiver);
+    }
+  }
 
   const magazine = new THREE.Group();
   magazine.position.set(0,-.085,-.235);
@@ -262,6 +347,7 @@ export function createCarbine() {
     panel(.072,.34,.030,.009,dark,-.031,.091,.013,cuff).rotation.y = .36;
     panel(.039,.19,.023,.007,metal,-.048,.14,.022,cuff).rotation.y = .36;
     model.add(cuff);
+    cuff.visible = showHands;
     return () => {
       wrist.copy(offset).applyQuaternion(hand.quaternion).add(hand.position);
       direction.subVectors(wrist,origin);
@@ -272,6 +358,7 @@ export function createCarbine() {
   }
 
   const supportHand = new THREE.Group();
+  supportHand.visible = showHands;
   supportHand.position.set(-.075,-.074,-.378);
   model.add(supportHand);
   glovePad(supportHand,[-.024,-.021,.038],[.035,.043,.069],fabric).rotation.x = .26;
@@ -288,6 +375,7 @@ export function createCarbine() {
   const updateSupportSleeve = sleeve([-.29,-.35,.23],supportHand,[-.022,-.046,.090]);
 
   const gripHand = new THREE.Group();
+  gripHand.visible = showHands;
   gripHand.position.set(.038,-.114,.075);
   model.add(gripHand);
   glovePad(gripHand,[.008,-.032,.017],[.040,.058,.058],fabric).rotation.x = .37;
@@ -320,5 +408,36 @@ export function createCarbine() {
   cone.rotation.x = -Math.PI / 2;
   flash.visible = false;
   muzzle.add(flash);
-  return { model, muzzle, flash, sight, magazine, supportHand, bolt, poseHands };
+
+  let currentMod = 'standard';
+  let currentFinish = 'factory';
+
+  function setLoadout(mod = 'standard', finish = 'factory') {
+    if (!attachments.has(mod)) mod = 'standard';
+    if (!Object.hasOwn(FINISH_COLORS, finish)) finish = 'factory';
+    if (mod !== currentMod) {
+      const previous = attachments.get(currentMod);
+      if (previous) previous.visible = false;
+      const active = attachments.get(mod);
+      if (active) active.visible = true;
+      factoryMuzzle.visible = mod !== 'heavy-barrel' && mod !== 'compensator';
+      factorySight.visible = mod !== 'marksman-optic';
+      muzzle.position.z = mod === 'heavy-barrel' ? -.889 : mod === 'compensator' ? -.783 : -.788;
+      currentMod = mod;
+    }
+    if (finish !== currentFinish) {
+      const palette = FINISH_COLORS[finish];
+      ivory.color.setHex(palette.shell);
+      metal.color.setHex(palette.steel);
+      dark.color.setHex(palette.receiver);
+      edge.color.setHex(palette.trim);
+      green.color.setHex(palette.cell);
+      green.emissive.setHex(palette.emitter);
+      glass.color.setHex(palette.glass);
+      cellGlass.color.setHex(finish === 'factory' ? 0x579879 : palette.glass);
+      currentFinish = finish;
+    }
+  }
+
+  return { model, muzzle, flash, sight, magazine, supportHand, bolt, poseHands, setLoadout };
 }

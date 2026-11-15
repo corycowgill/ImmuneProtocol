@@ -1,6 +1,7 @@
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
+import { WEAPON_MODS } from './weapon-mods.mjs';
 import {
   GASTRIC_REPAIR_RADIUS, advanceGastric, createGastric, gastricValve, pendingGastricEnemies,
   repairGastricValve, shapeGastricHazard, startGastric,
@@ -46,15 +47,16 @@ export const RULES = Object.freeze({
 });
 
 const SPECIES = {
-  virus: { radius: 0.92, y: 1.63, health: 34, speed: 2.05, suitDamage: 9, tissueDamage: 5, score: 100 },
-  bacillus: { radius: 1.12, y: 1.13, health: 68, speed: 1.32, tissueDamage: 9, period: 1.75, score: 180 },
-  spore: { radius: 0.73, y: 2.10, health: 18, speed: 3.28, suitDamage: 7, tissueDamage: 3, score: 130 },
-  guard: { behavior: 'bacillus', radius: 1.32, y: 1.33, health: 96, speed: 1.48, tissueDamage: 11, period: 1.9, score: 260 },
-  splitter: { behavior: 'virus', radius: 1.07, y: 1.75, health: 55, speed: 3.08, suitDamage: 11, tissueDamage: 6, score: 200 },
+  virus: { radius: 0.92, y: 1.63, health: 60, speed: 2.28, suitDamage: 11, tissueDamage: 6, score: 100 },
+  bacillus: { radius: 1.12, y: 1.13, health: 115, speed: 1.47, tissueDamage: 10, period: 1.75, score: 180 },
+  spore: { radius: 0.73, y: 2.10, health: 36, speed: 3.55, suitDamage: 9, tissueDamage: 4, score: 130 },
+  guard: { behavior: 'bacillus', radius: 1.32, y: 1.33, health: 144, speed: 1.62, tissueDamage: 12, period: 1.9, score: 260 },
+  splitter: { behavior: 'virus', radius: 1.07, y: 1.75, health: 84, speed: 3.35, suitDamage: 13, tissueDamage: 7, score: 200 },
   colony: { radius: 1.10, y: 3.35, health: 1100, tissueDamage: 11, period: 1.57, score: 900 },
 };
 
-const FRAGMENT = { radius: .55, y: 1.35, health: 18, speed: 3.85, suitDamage: 5, tissueDamage: 2, score: 55 };
+const FRAGMENT = { radius: .55, y: 1.35, health: 24, speed: 4.05, suitDamage: 5, tissueDamage: 2, score: 55 };
+const TUTORIAL_ATTACKER_HEALTH = 34;
 const GUARD_FRONT_THRESHOLD = .55;
 
 const MISSIONS = [
@@ -128,7 +130,6 @@ const ENTRANCES = [
 
 const TURN_SENSITIVITY = 0.00225;
 const RIFLE_RANGE = 68;
-const SHOT_INTERVAL = 0.118;
 const RELOAD_TIME = 1.35;
 const REPAIR_TIME = 0.82;
 const REPAIR_PER_CYCLE = 13;
@@ -193,7 +194,7 @@ function guardFaces(enemy, source) {
 }
 
 export class Simulation {
-  constructor(area = 'artery', { tutorial = false, upgrades = [], bossPractice = false } = {}) {
+  constructor(area = 'artery', { tutorial = false, upgrades = [], bossPractice = false, weaponMod = 'standard' } = {}) {
     this.organMission = Object.hasOwn(ORGAN_MISSIONS, area) ? ORGAN_MISSIONS[area] : null;
     this.area = this.organMission || area === 'heart' || area === 'junction' ? area : 'artery';
     this.missions = this.organMission?.waves ?? (this.area === 'heart' ? HEART_MISSIONS : this.area === 'junction' ? JUNCTION_MISSIONS : MISSIONS);
@@ -204,7 +205,19 @@ export class Simulation {
     this.repairAmount = activeUpgrades.includes('fast-sealer') ? FIELD_UPGRADES['fast-sealer'].repairAmount : REPAIR_PER_CYCLE;
     this.hazardDamageMultiplier = activeUpgrades.includes('insulated-suit') ? FIELD_UPGRADES['insulated-suit'].damageMultiplier : 1;
     this.turretSlowDuration = activeUpgrades.includes('turret-stabilizer') ? FIELD_UPGRADES['turret-stabilizer'].slowDuration : TURRET_SLOW_TIME;
+    this.weaponMod = 'standard';
+    this.setWeaponMod(weaponMod);
     this.reset();
+  }
+
+  setWeaponMod(id) {
+    if (!Object.hasOwn(WEAPON_MODS, id)) return false;
+    this.weaponMod = id;
+    return true;
+  }
+
+  get weapon() {
+    return WEAPON_MODS[this.tutorial ? 'standard' : this.weaponMod];
   }
 
   get reloadProgress() {
@@ -362,7 +375,7 @@ export class Simulation {
       this.player.z = 2.5;
       const attacker = this.createEnemy('bacillus', this.objective.x - 3.25, this.objective.z + 5.6, this.objective);
       attacker.tutorial = true;
-      attacker.health = attacker.maxHealth = SPECIES.virus.health;
+      attacker.health = attacker.maxHealth = TUTORIAL_ATTACKER_HEALTH;
       this.enemies.push(attacker);
       this.spawnIndex = 1;
     }
@@ -773,7 +786,7 @@ export class Simulation {
 
   movePlayer(dt, input) {
     const { player } = this;
-    const sensitivity = input.aim ? TURN_SENSITIVITY * 0.68 : TURN_SENSITIVITY;
+    const sensitivity = input.aim ? TURN_SENSITIVITY * this.weapon.aimSensitivity : TURN_SENSITIVITY;
     player.yaw -= (input.lookX || 0) * sensitivity;
     player.pitch = clamp(player.pitch - (input.lookY || 0) * sensitivity, -1.46, 1.46);
 
@@ -972,9 +985,9 @@ export class Simulation {
   }
 
   shoot(aiming) {
-    const { player } = this;
+    const { player, weapon } = this;
     player.ammo -= 1;
-    this.fireCooldown = SHOT_INTERVAL;
+    this.fireCooldown = weapon.interval;
     const pitchCos = Math.cos(player.pitch);
     const dx = -Math.sin(player.yaw) * pitchCos;
     const dy = Math.sin(player.pitch);
@@ -995,7 +1008,7 @@ export class Simulation {
       if (entry >= distance) continue;
       distance = entry;
       target = enemy;
-      critical = offsetSquared <= radiusSquared * (aiming ? 0.23 : 0.16);
+      critical = offsetSquared <= radiusSquared * (aiming ? weapon.aimCritical : weapon.hipCritical);
     }
 
     if (this.valve && dz < 0) {
@@ -1020,6 +1033,10 @@ export class Simulation {
       x: player.x + dx * distance, y: player.y + dy * distance, z: player.z + dz * distance,
     };
     if (bossHit) {
+      if (bossHit.vulnerable) {
+        // Preserve multiple core openings even with the fastest receiver.
+        this.fireCooldown = Math.max(this.fireCooldown, WEAPON_MODS.standard.interval);
+      }
       this.events.push({ type: 'shot', hit: bossHit.vulnerable, crit: bossHit.vulnerable, ...impact });
       hitBrainBoss(this, bossHit, impact);
       return;
@@ -1030,7 +1047,7 @@ export class Simulation {
       return;
     }
     this.events.push({ type: 'shot', hit: Boolean(target), crit: critical, ...impact });
-    if (target) this.hitEnemy(target, critical ? 42 : 23, critical, impact, 'player');
+    if (target) this.hitEnemy(target, critical ? weapon.criticalDamage : weapon.bodyDamage, critical, impact, 'player');
   }
 
   blockGuardHit(guard, impact, source) {
