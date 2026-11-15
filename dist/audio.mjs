@@ -32,8 +32,7 @@ export class GameAudio {
     this.context = null;
     this.muted = false;
     this.active = false;
-    this.effectDownloads = null;
-    this.deployReady = null;
+    this.assetsReady = null;
     this.samples = new Map();
     this.shotIndex = 0;
     this.roomVoice = null;
@@ -41,7 +40,6 @@ export class GameAudio {
     this.repairVoice = null;
     this.musicMode = 'drift';
     this.musicTracks = null;
-    this.musicLoading = null;
     this.damageAt = { player: -Infinity, tissue: -Infinity };
     this.branchAt = { left: -Infinity, right: -Infinity };
     this.valveBlockedAt = -Infinity;
@@ -72,9 +70,9 @@ export class GameAudio {
     } catch {
       return;
     }
+    const buffers = await this.prepare();
     this.setActive(this.active);
-    this.loadMusic();
-    return this.decodeEffects();
+    this.startMusic(buffers);
   }
 
   setMuted(muted) {
@@ -82,60 +80,47 @@ export class GameAudio {
     if (this.context) this.master.gain.setTargetAtTime(muted ? 0 : 0.65, this.context.currentTime, 0.03);
   }
 
-  preloadEffects() {
-    if (this.effectDownloads) return;
-    this.effectDownloads = new Map(EFFECTS.map(name => [name,
-      fetch(new URL(`./assets/sfx/${name}.wav`, import.meta.url))
-        .then(response => response.ok ? response.arrayBuffer() : null)
-        .catch(() => null),
-    ]));
+  prepare() {
+    if (this.assetsReady) return this.assetsReady;
+    const OfflineAudio = globalThis.OfflineAudioContext || globalThis.webkitOfflineAudioContext;
+    const decoder = OfflineAudio ? new OfflineAudio(1, 1, 44100) : this.context;
+    if (!decoder) return Promise.resolve([]);
+    const decode = async path => {
+      try {
+        const response = await fetch(new URL(path, import.meta.url));
+        return response.ok ? await decoder.decodeAudioData(await response.arrayBuffer()) : null;
+      } catch {
+        return null;
+      }
+    };
+    const effects = Promise.all(EFFECTS.map(async name => {
+      const buffer = await decode(`./assets/sfx/${name}.wav`);
+      if (buffer) this.samples.set(name, buffer);
+    }));
+    const tracks = Promise.all(MUSIC_CUES.map(({ file }) => decode(`./assets/music/${file}`)));
+    this.assetsReady = Promise.all([effects, tracks]).then(([, buffers]) => buffers);
+    return this.assetsReady;
   }
 
-  decodeEffects() {
-    if (this.deployReady) return this.deployReady;
-    this.preloadEffects();
-    for (const [name, download] of this.effectDownloads) {
-      const decoded = download.then(data => data && this.context.decodeAudioData(data)).then(buffer => {
-        if (!buffer) return;
-        this.samples.set(name, buffer);
-        if (name === 'field/arterial-bed') this.syncRoom();
-        if (name === 'field/repair-loop') this.syncRepair();
-      }).catch(() => {
-        // Each cue loads independently so a damaged file cannot take out the mix.
-      });
-      if (name === 'field/deploy') this.deployReady = decoded;
-    }
-    this.effectDownloads.clear();
-    return this.deployReady;
-  }
-
-  loadMusic() {
-    if (this.muted || this.musicTracks || this.musicLoading) return;
+  startMusic(buffers) {
+    if (this.musicTracks) return;
     const context = this.context;
-    this.musicLoading = Promise.all(MUSIC_CUES.map(async ({ file }) => {
-      const response = await fetch(new URL(`./assets/music/${file}`, import.meta.url));
-      if (!response.ok) throw new Error(`Could not load soundtrack cue ${file}`);
-      return context.decodeAudioData(await response.arrayBuffer());
-    })).then(buffers => {
-      // Start both arrangements on the same beat and keep them in sync through fades.
-      const start = context.currentTime + 0.04;
-      this.musicTracks = MUSIC_CUES.map(({ mode, volume }, i) => {
-        const gain = context.createGain();
-        gain.gain.value = 0;
-        const source = context.createBufferSource();
-        source.buffer = buffers[i];
-        source.loop = true;
-        source.connect(gain);
-        gain.connect(this.master);
-        source.start(start);
-        return { mode, volume, gain };
-      });
-      this.fadeMusic();
-    }).catch(() => {
-      // A failed soundtrack download should leave the game and its sound effects playable.
-    }).finally(() => {
-      this.musicLoading = null;
+    // A shared start keeps both arrangements beat-aligned during fades.
+    const start = context.currentTime + 0.04;
+    this.musicTracks = buffers.flatMap((buffer, i) => {
+      if (!buffer) return [];
+      const { mode, volume } = MUSIC_CUES[i];
+      const gain = context.createGain();
+      gain.gain.value = 0;
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(gain);
+      gain.connect(this.master);
+      source.start(start);
+      return [{ mode, volume, gain }];
     });
+    this.fadeMusic();
   }
 
   setMusic(mode) {

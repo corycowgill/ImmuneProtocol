@@ -5,9 +5,11 @@ import { createHeartValve, createValveColony } from './heart-valve.mjs';
 import { createTurret } from './turret.mjs';
 import { createOrganEnemies, createOrganEnvironment, organProfile } from './organ-world.mjs';
 import { createMegaVirus } from './mega-virus.mjs';
-import { JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, TISSUE_NODES } from './simulation.mjs';
+import { WEAPON_MODS } from './weapon-mods.mjs';
+import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, TISSUE_NODES } from './simulation.mjs';
 
 const TAU = Math.PI * 2;
+const PRELOAD_INPUT = Object.freeze({ moveX: 0, moveZ: 0, lookX: 0, lookY: 0 });
 const CHAMBER_WIDTH = 35;
 const CHAMBER_DEPTH = 49;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -1407,7 +1409,7 @@ export class World {
       this.templates.colony = createValveColony(maps, texturedLobe(1, 26, 17, .27), randomSource(8209));
       return createHeartValve(this.scene, maps, redCellGeometry(), randomSource(9468));
     };
-    new THREE.TextureLoader().load(new URL('./assets/tissue.webp', import.meta.url).href, (asset) => {
+    this.textureReady = new THREE.TextureLoader().loadAsync(new URL('./assets/tissue.webp', import.meta.url).href).then(asset => {
       configureTile(asset, anisotropy, true);
       const normalMap = normalFromImage(asset.image, anisotropy);
       for (const material of this.room.surfaces) {
@@ -1415,7 +1417,9 @@ export class World {
         material.normalMap = normalMap;
       }
       tile.dispose();
-    }, undefined, () => {});
+    }).catch(() => {
+      // The generated tissue stays in use if the photo texture cannot be loaded.
+    });
 
     this.shadowGeometry = new THREE.PlaneGeometry(2, 2);
     this.shadowMaterial = new THREE.MeshBasicMaterial({
@@ -1455,6 +1459,139 @@ export class World {
     this.setQuality('high');
   }
 
+  prepareAll(areas, onProgress = () => {}) {
+    if (!this.preparation) {
+      this.preparation = this.prepareScenes(areas, onProgress).catch(error => {
+        this.preparation = null;
+        throw error;
+      });
+    }
+    return this.preparation;
+  }
+
+  async prepareScenes(areas, onProgress) {
+    const startArea = this.area;
+    const shadows = this.renderer.shadowMap.enabled;
+    const total = areas.length + 2;
+    const textures = new Set();
+    const nextTask = () => new Promise(resolve => setTimeout(resolve, 0));
+    const warmTextures = scene => {
+      scene.traverse(object => {
+        if (!object.material) return;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        for (const material of materials) {
+          for (const texture of Object.values(material)) {
+            if (!texture?.isTexture || textures.has(texture)) continue;
+            textures.add(texture);
+            this.renderer.initTexture(texture);
+          }
+        }
+      });
+    };
+
+    onProgress(0, total);
+    await this.textureReady;
+    onProgress(1, total);
+    // Prime GPU programs and texture uploads on the actual renderer using a small frame.
+    this.renderer.setPixelRatio(1);
+    this.renderer.setSize(160, 90, false);
+    this.renderer.initTexture(this.scene.environment);
+    this.prewarmingEnemies = true;
+    try {
+      warmTextures(this.weaponScene);
+      const armory = new Simulation('artery');
+      armory.start();
+      this.updateWeapon(armory, 0, PRELOAD_INPUT, false, true);
+      // The world has no shadow casters. Only the weapon needs both quality variants.
+      for (const enabled of [!shadows, shadows]) {
+        this.renderer.shadowMap.enabled = enabled;
+        this.weaponKey.castShadow = enabled;
+        for (const mod of Object.keys(WEAPON_MODS)) {
+          this.setWeaponLoadout(mod);
+          await this.renderer.compileAsync(this.weaponScene, this.weaponCamera);
+          this.renderer.render(this.weaponScene, this.weaponCamera);
+        }
+      }
+      onProgress(2, total);
+      for (let index = 0; index < areas.length; index++) {
+        await nextTask();
+        const area = areas[index];
+        this.setArea(area);
+        const fixture = new Simulation(area);
+        fixture.start();
+        await this.prepareArea(fixture, warmTextures);
+        if (area === 'brain') {
+          const finale = new Simulation('brain', { bossPractice: true });
+          finale.start();
+          finale.boss.state = 'exposed';
+          finale.boss.openness = 1;
+          await this.prepareArea(finale, warmTextures);
+        }
+        onProgress(index + 3, total);
+      }
+    } finally {
+      this.renderer.shadowMap.enabled = this.weaponKey.castShadow = shadows;
+      this.setWeaponLoadout('standard');
+      this.setArea(startArea);
+      this.prewarmingEnemies = false;
+      this.resize(true);
+    }
+  }
+
+  async prepareArea(sim, warmTextures) {
+    const start = sim.player;
+    let offset = -5;
+    for (const type of Object.keys(this.templates)) {
+      if (type === 'colony') continue;
+      const enemy = sim.createEnemy(type, start.x + offset, start.z - 11);
+      if (type === 'bacillus' || type === 'guard') enemy.latched = true;
+      sim.enemies.push(enemy);
+      offset += 2;
+    }
+    sim.nodes[0].health = 66;
+    sim.turret = { x: start.x + 2, y: 0, z: start.z - 4, yaw: Math.PI, pitch: 0 };
+    sim.projectiles.push({ id: 0, x: start.x, y: 1, z: start.z - 8, vx: .2, vy: 0, vz: 1, radius: .25 });
+    if (sim.organ) sim.organ.phase = 'active';
+    if (sim.area === 'junction') {
+      sim.gash = { ...JUNCTION_GASH_SITES.left, branch: 'left', sealRemaining: 36, sealRequired: 36 };
+      sim.reinforcement = { branch: 'right', remaining: 3 };
+    }
+    if (sim.area === 'stomach') {
+      sim.gastric.stage = 'drained';
+      sim.gastric.intake.progress = 1;
+      sim.gastric.drain.progress = 1;
+    }
+    const shot = { type: 'shot', x: start.x, y: 1, z: start.z - 10, hit: true };
+    const fire = { type: 'turret', stage: 'fire', x: sim.turret.x, y: 1, z: sim.turret.z,
+      impact: { x: start.x - 2, y: 1, z: start.z - 13 } };
+    sim.events = [shot, fire];
+    this.render(sim, .02, PRELOAD_INPUT, false, false);
+    // Keep both the healthy tissue's and recovery objective's lighting variants compiled.
+    if (sim.area === 'lungs') {
+      sim.startAirwayObjective();
+      for (const port of sim.airway.ports) {
+        port.open = true;
+        port.progress = 1;
+      }
+      this.render(sim, .2, PRELOAD_INPUT, false, false);
+    }
+    if (sim.area === 'stomach') {
+      sim.gastric.stage = 'draining';
+      sim.gastric.level = .5;
+      this.render(sim, .05, PRELOAD_INPUT, false, false);
+    }
+    sim.repairing = true;
+    sim.repairTarget = sim.nodes[0];
+    this.render(sim, .24, PRELOAD_INPUT, false, false);
+    warmTextures(this.scene);
+    await this.renderer.compileAsync(this.scene, this.camera);
+  }
+
+  setWeaponLoadout(mod, finish = this.weaponFinish) {
+    this.weaponFinish = finish;
+    this.carbine.setLoadout(mod, finish);
+  }
+
   setArea(area) {
     this.megaVirus?.update(null, 0, 0, true);
     const junction = area === 'junction';
@@ -1482,11 +1619,15 @@ export class World {
         material.clearcoat = index === 0 ? .29 : .37;
         return material;
       });
-      this.scene.add(environment.root);
       this.organEnvironments.set(area, environment);
     }
-    for (const [name, environment] of this.organEnvironments) environment.root.visible = name === this.area;
+    if (area === 'brain' && !this.megaVirus) {
+      this.megaVirus = createMegaVirus(membraneMaps, this.glow);
+      this.scene.add(this.megaVirus.root);
+    }
+    this.organEnvironment?.root.removeFromParent();
     this.organEnvironment = this.organEnvironments.get(this.area);
+    if (this.organEnvironment) this.scene.add(this.organEnvironment.root);
     if (profile && !this.templates.guard) Object.assign(this.templates, createOrganEnemies(membraneMaps, texturedLobe(1, 25, 16, .16)));
     [floor.material, wall.material, canopy.material] = this.organEnvironment?.shell ?? this.baseShellMaterials;
     canopy.scale.y = heart ? .54 : junction ? .63 : profile ? .85 : 1;
@@ -1676,7 +1817,9 @@ export class World {
       if (!view) {
         const model = this.templates[enemy.type].clone();
         const membrane = model.getObjectByName('attack-membrane');
-        if (membrane) membrane.material = membrane.material.clone();
+        // Keep the shader on the template when removing the warmup enemies.
+        const clonedMembrane = membrane && !this.prewarmingEnemies ? membrane.material.clone() : null;
+        if (clonedMembrane) membrane.material = clonedMembrane;
         this.scene.add(model);
         const shadow = new THREE.Mesh(this.shadowGeometry, this.shadowMaterial);
         shadow.rotation.x = -Math.PI / 2;
@@ -1684,6 +1827,7 @@ export class World {
         view = {
           model, shadow, present: true, hit: 0, strike: 0, phase: this.random() * TAU,
           attackMembrane: membrane?.material,
+          clonedMembrane,
           membraneGlow: membrane?.material.emissive.clone(),
           membraneIntensity: membrane?.material.emissiveIntensity,
           spikes: model.getObjectByName('virus-spikes'),
@@ -1737,7 +1881,7 @@ export class World {
       if (!view.present) {
         this.scene.remove(view.model, view.shadow);
         if (view.tethers) this.scene.remove(...view.tethers);
-        view.attackMembrane?.dispose();
+        view.clonedMembrane?.dispose();
         this.enemyViews.delete(id);
       }
     }
@@ -2104,8 +2248,8 @@ export class World {
     this.shotLight.intensity *= Math.exp(-dt * 28);
   }
 
-  render(sim, dt, input, reduceMotion) {
-    this.resize();
+  render(sim, dt, input, reduceMotion, resizeViewport = true) {
+    if (resizeViewport) this.resize();
     const { player } = sim;
     this.camera.position.set(player.x, player.y, player.z);
     this.camera.rotation.set(player.pitch, player.yaw, 0);
@@ -2120,10 +2264,6 @@ export class World {
     this.organEnvironment?.update(sim.organ, this.clock, reduceMotion, sim.gastric);
     this.organEnvironment?.updateAirways?.(sim, this.clock, dt, reduceMotion);
     this.organEnvironment?.updateGastric?.(sim, this.clock, dt, reduceMotion);
-    if (sim.boss && !this.megaVirus) {
-      this.megaVirus = createMegaVirus(membraneMaps, this.glow);
-      this.scene.add(this.megaVirus.root);
-    }
     this.megaVirus?.update(sim.boss, this.clock, dt, reduceMotion);
     if (sim.valve) this.heart.update(sim.valve, dt, reduceMotion, this.quality === 'low');
     this.updateTissue(sim, dt, reduceMotion);
@@ -2132,6 +2272,7 @@ export class World {
     this.updateProjectiles(sim.projectiles ?? [], reduceMotion);
     const { turret } = sim;
     this.turretView.update(turret, turret ? floorHeight(turret.x, turret.z) : 0, dt, reduceMotion);
+    this.setWeaponLoadout(sim.tutorial ? 'standard' : sim.weaponMod, sim.weaponFinish);
     this.updateWeapon(sim, dt, input, aiming, reduceMotion);
     this.processEvents(sim.events, dt, reduceMotion);
     this.updateParticles(dt);

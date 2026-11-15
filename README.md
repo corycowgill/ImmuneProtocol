@@ -27,7 +27,11 @@ Choose **Start campaign** to deploy into Arterial Junction. Between missions, eq
 | Insulated Suit | Reduces suit damage from stomach acid and intestinal pressure waves by 40%. |
 | Turret Stabilizer | Extends the turret's slow from 1.4 to 2.2 seconds. It still fires every 2.6 seconds. |
 
-Open **Mission select** to replay unlocked areas with standard equipment or any one upgrade. Reaching the Mega Virus in Neural Cortex unlocks **Mega Virus Practice**, which starts directly at Wave 3 with fresh supplies. Boss practice has its own result screen and does not update your campaign checkpoint or best score.
+Open **Free Mode** to play any of the eight missions from the start with standard equipment or any one upgrade. Free Mode runs leave your campaign checkpoint, mission progression, and best score intact. Reaching the Mega Virus in Neural Cortex in either mode unlocks **Practice Mega Virus**, which starts directly at Wave 3 with fresh supplies.
+
+**Customize carbine** lets you preview and equip one weapon modification and one cosmetic finish. The armory also opens between waves. A heavy barrel trades fire rate for damage per round, a compensator widens the hip-fire critical zone, a marksman optic rewards aiming, and a rapid receiver trades damage for fire rate. The chosen configuration is saved in the browser and works alongside your field upgrade.
+
+The game prepares arena geometry, textures, audio, and armory previews before it enables deployment. The first load includes all eight arenas and the Mega Virus encounter.
 
 ## Campaign missions
 
