@@ -95,6 +95,8 @@
             <button id="startup-retry" class="button outline" type="button" hidden>Retry loading</button>
           </div>
           <p id="menu-error" class="menu-error" role="alert" hidden></p>
+          <p id="controller-menu-hint" class="controller-menu-hint" hidden><kbd>D-pad</kbd> Navigate <kbd>A</kbd> Select <kbd>B</kbd> Back</p>
+          <p id="controller-audio-hint" class="controller-menu-hint" hidden>Click or press a key once to enable browser audio.</p>
           <p id="high-score" class="high-score" hidden>Best score <strong id="high-score-value"></strong></p>
         </div>
       </div>
@@ -322,6 +324,7 @@
           <div id="turret-status" class="turret-status" hidden><kbd aria-hidden="true">Q</kbd><span id="turret-status-value">TURRET READY</span></div>
         </div>
         <div id="field-hint" class="field-hint">WASD MOVE <span></span> R RELOAD <span></span> E REPAIR</div>
+        <div id="controller-field-hint" class="field-hint controller-field-hint" hidden aria-hidden="true">LS MOVE <span></span> RS LOOK <span></span> X RELOAD <span></span> LB REPAIR</div>
       </div>
       <div id="touch-controls" class="touch-controls" hidden>
         <div id="joystick" class="joystick" aria-label="Movement joystick"><div></div></div>
@@ -475,6 +478,23 @@
             <div><dt>Repair tissue</dt><dd>Hold Repair</dd></div>
             <div><dt>Deploy turret</dt><dd>Tap Turret</dd></div>
             <div><dt>Pause</dt><dd>Tap the pause icon</dd></div>
+          </dl>
+        </details>
+        <details id="controller-manual">
+          <summary>Xbox controller</summary>
+          <dl class="controls-list">
+            <div><dt>Move</dt><dd><kbd>Left stick</kbd></dd></div>
+            <div><dt>Look</dt><dd><kbd>Right stick</kbd></dd></div>
+            <div><dt>Aim down sights</dt><dd><kbd>Hold LT</kbd></dd></div>
+            <div><dt>Fire</dt><dd><kbd>Hold RT</kbd></dd></div>
+            <div><dt>Sprint</dt><dd><kbd>Click left stick</kbd></dd></div>
+            <div><dt>Reload</dt><dd><kbd>X</kbd></dd></div>
+            <div><dt>Repair tissue</dt><dd><kbd>Hold LB</kbd></dd></div>
+            <div><dt>Deploy turret</dt><dd><kbd>RB</kbd></dd></div>
+            <div><dt>Pause or resume</dt><dd><kbd>Menu ☰</kbd></dd></div>
+            <div><dt>Navigate menus</dt><dd><kbd>D-pad</kbd> or <kbd>Left stick</kbd></dd></div>
+            <div><dt>Select or go back</dt><dd><kbd>A</kbd><kbd>B</kbd></dd></div>
+            <div><dt>Junction support</dt><dd><kbd>←</kbd> Amber <kbd>→</kbd> Teal <kbd>↑</kbd> Ammo <kbd>↓</kbd> Turret</dd></div>
           </dl>
         </details>
       </section>

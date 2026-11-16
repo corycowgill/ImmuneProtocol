@@ -81,23 +81,25 @@ git subtree push --prefix=dist origin gh-pages
 
 ## Controls
 
-| Action | Control |
-| --- | --- |
-| Move | WASD |
-| Look | Mouse or arrow keys |
-| Fire | Left click or Space |
-| Aim | Hold right click |
-| Sprint | Shift |
-| Reload | R |
-| Repair | Hold E near a damaged tissue node or open gash |
-| Deploy or redeploy auto-turret | Q |
-| Pause | Esc or P |
+| Action | Keyboard and mouse | Xbox controller |
+| --- | --- | --- |
+| Move | WASD | Left stick |
+| Look | Mouse or arrow keys | Right stick |
+| Fire | Left click or Space | Hold RT |
+| Aim | Hold right click | Hold LT |
+| Sprint | Shift | Click the left stick |
+| Reload | R | X |
+| Repair | Hold E near a damaged tissue node or open gash | Hold LB |
+| Deploy or redeploy auto-turret | Q | RB |
+| Pause | Esc or P | Menu ☰ |
 
 When mouse capture is unavailable, drag the view to look. On touchscreens, move with the joystick, drag to look, and use the action buttons.
 
+Connect an Xbox controller to your device and press a button with the game tab focused. Use the D-pad or left stick to navigate menus, **A** to select, and **B** to go back. In Capillary Junction, the D-pad chooses support during the wave break. Left reinforces Amber, right reinforces Teal, up selects ammo, and down selects turret redeployment. If your browser gates audio, click the game or press a keyboard key once to enable it. Enter co-op callsigns and room codes with your keyboard.
+
 Each node has its own integrity meter and direction marker. Losing either node ends the mission. You can deploy one turret per mission on clear ground ahead of you. It stays where you place it and fires one shot every 2.6 seconds at targets within about 10 meters. Hits damage and briefly slow pathogens. Put it near an approach to the node you plan to leave.
 
-Settings is available from the main menu and pause screen. Look sensitivity applies to mouse and touch aiming. Low graphics reduces rendering load on slower devices. Both settings are saved in the browser.
+Settings is available from the main menu and pause screen. Look sensitivity applies to mouse, touch, and the Xbox right stick. Low graphics reduces rendering load on slower devices. Both settings are saved in the browser.
 
 Viruses coil before lunging toward a fixed landing point. Spores swell before spitting a slow projectile. Step sideways during the windup to evade either attack. Bacilli head straight for the tissue, brace, and tear until you dislodge them.
 

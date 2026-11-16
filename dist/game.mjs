@@ -7,6 +7,8 @@ import { World } from './world.mjs';
 import { GameAudio } from './audio.mjs';
 import { CoopClient, PUBLIC_COOP_ORIGIN, savedCoopSession, verifyCoopHost } from './coop-client.mjs';
 import { COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from './coop-protocol.mjs';
+import { GamepadInput } from './gamepad.mjs';
+import { GamepadMenu } from './gamepad-menu.mjs';
 
 const byId = id => document.getElementById(id);
 const menu = byId('menu');
@@ -208,6 +210,8 @@ const healthMeter = byId('health-meter');
 const healthFill = byId('health-fill');
 
 const audio = new GameAudio();
+const xbox = new GamepadInput();
+const xboxMenus = new GamepadMenu({ main: menu, onBack: backFromControllerMenu });
 const keys = new Set();
 const touch = { fire: false, repair: false, reload: false, x: 0, z: 0 };
 const input = { moveX: 0, moveZ: 0, lookX: 0, lookY: 0, fire: false, reload: false, repair: false, deploy: false, sprint: false, aim: false };
@@ -248,6 +252,8 @@ const attackWarnings = {
   'splitter-windup': 'SPLITTER ABOUT TO LUNGE',
 };
 const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo', Digit4: 'turret' };
+const supplyPad = { left: 'left', right: 'right', up: 'ammo', down: 'turret' };
+const supplyPadLabels = { left: '←', right: '→', ammo: '↑', turret: '↓' };
 const armorySlots = {
   ...WEAPON_SLOTS,
   finish: { name: 'Body finish', options: WEAPON_FINISHES },
@@ -298,6 +304,8 @@ let announcementTimer = 0;
 let guardHintUntil = 0;
 let lastFrame = 0;
 let animation = 0;
+let xboxState = null;
+let usingGamepad = false;
 let drawnWave = '';
 let bestScore = Number(readSetting(bestKey)) || 0;
 let muted = readSetting(muteKey) === 'true';
@@ -357,6 +365,7 @@ function syncSettings() {
 function setMuted(value) {
   muted = value;
   audio.setMuted(value);
+  syncControllerAudioHint();
   writeSetting(muteKey, value);
   setText(byId('audio-setting-state'), value ? 'Muted' : 'Sound on');
   document.querySelectorAll('[data-mute]').forEach(button => {
@@ -597,7 +606,7 @@ async function prepareGame() {
 }
 
 function requestMouse() {
-  if (isTouch || !canvas.requestPointerLock) return;
+  if (isTouch || usingGamepad || !canvas.requestPointerLock) return;
   try {
     const pending = canvas.requestPointerLock();
     if (pending && typeof pending.catch === 'function') pending.catch(() => {});
@@ -792,6 +801,9 @@ function releaseMouse() {
 }
 
 function clearControls() {
+  xbox.reset();
+  xboxMenus.reset();
+  xboxState = null;
   keys.clear();
   leftButton = false;
   rightButton = false;
@@ -866,7 +878,7 @@ async function launch(area, run = null, drill = null, onlineState = null) {
     practice = drill;
     selectedUpgrade = null;
     menu.hidden = true;
-    touchControls.hidden = !isTouch;
+    touchControls.hidden = !isTouch || usingGamepad;
     clearControls();
     const equipped = upgrade && FIELD_UPGRADES[upgrade]?.name;
     campaignEquipped.hidden = !equipped;
@@ -952,7 +964,8 @@ function pause() {
   if (!running || paused || sim.extractionPending) return;
   suspendCombat();
   setText(byId('pause-mission'), missionName(sim.area));
-  setText(byId('pause-detail'), onlineRun ? 'The online match continues while this menu is open.' : isTouch
+  setText(byId('pause-detail'), onlineRun ? 'The online match continues while this menu is open.' : usingGamepad
+    ? 'Press Menu to resume the mission.' : isTouch
     ? 'Combat and wave timers are on hold.'
     : 'Resume to capture the mouse. If it stays free, drag the view or use the arrow keys to look.');
   pauseDialog.showModal();
@@ -1235,6 +1248,64 @@ function setText(element, value) {
   if (element.textContent !== text) element.textContent = text;
 }
 
+function syncControllerAudioHint() {
+  byId('controller-audio-hint').hidden = !usingGamepad || muted ||
+    navigator.userActivation?.hasBeenActive !== false || audio.context?.state === 'running';
+}
+
+function setGamepadMode(active) {
+  if (usingGamepad === active) return;
+  usingGamepad = active;
+  document.documentElement.dataset.input = active ? 'gamepad' : isTouch ? 'touch' : 'keyboard';
+  byId('controller-menu-hint').hidden = !active;
+  byId('controller-field-hint').hidden = !active;
+  byId('field-hint').hidden = active;
+  if (running) touchControls.hidden = !isTouch || active;
+  setText(turretStatus.querySelector('kbd'), active ? 'RB' : 'Q');
+  supplyButtons.forEach((button, index) => {
+    setText(button.querySelector('kbd'), active ? supplyPadLabels[button.dataset.junctionSupply] : index + 1);
+  });
+  if (!active) xboxMenus.reset();
+  syncControllerAudioHint();
+}
+
+function backFromControllerMenu(dialog, action) {
+  if (!dialog || (action === 'pause' && dialog !== pauseDialog)) return;
+  if (dialog.dispatchEvent(new Event('cancel', { cancelable: true }))) dialog.close();
+}
+
+function controllerFrame(now) {
+  requestAnimationFrame(controllerFrame);
+  if (document.hidden || !document.hasFocus()) return;
+  const current = xbox.poll();
+  if (current.disconnected && usingGamepad) {
+    setGamepadMode(false);
+    if (running && !paused && !sim.extractionPending) {
+      pause();
+      setText(byId('pause-detail'), onlineRun ? 'Controller disconnected. Your teammate can keep playing.'
+        : 'Controller disconnected. Reconnect it or resume with your other controls.');
+      return;
+    }
+  }
+  if (current.active) setGamepadMode(true);
+  if (!running || paused || sim.extractionPending) {
+    xboxState = null;
+    if (current.connected && usingGamepad) xboxMenus.update(current, now);
+    return;
+  }
+  if (current.pressed.pause) {
+    pause();
+    return;
+  }
+  xboxState = current;
+  reloadTap ||= current.pressed.reload;
+  if (current.pressed.deploy && !sim.tutorial && (sim.turretCharges > 0 || sim.canRedeployTurret)) deployTap = true;
+  if (!junctionSupply.hidden) {
+    const direction = Object.keys(supplyPad).find(key => current.pressed[key]);
+    if (direction) supplyButtons.find(button => button.dataset.junctionSupply === supplyPad[direction])?.click();
+  }
+}
+
 function fillMeter(meter, fill, value) {
   if (meter.getAttribute('aria-valuenow') === String(value)) return;
   fill.style.width = value + '%';
@@ -1252,7 +1323,8 @@ function drawTraining() {
     setText(trainingDetail, 'A pathogen is approaching the membrane.');
   } else if (stage === 'intercept') {
     setText(trainingTitle, 'Shoot the attached pathogen');
-    setText(trainingDetail, isTouch ? 'Drag to aim and hold Fire.' : 'Aim at the attacker and fire.');
+    setText(trainingDetail, usingGamepad ? 'Aim with the right stick and hold RT.'
+      : isTouch ? 'Drag to aim and hold Fire.' : 'Aim at the attacker and fire.');
   } else {
     setText(trainingTitle, 'Seal the wound');
     setText(trainingDetail, sim.nearTissue ? '' : 'Move to the tissue node to repair it.');
@@ -1315,7 +1387,8 @@ function drawJunctionStatus() {
   }
   let note = 'Choose one support option.';
   if (sim.junctionSupplyLocked) note = 'Turret moved. Support used for this wave.';
-  else if (choice === 'turret') note = isTouch ? 'Face clear ground and tap Turret to move it.' : 'Face clear ground and press Q to move the turret.';
+  else if (choice === 'turret') note = usingGamepad ? 'Face clear ground and press RB to move the turret.'
+    : isTouch ? 'Face clear ground and tap Turret to move it.' : 'Face clear ground and press Q to move the turret.';
   else if (choice === 'ammo') note = 'Extra ammo selected.';
   else if (choice) note = branches[choice].name + ' inlet reinforcement selected.';
   setText(junctionSupplyNote, note);
@@ -1526,7 +1599,7 @@ function drawHud() {
   const nearby = sim.nearNode;
   const repairingNode = sim.repairTarget;
   const restoringHere = !!nearby && restoredNode?.id === nearby.id && restoredNode.until > sim.clock && nearby.health === 100;
-  const repairKey = isTouch ? 'HOLD REPAIR' : 'HOLD E';
+  const repairKey = usingGamepad ? 'HOLD LB' : isTouch ? 'HOLD REPAIR' : 'HOLD E';
   const blockedPort = sim.airway?.ports.find(port => port.nodeId === nearby?.id && !port.open);
   const nearValve = sim.nearGastricValve;
   const valveTarget = currentGastricValve();
@@ -1560,7 +1633,7 @@ function drawHud() {
   else if (valve?.exposed && !valve.colonyDefeated && player.ammo > 0) prompt = 'SHOOT THE EXPOSED COLONY';
   else if (sim.settling && tissue < 100) prompt = 'MOVE TO A DAMAGED NODE TO REPAIR';
   else if (player.ammo === 0) {
-    prompt = player.reserve ? (isTouch ? 'RELOAD CARBINE' : 'PRESS R TO RELOAD') : 'AWAITING RESUPPLY';
+    prompt = player.reserve ? (usingGamepad ? 'PRESS X TO RELOAD' : isTouch ? 'RELOAD CARBINE' : 'PRESS R TO RELOAD') : 'AWAITING RESUPPLY';
   } else if (phase === 'intermission' && tissue < 100) {
     prompt = 'MOVE TO A DAMAGED NODE TO REPAIR';
   }
@@ -1825,7 +1898,8 @@ function applyEvents() {
     if (event.type === 'tutorial' && event.stage === 'complete') {
       trainingComplete = true;
       writeSetting(tutorialKey, true);
-      announce('DEFEND BOTH TISSUE NODES', isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
+      announce('DEFEND BOTH TISSUE NODES', usingGamepad ? 'PRESS RB TO DEPLOY YOUR TURRET'
+        : isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
       audio.play({ type: 'wave', stage: 'start' });
     }
     if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss', 'airway', 'gastric'].includes(event.type) && Number.isFinite(event.x)) {
@@ -1932,16 +2006,19 @@ function frame(now) {
   const dt = lastFrame ? Math.min((now - lastFrame) / 1000, 0.05) : 0;
   lastFrame = now;
   if (!paused) {
-    input.moveX = Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + touch.x;
-    input.moveZ = Number(keys.has('KeyW')) - Number(keys.has('KeyS')) + touch.z;
+    const controller = xboxState;
+    input.moveX = clamp(Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + touch.x + (controller?.moveX ?? 0), -1, 1);
+    input.moveZ = clamp(Number(keys.has('KeyW')) - Number(keys.has('KeyS')) + touch.z + (controller?.moveZ ?? 0), -1, 1);
     input.lookX += (Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft'))) * dt * 825;
     input.lookY += (Number(keys.has('ArrowDown')) - Number(keys.has('ArrowUp'))) * dt * 650;
-    input.fire = fireTap || leftButton || touch.fire || keys.has('Space');
+    input.lookX += (controller?.lookX ?? 0) * dt * 1150 * sensitivity;
+    input.lookY += (controller?.lookY ?? 0) * dt * 920 * sensitivity;
+    input.fire = fireTap || leftButton || touch.fire || keys.has('Space') || !!controller?.fire;
     input.reload = reloadTap || keys.has('KeyR') || touch.reload;
-    input.repair = keys.has('KeyE') || touch.repair;
+    input.repair = keys.has('KeyE') || touch.repair || !!controller?.repair;
     input.deploy = deployTap;
-    input.sprint = keys.has('ShiftLeft') || keys.has('ShiftRight');
-    input.aim = rightButton;
+    input.sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') || !!controller?.sprint;
+    input.aim = rightButton || !!controller?.aim;
     hitTimer = Math.max(0, hitTimer - dt);
     damageTimer = Math.max(0, damageTimer - dt);
     if (announcementTimer > 0) {
@@ -1992,6 +2069,11 @@ function frame(now) {
 }
 
 byId('manual').addEventListener('click', () => {
+  const active = byId(usingGamepad ? 'controller-manual' : isTouch ? 'touch-manual' : 'keyboard-manual');
+  for (const id of ['controller-manual', 'touch-manual', 'keyboard-manual']) {
+    byId(id).open = byId(id) === active;
+  }
+  byId('manual-controls-title').after(active);
   manual.showModal();
   manual.scrollTop = 0;
   byId('manual-title').focus({ preventScroll: true });
@@ -2032,13 +2114,6 @@ armoryOptions.addEventListener('click', event => {
   const part = card.dataset.option;
   if (weaponLoadout[slot] !== part) equipWeaponLoadout({ ...weaponLoadout, [slot]: part });
 });
-if (isTouch) {
-  const keyboardManual = byId('keyboard-manual');
-  const touchManual = byId('touch-manual');
-  keyboardManual.before(touchManual);
-  touchManual.open = true;
-  keyboardManual.open = false;
-}
 for (const button of supplyButtons) {
   button.addEventListener('click', () => {
     if (!running || paused || sim.extractionPending || !sim.selectJunctionSupply(button.dataset.junctionSupply)) return;
@@ -2194,7 +2269,19 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) pause();
   syncMusic();
 });
-window.addEventListener('blur', () => { if (running) pause(); });
+window.addEventListener('blur', () => {
+  xbox.reset();
+  xboxMenus.reset();
+  xboxState = null;
+  if (running) pause();
+});
+function switchFromGamepad(event) {
+  if (!event.isTrusted || !usingGamepad) return;
+  if (!muted && audio.context?.state !== 'running') audio.unlock().catch(() => {});
+  setGamepadMode(false);
+}
+window.addEventListener('keydown', switchFromGamepad, { capture: true });
+window.addEventListener('pointerdown', switchFromGamepad, { capture: true, passive: true });
 window.addEventListener('keydown', event => {
   if (!running || paused || sim.extractionPending) return;
   const supply = supplyKeys[event.code];
@@ -2221,6 +2308,7 @@ window.addEventListener('keydown', event => {
 window.addEventListener('keyup', event => keys.delete(event.code));
 window.addEventListener('mousemove', event => {
   if (running && !paused && !sim.extractionPending && locked) {
+    if (event.movementX || event.movementY) switchFromGamepad(event);
     input.lookX += event.movementX * sensitivity;
     input.lookY += event.movementY * sensitivity;
   }
@@ -2229,7 +2317,7 @@ canvas.addEventListener('contextmenu', event => event.preventDefault());
 canvas.addEventListener('mousedown', event => {
   if (!running || paused || sim.extractionPending) return;
   if (event.button === 0) {
-    if (onlineRun && !locked) requestMouse();
+    if (!locked) requestMouse();
     leftButton = true;
     fireTap = true;
   }
@@ -2306,3 +2394,4 @@ displayBest();
 setupLoadouts();
 displayMissionAccess();
 prepareGame();
+if (typeof navigator.getGamepads === 'function') requestAnimationFrame(controllerFrame);

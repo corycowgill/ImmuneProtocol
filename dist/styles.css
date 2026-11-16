@@ -64,6 +64,10 @@ svg{display:block;width:24px;height:24px;flex:none}
 .startup-load .button{justify-self:start;min-height:44px;margin-top:4px}
 .high-score{margin:9px 0 0;color:#d2c3b7;font:500 11px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.10em}
 .high-score strong{margin-left:5px;color:var(--green)}
+.controller-menu-hint{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;margin:8px 0 0;color:#e8dbd1;font:500 11px/1.4 var(--mono)}
+.controller-menu-hint kbd{padding:2px 5px;color:var(--green);border-color:#c8f7946c;background:#1c231a}
+:root[data-input="gamepad"] [data-gamepad-focus]:focus{outline:2px solid var(--green);outline-offset:2px}
+:root[data-input="gamepad"] .mission-card[data-gamepad-focus]:focus{outline-offset:-4px}
 .panel{width:min(460px,calc(100vw - 36px));max-height:calc(100dvh - 36px);overflow:auto;position:fixed;color:var(--paper);background:linear-gradient(145deg,#261917,#141213 65%);border:1px solid #ab927e70;padding:clamp(24px,4vw,37px);box-shadow:0 35px 120px #000b}
 .panel::backdrop{background:#100a0bc4;backdrop-filter:blur(5px)}
 .coop-panel{width:min(620px,calc(100vw - 28px));overscroll-behavior:contain}
@@ -957,6 +961,11 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
   .gastric-valve{font-size:7px}
 }
 @media(pointer:coarse){.field-hint,.junction-supply-options kbd,.turret-status kbd{display:none}}
+:root[data-input="gamepad"] .controller-field-hint{display:flex}
+:root[data-input="gamepad"] :is(.junction-supply-options,.turret-status:not([data-state="online"],[data-state="engaging"])) kbd{display:inline}
+@media(max-width:720px){
+  :root[data-input="gamepad"] .controller-field-hint{bottom:77px;max-width:calc(100% - 24px);justify-content:center;gap:5px;padding:5px 8px;font-size:8px}
+}
 @media(pointer:coarse){
   :is(.menu-option,.menu-tool,.mission-card,.armory-card,.armory-slot){-webkit-tap-highlight-color:transparent}
   :is(.menu-option,.menu-tool,.mission-card,.armory-card,.armory-slot):active{filter:brightness(1.17)}
