@@ -5,6 +5,8 @@ import { DEFAULT_WEAPON_LOADOUT, WEAPON_ACCENTS, WEAPON_FINISHES, WEAPON_SLOTS, 
 import { FIELD_UPGRADE_ART, prepareArmoryArt } from './armory-art.mjs';
 import { World } from './world.mjs';
 import { GameAudio } from './audio.mjs';
+import { CoopClient, PUBLIC_COOP_ORIGIN, savedCoopSession, verifyCoopHost } from './coop-client.mjs';
+import { COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from './coop-protocol.mjs';
 
 const byId = id => document.getElementById(id);
 const menu = byId('menu');
@@ -19,6 +21,18 @@ const startupStatus = byId('startup-status');
 const startupProgress = byId('startup-progress');
 const startupPercent = byId('startup-percent');
 const startupRetry = byId('startup-retry');
+const coopOpen = byId('coop-open');
+const coopDialog = byId('coop-dialog');
+const coopStatus = byId('coop-status');
+const coopName = byId('coop-name');
+const coopCode = byId('coop-code');
+const coopEntry = byId('coop-entry');
+const coopLobby = byId('coop-lobby');
+const coopLink = byId('coop-link');
+const coopReady = byId('coop-ready');
+const coopRoster = byId('coop-roster');
+const coopHud = byId('coop-hud');
+const coopArmoryStatus = byId('coop-armory-status');
 const armoryOpen = byId('armory-open');
 const armoryDialog = byId('armory-dialog');
 const armoryTitle = byId('armory-title');
@@ -215,6 +229,7 @@ const practiceLoadoutKey = 'immune-protocol.practice-loadout';
 const weaponLoadoutKey = 'immune-protocol.weapon-loadout';
 const weaponModKey = 'immune-protocol.weapon-mod';
 const weaponFinishKey = 'immune-protocol.weapon-finish';
+const coopNameKey = 'immune-protocol.coop-name';
 const megaVirusKey = 'immune-protocol.mega-virus-reached';
 const campaignAreas = ['artery', 'junction', 'heart', 'lungs', 'stomach', 'intestines', 'ear', 'brain'];
 const missions = {
@@ -252,6 +267,11 @@ const armoryMetrics = [
 
 let world;
 let ready = false;
+let coopClient;
+let coopHost;
+let coopBusy = false;
+let onlineRun = false;
+let coopClock = 0;
 let armoryArt;
 let armoryRound = 0;
 let activeArmorySlot = Object.keys(WEAPON_SLOTS)[0];
@@ -371,6 +391,7 @@ function displayMissionAccess() {
     button.disabled = unavailable || (bossPractice && !megaVirusReached);
   }
   deploy.disabled = missionSelect.disabled = armoryOpen.disabled = unavailable;
+  coopOpen.disabled = unavailable;
   newCampaignButton.disabled = unavailable;
   practiceLoadout.disabled = unavailable;
   practiceDeploy.disabled = selectedPracticeMission.button.disabled;
@@ -521,7 +542,10 @@ function setupArmory() {
 function equipWeaponLoadout(loadout) {
   weaponLoadout = normalizeWeaponLoadout(loadout);
   writeSetting(weaponLoadoutKey, JSON.stringify(weaponLoadout));
-  if (armoryRound) sim.setWeaponLoadout(weaponLoadout);
+  if (armoryRound && !onlineRun) sim.setWeaponLoadout(weaponLoadout);
+  if ((onlineRun && armoryRound) || (coopClient?.localPlayer?.ready && ['lobby', 'finished'].includes(coopClient.room?.phase))) {
+    coopClient.setReady(false, weaponLoadout);
+  }
   drawArmory();
 }
 
@@ -559,6 +583,11 @@ async function prepareGame() {
     startupLoad.hidden = true;
     ready = true;
     displayMissionAccess();
+    if (roomCode(new URL(location.href).searchParams.get('room'))) {
+      const intro = byId('studio-intro');
+      if (intro.open) intro.addEventListener('close', openCoop, { once: true });
+      else openCoop();
+    }
   } catch (error) {
     console.error('Could not prepare Immune Protocol', error);
     setText(startupStatus, 'Could not prepare game assets. Check WebGL 2 and retry.');
@@ -573,6 +602,189 @@ function requestMouse() {
     const pending = canvas.requestPointerLock();
     if (pending && typeof pending.catch === 'function') pending.catch(() => {});
   } catch { /* Drag and arrow controls work in an embedded browser. */ }
+}
+
+function roomCode(value) {
+  const code = String(value ?? '').trim().toUpperCase();
+  return code.length === COOP_CODE_LENGTH && [...code].every(char => COOP_CODE_ALPHABET.includes(char)) ? code : '';
+}
+
+function setInviteCode(code) {
+  const url = new URL(location.href);
+  if (code) url.searchParams.set('room', code);
+  else url.searchParams.delete('room');
+  if (url.href !== location.href) history.replaceState(null, '', url);
+}
+
+function setCoopStatus(message = '') {
+  coopStatus.hidden = !message;
+  setText(coopStatus, message);
+}
+
+function syncCoopIndicators() {
+  if (!coopClient?.session) return;
+  const { room, localPlayer, connected } = coopClient;
+  const partner = room?.players.find(player => player.id !== localPlayer?.id);
+  const ally = sim?.players?.find(player => player.id !== coopClient.session.id);
+  const reconnectTime = room?.reconnectDeadline ? Math.max(0, Math.ceil((room.reconnectDeadline - Date.now()) / 1000)) : 0;
+  const down = sim?.player?.downed;
+  setText(byId('coop-ally'), partner ? partner.name + (ally?.downed ? ' · Down' : '') : 'Online co-op');
+  setText(byId('coop-match-status'), !connected ? 'Reconnecting…'
+    : room?.reconnectDeadline ? 'Waiting for teammate · ' + reconnectTime + 's'
+      : down ? (sim.wave < sim.waves ? 'Suit down · Rejoin next wave' : 'Suit down · Teammate still active')
+        : ally ? 'Suit integrity ' + Math.ceil(ally.health) + '%' : 'Connected');
+  if (armoryDialog.open && armoryRound && onlineRun) {
+    const seconds = Math.max(0, Math.ceil(((room?.deadline ?? Date.now()) - Date.now()) / 1000));
+    const count = room?.players.filter(player => player.ready).length ?? 0;
+    setText(coopArmoryStatus, !connected ? 'Reconnecting…' : room?.reconnectDeadline
+      ? 'Waiting for teammate · ' + reconnectTime + 's' : count + ' of 2 ready · Ready-up closes in ' + seconds + 's');
+    setText(armoryDone.firstChild, localPlayer?.ready ? 'Cancel ready ' : 'Ready for next wave ');
+    armoryDone.disabled = !connected || !!room?.reconnectDeadline;
+  }
+}
+
+function syncCoopRoom() {
+  const room = coopClient?.room;
+  const session = coopClient?.session;
+  coopEntry.hidden = !coopHost || !!session;
+  coopLobby.hidden = !room || !session;
+  byId('coop-create').disabled = coopBusy;
+  byId('coop-join').querySelector('button').disabled = coopBusy;
+  if (!room || !session) return;
+  const invite = new URL(location.pathname, location.origin);
+  invite.searchParams.set('room', session.code);
+  coopLink.value = invite.href;
+  setText(byId('coop-room-code'), session.code);
+  const roster = room.players.map(player => {
+    const row = document.createElement('li');
+    const name = document.createElement('strong');
+    const status = document.createElement('span');
+    name.textContent = player.name + (player.id === session.id ? ' (you)' : '');
+    status.textContent = !player.connected ? 'Reconnecting' : player.ready ? 'Ready' : 'Preparing';
+    status.dataset.ready = String(player.ready && player.connected);
+    row.append(name, status);
+    return row;
+  });
+  if (roster.length < 2) {
+    const row = document.createElement('li');
+    row.textContent = 'Waiting for a teammate';
+    roster.push(row);
+  }
+  coopRoster.replaceChildren(...roster);
+  const local = coopClient.localPlayer;
+  coopReady.disabled = !coopClient.connected || !local || !['lobby', 'finished'].includes(room.phase);
+  setText(coopReady.firstChild, local?.ready ? 'Cancel ready ' : 'Ready ');
+  byId('coop-close').setAttribute('aria-label', 'Leave room and close online co-op');
+  if (coopDialog.open) {
+    setCoopStatus(!coopClient.connected ? 'Reconnecting to the room…' : room.phase === 'finished' ? 'Ready up for a rematch.'
+      : room.players.length < 2 ? 'Share the invite link with your friend.' : 'Both players must ready up to deploy.');
+  }
+  if (onlineRun && running && room.phase === 'intermission' && !paused) {
+    armoryRound = sim.wave;
+    openArmory(armoryRound);
+  } else if (onlineRun && room.phase === 'playing' && armoryDialog.open && armoryRound) {
+    armoryDialog.close();
+    armoryRound = 0;
+    resume();
+  }
+  syncCoopIndicators();
+}
+
+function clearCoopRoom(notifyServer) {
+  coopClient?.stop(notifyServer);
+  clearInterval(coopClock);
+  coopClock = 0;
+  coopBusy = false;
+  setInviteCode('');
+  byId('coop-close').setAttribute('aria-label', 'Close online co-op');
+  syncCoopRoom();
+}
+
+function handleCoopEnd(message) {
+  if (onlineRun) mainMenu();
+  clearCoopRoom(false);
+  if (!coopDialog.open) coopDialog.showModal();
+  setCoopStatus(message);
+  byId('coop-title').focus({ preventScroll: true });
+}
+
+function getCoopClient() {
+  if (coopClient) return coopClient;
+  coopClient = new CoopClient();
+  coopClient.addEventListener('connection', event => {
+    coopBusy = true;
+    if (onlineRun) clearControls();
+    if (coopDialog.open) setCoopStatus(event.detail === 'reconnecting' ? 'Reconnecting to the room…' : 'Connecting to the game server…');
+    syncCoopIndicators();
+  });
+  coopClient.addEventListener('session', event => {
+    coopBusy = false;
+    setInviteCode(event.detail.code);
+    if (!coopClock) coopClock = setInterval(syncCoopIndicators, 500);
+  });
+  coopClient.addEventListener('room', syncCoopRoom);
+  coopClient.addEventListener('state', event => {
+    const state = event.detail;
+    if (!onlineRun && !running && coopDialog.open && ['playing', 'intermission'].includes(coopClient.room?.phase)) {
+      launch(state.area, null, null, coopClient.view);
+    } else if (onlineRun && running && paused && ['won', 'lost'].includes(state.phase)) {
+      sim = coopClient.frame(0, input, performance.now());
+      settingsDialog.close();
+      armoryDialog.close();
+      pauseDialog.close();
+      paused = false;
+      finish();
+    }
+  });
+  coopClient.addEventListener('problem', event => {
+    coopBusy = false;
+    if (onlineRun && !coopClient.session) handleCoopEnd(event.detail);
+    else {
+      syncCoopRoom();
+      setCoopStatus(event.detail);
+    }
+  });
+  coopClient.addEventListener('ended', event => handleCoopEnd(event.detail));
+  return coopClient;
+}
+
+async function openCoop() {
+  if (!ready || running || coopDialog.open) return;
+  const url = new URL(location.href);
+  const code = roomCode(url.searchParams.get('room'));
+  if (PUBLIC_COOP_ORIGIN && url.hostname.endsWith('.github.io')) {
+    const online = new URL(PUBLIC_COOP_ORIGIN);
+    if (code) online.searchParams.set('room', code);
+    location.assign(online.href);
+    return;
+  }
+  coopDialog.showModal();
+  coopDialog.scrollTop = 0;
+  byId('coop-title').focus({ preventScroll: true });
+  if (!coopHost) {
+    setCoopStatus('Finding the game server…');
+    coopHost = await verifyCoopHost();
+  }
+  if (!coopDialog.open) return;
+  if (!coopHost) {
+    setCoopStatus('Open the multiplayer server’s game URL to create or join a room.');
+    return;
+  }
+  if (code) coopCode.value = code;
+  coopName.value = readSetting(coopNameKey) ?? '';
+  const client = getCoopClient();
+  const saved = code && savedCoopSession(code);
+  setCoopStatus(code ? 'You’ve been invited to room ' + code + '.' : '');
+  if (saved && !client.session) client.connect({ type: 'resume', code, token: saved.token });
+  syncCoopRoom();
+}
+
+function enterCoop(type, code) {
+  if (!coopHost || coopBusy) return;
+  const name = coopName.value.trim();
+  writeSetting(coopNameKey, name);
+  getCoopClient().connect({ type, name, code, loadout: weaponLoadout });
+  syncCoopRoom();
 }
 
 function releaseMouse() {
@@ -607,11 +819,11 @@ function announce(title, detail = '', duration = 2.45) {
   announcementTimer = duration;
 }
 
-async function launch(area, run = null, drill = null) {
+async function launch(area, run = null, drill = null, onlineState = null) {
   const junction = area === 'junction';
   const heart = area === 'heart';
   const index = campaignAreas.indexOf(area);
-  if (!ready || loading || running || index < 0 || (!drill && index > unlockedMission)) return;
+  if (!ready || loading || running || index < 0 || (!drill && !onlineState && index > unlockedMission)) return;
   if (drill?.bossPractice && (area !== 'brain' || !megaVirusReached)) return;
   const fromResult = resultDialog.open;
   const fromMissionList = missionDialog.open;
@@ -623,6 +835,10 @@ async function launch(area, run = null, drill = null) {
   loading = true;
   deploy.disabled = true;
   missionDialog.close();
+  if (onlineState) {
+    coopDialog.close();
+    armoryDialog.close();
+  }
   displayMissionAccess();
   byId('menu-error').hidden = true;
   missionError.hidden = true;
@@ -635,14 +851,16 @@ async function launch(area, run = null, drill = null) {
     world.setArea(area);
     world.setQuality(graphicsQuality);
     const upgrade = run?.upgrade ?? drill?.upgrade;
-    const nextSim = new Simulation(area, {
+    const nextSim = onlineState ?? new Simulation(area, {
       tutorial: area === 'artery' && !trainingComplete && !drill,
       upgrades: upgrade ? [upgrade] : [],
       bossPractice: !!drill?.bossPractice,
       weaponLoadout,
     });
-    nextSim.start();
+    if (!onlineState) nextSim.start();
     sim = nextSim;
+    onlineRun = Boolean(onlineState);
+    coopHud.hidden = !onlineRun;
     armoryRound = 0;
     campaign = run;
     practice = drill;
@@ -678,7 +896,8 @@ async function launch(area, run = null, drill = null) {
     Promise.resolve(unlocked).then(() => {
       if (running && !paused && sim === mission && sim.clock < 1.25) audio.play({ type: 'deploy' });
     }).catch(() => {});
-    if (drill?.bossPractice) announce('MEGA VIRUS PRACTICE', 'SHOOT EXPOSED CORES', 1.9);
+    if (onlineRun) announce('ONLINE CO-OP', 'DEFEND BOTH TISSUE NODES', 2.3);
+    else if (drill?.bossPractice) announce('MEGA VIRUS PRACTICE', 'SHOOT EXPOSED CORES', 1.9);
     else if (heart) announce('HEART VALVE', 'HIT THE COLONY · DEFEND THE FLANK', 3.2);
     else if (junction) announce('CAPILLARY JUNCTION', 'DEFEND BOTH INLETS', 2.8);
     else if (nextSim.organ) announce(missionName(area).toUpperCase(), ORGAN_MISSIONS[area].hazard.instruction.toUpperCase(), 2.4);
@@ -691,9 +910,12 @@ async function launch(area, run = null, drill = null) {
     if (run) saveCheckpoint(run);
     cancelAnimationFrame(animation);
     animation = requestAnimationFrame(frame);
+    if (onlineRun) syncCoopRoom();
   } catch (error) {
     console.error('Could not start Immune Protocol', error);
     running = false;
+    onlineRun = false;
+    coopHud.hidden = true;
     audio.setActive(false);
     releaseMouse();
     sim = previousSim;
@@ -711,6 +933,10 @@ async function launch(area, run = null, drill = null) {
     game.hidden = true;
     menu.hidden = false;
     syncMusic();
+    if (onlineState) {
+      handleCoopEnd('Could not initialize co-op graphics. Enable WebGL 2 and try again.');
+      return;
+    }
     const message = fromMissionList ? missionError : byId('menu-error');
     message.textContent = 'Could not initialize 3D graphics. Try a browser with WebGL 2 and hardware acceleration enabled.';
     message.hidden = false;
@@ -726,7 +952,7 @@ function pause() {
   if (!running || paused || sim.extractionPending) return;
   suspendCombat();
   setText(byId('pause-mission'), missionName(sim.area));
-  setText(byId('pause-detail'), isTouch
+  setText(byId('pause-detail'), onlineRun ? 'The online match continues while this menu is open.' : isTouch
     ? 'Combat and wave timers are on hold.'
     : 'Resume to capture the mouse. If it stays free, drag the view or use the arrow keys to look.');
   pauseDialog.showModal();
@@ -737,6 +963,7 @@ function suspendCombat() {
   cancelAnimationFrame(animation);
   animation = 0;
   clearControls();
+  if (onlineRun) coopClient.neutralize();
   audio.setActive(false);
   syncMusic();
   releaseMouse();
@@ -747,14 +974,21 @@ function openArmory(round = 0) {
   if (round) suspendCombat();
   setText(armoryContext, round ? 'Wave ' + round + ' complete. Adjust your build before resuming.' : 'Compare parts and tune your carbine.');
   armoryDone.firstChild.textContent = round ? 'Resume mission ' : 'Done ';
+  armoryDone.disabled = false;
+  coopArmoryStatus.hidden = !onlineRun || !round;
   drawArmory();
   armoryDialog.showModal();
   armoryDialog.scrollTop = 0;
   armoryTitle.focus({ preventScroll: true });
+  if (onlineRun) syncCoopIndicators();
 }
 
 function closeArmory() {
   const inRound = armoryRound > 0;
+  if (inRound && onlineRun) {
+    coopClient.setReady(!coopClient.localPlayer?.ready, weaponLoadout);
+    return;
+  }
   armoryDialog.close();
   armoryRound = 0;
   if (inRound) resume();
@@ -772,6 +1006,7 @@ function resume() {
   canvas.focus({ preventScroll: true });
   requestMouse();
   animation = requestAnimationFrame(frame);
+  if (onlineRun && coopClient.room?.phase === 'intermission') syncCoopRoom();
 }
 
 function offerExtraction() {
@@ -805,7 +1040,7 @@ function chooseExtraction(choice) {
   animation = requestAnimationFrame(frame);
 }
 
-function mainMenu() {
+function mainMenu(keepRoom = false) {
   running = false;
   paused = false;
   campaign = null;
@@ -816,12 +1051,16 @@ function mainMenu() {
   audio.setActive(false);
   releaseMouse();
   cancelAnimationFrame(animation);
+  coopDialog.close();
   settingsDialog.close();
   armoryDialog.close();
   missionDialog.close();
   pauseDialog.close();
   extractionDialog.close();
   resultDialog.close();
+  if (!keepRoom && (coopClient?.session || onlineRun)) clearCoopRoom(true);
+  onlineRun = false;
+  coopHud.hidden = true;
   game.hidden = true;
   menu.hidden = false;
   syncMusic();
@@ -946,8 +1185,8 @@ function finish() {
   }
   resultTitle.textContent = complete ? 'Campaign complete' : won && bossPractice ? 'Mega Virus defeated'
     : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : sim.organMission ? missionName(sim.area) + ' secured' : 'Artery secured') : 'Mission failed';
-  resultKicker.lastChild.textContent = practice ? ' FREE MODE REPORT' : ' MISSION REPORT';
-  setText(returnMenu, practice ? 'Free Mode' : 'Main menu');
+  resultKicker.lastChild.textContent = onlineRun ? ' CO-OP REPORT' : practice ? ' FREE MODE REPORT' : ' MISSION REPORT';
+  setText(returnMenu, onlineRun ? 'Leave room' : practice ? 'Free Mode' : 'Main menu');
   let detail;
   if (complete) detail = 'The Mega Virus is down. The infection is contained across all eight missions.';
   else if (won) {
@@ -962,7 +1201,8 @@ function finish() {
     const cause = sim.failedNode ? sim.failedNode.name + ' failed.' : 'Your suit failed.';
     detail = cause + ' Redeploy to retry Capillary Junction from Wave 1.';
   }
-  else detail = sim.failedNode ? sim.failedNode.name + ' tissue failed under pathogen attack.' : 'Your suit failed under pathogen attack.';
+  else detail = sim.failedNode ? sim.failedNode.name + ' tissue failed under pathogen attack.'
+    : onlineRun ? 'Both suits went down under pathogen attack.' : 'Your suit failed under pathogen attack.';
   byId('result-detail').textContent = detail;
   const result = missionResult();
   const results = complete ? [...campaign.results, result] : [result];
@@ -981,7 +1221,7 @@ function finish() {
     updateUpgradeChoice();
   }
   if (complete) drawCampaignReport(results);
-  setText(replayLabel, complete ? 'Restart campaign' : bossPractice ? 'Practice again' : campaign ? 'Retry mission' : 'Redeploy');
+  setText(replayLabel, onlineRun ? 'Back to lobby' : complete ? 'Restart campaign' : bossPractice ? 'Practice again' : campaign ? 'Retry mission' : 'Redeploy');
   replay.hidden = reward;
   replay.classList.toggle('primary', !next);
   replay.classList.toggle('outline', !!next);
@@ -1562,6 +1802,26 @@ function drawBranches() {
 
 function applyEvents() {
   for (const event of sim.events) {
+    const teammate = onlineRun && event.playerId && event.playerId !== sim.player.id;
+    if (teammate) {
+      if (event.type === 'shot') {
+        const actor = sim.players.find(player => player.id === event.playerId);
+        if (actor) {
+          const dx = actor.x - sim.player.x;
+          const dz = actor.z - sim.player.z;
+          const distance = Math.hypot(dx, dz);
+          const pan = (dx * Math.cos(sim.player.yaw) - dz * Math.sin(sim.player.yaw)) / Math.max(1, distance);
+          audio.play({ type: 'shot', teammate: true, distance, pan });
+        }
+        continue;
+      }
+      if (['dry', 'reload', 'hit', 'kill', 'repairStart', 'repairStop'].includes(event.type) ||
+        (event.type === 'damage' && event.target === 'player')) continue;
+    }
+    if (event.type === 'suit' && !teammate) {
+      if (event.stage === 'down') announce('SUIT DOWN', 'YOUR TEAMMATE CAN FINISH THE WAVE', 3.2);
+      if (event.stage === 'respawn') announce('SUIT RESTORED', 'READY FOR THE NEXT WAVE', 2.5);
+    }
     if (event.type === 'tutorial' && event.stage === 'complete') {
       trainingComplete = true;
       writeSetting(tutorialKey, true);
@@ -1655,7 +1915,7 @@ function applyEvents() {
       } else if (event.wave < sim.waves && sim.gastric?.stage !== 'intake') {
         announce('WAVE CONTAINED', sim.junctionForecast ? 'CHOOSE SUPPORT FOR THE NEXT WAVE' : 'RESUPPLIED  /  REPAIR TISSUE', 3);
       }
-      if (event.stage === 'clear' && (sim.phase === 'intermission' || sim.airway?.state === 'reopen')) armoryRound = event.wave;
+      if (!onlineRun && event.stage === 'clear' && (sim.phase === 'intermission' || sim.airway?.state === 'reopen')) armoryRound = event.wave;
     }
   }
 }
@@ -1693,7 +1953,8 @@ function frame(now) {
       const tutorial = sim.tutorial;
       const colonyDefeated = sim.valve?.colonyDefeated;
       const enemiesActive = sim.enemies.length > 0;
-      sim.step(dt, input);
+      if (onlineRun) sim = coopClient.frame(dt, input, now) ?? sim;
+      else sim.step(dt, input);
       if (!megaVirusReached && sim.boss && !practice?.bossPractice) {
         megaVirusReached = true;
         writeSetting(megaVirusKey, 'true');
@@ -1740,7 +2001,7 @@ armoryOpen.addEventListener('click', () => openArmory());
 armoryDone.addEventListener('click', closeArmory);
 armoryDialog.addEventListener('cancel', event => {
   event.preventDefault();
-  closeArmory();
+  if (!onlineRun || !armoryRound) closeArmory();
 });
 armoryReset.addEventListener('click', () => equipWeaponLoadout(DEFAULT_WEAPON_LOADOUT));
 armoryTabs.addEventListener('click', event => {
@@ -1810,6 +2071,48 @@ document.querySelectorAll('[data-mute]').forEach(button => button.addEventListen
   if (!muted) audio.unlock().catch(() => {});
 }));
 deploy.addEventListener('click', startCampaign);
+coopOpen.addEventListener('click', openCoop);
+byId('coop-create').addEventListener('click', () => enterCoop('create'));
+byId('coop-join').addEventListener('submit', event => {
+  event.preventDefault();
+  const code = roomCode(coopCode.value);
+  if (!code) {
+    setCoopStatus('Enter the eight-character room code from your invite.');
+    coopCode.focus();
+    return;
+  }
+  enterCoop('join', code);
+});
+byId('coop-copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(coopLink.value);
+    setCoopStatus('Invite link copied.');
+  } catch {
+    coopLink.focus();
+    coopLink.select();
+    setCoopStatus('Copy the selected invite link and send it to your friend.');
+  }
+});
+byId('coop-customize').addEventListener('click', () => openArmory());
+coopReady.addEventListener('click', () => {
+  if (!coopClient?.localPlayer) return;
+  audio.unlock().catch(() => {});
+  coopClient.setReady(!coopClient.localPlayer.ready, weaponLoadout);
+});
+byId('coop-leave').addEventListener('click', () => {
+  clearCoopRoom(true);
+  setCoopStatus('You left the room.');
+  coopName.focus();
+});
+function closeCoop() {
+  clearCoopRoom(true);
+  coopDialog.close();
+}
+byId('coop-close').addEventListener('click', closeCoop);
+coopDialog.addEventListener('cancel', event => {
+  event.preventDefault();
+  closeCoop();
+});
 newCampaignButton.addEventListener('click', () => {
   if (!checkpoint) return;
   const area = campaignAreas[checkpoint.results.length];
@@ -1863,11 +2166,14 @@ for (const button of upgradeButtons) {
   });
 }
 replay.addEventListener('click', () => {
-  if (campaign && sim.area === campaignAreas.at(-1) && sim.phase === 'won') startCampaign();
+  if (onlineRun) {
+    mainMenu(true);
+    openCoop();
+  } else if (campaign && sim.area === campaignAreas.at(-1) && sim.phase === 'won') startCampaign();
   else launch(sim.area, campaign, practice);
 });
 returnMenu.addEventListener('click', returnFromResult);
-byId('quit').addEventListener('click', mainMenu);
+byId('quit').addEventListener('click', () => mainMenu());
 byId('pause').addEventListener('click', pause);
 byId('resume').addEventListener('click', resume);
 extractNow.addEventListener('click', () => chooseExtraction('extract'));
@@ -1923,6 +2229,7 @@ canvas.addEventListener('contextmenu', event => event.preventDefault());
 canvas.addEventListener('mousedown', event => {
   if (!running || paused || sim.extractionPending) return;
   if (event.button === 0) {
+    if (onlineRun && !locked) requestMouse();
     leftButton = true;
     fireTap = true;
   }

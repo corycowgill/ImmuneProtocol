@@ -5,6 +5,7 @@ import { createHeartValve, createValveColony } from './heart-valve.mjs';
 import { createTurret } from './turret.mjs';
 import { createOrganEnemies, createOrganEnvironment, organProfile } from './organ-world.mjs';
 import { createMegaVirus } from './mega-virus.mjs';
+import { createTeammate } from './teammate.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS } from './weapon-mods.mjs';
 import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, TISSUE_NODES } from './simulation.mjs';
 
@@ -1291,6 +1292,9 @@ export class World {
     this.glow = glowTexture();
     this.enemyViews = new Map();
     this.projectileViews = new Map();
+    this.teammateView = createTeammate(this.glow);
+    this.teammateMuzzle = new THREE.Vector3();
+    this.scene.add(this.teammateView.root);
     this.particles = [];
     this.shots = [];
     this.lastEvents = null;
@@ -1448,6 +1452,8 @@ export class World {
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
+    this.teammateShotMaterial = this.shotMaterial.clone();
+    this.teammateShotMaterial.color.setHex(0xbcefff);
     this.turretShotMaterial = this.shotMaterial.clone();
     this.turretShotMaterial.color.setHex(0xffbd78);
     this.width = this.height = 0;
@@ -1571,6 +1577,11 @@ export class World {
     const fire = { type: 'turret', stage: 'fire', x: sim.turret.x, y: 1, z: sim.turret.z,
       impact: { x: start.x - 2, y: 1, z: start.z - 13 } };
     sim.events = [shot, fire];
+    if (sim.area === 'artery') {
+      start.id = 'warmup-local';
+      sim.players = [start, { ...start, id: 'warmup-teammate', name: 'Teammate', x: start.x - 2.2, z: start.z - 9 }];
+      sim.events.push({ ...shot, playerId: 'warmup-teammate' });
+    }
     this.render(sim, .02, PRELOAD_INPUT, false, false);
     // Keep both the healthy tissue's and recovery objective's lighting variants compiled.
     if (sim.area === 'lungs') {
@@ -1588,6 +1599,7 @@ export class World {
     }
     sim.repairing = true;
     sim.repairTarget = sim.nodes[0];
+    if (sim.players) sim.players[1].repairing = true;
     this.render(sim, .24, PRELOAD_INPUT, false, false);
     warmTextures(this.scene);
     await this.renderer.compileAsync(this.scene, this.camera);
@@ -1599,6 +1611,7 @@ export class World {
   }
 
   setArea(area) {
+    this.teammateView.hide();
     this.megaVirus?.update(null, 0, 0, true);
     const junction = area === 'junction';
     const heart = area === 'heart';
@@ -2083,7 +2096,8 @@ export class World {
     pose.swayY = damp(pose.swayY, reduceMotion ? 0 : clamp(input.lookY * .001, -.023, .023), 15, dt);
 
     const { model, muzzle, flash, magazine, magazineGrip, supportHand, bolt, poseHands } = this.carbine;
-    if (sim.events !== this.lastEvents && sim.events.some(event => event.type === 'shot')) {
+    if (sim.events !== this.lastEvents && sim.events.some(event => event.type === 'shot' &&
+      (event.playerId == null || event.playerId === sim.player.id))) {
       pose.recoil = Math.min(1.24, pose.recoil + (reduceMotion ? .43 : 1));
       pose.flash = reduceMotion ? 0 : .037;
       flash.rotation.z = this.random() * TAU;
@@ -2189,6 +2203,13 @@ export class World {
     this.shots.push({ line, remaining });
   }
 
+  addTeammateShot(event, reduceMotion) {
+    if (!this.teammateView.fire(event.playerId, reduceMotion, this.teammateMuzzle)) return;
+    const end = new THREE.Vector3(event.x, event.y, event.z);
+    this.addTracer(this.teammateMuzzle, end, this.teammateShotMaterial, .074);
+    if (event.hit) this.burst(end.x, end.y, end.z, event.crit ? 0xffc875 : 0xff765a, reduceMotion ? 4 : 8, 2.6);
+  }
+
   addTurretShot(event, reduceMotion) {
     const { x, y, z } = event.impact;
     const dx = x - event.x;
@@ -2199,11 +2220,14 @@ export class World {
     this.burst(x, y, z, 0xf49b62, reduceMotion ? 3 : 11, 2.2);
   }
 
-  processEvents(events, dt, reduceMotion, flashStrength) {
+  processEvents(events, dt, reduceMotion, flashStrength, playerId) {
     if (events !== this.lastEvents) {
       this.lastEvents = events;
       for (const event of events) {
-        if (event.type === 'shot') this.addShot(event, flashStrength);
+        if (event.type === 'shot') {
+          if (event.playerId == null || event.playerId === playerId) this.addShot(event, flashStrength);
+          else this.addTeammateShot(event, reduceMotion);
+        }
         if (event.type === 'turret' && event.stage === 'fire') this.addTurretShot(event, reduceMotion);
         if (event.type === 'turret' && (event.stage === 'deployed' || event.stage === 'redeployed') && !reduceMotion) {
           this.burst(event.x, floorHeight(event.x, event.z) + .11, event.z, 0xb78079, 15, 1.2);
@@ -2278,6 +2302,8 @@ export class World {
     if (this.area === 'junction') this.updateJunctionField(sim, dt, reduceMotion);
     this.updateEnemies(sim.enemies, dt, reduceMotion);
     this.updateProjectiles(sim.projectiles ?? [], reduceMotion);
+    const teammate = sim.players?.find(other => other.id !== player.id);
+    this.teammateView.update(teammate, teammate ? floorHeight(teammate.x, teammate.z) : 0, dt, reduceMotion);
     const { turret } = sim;
     this.turretView.update(turret, turret ? floorHeight(turret.x, turret.z) : 0, dt, reduceMotion);
     const { weaponLoadout, tutorial } = sim;
@@ -2289,7 +2315,7 @@ export class World {
       this.weaponTutorial = tutorial;
     }
     this.updateWeapon(sim, dt, input, aiming, reduceMotion);
-    this.processEvents(sim.events, dt, reduceMotion, sim.weapon.muzzleFlash);
+    this.processEvents(sim.events, dt, reduceMotion, sim.weapon.muzzleFlash, player.id);
     this.updateParticles(dt);
     this.renderer.render(this.scene, this.camera);
     // Give the close-up model its own depth buffer without clearing the artery.

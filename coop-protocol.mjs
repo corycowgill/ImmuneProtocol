@@ -1,0 +1,9 @@
+export const COOP_SERVICE = 'immune-protocol-coop';
+export const COOP_PROTOCOL_VERSION = 1;
+export const COOP_TICK_RATE = 30;
+export const COOP_RECONNECT_MS = 75_000;
+export const COOP_HEALTH_PATH = '/healthz';
+export const COOP_PATH = '/coop';
+export const COOP_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export const COOP_CODE_LENGTH = 8;
+export const COOP_NAME_LIMIT = 24;

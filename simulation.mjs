@@ -213,17 +213,17 @@ export class Simulation {
     this.reset();
   }
 
-  setWeaponLoadout(value) {
-    const previousReload = this.weapon.reloadSeconds;
-    this.weaponLoadout = Object.freeze(normalizeWeaponLoadout(value));
-    this.configuredWeapon = weaponStats(this.weaponLoadout);
-    const { player, magazineSize } = this;
+  setWeaponLoadout(value, suit = this) {
+    const previousReload = suit.weapon.reloadSeconds;
+    suit.weaponLoadout = Object.freeze(normalizeWeaponLoadout(value));
+    suit.configuredWeapon = weaponStats(suit.weaponLoadout);
+    const { player, magazineSize } = suit;
     // Return loose rounds to the reserve even if it is already at its refill limit.
     const extraRounds = Math.max(0, player.ammo - magazineSize);
     player.ammo -= extraRounds;
     player.reserve += extraRounds;
-    if (player.ammo === magazineSize) this.reloading = 0;
-    else if (this.reloading > 0) this.reloading *= this.weapon.reloadSeconds / previousReload;
+    if (player.ammo === magazineSize) suit.reloading = 0;
+    else if (suit.reloading > 0) suit.reloading *= suit.weapon.reloadSeconds / previousReload;
   }
 
   setWeaponMod(id) {
@@ -254,9 +254,13 @@ export class Simulation {
   }
 
   get turretPlacement() {
+    return this.turretPlacementFor(this.player);
+  }
+
+  turretPlacementFor(player) {
     if ((!this.turretCharges && !this.canRedeployTurret) || this.tutorial || this.extractionPending ||
       (this.phase !== 'combat' && this.phase !== 'intermission')) return null;
-    const { x, z, yaw } = this.player;
+    const { x, z, yaw } = player;
     const point = { x: x - Math.sin(yaw) * 2.2, y: 0, z: z - Math.cos(yaw) * 2.2 };
     if (this.valve && (Math.abs(point.x) > HEART_MAX_PLAYER_X - .65 ||
       point.z < HEART_MIN_PLAYER_Z + .65 || point.z > HEART_MAX_PLAYER_Z - .65)) return null;
@@ -468,9 +472,13 @@ export class Simulation {
     }
     const junction = this.area === 'junction';
     this.intermission = junction ? JUNCTION_BREAK_TIME : INTERMISSION_TIME;
-    this.player.reserve += Math.min(junction ? 12 : 55, Math.max(0, RULES.reserveCap - this.player.reserve));
-    this.player.health = Math.min(RULES.health, this.player.health + (junction ? 12 : 18));
+    this.resupplyAfterWave(junction ? 12 : 55, junction ? 12 : 18);
     if (this.gastric) startGastric(this);
+  }
+
+  resupplyAfterWave(reserve, health, player = this.player) {
+    player.reserve += Math.min(reserve, Math.max(0, RULES.reserveCap - player.reserve));
+    player.health = Math.min(RULES.health, player.health + health);
   }
 
   endMission(outcome, reason) {
@@ -805,9 +813,9 @@ export class Simulation {
     this.enemies.push(this.createEnemy(HEART_PATROL[index], entry.x, entry.z, this.nodes[1]));
   }
 
-  movePlayer(dt, input) {
-    const { player } = this;
-    const sensitivity = input.aim ? TURN_SENSITIVITY * this.weapon.aimSensitivity : TURN_SENSITIVITY;
+  movePlayer(dt, input, suit = this) {
+    const { player, weapon } = suit;
+    const sensitivity = input.aim ? TURN_SENSITIVITY * weapon.aimSensitivity : TURN_SENSITIVITY;
     player.yaw -= (input.lookX || 0) * sensitivity;
     player.pitch = clamp(player.pitch - (input.lookY || 0) * sensitivity, -1.46, 1.46);
 
@@ -833,15 +841,16 @@ export class Simulation {
     } else confineToChamber(actor);
   }
 
-  updateRepair(dt, held) {
-    this.nearNode = null;
+  updateRepair(dt, held, suit = this) {
+    const { player } = suit;
+    suit.nearNode = null;
     let target = null;
     let nearestDistance = RULES.repairRadius;
     let repairDistance = RULES.repairRadius;
     for (const node of this.nodes) {
-      const distance = Math.hypot(this.player.x - node.x, this.player.z - node.z);
+      const distance = Math.hypot(player.x - node.x, player.z - node.z);
       if (distance <= nearestDistance) {
-        this.nearNode = node;
+        suit.nearNode = node;
         nearestDistance = distance;
       }
       const overloaded = this.organ?.repairBlocked && this.organ.nodeId === node.id;
@@ -852,48 +861,48 @@ export class Simulation {
         repairDistance = distance;
       }
     }
-    this.nearTissue = Boolean(this.nearNode);
+    suit.nearTissue = Boolean(suit.nearNode);
     const gash = this.gash;
-    this.nearGash = !!gash && Math.hypot(this.player.x - gash.x, this.player.z - gash.z) <= JUNCTION_GASH_REPAIR_RADIUS;
-    if (this.nearGash) target = gash;
+    suit.nearGash = !!gash && Math.hypot(player.x - gash.x, player.z - gash.z) <= JUNCTION_GASH_REPAIR_RADIUS;
+    if (suit.nearGash) target = gash;
     if (this.gastric) {
       const { intake, drain } = this.gastric;
-      const { x, z } = this.player;
-      this.nearGastricValve = [intake, drain].find(valve =>
+      const { x, z } = player;
+      suit.nearGastricValve = [intake, drain].find(valve =>
         Math.hypot(x - valve.x, z - valve.z) <= GASTRIC_REPAIR_RADIUS) ?? null;
       const valve = gastricValve(this.gastric);
-      if (valve && valve === this.nearGastricValve) target = valve;
+      if (valve && valve === suit.nearGastricValve) target = valve;
     }
     const mayRepair = !this.tutorial || this.tutorial === 'repair';
-    this.canRepair = mayRepair && !!target;
+    suit.canRepair = mayRepair && !!target;
 
-    const active = Boolean(held && this.canRepair);
-    if (!active || this.repairTarget !== target) this.repairProgress = 0;
-    this.repairTarget = active ? target : null;
-    if (active !== this.repairing) {
-      this.repairing = active;
+    const active = Boolean(held && suit.canRepair);
+    if (!active || suit.repairTarget !== target) suit.repairProgress = 0;
+    suit.repairTarget = active ? target : null;
+    if (active !== suit.repairing) {
+      suit.repairing = active;
       this.events.push({ type: active ? 'repairStart' : 'repairStop' });
     }
     if (!active) return false;
 
-    this.repairProgress += dt / REPAIR_TIME;
-    if (this.repairProgress >= 1) {
-      if (target === this.nearGastricValve) {
+    suit.repairProgress += dt / REPAIR_TIME;
+    if (suit.repairProgress >= 1) {
+      if (target === suit.nearGastricValve) {
         const complete = repairGastricValve(this, target);
-        this.repairProgress -= 1;
-        this.canRepair = !complete;
+        suit.repairProgress -= 1;
+        suit.canRepair = !complete;
         this.events.push({ type: 'repair', valveId: target.id, complete, x: target.x, y: target.y, z: target.z });
         return true;
       }
       const sealing = target === gash;
       const node = sealing ? gash.node : target;
-      const amount = Math.min(this.repairAmount, RULES.tissue - node.health);
+      const amount = Math.min(suit.repairAmount, RULES.tissue - node.health);
       node.health += amount;
       this.sealAirwayPort(node);
       if (!this.tutorial) this.score += amount * 8;
-      this.repairProgress -= 1;
+      suit.repairProgress -= 1;
       if (sealing) {
-        gash.sealRemaining = Math.max(0, gash.sealRemaining - this.repairAmount);
+        gash.sealRemaining = Math.max(0, gash.sealRemaining - suit.repairAmount);
         if (gash.sealRemaining === 0) {
           this.gash = null;
           this.events.push({ type: 'gash', stage: 'closed', branch: gash.branch, nodeId: node.id, x: gash.x, y: gash.y, z: gash.z });
@@ -902,55 +911,56 @@ export class Simulation {
       const port = this.airway?.ports.find(item => item.nodeId === node.id);
       const needsRepair = node.health < RULES.tissue || port?.open === false;
       const complete = this.gash?.node !== node && !needsRepair;
-      this.canRepair = sealing ? !!this.gash : needsRepair;
+      suit.canRepair = sealing ? !!this.gash : needsRepair;
       this.events.push({ type: 'repair', amount, complete, gash: sealing, nodeId: node.id, x: target.x, y: target.y, z: target.z });
     }
     return true;
   }
 
-  updateRifle(dt, input, repairing) {
-    const { player } = this;
-    if (this.tutorial && player.ammo === 0 && player.reserve === 0) player.reserve = this.magazineSize;
-    this.fireCooldown = Math.max(0, this.fireCooldown - dt);
-    if (this.reloading > 0) {
-      this.reloading = Math.max(0, this.reloading - dt);
-      if (this.reloading === 0) {
-        const rounds = Math.min(this.magazineSize - player.ammo, player.reserve);
+  updateRifle(dt, input, repairing, suit = this) {
+    const { player, magazineSize, weapon } = suit;
+    if (this.tutorial && player.ammo === 0 && player.reserve === 0) player.reserve = magazineSize;
+    suit.fireCooldown = Math.max(0, suit.fireCooldown - dt);
+    if (suit.reloading > 0) {
+      suit.reloading = Math.max(0, suit.reloading - dt);
+      if (suit.reloading === 0) {
+        const rounds = Math.min(magazineSize - player.ammo, player.reserve);
         player.ammo += rounds;
         player.reserve -= rounds;
         this.events.push({ type: 'reload', stage: 'complete' });
       }
     }
 
-    const reloadPressed = input.reload && !this.reloadHeld;
-    this.reloadHeld = Boolean(input.reload);
-    if (repairing || this.reloading > 0) return;
+    const reloadPressed = input.reload && !suit.reloadHeld;
+    suit.reloadHeld = Boolean(input.reload);
+    if (repairing || suit.reloading > 0) return;
     if (reloadPressed || (input.fire && player.ammo === 0)) {
-      if (player.ammo < this.magazineSize && player.reserve > 0) {
-        this.reloading = this.weapon.reloadSeconds;
+      if (player.ammo < magazineSize && player.reserve > 0) {
+        suit.reloading = weapon.reloadSeconds;
         this.events.push({ type: 'reload', stage: 'start' });
         return;
       }
     }
-    if (!input.fire || this.fireCooldown > 0) return;
+    if (!input.fire || suit.fireCooldown > 0) return;
     if (player.ammo === 0) {
-      this.fireCooldown = 0.27;
+      suit.fireCooldown = 0.27;
       this.events.push({ type: 'dry' });
       return;
     }
-    this.shoot(input.aim);
+    this.shoot(input.aim, suit);
   }
 
-  deployTurret() {
+  deployTurret(suit = this) {
     if (this.tutorial) return false;
     const redeploying = this.canRedeployTurret;
-    const point = this.turretPlacement;
+    const { player } = suit;
+    const point = this.turretPlacementFor(player);
     if (!point) {
-      const { x, y, z } = this.player;
+      const { x, y, z } = player;
       this.events.push({ type: 'turret', stage: this.turretCharges || redeploying ? 'invalid' : 'empty', x, y, z });
       return false;
     }
-    this.turret = { ...point, yaw: Math.PI + this.player.yaw, pitch: 0, cooldown: .6, targetId: null };
+    this.turret = { ...point, yaw: Math.PI + player.yaw, pitch: 0, cooldown: .6, targetId: null };
     if (redeploying) this.junctionSupplyLocked = true;
     else this.turretCharges -= 1;
     this.events.push({ type: 'turret', stage: redeploying ? 'redeployed' : 'deployed', ...point });
@@ -1005,10 +1015,10 @@ export class Simulation {
     else this.hitEnemy(target, TURRET_DAMAGE, false, impact, 'turret');
   }
 
-  shoot(aiming) {
-    const { player, weapon } = this;
+  shoot(aiming, suit = this) {
+    const { player, weapon } = suit;
     player.ammo -= 1;
-    this.fireCooldown = weapon.interval;
+    suit.fireCooldown = weapon.interval;
     const pitchCos = Math.cos(player.pitch);
     const dx = -Math.sin(player.yaw) * pitchCos;
     const dy = Math.sin(player.pitch);
@@ -1056,7 +1066,7 @@ export class Simulation {
     if (bossHit) {
       if (bossHit.vulnerable) {
         // Preserve multiple core openings even with the fastest receiver.
-        this.fireCooldown = Math.max(this.fireCooldown, DEFAULT_WEAPON_STATS.interval);
+        suit.fireCooldown = Math.max(suit.fireCooldown, DEFAULT_WEAPON_STATS.interval);
       }
       this.events.push({ type: 'shot', hit: bossHit.vulnerable, crit: bossHit.vulnerable, ...impact });
       hitBrainBoss(this, bossHit, impact);
@@ -1163,7 +1173,10 @@ export class Simulation {
     enemy.action = action;
     enemy.actionProgress = 0;
     enemy.actionElapsed = 0;
-    if (action === 'idle') enemy.actionTarget = null;
+    if (action === 'idle') {
+      enemy.actionTarget = null;
+      enemy.actionPlayerId = null;
+    }
   }
 
   advanceAction(enemy, dt, duration) {
@@ -1172,12 +1185,13 @@ export class Simulation {
     return enemy.actionProgress === 1;
   }
 
-  attackEvent(enemy, stage, target, origin = enemy) {
+  attackEvent(enemy, stage, target, origin = enemy, playerId = enemy.actionPlayerId) {
     const event = {
       type: 'enemyAttack', enemyType: enemy.type, id: enemy.id, stage, target,
       x: origin.x, y: origin.y, z: origin.z,
     };
     if (target === 'tissue') event.nodeId = enemy.nodeId;
+    if (target === 'player' && playerId != null) event.targetPlayerId = playerId;
     if (enemy.branch) event.branch = enemy.branch;
     this.events.push(event);
   }
@@ -1248,23 +1262,34 @@ export class Simulation {
     if (node.health === 0) this.failedNode ??= node;
   }
 
-  damageTarget(enemy, target, amount, origin = enemy) {
-    if (target === 'player') this.player.health = Math.max(0, this.player.health - amount);
-    else {
+  damageTarget(enemy, target, amount, origin = enemy, playerId = enemy.actionPlayerId) {
+    const player = target === 'player' ? this.attackPlayer(playerId) : null;
+    if (target === 'player') {
+      if (!player) return;
+      player.health = Math.max(0, player.health - amount);
+    } else {
       if (this.organ?.phase === 'active' && this.organ.nodeId === enemy.nodeId) {
         amount *= this.organMission.hazard.tissueDamage ?? 1;
       }
       this.damageNode(enemy.node, amount);
     }
     const impact = { type: 'damage', target, amount, id: enemy.id, x: origin.x, y: origin.y, z: origin.z };
+    if (player?.id != null) impact.playerId = player.id;
     if (target === 'tissue') impact.nodeId = enemy.nodeId;
     if (enemy.branch) impact.branch = enemy.branch;
     if (enemy.attackAnchor === origin) impact.anchor = 'gash';
     this.events.push(impact);
   }
 
+  attackPlayer() {
+    return this.player;
+  }
+
+  chooseAttackPlayer() {
+    return this.player;
+  }
+
   advanceEnemies(dt) {
-    const { player } = this;
     for (const enemy of this.enemies) {
       if (enemy.type === 'colony') continue;
       const spec = enemy.fragment ? FRAGMENT : SPECIES[enemy.type];
@@ -1287,7 +1312,8 @@ export class Simulation {
         continue;
       }
 
-      const distanceToSuit = Math.hypot(player.x - enemy.x, player.z - enemy.z);
+      const player = this.chooseAttackPlayer(enemy);
+      const distanceToSuit = player ? Math.hypot(player.x - enemy.x, player.z - enemy.z) : Infinity;
       const distanceToTissue = Math.hypot(enemy.node.x - enemy.x, enemy.node.z - enemy.z);
       const aggro = behavior === 'spore' ? 12 : 7.4;
       const attacksSuit = distanceToSuit < aggro && distanceToSuit < distanceToTissue + 0.6;
@@ -1320,6 +1346,7 @@ export class Simulation {
 
   startEnemyAttack(enemy, target, targetName) {
     enemy.actionTarget = targetName;
+    enemy.actionPlayerId = targetName === 'player' ? target.id : null;
     enemy.attackOrigin = { x: enemy.x, y: enemy.y, z: enemy.z };
     enemy.attackPoint = { x: target.x, y: target.y, z: target.z };
     if (enemy.behavior === 'virus') {
@@ -1353,7 +1380,8 @@ export class Simulation {
       enemy.z = from.z + (to.z - from.z) * progress;
       if (!landed) return;
 
-      const hitsSuit = enemy.actionTarget === 'player' && Math.hypot(enemy.x - this.player.x, enemy.z - this.player.z) < 1.06;
+      const player = enemy.actionTarget === 'player' ? this.attackPlayer(enemy.actionPlayerId) : null;
+      const hitsSuit = !!player && Math.hypot(enemy.x - player.x, enemy.z - player.z) < 1.06;
       const hitsTissue = enemy.actionTarget === 'tissue';
       if (hitsSuit || hitsTissue) this.damageTarget(enemy, enemy.actionTarget, hitsSuit ? spec.suitDamage : spec.tissueDamage);
       this.attackEvent(enemy, hitsSuit || hitsTissue ? 'impact' : 'miss', enemy.actionTarget);
@@ -1389,7 +1417,8 @@ export class Simulation {
     const scale = SPORE_SPEED / Math.max(0.01, distance);
     this.projectiles.push({
       id: this.nextProjectileId++, owner: enemy,
-      target: enemy.actionTarget, x: enemy.x, y: enemy.y, z: enemy.z,
+      target: enemy.actionTarget, targetPlayerId: enemy.actionPlayerId,
+      x: enemy.x, y: enemy.y, z: enemy.z,
       vx: dx * scale, vy: dy * scale, vz: dz * scale, radius: SPORE_RADIUS,
       arming: SPORE_ARM_TIME,
       lifetime: Math.max(0.4, distance / SPORE_SPEED + 0.32),
@@ -1406,21 +1435,22 @@ export class Simulation {
       const dx = vx * travel;
       const dy = vy * travel;
       const dz = vz * travel;
-      const objective = target === 'player' ? this.player : owner.node;
-      const tx = objective.x - from.x;
-      const ty = objective.y - from.y;
-      const tz = objective.z - from.z;
-      const lengthSquared = dx * dx + dy * dy + dz * dz;
-      const armed = projectile.arming <= travel;
-      const armedStart = travel > 0 ? Math.min(1, projectile.arming / travel) : 0;
-      const nearest = lengthSquared ? clamp((tx * dx + ty * dy + tz * dz) / lengthSquared, armedStart, 1) : 0;
-      const radius = projectile.radius + (target === 'player' ? 0.61 : 1.08);
-      if (armed && Math.hypot(tx - dx * nearest, ty - dy * nearest, tz - dz * nearest) <= radius) {
-        const impact = { x: from.x + dx * nearest, y: from.y + dy * nearest, z: from.z + dz * nearest };
-        const spec = SPECIES.spore;
-        this.damageTarget(owner, target, target === 'player' ? spec.suitDamage : spec.tissueDamage, impact);
-        this.attackEvent(owner, 'impact', target, impact);
-        continue;
+      const objective = target === 'player' ? this.attackPlayer(projectile.targetPlayerId) : owner.node;
+      if (objective && projectile.arming <= travel) {
+        const tx = objective.x - from.x;
+        const ty = objective.y - from.y;
+        const tz = objective.z - from.z;
+        const lengthSquared = dx * dx + dy * dy + dz * dz;
+        const armedStart = travel > 0 ? Math.min(1, projectile.arming / travel) : 0;
+        const nearest = lengthSquared ? clamp((tx * dx + ty * dy + tz * dz) / lengthSquared, armedStart, 1) : 0;
+        const radius = projectile.radius + (target === 'player' ? 0.61 : 1.08);
+        if (Math.hypot(tx - dx * nearest, ty - dy * nearest, tz - dz * nearest) <= radius) {
+          const impact = { x: from.x + dx * nearest, y: from.y + dy * nearest, z: from.z + dz * nearest };
+          const spec = SPECIES.spore;
+          this.damageTarget(owner, target, target === 'player' ? spec.suitDamage : spec.tissueDamage, impact, projectile.targetPlayerId);
+          this.attackEvent(owner, 'impact', target, impact, projectile.targetPlayerId);
+          continue;
+        }
       }
 
       projectile.x += dx;
@@ -1429,7 +1459,7 @@ export class Simulation {
       projectile.arming = Math.max(0, projectile.arming - travel);
       projectile.lifetime -= travel;
       if (projectile.lifetime <= 0) {
-        this.attackEvent(owner, 'miss', target, projectile);
+        this.attackEvent(owner, 'miss', target, projectile, projectile.targetPlayerId);
       } else {
         this.projectiles[active++] = projectile;
       }

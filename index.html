@@ -78,6 +78,11 @@
                 <span class="menu-option-label"><strong>Armory</strong><span>Customize carbine</span></span>
               </button>
             </div>
+            <button id="coop-open" class="menu-option menu-coop" type="button" disabled>
+              <svg aria-hidden="true"><use href="#shield"></use></svg>
+              <span class="menu-option-label"><strong>Online co-op</strong><span>Defend Arterial Junction with a friend</span></span>
+              <svg class="coop-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
+            </button>
             <div class="menu-utilities">
               <button id="manual" class="menu-tool" type="button"><svg aria-hidden="true"><use href="#book"></use></svg> Field manual</button>
               <button id="new-campaign" class="menu-tool" type="button" hidden disabled>Start new campaign</button>
@@ -104,12 +109,52 @@
       </div>
     </dialog>
 
+    <dialog id="coop-dialog" class="panel coop-panel" aria-labelledby="coop-title" aria-describedby="coop-intro">
+      <header class="coop-heading">
+        <button id="coop-close" class="icon-button close-dialog" type="button" aria-label="Close online co-op"><svg aria-hidden="true"><use href="#close"></use></svg></button>
+        <h2 id="coop-title" tabindex="-1">Online co-op</h2>
+        <p id="coop-intro">Defend both tissue nodes through five waves in Arterial Junction.</p>
+      </header>
+      <p id="coop-status" class="coop-status" role="status" hidden></p>
+      <div id="coop-entry" class="coop-entry" hidden>
+        <label for="coop-name">Callsign</label>
+        <input id="coop-name" maxlength="24" placeholder="Nano Soldier" autocomplete="nickname">
+        <div class="coop-choices">
+          <button id="coop-create" class="button primary" type="button">Create room</button>
+          <form id="coop-join" class="coop-join">
+            <label for="coop-code">Room code</label>
+            <input id="coop-code" maxlength="8" minlength="8" required autocomplete="off" autocapitalize="characters" spellcheck="false">
+            <button class="button outline" type="submit">Join room</button>
+          </form>
+        </div>
+      </div>
+      <section id="coop-lobby" class="coop-lobby" aria-label="Room" hidden>
+        <div class="coop-invite">
+          <label for="coop-link">Invite link <strong id="coop-room-code"></strong></label>
+          <div>
+            <input id="coop-link" type="url" readonly>
+            <button id="coop-copy" class="button outline" type="button">Copy invite</button>
+          </div>
+        </div>
+        <ol id="coop-roster" class="coop-roster" aria-label="Players"></ol>
+        <footer class="coop-actions">
+          <button id="coop-leave" class="button outline" type="button">Leave room</button>
+          <button id="coop-customize" class="button outline" type="button">Armory</button>
+          <button id="coop-ready" class="button primary" type="button">Ready <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+        </footer>
+      </section>
+    </dialog>
+
     <section id="game" class="game" aria-label="Game" hidden>
       <canvas id="world" tabindex="-1" aria-label="First-person view inside the host"></canvas>
       <div class="game-vignette" aria-hidden="true"></div>
       <div id="damage-flash" class="damage-flash" aria-hidden="true"></div>
 
       <div class="hud">
+        <div id="coop-hud" class="coop-hud" hidden>
+          <strong id="coop-ally"></strong>
+          <span id="coop-match-status"></span>
+        </div>
         <div class="host-panel">
           <div class="hud-label"><svg aria-hidden="true"><use href="#pulse"></use></svg> TISSUE NODES</div>
           <div id="node-status" class="node-status" role="group" aria-label="Tissue node integrity">
@@ -297,6 +342,7 @@
         </div>
         <p id="armory-context" aria-live="polite"></p>
       </header>
+      <p id="coop-armory-status" class="coop-armory-status" role="status" hidden></p>
       <div class="armory-preview">
         <div id="armory-preview" class="armory-image"></div>
         <div class="armory-readout">
