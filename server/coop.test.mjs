@@ -1,0 +1,195 @@
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { setTimeout as delay } from 'node:timers/promises';
+import { test } from 'node:test';
+import WebSocket from 'ws';
+import { COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from '../dist/coop-protocol.mjs';
+import { CoopSimulation } from '../dist/coop-simulation.mjs';
+import { createCoopServer } from './index.mjs';
+
+async function localServer(t, options) {
+  const server = createCoopServer(options);
+  t.after(server.close);
+  server.http.listen(0, '127.0.0.1');
+  await once(server.http, 'listening');
+  return 'http://127.0.0.1:' + server.http.address().port;
+}
+
+async function connect(t, httpOrigin) {
+  const url = new URL('/coop', httpOrigin);
+  url.protocol = 'ws:';
+  const socket = new WebSocket(url, { origin: httpOrigin });
+  t.after(() => socket.terminate());
+  const inbox = [];
+  let consumer;
+  socket.on('message', payload => {
+    const message = JSON.parse(payload.toString());
+    if (consumer?.matches(message)) consumer.resolve(message);
+    else inbox.push(message);
+  });
+  await once(socket, 'open');
+  return {
+    socket,
+    send: message => socket.send(JSON.stringify(message)),
+    take(matches) {
+      const index = inbox.findIndex(matches);
+      if (index >= 0) return Promise.resolve(inbox.splice(index, 1)[0]);
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          consumer = null;
+          reject(new Error('Timed out waiting for co-op message. Pending messages: ' + inbox.map(item => item.type).join(', ')));
+        }, 3000);
+        consumer = { matches, resolve: message => {
+          clearTimeout(timeout);
+          consumer = null;
+          resolve(message);
+        } };
+      });
+    },
+  };
+}
+
+const tagged = type => message => message.type === type;
+const roomPhase = phase => message => message.type === 'room' && message.phase === phase;
+
+test('serves the game, health check and demo ranges on the same host', async t => {
+  const origin = await localServer(t);
+  const health = await fetch(origin + '/healthz');
+  assert.deepEqual(await health.json(), { ok: true, service: 'immune-protocol-coop', protocol: 1 });
+  const game = await fetch(origin);
+  assert.match(game.headers.get('content-type'), /^text\/html/);
+  assert.match(await game.text(), /Immune Protocol/);
+  const cached = await fetch(origin, { headers: { 'if-none-match': game.headers.get('etag') } });
+  assert.equal(cached.status, 304);
+  const demo = await fetch(origin + '/demo/immune-protocol-demo.mp4', { headers: { Range: 'bytes=0-31' } });
+  assert.equal(demo.status, 206);
+  assert.match(demo.headers.get('content-range'), /^bytes 0-31\//);
+  assert.equal((await demo.arrayBuffer()).byteLength, 32);
+  const escaped = await fetch(origin + '/..%2fpackage.json');
+  assert.equal(escaped.status, 404);
+  const forbidden = new WebSocket(new URL('/coop', origin.replace(/^http/, 'ws')), { origin: 'https://elsewhere.example' });
+  t.after(() => forbidden.terminate());
+  const [denial] = await once(forbidden, 'error');
+  assert.match(denial.message, /403/);
+});
+
+test('shares authoritative combat, reload-safe reconnect, and the team intermission', async t => {
+  let simulation;
+  const origin = await localServer(t, {
+    simulation: players => { simulation = new CoopSimulation(players); return simulation; },
+    intermissionMs: 4000,
+  });
+  const host = await connect(t, origin);
+  const guest = await connect(t, origin);
+  const extra = await connect(t, origin);
+  host.send({ type: 'create', name: '  Alpha  ', loadout: { optic: 'marksman-optic' } });
+  const hostSession = await host.take(tagged('session'));
+  assert.equal(hostSession.code.length, COOP_CODE_LENGTH);
+  assert.ok([...hostSession.code].every(char => COOP_CODE_ALPHABET.includes(char)));
+  guest.send({ type: 'join', code: hostSession.code.toLowerCase(), name: 'Bravo' });
+  const guestSession = await guest.take(tagged('session'));
+  assert.notEqual(guestSession.id, hostSession.id);
+  assert.notEqual(guestSession.token, hostSession.token);
+  const lobby = await host.take(message => roomPhase('lobby')(message) && message.players.length === 2);
+  assert.equal(lobby.ownerId, hostSession.id);
+  assert.deepEqual(lobby.players.map(player => [player.name, player.ready, player.connected]), [
+    ['Alpha', false, true], ['Bravo', false, true],
+  ]);
+  assert.doesNotMatch(JSON.stringify(lobby), new RegExp(hostSession.token));
+  extra.send({ type: 'join', code: guestSession.code });
+  assert.equal((await extra.take(tagged('error'))).code, 'ROOM_FULL');
+  extra.send({ type: 'resume', code: guestSession.code, token: 'invalid' });
+  assert.equal((await extra.take(tagged('error'))).code, 'SESSION_EXPIRED');
+
+  host.send({ type: 'ready', ready: true });
+  await host.take(message => roomPhase('lobby')(message) && message.players[0].ready);
+  assert.equal(simulation, undefined);
+  guest.send({ type: 'ready', ready: true });
+  await Promise.all([host.take(roomPhase('playing')), guest.take(roomPhase('playing'))]);
+  const [firstHost, firstGuest] = await Promise.all([host.take(tagged('state')), guest.take(tagged('state'))]);
+  assert.equal(firstHost.tick, 0);
+  assert.equal(firstHost.state.localPlayerId, hostSession.id);
+  assert.equal(firstGuest.state.localPlayerId, guestSession.id);
+  assert.notEqual(firstHost.state.player.x, firstGuest.state.player.x);
+  assert.equal(firstHost.state.weaponLoadout.optic, 'marksman-optic');
+  assert.deepEqual(firstHost.state.nodes, firstGuest.state.nodes);
+  assert.equal(firstHost.state.events, undefined);
+  assert.deepEqual(firstHost.events, firstGuest.events);
+  assert.ok(firstHost.events.some(event => event.type === 'wave' && event.stage === 'start'));
+
+  host.send({ type: 'input', seq: 1, input: { moveX: 1, fire: true } });
+  host.send({ type: 'input', seq: 2, input: { moveX: 1, fire: false } });
+  const shot = message => tagged('state')(message) && message.events.some(event => event.type === 'shot' && event.playerId === hostSession.id);
+  const [fired, sawShot] = await Promise.all([host.take(shot), guest.take(shot)]);
+  assert.equal(fired.state.player.ammo, firstHost.state.player.ammo - 1);
+  assert.equal(sawShot.state.player.ammo, firstGuest.state.player.ammo);
+  assert.equal(fired.events.find(event => event.type === 'shot').sequence, sawShot.events.find(event => event.type === 'shot').sequence);
+  assert.ok(fired.state.player.x > firstHost.state.player.x);
+  host.send({ type: 'input', seq: 3, input: { fire: true } });
+  await host.take(message => tagged('state')(message) && message.ack === 3);
+
+  guest.socket.terminate();
+  const paused = await host.take(message => roomPhase('playing')(message) && !message.players[1].connected);
+  assert.ok(paused.reconnectDeadline > Date.now());
+  const suspendedClock = simulation.clock;
+  const suspendedAmmo = simulation.snapshotFor(hostSession.id).player.ammo;
+  await delay(100);
+  assert.equal(simulation.clock, suspendedClock);
+  const connectedAgain = await connect(t, origin);
+  connectedAgain.send({ type: 'resume', code: guestSession.code, token: guestSession.token });
+  const resumed = await connectedAgain.take(tagged('session'));
+  assert.equal(resumed.id, guestSession.id);
+  await connectedAgain.take(roomPhase('playing'));
+  assert.deepEqual(await host.take(message => roomPhase('playing')(message) && message.reconnectDeadline === undefined && message.players.every(player => player.connected)), {
+    type: 'room', code: hostSession.code, phase: 'playing', ownerId: hostSession.id,
+    players: lobby.players,
+  });
+  const resumeView = await connectedAgain.take(tagged('state'));
+  assert.equal(resumeView.state.player.ammo, sawShot.state.player.ammo);
+  assert.equal(resumeView.ack, 0);
+  assert.deepEqual(resumeView.events, []);
+  await delay(180);
+  assert.equal(simulation.snapshotFor(hostSession.id).player.ammo, suspendedAmmo);
+
+  simulation.spawnIndex = simulation.missions[0].species.length;
+  simulation.enemies = [];
+  simulation.projectiles = [];
+  const armory = await host.take(roomPhase('intermission'));
+  await connectedAgain.take(roomPhase('intermission'));
+  assert.ok(armory.deadline > Date.now());
+  const breakClock = simulation.clock;
+  host.send({ type: 'ready', ready: true, loadout: { magazine: 'extended-magazine' } });
+  await host.take(message => roomPhase('intermission')(message) && message.players[0].ready);
+  const extended = await host.take(message => tagged('state')(message) && message.state.weaponLoadout.magazine === 'extended-magazine');
+  assert.ok(extended.state.magazineSize > firstHost.state.magazineSize);
+  await delay(90);
+  assert.equal(simulation.clock, breakClock);
+  connectedAgain.send({ type: 'ready', ready: true });
+  await connectedAgain.take(roomPhase('playing'));
+  const continuing = await host.take(message => roomPhase('playing')(message) && !message.players[0].ready);
+  assert.equal(continuing.deadline, undefined);
+  assert.ok((await host.take(message => tagged('state')(message) && message.state.clock > breakClock)).tick > 0);
+
+  connectedAgain.send({ type: 'leave' });
+  assert.equal((await host.take(tagged('error'))).code, 'PARTNER_LEFT');
+  host.send({ type: 'create' });
+  assert.notEqual((await host.take(tagged('session'))).code, hostSession.code);
+});
+
+test('ends an active room when a detached seat runs out of reconnect time', async t => {
+  const origin = await localServer(t, { graceMs: 100 });
+  const first = await connect(t, origin);
+  const second = await connect(t, origin);
+  first.send({ type: 'create' });
+  const firstSession = await first.take(tagged('session'));
+  second.send({ type: 'join', code: firstSession.code });
+  const formerGuest = await second.take(tagged('session'));
+  first.send({ type: 'ready', ready: true });
+  second.send({ type: 'ready', ready: true });
+  await first.take(roomPhase('playing'));
+  second.socket.terminate();
+  assert.equal((await first.take(tagged('error'))).code, 'PARTNER_LEFT');
+  const returning = await connect(t, origin);
+  returning.send({ type: 'resume', code: formerGuest.code, token: formerGuest.token });
+  assert.equal((await returning.take(tagged('error'))).code, 'SESSION_EXPIRED');
+});

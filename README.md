@@ -35,6 +35,29 @@ The armory reopens between waves. Swapping magazines preserves the rounds you ca
 
 The game prepares arena geometry, textures, audio, and armory previews before it enables deployment. The first load includes all eight arenas and the Mega Virus encounter.
 
+## Online co-op
+
+Two players share five waves in Arterial Junction. On the multiplayer server's game page, open **Online co-op**, enter a callsign, and choose **Create room**. Send the invite link to your friend. They open it, enter a callsign, and choose **Join room**. Choose **Ready** when both players are in the lobby.
+
+Each suit has its own carbine build, ammo, and health. You share the tissue nodes, one turret, the wave timer, and the mission score. If one suit goes down, it returns at the next wave if the teammate clears the current one. Both players can use the armory between waves and ready up to continue. The game holds your place for up to 75 seconds after a disconnect.
+
+To test locally with two browser windows, run these commands from the repository root with Node 22 and npm. Open the resulting game at [http://127.0.0.1:8017](http://127.0.0.1:8017) and share its invite between the windows.
+
+```sh
+npm ci
+npm run serve:coop
+```
+
+Run `npm run test:coop` to exercise the server with two WebSocket clients. The server runs the shared simulation on a fixed tick, validates player input, and sends the result for each client to draw in Three.js.
+
+### Host online co-op on Render
+
+1. Open [Deploy Immune Protocol to Render](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fcorycowgill%2FImmuneProtocol) and sign in. If asked to connect GitHub, grant Render access to the `ImmuneProtocol` repository.
+2. Review the Blueprint and deploy the **immune-protocol-coop** web service. [render.yaml](render.yaml) specifies Node 22 through `package.json`, the Free plan in Ohio, branch `main`, and the build and startup commands.
+3. Wait for the service to show **Live**, then open its `.onrender.com` game URL. Both players use that address. The `/healthz` endpoint responds when the game server is ready.
+
+The Free service can take about a minute to wake after 15 minutes of inactivity. Rooms live in the running server's memory and expire on redeploy or restart. See [Render's Free plan documentation](https://render.com/docs/free).
+
 ## Campaign missions
 
 | Mission | What to watch for |
@@ -100,7 +123,7 @@ The original soundtrack fades between **Arterial Drift** in the menu and between
 
 ## Architecture
 
-The game runs entirely in the browser. On each animation frame, the browser controller collects input and advances the simulation with the elapsed time, capped at 50 ms. The renderer reads the resulting state to move objects and draw effects. The controller also updates the HUD and plays audio cues from simulation events.
+Solo missions run in the browser. The controller collects input, advances the simulation on each frame, then uses the resulting state to draw the arena, update the HUD, and play audio. During online co-op, the controller sends input to the Node server, which runs the authoritative simulation at 30 ticks per second. The browser predicts local movement and interpolates state updates for other actors.
 
 ```mermaid
 flowchart LR
@@ -118,6 +141,8 @@ flowchart LR
 | [`dist/index.html`](dist/index.html), [`dist/styles.css`](dist/styles.css) | Menus, HUD, canvas, and touch controls. |
 | [`dist/game.mjs`](dist/game.mjs) | Input, mouse capture, frame timing, and screen transitions. Browser storage remembers campaign checkpoints, mission unlocks, best score, training completion, and player settings. |
 | [`dist/simulation.mjs`](dist/simulation.mjs) | Movement, shooting, lane and node targeting, turret behavior, wave progression, scoring, and repair. It runs independently of the DOM and Three.js. |
+| [`dist/coop-simulation.mjs`](dist/coop-simulation.mjs) | Per-suit state and shared wave rules for two players. |
+| [`server/rooms.mjs`](server/rooms.mjs), [`dist/coop-client.mjs`](dist/coop-client.mjs) | Match rooms, WebSocket transport, reconnects, and client-side prediction. |
 | [`dist/world.mjs`](dist/world.mjs) | Arena geometry, lighting, atmosphere, enemies, and effects. The missions share the renderer and switch anatomy and lighting when the area changes. |
 | [`dist/organs.mjs`](dist/organs.mjs) | Mission data for the five new organs, including node coordinates, wave compositions, and hazard timings. |
 | [`dist/organ-world.mjs`](dist/organ-world.mjs) | Procedural anatomy, organ-specific materials, and animated hazard geometry. |

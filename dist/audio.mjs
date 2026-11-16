@@ -212,7 +212,8 @@ export class GameAudio {
         const readyShots = SHOTS.filter(name => this.samples.has(name));
         if (!readyShots.length) break;
         const sample = readyShots[this.shotIndex++ % readyShots.length];
-        this.playSample(sample, 0.66, { rate: 0.97 + Math.random() * 0.06 });
+        const volume = event.teammate ? .48 / (1 + (event.distance ?? 0) * .085) : .66;
+        this.playSample(sample, volume, { pan: this.spatialPan(event), rate: 0.97 + Math.random() * .06 });
         break;
       }
       case 'turret': {

@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: immune-protocol-coop
+    runtime: node
+    plan: free
+    region: ohio
+    branch: main
+    buildCommand: npm ci
+    startCommand: npm run serve:coop
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
