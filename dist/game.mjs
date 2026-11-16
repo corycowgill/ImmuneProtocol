@@ -11,10 +11,13 @@ const menu = byId('menu');
 const game = byId('game');
 const canvas = byId('world');
 const deploy = byId('deploy');
-const deployLabel = deploy.querySelector('span');
+const newCampaignButton = byId('new-campaign');
+const newCampaignDialog = byId('new-campaign-dialog');
+const newCampaignDetail = byId('new-campaign-detail');
 const startupLoad = byId('startup-load');
 const startupStatus = byId('startup-status');
 const startupProgress = byId('startup-progress');
+const startupPercent = byId('startup-percent');
 const startupRetry = byId('startup-retry');
 const armoryOpen = byId('armory-open');
 const armoryDialog = byId('armory-dialog');
@@ -28,20 +31,23 @@ const armoryTabs = byId('armory-slots');
 const armoryOptions = byId('armory-options');
 const missionSelect = byId('mission-select');
 const missionDialog = byId('mission-dialog');
-const missionCount = byId('mission-count');
+const missionGallery = byId('mission-gallery');
+const missionList = byId('mission-list');
 const missionError = byId('mission-error');
+const practiceDeploy = byId('deploy-practice');
+const missionPreviewTitle = byId('mission-preview-title');
+const missionPreviewDetail = byId('mission-preview-detail');
 const practiceLoadout = byId('practice-loadout');
 const practiceLoadoutDetail = byId('practice-loadout-detail');
 const megaVirusDeploy = byId('deploy-mega-virus');
 const megaVirusStatus = byId('mega-virus-status');
 const megaVirusThumb = byId('mega-virus-thumb');
 const missionThumbnails = [...missionDialog.querySelectorAll('.mission-thumb')];
-const missionEntries = [...document.querySelectorAll('[data-deploy-area]')].map(button => ({
-  area: button.dataset.deployArea,
-  button,
-  label: button.querySelector('[data-mission-name]'),
-  status: document.querySelector('[data-mission-status="' + button.dataset.deployArea + '"]'),
+const missionEntries = [...missionList.querySelectorAll('[data-deploy-area]')].map(button => ({
+  area: button.dataset.deployArea, button, bossPractice: false,
 }));
+missionEntries.push({ area: 'brain', button: megaVirusDeploy, bossPractice: true });
+let selectedPracticeMission = missionEntries[0];
 const continueButton = byId('continue-mission');
 const continueLabel = byId('continue-mission-label');
 const resumeCampaignButton = byId('resume-campaign');
@@ -63,6 +69,7 @@ const campaignAverage = byId('campaign-average');
 const manual = byId('manual-dialog');
 const pauseDialog = byId('pause-dialog');
 const resultDialog = byId('result-dialog');
+const resultTitle = byId('result-title');
 const extractionDialog = byId('extraction-dialog');
 const extractionTissue = byId('extraction-tissue');
 const extractionNodes = byId('extraction-nodes');
@@ -175,7 +182,11 @@ const branches = {
   right: { name: 'TEAL', badge: byId('branch-right'), marker: byId('inlet-right') },
 };
 const threats = byId('threats');
+const suitPanel = byId('player-panel');
+const suitStatus = byId('suit-status');
+const ammoPanel = byId('ammo-panel');
 const reloadState = byId('reload-state');
+const reloadProgress = byId('reload-progress');
 const promptText = byId('prompt-text');
 const repairMeter = byId('repair-meter');
 const repairFill = byId('repair-fill');
@@ -327,12 +338,13 @@ function setMuted(value) {
   muted = value;
   audio.setMuted(value);
   writeSetting(muteKey, value);
+  setText(byId('audio-setting-state'), value ? 'Muted' : 'Sound on');
   document.querySelectorAll('[data-mute]').forEach(button => {
-    const label = value ? 'Unmute audio' : 'Mute audio';
     button.setAttribute('aria-pressed', String(value));
-    button.setAttribute('aria-label', label);
-    button.title = label;
+    button.title = value ? 'Unmute audio' : 'Mute audio';
     button.querySelector('use').setAttribute('href', value ? '#muted' : '#sound');
+    const state = button.querySelector('[data-audio-label]');
+    if (state) setText(state, value ? 'Audio muted' : 'Audio on');
   });
 }
 
@@ -350,27 +362,28 @@ function syncMusic() {
 function displayBest() {
   const best = byId('high-score');
   best.hidden = bestScore === 0;
-  best.textContent = 'BEST SCORE ' + bestScore.toLocaleString();
+  setText(byId('high-score-value'), bestScore.toLocaleString());
 }
 
 function displayMissionAccess() {
   const unavailable = loading || !ready;
-  for (const { area, button, label, status } of missionEntries) {
-    button.disabled = unavailable;
-    setText(label, missionName(area));
-    setText(status, missions[area].briefing);
+  for (const { button, bossPractice } of missionEntries) {
+    button.disabled = unavailable || (bossPractice && !megaVirusReached);
   }
   deploy.disabled = missionSelect.disabled = armoryOpen.disabled = unavailable;
+  newCampaignButton.disabled = unavailable;
   practiceLoadout.disabled = unavailable;
-  megaVirusDeploy.disabled = unavailable || !megaVirusReached;
-  megaVirusDeploy.setAttribute('aria-describedby', megaVirusReached ? 'mega-virus-rules' : 'mega-virus-status mega-virus-rules');
-  megaVirusStatus.hidden = megaVirusReached;
+  practiceDeploy.disabled = selectedPracticeMission.button.disabled;
+  setText(megaVirusStatus, megaVirusReached ? 'Start at Wave 3 with fresh supplies.' : 'Reach the Mega Virus in Neural Cortex to unlock.');
   megaVirusThumb.hidden = !megaVirusReached || !megaVirusThumb.naturalWidth;
-  setText(missionCount, campaignAreas.length + ' levels');
   resumeCampaignButton.hidden = !checkpoint;
   resumeCampaignButton.disabled = unavailable;
-  if (deployLabel) setText(deployLabel, checkpoint ? 'Start new campaign' : 'Start campaign');
-  if (checkpoint) setText(resumeCampaignLabel, 'Resume at ' + missionName(campaignAreas[checkpoint.results.length]));
+  newCampaignButton.hidden = !checkpoint;
+  deploy.hidden = !!checkpoint;
+  if (checkpoint) {
+    const next = checkpoint.results.length;
+    setText(resumeCampaignLabel, 'Mission ' + (next + 1) + ' of ' + campaignAreas.length + ' · ' + missionName(campaignAreas[next]));
+  }
 }
 
 function updatePracticeLoadout() {
@@ -512,10 +525,15 @@ function equipWeaponLoadout(loadout) {
   drawArmory();
 }
 
+function setStartupProgress(value) {
+  startupProgress.value = value;
+  setText(startupPercent, value + '%');
+}
+
 async function prepareGame() {
   startupRetry.hidden = true;
-  startupProgress.hidden = false;
-  startupProgress.value = 0;
+  startupProgress.hidden = startupPercent.hidden = false;
+  setStartupProgress(0);
   setText(startupStatus, 'Preparing game assets');
   await new Promise(requestAnimationFrame);
   try {
@@ -525,25 +543,26 @@ async function prepareGame() {
     upgradeArt.src = FIELD_UPGRADE_ART;
     await Promise.all([
       world.prepareAll(campaignAreas, (done, total) => {
-        startupProgress.value = Math.round(85 * done / total);
-        setText(startupStatus, 'Preparing arenas and effects · ' + done + ' / ' + total);
+        setStartupProgress(Math.round(85 * done / total));
+        setText(startupStatus, 'Preparing arenas and effects');
       }),
       audio.prepare(),
       upgradeArt.decode(),
       ...missionThumbnails.map(image => image.decode().catch(() => { image.hidden = true; })),
       document.fonts.ready,
     ]);
+    setStartupProgress(90);
     setText(startupStatus, 'Preparing carbine previews');
     armoryArt = await prepareArmoryArt(world.renderer);
     setupArmory();
-    startupProgress.value = 100;
+    setStartupProgress(100);
     startupLoad.hidden = true;
     ready = true;
     displayMissionAccess();
   } catch (error) {
     console.error('Could not prepare Immune Protocol', error);
     setText(startupStatus, 'Could not prepare game assets. Check WebGL 2 and retry.');
-    startupProgress.hidden = true;
+    startupProgress.hidden = startupPercent.hidden = true;
     startupRetry.hidden = false;
   }
 }
@@ -636,6 +655,7 @@ async function launch(area, run = null, drill = null) {
     setText(campaignEquipped, equipped || '');
     game.dataset.area = sim.area;
     canvas.setAttribute('aria-label', 'First-person view of ' + missionName(area));
+    canvas.focus({ preventScroll: true });
     branchReadout.hidden = !junction;
     valveReadout.hidden = !heart;
     gashMarker.hidden = gashEdge.hidden = true;
@@ -658,10 +678,10 @@ async function launch(area, run = null, drill = null) {
     Promise.resolve(unlocked).then(() => {
       if (running && !paused && sim === mission && sim.clock < 1.25) audio.play({ type: 'deploy' });
     }).catch(() => {});
-    if (drill?.bossPractice) announce('MEGA VIRUS PRACTICE', 'WATCH FOR THE PULSING CORE', 3.2);
+    if (drill?.bossPractice) announce('MEGA VIRUS PRACTICE', 'SHOOT EXPOSED CORES', 1.9);
     else if (heart) announce('HEART VALVE', 'HIT THE COLONY · DEFEND THE FLANK', 3.2);
     else if (junction) announce('CAPILLARY JUNCTION', 'DEFEND BOTH INLETS', 2.8);
-    else if (nextSim.organ) announce(missionName(area).toUpperCase(), missions[area].briefing, 3.5);
+    else if (nextSim.organ) announce(missionName(area).toUpperCase(), ORGAN_MISSIONS[area].hazard.instruction.toUpperCase(), 2.4);
     else if (!sim.tutorial) announce('WAVE 01', 'DEFEND BOTH TISSUE NODES', 3.1);
     else {
       announcementTimer = 0;
@@ -705,9 +725,10 @@ async function launch(area, run = null, drill = null) {
 function pause() {
   if (!running || paused || sim.extractionPending) return;
   suspendCombat();
-  byId('pause-detail').textContent = isTouch
-    ? 'Resume when you’re ready to return to the fight.'
-    : 'Resume to capture the mouse. If it stays free, drag the view or use the arrow keys to look.';
+  setText(byId('pause-mission'), missionName(sim.area));
+  setText(byId('pause-detail'), isTouch
+    ? 'Combat and wave timers are on hold.'
+    : 'Resume to capture the mouse. If it stays free, drag the view or use the arrow keys to look.');
   pauseDialog.showModal();
 }
 
@@ -724,7 +745,7 @@ function suspendCombat() {
 function openArmory(round = 0) {
   if (!ready || armoryDialog.open) return;
   if (round) suspendCombat();
-  setText(armoryContext, round ? 'Wave ' + round + ' complete. Adjust your build before resuming.' : 'Choose one part per slot and compare its effect on your build.');
+  setText(armoryContext, round ? 'Wave ' + round + ' complete. Adjust your build before resuming.' : 'Compare parts and tune your carbine.');
   armoryDone.firstChild.textContent = round ? 'Resume mission ' : 'Done ';
   drawArmory();
   armoryDialog.showModal();
@@ -748,6 +769,7 @@ function resume() {
   audio.unlock().catch(() => {});
   audio.setActive(true);
   syncMusic();
+  canvas.focus({ preventScroll: true });
   requestMouse();
   animation = requestAnimationFrame(frame);
 }
@@ -811,6 +833,24 @@ function mainMenu() {
 function openFreeMode() {
   missionError.hidden = true;
   missionDialog.showModal();
+  selectPracticeMission(selectedPracticeMission);
+}
+
+function selectPracticeMission(entry) {
+  if (entry.button.disabled) return;
+  selectedPracticeMission = entry;
+  for (const choice of missionEntries) {
+    choice.button.tabIndex = choice === entry ? 0 : -1;
+    choice.button.setAttribute('aria-checked', String(choice === entry));
+  }
+  const { name, briefing } = entry.bossPractice
+    ? { name: 'Mega Virus Practice', briefing: 'Start at Wave 3. Shoot the cores as the membranes open.' }
+    : missions[entry.area];
+  setText(missionPreviewTitle, name);
+  setText(missionPreviewDetail, briefing);
+  practiceDeploy.setAttribute('aria-label', 'Deploy to ' + name);
+  missionError.hidden = true;
+  entry.button.focus();
 }
 
 function returnFromResult() {
@@ -904,7 +944,7 @@ function finish() {
     bestScore = sim.score;
     writeSetting(bestKey, bestScore);
   }
-  byId('result-title').textContent = complete ? 'Campaign complete' : won && bossPractice ? 'Mega Virus defeated'
+  resultTitle.textContent = complete ? 'Campaign complete' : won && bossPractice ? 'Mega Virus defeated'
     : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : sim.organMission ? missionName(sim.area) + ' secured' : 'Artery secured') : 'Mission failed';
   resultKicker.lastChild.textContent = practice ? ' FREE MODE REPORT' : ' MISSION REPORT';
   setText(returnMenu, practice ? 'Free Mode' : 'Main menu');
@@ -946,8 +986,8 @@ function finish() {
   replay.classList.toggle('primary', !next);
   replay.classList.toggle('outline', !!next);
   resultDialog.showModal();
-  if (reward) upgradeButtons[0]?.focus();
-  else if (next) continueButton.focus();
+  resultDialog.scrollTop = 0;
+  resultTitle.focus({ preventScroll: true });
 }
 
 function setText(element, value) {
@@ -1193,13 +1233,33 @@ function drawHud() {
   drawBossHud();
   drawAirwayHud();
   drawGastricHud();
-  setText(suitValue, suitPercent);
+  const suitCritical = suitPercent <= 25;
+  suitPanel.classList.toggle('critical', suitCritical);
+  setText(suitStatus, suitCritical ? 'SUIT CRITICAL' : 'SUIT INTEGRITY');
+  setText(suitValue, suitPercent + '%');
   fillMeter(healthMeter, healthFill, suitPercent);
   setText(equipmentLabel, sim.repairing ? 'TISSUE SEALER' : 'NEEDLE CARBINE');
-  ammoValue.hidden = reserveValue.hidden = reloadState.hidden = sim.repairing;
+  ammoValue.hidden = reserveValue.hidden = sim.repairing;
   setText(ammoValue, pad(player.ammo));
   setText(reserveValue, ' / ' + pad(player.reserve));
-  setText(reloadState, sim.reloading ? 'RELOADING' : player.ammo === 0 ? 'MAGAZINE EMPTY' : 'FULL AUTO');
+  let ammoStatus = 'ready';
+  let ammoMessage = '';
+  if (!sim.repairing) {
+    if (sim.reloading > 0) {
+      ammoStatus = 'reloading';
+      ammoMessage = 'RELOADING';
+    } else if (player.ammo === 0) {
+      ammoStatus = 'empty';
+      ammoMessage = player.reserve > 0 ? 'MAGAZINE EMPTY' : 'OUT OF AMMO';
+    } else if (player.ammo <= Math.ceil(sim.magazineSize / 5)) {
+      ammoStatus = 'low';
+      ammoMessage = 'LOW AMMO';
+    }
+  }
+  if (ammoPanel.dataset.state !== ammoStatus) ammoPanel.dataset.state = ammoStatus;
+  setText(reloadState, ammoMessage);
+  reloadProgress.hidden = ammoStatus !== 'reloading';
+  if (!reloadProgress.hidden) reloadProgress.value = Math.floor(sim.reloadProgress * 100);
   const junction = sim.area === 'junction';
   const waveLabel = pad(wave) + ' / ' + pad(waves);
   if (valve) drawValve(valve);
@@ -1670,7 +1730,11 @@ function frame(now) {
   animation = requestAnimationFrame(frame);
 }
 
-byId('manual').addEventListener('click', () => manual.showModal());
+byId('manual').addEventListener('click', () => {
+  manual.showModal();
+  manual.scrollTop = 0;
+  byId('manual-title').focus({ preventScroll: true });
+});
 startupRetry.addEventListener('click', prepareGame);
 armoryOpen.addEventListener('click', () => openArmory());
 armoryDone.addEventListener('click', closeArmory);
@@ -1707,7 +1771,13 @@ armoryOptions.addEventListener('click', event => {
   const part = card.dataset.option;
   if (weaponLoadout[slot] !== part) equipWeaponLoadout({ ...weaponLoadout, [slot]: part });
 });
-byId('touch-manual').hidden = !isTouch;
+if (isTouch) {
+  const keyboardManual = byId('keyboard-manual');
+  const touchManual = byId('touch-manual');
+  keyboardManual.before(touchManual);
+  touchManual.open = true;
+  keyboardManual.open = false;
+}
 for (const button of supplyButtons) {
   button.addEventListener('click', () => {
     if (!running || paused || sim.extractionPending || !sim.selectJunctionSupply(button.dataset.junctionSupply)) return;
@@ -1740,6 +1810,16 @@ document.querySelectorAll('[data-mute]').forEach(button => button.addEventListen
   if (!muted) audio.unlock().catch(() => {});
 }));
 deploy.addEventListener('click', startCampaign);
+newCampaignButton.addEventListener('click', () => {
+  if (!checkpoint) return;
+  const area = campaignAreas[checkpoint.results.length];
+  setText(newCampaignDetail, 'Starting over replaces your saved checkpoint at ' + missionName(area) + '.');
+  newCampaignDialog.showModal();
+});
+byId('confirm-new-campaign').addEventListener('click', () => {
+  newCampaignDialog.close();
+  startCampaign();
+});
 resumeCampaignButton.addEventListener('click', () => {
   if (checkpoint) launch(campaignAreas[checkpoint.results.length], checkpoint);
 });
@@ -1748,10 +1828,32 @@ practiceLoadout.addEventListener('change', () => {
   writeSetting(practiceLoadoutKey, practiceLoadout.value);
   updatePracticeLoadout();
 });
-for (const { area, button } of missionEntries) {
-  button.addEventListener('click', () => launch(area, null, { upgrade: practiceLoadout.value }));
+for (const entry of missionEntries) {
+  entry.button.addEventListener('click', () => selectPracticeMission(entry));
 }
-megaVirusDeploy.addEventListener('click', () => launch('brain', null, { upgrade: practiceLoadout.value, bossPractice: true }));
+missionGallery.addEventListener('keydown', event => {
+  const available = missionEntries.filter(({ button }) => !button.disabled);
+  const current = available.indexOf(selectedPracticeMission);
+  if (current < 0) return;
+  const count = available.length;
+  const columns = getComputedStyle(missionList).gridTemplateColumns.split(' ').length;
+  const bossAvailable = available[count - 1].bossPractice;
+  const destinations = {
+    ArrowLeft: (current + count - 1) % count,
+    ArrowRight: (current + 1) % count,
+    ArrowUp: current >= columns ? current - columns : current,
+    ArrowDown: current + columns < count ? current + columns : bossAvailable ? count - 1 : current,
+    Home: 0,
+    End: count - 1,
+  };
+  if (!Object.hasOwn(destinations, event.key)) return;
+  event.preventDefault();
+  selectPracticeMission(available[destinations[event.key]]);
+});
+practiceDeploy.addEventListener('click', () => {
+  const { area, bossPractice } = selectedPracticeMission;
+  launch(area, null, { upgrade: practiceLoadout.value, bossPractice });
+});
 continueButton.addEventListener('click', continueMission);
 for (const button of upgradeButtons) {
   button.addEventListener('click', () => {
@@ -1799,7 +1901,7 @@ window.addEventListener('keydown', event => {
     return;
   }
   if (!controlKeys.has(event.code)) return;
-  if (event.code === 'Space' && !junctionSupply.hidden && supplyButtons.includes(document.activeElement)) return;
+  if (event.code === 'Space' && event.target instanceof HTMLButtonElement) return;
   event.preventDefault();
   if ((event.code === 'Escape' || event.code === 'KeyP') && !event.repeat) {
     pause();

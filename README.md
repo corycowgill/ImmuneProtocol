@@ -18,7 +18,7 @@ The Hallucinated Games studio intro plays before the main menu. Use Skip intro, 
 
 Your first Arterial Junction deployment begins with one guided breach. Shoot the bacillus off the tissue, move into repair range, and hold Repair until the wound seals. The second node and turret become available as the rest of Wave 1 begins. The browser remembers completed training for later deployments.
 
-Choose **Start campaign** to deploy into Arterial Junction. Between missions, equip one field upgrade. Your browser saves completed missions and the chosen upgrade at each checkpoint. Use **Resume** to return to the start of the current mission. The final report shows the tissue preserved in all eight missions, total score, and pathogens neutralized.
+Choose **Start campaign** to deploy into Arterial Junction. Between missions, equip one field upgrade. Your browser saves completed missions and the chosen upgrade at each checkpoint. **Continue campaign** shows the next mission and takes you back to its start. The final report shows the tissue preserved in all eight missions, total score, and pathogens neutralized.
 
 | Field upgrade | Effect |
 | --- | --- |
@@ -27,9 +27,9 @@ Choose **Start campaign** to deploy into Arterial Junction. Between missions, eq
 | Insulated Suit | Reduces suit damage from stomach acid and intestinal pressure waves by 40%. |
 | Turret Stabilizer | Extends the turret's slow from 1.4 to 2.2 seconds. It still fires every 2.6 seconds. |
 
-Open **Free Mode** to browse rendered previews of all eight arenas and deploy with standard equipment or any one upgrade. Free Mode runs leave your campaign checkpoint, mission progression, and best score intact. Reaching the Mega Virus in Neural Cortex in either mode unlocks **Practice Mega Virus**, which starts directly at Wave 3 with fresh supplies.
+Open **Free Mode** to browse rendered previews of all eight arenas. Select a mission to read its briefing, choose a field upgrade, then select **Deploy**. Free Mode runs leave your campaign checkpoint, mission progression, and best score intact. Reaching the Mega Virus in Neural Cortex in either mode unlocks **Practice Mega Virus**, which starts directly at Wave 3 with fresh supplies.
 
-**Customize carbine** lets you mix a barrel, muzzle, optic, receiver, and magazine. Each slot has three illustrated options. The armory compares each part against your equipped build and shows the combined weapon in 3D. Pick a body finish and an accent color independently. Your build is saved in the browser and works alongside your field upgrade.
+The **Armory** lets you mix a barrel, muzzle, optic, receiver, and magazine. Each slot has three illustrated options. The armory compares each part against your equipped build and shows the combined weapon in 3D. Pick a body finish and an accent color independently. Your build is saved in the browser and works alongside your field upgrade.
 
 The armory reopens between waves. Swapping magazines preserves the rounds you carry. Changing to a smaller magazine puts excess loaded rounds into reserve. First-time Arterial Junction training uses stock weapon stats until the guided breach is sealed.
 
