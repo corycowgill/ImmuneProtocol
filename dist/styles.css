@@ -115,7 +115,7 @@ h1 span{display:block;color:var(--green);margin-top:.105em}
 .close-dialog{position:absolute;top:15px;right:15px}
 .panel h2{font:800 56px/.9 var(--display);text-transform:uppercase;letter-spacing:.01em;margin:18px 0 19px}
 .panel p:not(.eyebrow){color:var(--muted);font-size:14px;margin:0 0 19px}
-.mission-panel{width:min(704px,calc(100vw - 32px));padding:clamp(18px,4vw,34px);overscroll-behavior:contain}
+.mission-panel{width:min(1024px,calc(100vw - 32px));padding:clamp(18px,3vw,30px);overscroll-behavior:contain}
 .mission-heading{padding-right:50px}
 .mission-panel h2{font-size:clamp(35px,7vw,56px);margin:4px 0 8px}
 .mission-panel .mission-count:not(.eyebrow){margin-bottom:10px;color:var(--green);font:500 10px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase}
@@ -126,18 +126,22 @@ h1 span{display:block;color:var(--green);margin-top:.105em}
 .practice-loadout select{min-height:44px;padding:0 7px;border:1px solid #d7c5ab68;background:#201712;color:var(--paper);font:inherit;font-size:13px;cursor:pointer}
 .practice-loadout select:focus-visible{outline:2px solid var(--green);outline-offset:2px}
 .mission-panel .practice-loadout p:not(.eyebrow){grid-column:1/-1;margin:0;font:500 10px/1.4 var(--mono)}
-.mission-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:0;padding:0;list-style:none}
+.mission-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:0;padding:0;list-style:none}
 .mission-list>li,.boss-practice{min-width:0;background:linear-gradient(135deg,#39262170,#24201c70);border:1px solid var(--line)}
 :is(.mission-list>li,.boss-practice):has(button:not(:disabled)){border-left:2px solid var(--mission-color,var(--green))}
 :is(.mission-list>li,.boss-practice):has(button:not(:disabled):hover){border-color:var(--mission-color,var(--green));background:#322a21}
-.mission-card{width:100%;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:8px 11px 4px;border:0;background:none;text-align:left;color:var(--mission-color,var(--green));font:800 22px/.96 var(--display);letter-spacing:.015em;text-transform:uppercase}
-.mission-card svg{width:17px;height:17px;flex:none}
+.mission-card{display:grid;grid-template-rows:auto 1fr;align-content:start;width:100%;height:100%;min-height:44px;min-width:0;padding:0;border:0;background:none;text-align:left;color:var(--mission-color,var(--green))}
+.mission-card-body{display:grid;align-content:start;gap:5px;min-width:0;padding:9px 10px 11px}
+.mission-card-title{display:flex;align-items:start;justify-content:space-between;gap:6px;font:800 23px/.98 var(--display);letter-spacing:.015em;text-transform:uppercase}
+.mission-card-title svg{width:16px;height:16px;flex:none}
+.mission-brief{color:var(--muted);font:500 10px/1.4 var(--mono)}
+.mission-thumb{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:#211917}
+.mission-list .mission-thumb{border-bottom:1px solid var(--line)}
 .mission-card:disabled{color:#c4b4a8;cursor:default}
 .mission-card:disabled svg{opacity:.3}
 .mission-card:focus-visible{outline-offset:-3px}
-.mission-panel :is(.mission-list,.boss-practice) p:not(.eyebrow){margin:0;padding:0 11px 8px;font:500 9px/1.35 var(--mono);letter-spacing:.035em}
 .boss-practice{--mission-color:#dcb7f5;margin-top:9px}
-.boss-practice #mega-virus-status{padding-bottom:4px}
+.boss-practice .mission-card:has(.mission-thumb:not([hidden])){grid-template-columns:minmax(88px,16%) minmax(0,1fr);grid-template-rows:auto;align-items:center}
 .mission-list>li:has([data-deploy-area="junction"]){--mission-color:#ffb88c}
 .mission-list>li:has([data-deploy-area="heart"]){--mission-color:#f7a0a6}
 .mission-list>li:has([data-deploy-area="lungs"]){--mission-color:#99ded5}
@@ -145,6 +149,9 @@ h1 span{display:block;color:var(--green);margin-top:.105em}
 .mission-list>li:has([data-deploy-area="intestines"]){--mission-color:#ffb4a0}
 .mission-list>li:has([data-deploy-area="ear"]){--mission-color:#a7ddf8}
 .mission-list>li:has([data-deploy-area="brain"]){--mission-color:#c9b4f7}
+@media(max-width:735px){
+  .mission-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 .controls-list{margin:17px 0 22px;border-top:1px solid var(--line)}
 .controls-list>div{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:8px 0;gap:8px;font-size:13px}
 .controls-list dd{display:flex;gap:5px;margin:0}
@@ -675,9 +682,9 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
   .menu-secondary .button{padding-inline:8px;gap:6px;font-size:10px}
   .mission-panel{padding:16px}
   .mission-panel .close-dialog{top:12px;right:12px}
-  .mission-card{font-size:18px;padding-inline:8px}
-  .mission-card svg{width:13px;height:13px}
-  .mission-panel :is(.mission-list,.boss-practice) p:not(.eyebrow){padding-inline:8px}
+  .mission-card-title{font-size:20px}
+  .mission-card-title svg{width:13px;height:13px}
+  .mission-card-body{padding-inline:8px}
   .host-panel{width:44vw}
   .game .wave-panel{top:49px;left:auto;right:12px;transform:none;max-width:46vw;padding:3px 7px 12px}
   .game:has(#organ-hazard:not([hidden])) .mission-guidance{top:max(204px,25%)}
@@ -706,9 +713,8 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 @media(orientation:landscape) and (max-height:500px){
   .mission-panel{padding:16px}
   .mission-panel h2{font-size:32px}
-  .mission-list{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .mission-card{font-size:18px;padding-inline:8px}
-  .mission-panel :is(.mission-list,.boss-practice) p:not(.eyebrow){padding-inline:8px}
+  .mission-card-title{font-size:20px}
+  .mission-card-body{padding-inline:8px}
   .game:has(#organ-hazard:not([hidden])) .mission-guidance{left:50%;top:auto;bottom:21%;width:min(340px,53vw)}
   .game:has(#organ-hazard:not([hidden])) .game-alert{font-size:21px}
   .game:has(#organ-hazard:not([hidden])) .game-alert small{margin-top:5px;font-size:8px}

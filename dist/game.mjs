@@ -34,6 +34,8 @@ const practiceLoadout = byId('practice-loadout');
 const practiceLoadoutDetail = byId('practice-loadout-detail');
 const megaVirusDeploy = byId('deploy-mega-virus');
 const megaVirusStatus = byId('mega-virus-status');
+const megaVirusThumb = byId('mega-virus-thumb');
+const missionThumbnails = [...missionDialog.querySelectorAll('.mission-thumb')];
 const missionEntries = [...document.querySelectorAll('[data-deploy-area]')].map(button => ({
   area: button.dataset.deployArea,
   button,
@@ -361,7 +363,9 @@ function displayMissionAccess() {
   deploy.disabled = missionSelect.disabled = armoryOpen.disabled = unavailable;
   practiceLoadout.disabled = unavailable;
   megaVirusDeploy.disabled = unavailable || !megaVirusReached;
+  megaVirusDeploy.setAttribute('aria-describedby', megaVirusReached ? 'mega-virus-rules' : 'mega-virus-status mega-virus-rules');
   megaVirusStatus.hidden = megaVirusReached;
+  megaVirusThumb.hidden = !megaVirusReached || !megaVirusThumb.naturalWidth;
   setText(missionCount, campaignAreas.length + ' levels');
   resumeCampaignButton.hidden = !checkpoint;
   resumeCampaignButton.disabled = unavailable;
@@ -526,6 +530,7 @@ async function prepareGame() {
       }),
       audio.prepare(),
       upgradeArt.decode(),
+      ...missionThumbnails.map(image => image.decode().catch(() => { image.hidden = true; })),
       document.fonts.ready,
     ]);
     setText(startupStatus, 'Preparing carbine previews');
