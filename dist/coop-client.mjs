@@ -1,8 +1,7 @@
 import { Simulation } from './simulation.mjs';
 import { COOP_PATH, COOP_HEALTH_PATH, COOP_PROTOCOL_VERSION, COOP_RECONNECT_MS, COOP_SERVICE, COOP_TICK_RATE } from './coop-protocol.mjs';
 
-// Set after the production match service passes its public health check.
-export const PUBLIC_COOP_ORIGIN = '';
+export const PUBLIC_COOP_ORIGIN = 'https://immune-protocol-coop.onrender.com';
 
 const INPUT_TICK = 1 / COOP_TICK_RATE;
 const MAX_BUFFER = 64 * 1024;

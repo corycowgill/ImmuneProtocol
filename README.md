@@ -2,7 +2,7 @@
 
 A browser FPS about a nano-soldier injected into a patient. Defend two tissue nodes in each of eight missions. Place an auto-turret to cover one approach while you defend the other. The campaign starts in the bloodstream, then moves through the lungs, stomach, intestines, inner ear, and brain.
 
-[Play on GitHub Pages](https://corycowgill.github.io/ImmuneProtocol/) · [Watch the demo](https://corycowgill.github.io/ImmuneProtocol/demo/)
+[Play on GitHub Pages](https://corycowgill.github.io/ImmuneProtocol/) · [Play online co-op](https://immune-protocol-coop.onrender.com/) · [Watch the demo](https://corycowgill.github.io/ImmuneProtocol/demo/)
 
 ## Run locally
 
