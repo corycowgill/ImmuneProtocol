@@ -997,7 +997,8 @@ def main():
         normalise_arms(objects)
         export(objects, ident)
         print('Exported', ident, os.path.getsize(os.path.join(OUT, ident + '.glb')), 'bytes', flush=True)
-        beauty(objects, ident)
+        if not os.environ.get('SUIT_SKIP_RENDER'):
+            beauty(objects, ident)
 
 
 main()
