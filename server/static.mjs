@@ -7,7 +7,7 @@ const CONTENT_TYPES = new Map([
   ['.js', 'text/javascript; charset=utf-8'], ['.mjs', 'text/javascript; charset=utf-8'],
   ['.svg', 'image/svg+xml'], ['.webp', 'image/webp'], ['.jpg', 'image/jpeg'],
   ['.png', 'image/png'], ['.wav', 'audio/wav'], ['.mp3', 'audio/mpeg'],
-  ['.mp4', 'video/mp4'], ['.woff2', 'font/woff2'],
+  ['.mp4', 'video/mp4'], ['.woff2', 'font/woff2'], ['.glb', 'model/gltf-binary'],
 ]);
 
 function readRange(value, size) {

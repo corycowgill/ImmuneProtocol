@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { WEAPON_ACCENTS, WEAPON_FINISHES } from './weapon-mods.mjs';
-import { suitParts } from './suits.mjs';
+import { suitModelVersion, suitParts } from './suits.mjs';
 
 const DOWN = new THREE.Vector3(0, -1, 0);
 const { clamp, damp, lerp } = THREE.MathUtils;
@@ -134,14 +134,17 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
   }
   let suitId = null;
   let suitWorn = false;
+  let wornVersion = -1;
   const worn = [];
 
   function wearSuit(id) {
-    if (id === suitId && (suitWorn || !id)) return;
+    // Re-dress when a textured model finishes streaming in over the primitive one.
+    if (id === suitId && (!id || (suitWorn && wornVersion === suitModelVersion()))) return;
     const parts = id ? suitParts(id) : null;
     if (id && !parts) return; // Models still loading; keep the stock suit for now.
     suitId = id;
     suitWorn = !!parts;
+    wornVersion = suitModelVersion();
     for (const part of worn.splice(0)) part.removeFromParent();
     for (const part of stock) part.visible = !parts;
     if (!parts) return;

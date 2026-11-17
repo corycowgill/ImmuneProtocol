@@ -1,28 +1,32 @@
 import * as THREE from './vendor/three.module.js';
+import { GLTFLoader } from './vendor/GLTFLoader.js';
+import { MeshoptDecoder } from './vendor/meshopt_decoder.mjs';
 import { COOP_SUITS, DEFAULT_COOP_SUIT } from './coop-protocol.mjs';
 import { SUIT_MODELS } from './suit-models.mjs';
 
-// Co-op suit catalog. The models are authored in Blender by
-// tools/suits/build_suits.py, which exports the part recipe in suit-models.mjs.
+// Co-op suit catalog. The photoreal models are authored and texture-baked in
+// Blender by tools/suits/build_suits_hq.py (dist/assets/suits/<id>.glb). The
+// lightweight primitive recipe in suit-models.mjs, from tools/suits/build_suits.py,
+// is worn while a GLB streams in or if it fails to load.
 export const SUITS = Object.freeze({
   vanguard: {
     name: 'Vanguard', archetype: 'Heavy assault armor',
-    detail: 'Olive power armor with reactor exhausts and an amber visor.',
+    detail: 'Chipped olive plate armor, brass dive helmet, and an amber visor.',
     accent: '#ff9a35',
   },
   wraith: {
     name: 'Wraith', archetype: 'Stealth infiltrator',
-    detail: 'Matte black recon plating with a violet sensor slit.',
+    detail: 'Matte black tactical plating, respirator, and violet light strips.',
     accent: '#c86bff',
   },
   lifeline: {
-    name: 'Lifeline', archetype: 'Bio-containment corpsman',
-    detail: 'Sterile pressure suit, bubble helmet, and twin med canisters.',
+    name: 'Lifeline', archetype: 'Field corpsman',
+    detail: 'White medic armor with red-cross plating and a black visor helmet.',
     accent: '#5dffc8',
   },
   bathysphere: {
     name: 'Bathysphere', archetype: 'Deep-dive pressure suit',
-    detail: 'Riveted brass diving suit with teal portholes and a ballast belt.',
+    detail: 'Riveted copper diving helmet, glowing portholes, and orange ballast bands.',
     accent: '#3fe6d6',
   },
 });
@@ -154,6 +158,51 @@ function createMaterial({ color, metalness, roughness, emissive, emissiveIntensi
 }
 
 const models = new Map();
+const glbModels = new Map();
+const glbLoads = new Map();
+let modelVersion = 0;
+
+// Increments whenever a higher-detail model finishes loading, so worn suits can upgrade.
+export const suitModelVersion = () => modelVersion;
+
+function glbParts(id, gltf) {
+  const parts = new Map();
+  for (const node of [...gltf.scene.children]) { // Copy: re-parenting mutates children.
+    if (!Object.hasOwn(SUIT_MODELS[id].parts, node.name)) continue;
+    node.traverse(child => {
+      if (child.isMesh) child.frustumCulled = false; // Arm segments are rescaled every frame.
+    });
+    // Joint geometry is authored relative to its pivot; any node transform is
+    // gltfpack's dequantisation and must be kept.
+    const group = new THREE.Group();
+    group.name = id + ' ' + node.name;
+    group.add(node);
+    parts.set(node.name, group);
+  }
+  return parts.size === Object.keys(SUIT_MODELS[id].parts).length ? parts : null;
+}
+
+// Streams the textured Blender model for a suit. Resolves to the part map, or
+// null if the file is unavailable (the primitive recipe stays in use).
+export function loadSuitModel(id) {
+  if (!Object.hasOwn(SUIT_MODELS, id)) return Promise.resolve(null);
+  if (!glbLoads.has(id)) {
+    const url = new URL('./assets/suits/' + id + '.glb', import.meta.url).href;
+    glbLoads.set(id, new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(url).then(gltf => {
+      const parts = glbParts(id, gltf);
+      if (!parts) throw new Error('Suit model is missing rig joints');
+      glbModels.set(id, parts);
+      modelVersion++;
+      return parts;
+    }).catch(error => {
+      console.warn('Could not load the ' + id + ' suit model', error);
+      return null;
+    }));
+  }
+  return glbLoads.get(id);
+}
+
+export const loadSuitModels = () => Promise.all(COOP_SUITS.map(loadSuitModel));
 
 function buildSuit(id) {
   const { materials: definitions, parts: recipe } = SUIT_MODELS[id];
@@ -182,6 +231,8 @@ function buildSuit(id) {
 // Returns a Map of rig joint name -> Object3D template to clone onto that joint.
 export function suitParts(id) {
   if (!Object.hasOwn(SUIT_MODELS, id)) return null;
+  if (glbModels.has(id)) return glbModels.get(id);
+  loadSuitModel(id);
   if (!models.has(id)) models.set(id, buildSuit(id));
   return models.get(id);
 }

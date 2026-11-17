@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { createTeammate } from './teammate.mjs';
 
 // Live 3D "deployment bay" in the co-op lobby: shows each player's chosen suit
@@ -27,7 +28,15 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
   renderer.toneMappingExposure = 1.15;
   renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
 
+  // Image-based lighting so the suits' metal, glass, and painted plates reflect a studio.
+  // The floor and pedestals set their own envMap so a low envMapIntensity applies to them.
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
+  pmrem.dispose();
+
   const scene = new THREE.Scene();
+  scene.environment = environment;
+  scene.environmentIntensity = .55;
   scene.fog = new THREE.Fog(0x1a0f10, 5, 11);
   const camera = new THREE.PerspectiveCamera(30, 2, .1, 30);
   camera.position.set(0, 1.35, -5.6);
@@ -52,7 +61,7 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
   wall.rotation.y = Math.PI;
   scene.add(wall);
   const floor = new THREE.Mesh(new THREE.CircleGeometry(12, 48), new THREE.MeshStandardMaterial({
-    color: 0x24171a, roughness: .55, metalness: .4,
+    color: 0x24171a, roughness: .55, metalness: .4, envMap: environment, envMapIntensity: .05,
   }));
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
@@ -62,7 +71,7 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
     pedestal.position.x = x;
     scene.add(pedestal);
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(.5, .56, .08, 40), new THREE.MeshStandardMaterial({
-      color: 0x2b2a2e, metalness: .7, roughness: .35,
+      color: 0x2b2a2e, metalness: .7, roughness: .35, envMap: environment, envMapIntensity: .1,
     }));
     disc.position.y = .04;
     pedestal.add(disc);
@@ -152,6 +161,8 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
       colorSpace: THREE.SRGBColorSpace, samples: Math.min(4, renderer.capabilities.maxSamples),
     });
     const studio = new THREE.Scene();
+    studio.environment = environment;
+    studio.environmentIntensity = .6;
     studio.add(new THREE.HemisphereLight(0xffe6dc, 0x2a1214, 1.3));
     const front = new THREE.DirectionalLight(0xfff1e2, 2.8);
     front.position.set(-2, 3, -4);

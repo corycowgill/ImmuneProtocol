@@ -1,4 +1,4 @@
-import { COOP_SUITS, SUITS, normalizeSuit, saveSuit, savedSuit } from './suits.mjs';
+import { COOP_SUITS, SUITS, loadSuitModels, normalizeSuit, saveSuit, savedSuit, suitModelVersion } from './suits.mjs';
 import { createLobbyBay } from './coop-lobby-bay.mjs';
 
 // Co-op lobby suit selection: a live deployment bay that shows both players'
@@ -55,7 +55,8 @@ export function attachLobby(client) {
   stockRoster.classList.add('coop-roster-replaced');
 
   let bay = null;
-  let portraitsDrawn = false;
+  let portraitVersion = -1;
+  let modelsRequested = false;
   let selected = savedSuit();
 
   function ensureBay() {
@@ -72,8 +73,14 @@ export function attachLobby(client) {
   }
 
   function drawPortraits() {
-    if (portraitsDrawn || !ensureBay()) return;
-    portraitsDrawn = true;
+    if (!ensureBay()) return;
+    if (!modelsRequested) {
+      modelsRequested = true;
+      // Redraw the cards once the textured Blender models have streamed in.
+      loadSuitModels().then(drawPortraits);
+    }
+    if (portraitVersion === suitModelVersion()) return;
+    portraitVersion = suitModelVersion();
     for (const button of buttons) {
       try {
         button.querySelector('img').src = bay.portrait(button.dataset.suit);

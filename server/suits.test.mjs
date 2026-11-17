@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
+import { readFileSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { test } from 'node:test';
 import WebSocket from 'ws';
@@ -49,6 +50,22 @@ test('every selectable suit has a model for each rig joint', () => {
         assert.ok(['box', 'ball', 'cyl', 'torus'].includes(kind));
         assert.ok(Object.hasOwn(materials, material), id + ' uses ' + material);
       }
+    }
+  }
+});
+
+test('every suit ships a textured Blender model with a node per rig joint', () => {
+  const joints = ['hips', 'upper', 'head', ...['thigh', 'shin', 'boot', 'bicep', 'forearm', 'glove'].flatMap(part => [part + '_L', part + '_R'])];
+  for (const id of COOP_SUITS) {
+    const file = readFileSync(new URL('../dist/assets/suits/' + id + '.glb', import.meta.url));
+    assert.equal(file.toString('latin1', 0, 4), 'glTF', id);
+    const json = JSON.parse(file.toString('utf8', 20, 20 + file.readUInt32LE(12)));
+    const sceneNodes = json.scenes[json.scene ?? 0].nodes.map(index => json.nodes[index].name);
+    assert.deepEqual([...sceneNodes].sort(), [...joints].sort(), id);
+    assert.ok(json.materials.some(material => material.pbrMetallicRoughness?.baseColorTexture), id + ' has baked textures');
+    assert.ok(json.materials.some(material => material.normalTexture), id + ' has a normal map');
+    for (const extension of json.extensionsRequired ?? []) {
+      assert.ok(['EXT_meshopt_compression', 'KHR_mesh_quantization', 'EXT_texture_webp'].includes(extension), id + ' needs ' + extension);
     }
   }
 });
