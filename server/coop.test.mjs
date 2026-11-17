@@ -6,7 +6,7 @@ import WebSocket from 'ws';
 import { hitBrainBoss } from '../dist/brain-boss.mjs';
 import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
-import { JUNCTION_GASH_SITES } from '../dist/simulation.mjs';
+import { JUNCTION_GASH_SITES, Simulation } from '../dist/simulation.mjs';
 import { createCoopServer } from './index.mjs';
 
 async function localServer(t, options) {
@@ -326,7 +326,6 @@ test('both co-op suits can complete organ-specific objectives', () => {
   const brain = deploy('brain');
   brain.wave = brain.waves - 1;
   brain.beginWave();
-  assert.ok(brain.players.every(player => player.reserve >= 66));
   for (let phase = 1; phase <= 3; phase++) {
     for (let tick = 0; tick < 300 && brain.boss.state !== 'exposed'; tick++) {
       brain.enemies.length = 0;
@@ -341,4 +340,30 @@ test('both co-op suits can complete organ-specific objectives', () => {
   brain.enemies.length = 0;
   for (let tick = 0; tick < 60 && brain.phase !== 'won'; tick++) brain.step(1 / 30);
   assert.equal(brain.phase, 'won');
+});
+
+test('solo and co-op can repeatedly reload full magazines after the old reserve would be spent', () => {
+  const solo = new Simulation('artery');
+  const coop = new CoopSimulation([
+    { id: 'alpha', weaponLoadout: { magazine: 'extended-magazine' } },
+    { id: 'bravo' },
+  ]);
+  for (const sim of [solo, coop]) {
+    sim.start();
+    for (const suit of sim.activeSuits()) {
+      const { player, magazineSize, weapon } = suit;
+      for (let magazine = 0; magazine < 10; magazine++) {
+        for (let round = 0; round < magazineSize; round++) {
+          sim.updateRifle(weapon.interval, { fire: true }, false, suit);
+        }
+        assert.equal(player.ammo, 0);
+        sim.updateRifle(0, magazine % 2 === 0 ? { reload: true } : { fire: true }, false, suit);
+        assert.equal(suit.reloading, weapon.reloadSeconds);
+        sim.updateRifle(weapon.reloadSeconds / 2, { fire: true }, false, suit);
+        assert.equal(player.ammo, 0);
+        sim.updateRifle(weapon.reloadSeconds / 2, {}, false, suit);
+        assert.equal(player.ammo, magazineSize);
+      }
+    }
+  }
 });

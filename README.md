@@ -31,7 +31,7 @@ Open **Free Mode** to browse rendered previews of all eight arenas. Select a mis
 
 The **Armory** lets you mix a barrel, muzzle, optic, receiver, and magazine. Each slot has three illustrated options. The armory compares each part against your equipped build and shows the combined weapon in 3D. Pick a body finish and an accent color independently. Your build is saved in the browser and works alongside your field upgrade.
 
-The armory reopens between waves. Swapping magazines preserves the rounds you carry. Changing to a smaller magazine puts excess loaded rounds into reserve. First-time Arterial Junction training uses stock weapon stats until the guided breach is sealed.
+The carbine has unlimited reserve ammunition. Magazine capacity and reload speed depend on your weapon build. The armory reopens between waves. First-time Arterial Junction training uses stock weapon stats until the guided breach is sealed.
 
 The game prepares arena geometry, textures, audio, and armory previews before it enables deployment. The first load includes all eight arenas and the Mega Virus encounter.
 
@@ -97,7 +97,7 @@ git subtree push --prefix=dist origin gh-pages
 
 When mouse capture is unavailable, drag the view to look. On touchscreens, move with the joystick, drag to look, and use the action buttons.
 
-Connect an Xbox controller to your device and press a button with the game tab focused. Use the D-pad or left stick to navigate menus, **A** to select, and **B** to go back. In Capillary Junction, the D-pad chooses support during the wave break. Left reinforces Amber, right reinforces Teal, up selects ammo, and down selects turret redeployment. If your browser gates audio, click the game or press a keyboard key once to enable it. Enter co-op callsigns and room codes with your keyboard.
+Connect an Xbox controller to your device and press a button with the game tab focused. Use the D-pad or left stick to navigate menus, **A** to select, and **B** to go back. In Capillary Junction, the D-pad chooses support during the wave break. Left reinforces Amber, right reinforces Teal, up selects Load magazines, and down selects turret redeployment. If your browser gates audio, click the game or press a keyboard key once to enable it. Enter co-op callsigns and room codes with your keyboard.
 
 Each node has its own integrity meter and direction marker. Losing either node ends the mission. You can deploy one turret per mission on clear ground ahead of you. It stays where you place it and fires one shot every 2.6 seconds at targets within about 10 meters. Hits damage and briefly slow pathogens. Put it near an approach to the node you plan to leave.
 
@@ -109,7 +109,7 @@ Shellbacks guard their front. Aim for exposed tissue from the side or rear. Spli
 
 Capillary Junction has three waves with staggered attacks. The HUD names the next targeted node, the incoming pathogen, and the time until it enters. In Wave 3, an Amber virus rush arrives six seconds before the Teal bacillus breach.
 
-During each break, use **1** to reinforce Amber, **2** to reinforce Teal, **3** for extra ammo, or **4** to redeploy a turret you've already placed. You can also select the options on screen. Reinforcement starts when the first attacker enters the chosen inlet. After choosing redeploy, face clear ground and press **Q** or tap **Turret** before the next wave. A successful move uses your support choice for that break. The turret keeps its position until you find a valid new spot.
+During each break, use **1** to reinforce Amber, **2** to reinforce Teal, **3** to start the next wave with a full magazine, or **4** to redeploy a turret you've already placed. You can also select the options on screen. Reinforcement starts when the first attacker enters the chosen inlet. After choosing redeploy, face clear ground and press **Q** or tap **Turret** before the next wave. A successful move uses your support choice for that break. The turret keeps its position until you find a valid new spot.
 
 In the breach wave, a bacillus tear can leave a gash that keeps draining tissue after the attacker dies. Move to the marked wound and hold Repair. Completed sealing pulses stay applied when you stop to fight or dodge. If a gash is still open after the last enemy falls, seal it to extract.
 
