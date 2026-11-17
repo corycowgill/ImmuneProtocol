@@ -1,10 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { WEAPON_ACCENTS, WEAPON_FINISHES } from './weapon-mods.mjs';
+import { suitParts } from './suits.mjs';
 
 const DOWN = new THREE.Vector3(0, -1, 0);
 const { clamp, damp, lerp } = THREE.MathUtils;
 
-export function createTeammate(softMask) {
+export function createTeammate(softMask, { marker: showMarker = true } = {}) {
   const root = new THREE.Group();
   root.name = 'Co-op teammate';
   root.visible = false;
@@ -114,9 +115,45 @@ export function createTeammate(softMask) {
     const forearm = joint(upper);
     mesh(forearm, ball, frame, 0, -.52, 0, .063, .53, .059);
     mesh(forearm, ball, hull, side * .025, -.57, -.011, .052, .345, .050);
-    const glove = mesh(upper, ball, fabric, 0, 0, 0, .062, .073, .057);
+    const glove = joint(upper);
+    mesh(glove, ball, fabric, 0, 0, 0, .062, .073, .057);
     return { side, shoulder: new THREE.Vector3(side * .238, .332, .008), bicep, forearm, glove };
   });
+
+  // Procedural "stock" suit meshes, hidden while a Blender suit model is worn.
+  const stock = [];
+  body.traverse(part => { if (part.isMesh) stock.push(part); });
+  const suitJoints = { upper, head, hips };
+  for (const [index, side] of ['L', 'R'].entries()) {
+    suitJoints['thigh_' + side] = legs[index].thigh;
+    suitJoints['shin_' + side] = legs[index].shin;
+    suitJoints['boot_' + side] = legs[index].boot;
+    suitJoints['bicep_' + side] = arms[index].bicep;
+    suitJoints['forearm_' + side] = arms[index].forearm;
+    suitJoints['glove_' + side] = arms[index].glove;
+  }
+  let suitId = null;
+  let suitWorn = false;
+  const worn = [];
+
+  function wearSuit(id) {
+    if (id === suitId && (suitWorn || !id)) return;
+    const parts = id ? suitParts(id) : null;
+    if (id && !parts) return; // Models still loading; keep the stock suit for now.
+    suitId = id;
+    suitWorn = !!parts;
+    for (const part of worn.splice(0)) part.removeFromParent();
+    for (const part of stock) part.visible = !parts;
+    if (!parts) return;
+    for (const [name, template] of parts) {
+      const parent = suitJoints[name];
+      if (!parent) continue;
+      const part = template.clone();
+      part.position.set(0, 0, 0);
+      parent.add(part);
+      worn.push(part);
+    }
+  }
 
   const holding = joint(upper, .12, .265, -.218);
   const rifle = joint(holding);
@@ -158,6 +195,7 @@ export function createTeammate(softMask) {
   }));
   marker.scale.set(.220, .055, 1);
   marker.renderOrder = 20;
+  marker.visible = showMarker;
   root.add(marker);
   let markerName;
   let markerStatus;
@@ -165,7 +203,7 @@ export function createTeammate(softMask) {
   function updateMarker(player) {
     const status = player.downed ? 'Downed' : player.connected === false ? 'Disconnected' : '';
     const fullName = player.name || 'Teammate';
-    if (fullName === markerName && status === markerStatus) return;
+    if (!showMarker || (fullName === markerName && status === markerStatus)) return;
     markerName = fullName;
     markerStatus = status;
     const name = Array.from(fullName).slice(0, 19).join('');
@@ -301,6 +339,7 @@ export function createTeammate(softMask) {
     sealer.visible = repair;
     flash.visible = !reduceMotion && !prone && !repair && flashTime > 0;
     configureRifle(player.weaponLoadout);
+    wearSuit(player.suit ?? null);
 
     for (const arm of arms) {
       if (arm.side > 0) wrist.set(0, -.056, .045);
@@ -325,5 +364,5 @@ export function createTeammate(softMask) {
     return true;
   }
 
-  return { root, hide, update, fire };
+  return { root, hide, update, fire, wearSuit };
 }

@@ -41,6 +41,8 @@ Two players share all eight missions in one room, from Arterial Junction to the 
 
 After each mission, both players ready up at the shared checkpoint. A win unlocks the next deployment in the room, while a loss lets both players retry the current mission. Each deployment starts with fresh suits and supplies and keeps both weapon loadouts. The squad extracts after stabilizing Capillary Junction and earns a combined campaign report after the final boss. Campaign progress belongs to the active room.
 
+In the lobby, each player picks a suit: **Vanguard** (heavy assault armor), **Wraith** (stealth infiltrator), **Lifeline** (bio-containment corpsman), or **Bathysphere** (deep-dive pressure suit). Both suits stand side by side in the lobby's deployment bay, and your teammate sees your suit during missions. Suits can be changed in the lobby or at a mission checkpoint, and the browser remembers your choice.
+
 Each suit has its own carbine build, ammo, and health. You share the tissue nodes, one turret, the wave timer, and the mission score. If one suit goes down, it returns at the next wave if the teammate clears the current one. Both players can use the armory between waves and ready up to continue. The game holds your place for up to 75 seconds after a disconnect.
 
 To test locally with two browser windows, run these commands from the repository root with Node 22 and npm. Open the resulting game at [http://127.0.0.1:8017](http://127.0.0.1:8017) and share its invite between the windows.
@@ -50,7 +52,7 @@ npm ci
 npm run serve:coop
 ```
 
-Run `npm run test:coop` to exercise the server with two WebSocket clients. The server runs the shared simulation on a fixed tick, validates player input, and sends the result for each client to draw in Three.js.
+Run `npm run test:coop` to exercise the server with two WebSocket clients. The suits are modeled in Blender: `blender -b -P tools/suits/build_suits.py` regenerates `dist/suit-models.mjs`, the part recipe the game builds each suit from, along with reference `.glb` exports in `dist/assets/suits/` and Cycles portraits in `tools/suits/renders/`. Blender's glTF exporter needs NumPy; the script adds the system `dist-packages` path for it. The server runs the shared simulation on a fixed tick, validates player input, and sends the result for each client to draw in Three.js.
 
 ### Host online co-op on Render
 

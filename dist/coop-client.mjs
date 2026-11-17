@@ -1,5 +1,7 @@
 import { Simulation } from './simulation.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
+import { attachLobby } from './coop-lobby.mjs';
+import { savedSuit } from './suits.mjs';
 import { COOP_PATH, COOP_HEALTH_PATH, COOP_PROTOCOL_VERSION, COOP_RECONNECT_MS, COOP_SERVICE, COOP_TICK_RATE } from './coop-protocol.mjs';
 
 export const PUBLIC_COOP_ORIGIN = 'https://immune-protocol-coop.onrender.com';
@@ -86,6 +88,7 @@ export class CoopClient extends EventTarget {
     this.retryUntil = 0;
     this.retryDelay = 450;
     this.resetState();
+    attachLobby(this);
   }
 
   resetState() {
@@ -118,6 +121,7 @@ export class CoopClient extends EventTarget {
     if (this.socket && this.socket.readyState <= WebSocket.OPEN) return;
     clearTimeout(this.retryTimer);
     if (intent.type === 'resume' && !this.session) this.session = intent;
+    else if (intent.type !== 'resume') intent = { ...intent, suit: savedSuit() };
     const socket = new WebSocket(this.url);
     this.socket = socket;
     this.sessionConfirmed = false;
@@ -211,6 +215,10 @@ export class CoopClient extends EventTarget {
         break;
       }
     }
+  }
+
+  setSuit(suit) {
+    return this.connected && this.send({ type: 'suit', suit });
   }
 
   setReady(ready, loadout) {
