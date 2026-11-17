@@ -432,13 +432,17 @@ export class Simulation {
     this.junctionSupplyLocked = false;
     this.reinforcement = null;
     if (choice === 'ammo') {
-      const player = this.player;
-      const amount = Math.min(JUNCTION_SUPPLY_AMMO, Math.max(0, RULES.reserveCap - player.reserve));
-      player.reserve += amount;
-      const rounds = Math.min(this.magazineSize - player.ammo, player.reserve);
-      player.ammo += rounds;
-      player.reserve -= rounds;
-      this.reloading = 0;
+      let amount = 0;
+      for (const suit of this.activeSuits()) {
+        const { player, magazineSize } = suit;
+        const added = Math.min(JUNCTION_SUPPLY_AMMO, Math.max(0, RULES.reserveCap - player.reserve));
+        amount += added;
+        player.reserve += added;
+        const rounds = Math.min(magazineSize - player.ammo, player.reserve);
+        player.ammo += rounds;
+        player.reserve -= rounds;
+        suit.reloading = 0;
+      }
       this.events.push({ type: 'junctionSupply', choice, amount });
     } else if (choice === 'left' || choice === 'right') {
       this.reinforcement = { branch: choice, remaining: REINFORCEMENT_TIME, duration: REINFORCEMENT_TIME, started: false };
@@ -491,6 +495,27 @@ export class Simulation {
     this.events.push({ type: 'mission', outcome, reason, nodeId: this.failedNode?.id });
   }
 
+  activeSuits() {
+    return [this];
+  }
+
+  moveSuits(dt, input) {
+    this.movePlayer(dt, input);
+    if (this.organ?.phase === 'active') this.applyOrganHazard(dt);
+  }
+
+  actSuits(dt, input) {
+    if (input.deploy) this.deployTurret();
+    const repairing = this.updateRepair(dt, input.repair);
+    this.updateRifle(dt, input, repairing);
+  }
+
+  updateSuitStatus() {}
+
+  suitsDefeated() {
+    return this.player.health === 0;
+  }
+
   step(dt, input = {}) {
     this.events = [];
     if (this.extractionPending || (this.phase !== 'combat' && this.phase !== 'intermission')) return;
@@ -504,8 +529,7 @@ export class Simulation {
     }
     if (this.boss) stepBrainBoss(this, dt);
     else if (this.organ) this.updateOrgan(dt);
-    this.movePlayer(dt, input);
-    if (this.organ?.phase === 'active') this.applyOrganHazard(dt);
+    this.moveSuits(dt, input);
     if (this.gash) {
       this.damageNode(this.gash.node, this.gash.drainPerSecond * dt);
     }
@@ -513,22 +537,22 @@ export class Simulation {
       this.endMission('lost', 'tissue');
       return;
     }
-    if ((this.organ || this.gastric) && this.player.health === 0) {
+    this.updateSuitStatus();
+    if ((this.organ || this.gastric) && this.suitsDefeated()) {
       this.endMission('lost', 'suit');
       return;
     }
-    if (input.deploy) this.deployTurret();
-    const repairing = this.updateRepair(dt, input.repair);
-    this.updateRifle(dt, input, repairing);
+    this.actSuits(dt, input);
     this.updateTurret(dt);
 
     if (this.valve) {
       this.advanceEnemies(dt);
       this.advanceProjectiles(dt);
+      this.updateSuitStatus();
       this.remaining = this.enemies.length + HEART_PATROL.length - this.patrolIndex;
       this.settling = this.valve.colonyDefeated;
       if (this.failedNode) this.endMission('lost', 'tissue');
-      else if (this.player.health === 0) this.endMission('lost', 'suit');
+      else if (this.suitsDefeated()) this.endMission('lost', 'suit');
       else if (this.settling && this.remaining === 0 && this.projectiles.length === 0 && this.tissue === RULES.tissue) {
         this.score += 250;
         this.endMission('won');
@@ -588,13 +612,14 @@ export class Simulation {
     }
     this.advanceEnemies(dt);
     this.advanceProjectiles(dt);
+    this.updateSuitStatus();
     this.remaining = (mission.arrivals ?? mission.species).length - this.spawnIndex + this.enemies.length +
       pendingGastricEnemies(this.gastric) +
       Number(!!this.boss && this.boss.state !== 'defeated');
 
     if (this.failedNode) {
       this.endMission('lost', 'tissue');
-    } else if (this.player.health === 0) {
+    } else if (this.suitsDefeated()) {
       this.endMission('lost', 'suit');
     } else if (this.airway) {
       this.advanceAirwayObjective();
@@ -616,7 +641,9 @@ export class Simulation {
         ...attack, at: index === 0 ? this.clock + attack.delay : null, warned: false, spawned: false,
       })),
     };
-    this.player.reserve = Math.max(this.player.reserve, this.magazineSize * 2);
+    for (const { player, magazineSize } of this.activeSuits()) {
+      player.reserve = Math.max(player.reserve, magazineSize * 2);
+    }
     this.events.push({ type: 'airway', stage: 'start' });
   }
 
@@ -659,8 +686,13 @@ export class Simulation {
         airway.incoming = { remaining, nodeIds: [nodeId], names: [name] };
       }
     }
-    if (!this.player.ammo && !this.player.reserve && this.enemies.length) {
-      this.player.reserve = this.magazineSize;
+    this.resupplyEmptySuits();
+  }
+
+  resupplyEmptySuits() {
+    if (!this.enemies.length) return;
+    for (const { player, magazineSize } of this.activeSuits()) {
+      if (!player.ammo && !player.reserve) player.reserve = magazineSize;
     }
   }
 
@@ -747,7 +779,7 @@ export class Simulation {
       const next = state.phase === 'recovery' ? 'warning' : state.phase === 'warning' ? 'active' : 'recovery';
       state = this.organ = this.createOrganPhase(next);
       shapeGastricHazard(this);
-      this.organNextDamage = this.clock;
+      for (const suit of this.activeSuits()) suit.organNextDamage = this.clock;
       this.events.push({ type: 'organ', stage: next, area: this.area, x: state.x, y: .8, z: state.z });
     }
     const { hazard } = this.organMission;
@@ -756,18 +788,19 @@ export class Simulation {
     }
   }
 
-  applyOrganHazard(dt) {
-    const { player, organ } = this;
+  applyOrganHazard(dt, suit = this) {
+    const { player } = suit;
+    const { organ } = this;
     if (!withinHazard(player, organ)) return;
     const { push, damage } = this.organMission.hazard;
     if (push) {
       player.z += push * dt;
       this.confineToArena(player);
     }
-    if (damage && this.clock >= this.organNextDamage) {
-      this.organNextDamage = this.clock + .65;
+    if (damage && this.clock >= suit.organNextDamage) {
+      suit.organNextDamage = this.clock + .65;
       const insulated = this.area === 'stomach' || this.area === 'intestines';
-      this.damageTarget(player, 'player', insulated ? damage * this.hazardDamageMultiplier : damage);
+      this.damageTarget(player, 'player', insulated ? damage * this.hazardDamageMultiplier : damage, player, player.id);
     }
   }
 
@@ -790,7 +823,11 @@ export class Simulation {
     const colony = this.colony;
     if (!colony) return;
     if (open) colony.attackCooldown = 0;
-    else if (this.player.ammo + this.player.reserve < this.magazineSize) this.player.reserve += this.magazineSize;
+    else {
+      for (const { player, magazineSize } of this.activeSuits()) {
+        if (player.ammo + player.reserve < magazineSize) player.reserve += magazineSize;
+      }
+    }
   }
 
   advanceColony(dt) {

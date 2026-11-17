@@ -24,7 +24,7 @@ export function createBrainBoss(sim) {
     duration: sealed, cycle: 0, openings: 0, openness: 0, weakPoint: null, targetNodeId: null,
   };
   sim.boss = boss;
-  sim.player.reserve = Math.max(66, sim.player.reserve);
+  for (const { player } of sim.activeSuits()) player.reserve = Math.max(66, player.reserve);
   startCycle(sim);
   emit(sim, 'phase');
 }
@@ -72,7 +72,9 @@ export function stepBrainBoss(sim, dt) {
     const pattern = PHASES[boss.phase - 1];
     if (boss.state === 'sealed') {
       setState(boss, 'warning', pattern.warning);
-      if (sim.player.ammo + sim.player.reserve < 24) sim.player.reserve += 42;
+      for (const { player } of sim.activeSuits()) {
+        if (player.ammo + player.reserve < 24) player.reserve += 42;
+      }
       emit(sim, 'warning');
       if (boss.openings === 0) spawnBrood(sim);
     } else if (boss.state === 'warning') {

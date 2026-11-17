@@ -7,3 +7,4 @@ export const COOP_PATH = '/coop';
 export const COOP_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const COOP_CODE_LENGTH = 8;
 export const COOP_NAME_LIMIT = 24;
+export const CAMPAIGN_AREAS = Object.freeze(['artery', 'junction', 'heart', 'lungs', 'stomach', 'intestines', 'ear', 'brain']);
