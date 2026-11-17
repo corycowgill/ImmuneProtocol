@@ -3,7 +3,7 @@
 // [kind, material, center relative to the joint pivot, ...shape parameters].
 export const SUIT_MODELS = {
   vanguard: {
-    materials: {hull:{color:"#5b6b3a",metalness:.35,roughness:.5},trim:{color:"#2b2f2c",metalness:.6,roughness:.42},under:{color:"#1f2321",metalness:.1,roughness:.85},metal:{color:"#8b8f88",metalness:.85,roughness:.32},glow:{color:"#ffa040",metalness:0,roughness:.4,emissive:"#ff8a1f",emissiveIntensity:6},visor:{color:"#3a2100",metalness:.9,roughness:.12,emissive:"#ff8a1f",emissiveIntensity:.6},stripe:{color:"#d8a21c",metalness:.2,roughness:.5}},
+    materials: {hull:{color:"#454c2a",metalness:.3,roughness:.55},trim:{color:"#b48c42",metalness:.9,roughness:.32},under:{color:"#1f2321",metalness:.1,roughness:.85},metal:{color:"#8b8f88",metalness:.85,roughness:.32},glow:{color:"#ffa040",metalness:0,roughness:.4,emissive:"#ff8a1f",emissiveIntensity:6},visor:{color:"#8c4c06",metalness:.55,roughness:.08,emissive:"#ff8a1f",emissiveIntensity:.4},stripe:{color:"#b88a1a",metalness:.2,roughness:.5}},
     parts: {
       hips: [
         ["ball","under",[0,.032,.005],[.22,.13,.13],[0,0,0],24,14],
@@ -202,7 +202,7 @@ export const SUIT_MODELS = {
     },
   },
   lifeline: {
-    materials: {hull:{color:"#e7ebee",metalness:.1,roughness:.35},trim:{color:"#c8282c",metalness:.2,roughness:.45},under:{color:"#b7c0c6",metalness:0,roughness:.75},metal:{color:"#a9b2b8",metalness:.8,roughness:.3},glow:{color:"#5dffc8",metalness:0,roughness:.4,emissive:"#2dffb0",emissiveIntensity:5},visor:{color:"#9fe8ff",metalness:.1,roughness:.03,emissive:"#50c8e8",emissiveIntensity:.25,opacity:.32},face:{color:"#223038",metalness:.3,roughness:.5}},
+    materials: {hull:{color:"#d9d6cf",metalness:.1,roughness:.45},trim:{color:"#b01d22",metalness:.2,roughness:.45},under:{color:"#c9c6bd",metalness:0,roughness:.78},metal:{color:"#a9b2b8",metalness:.8,roughness:.3},glow:{color:"#6ff3ff",metalness:0,roughness:.4,emissive:"#50d8f0",emissiveIntensity:5},visor:{color:"#050607",metalness:.3,roughness:.04},face:{color:"#223038",metalness:.3,roughness:.5}},
     parts: {
       hips: [
         ["ball","under",[0,.032,.006],[.22,.14,.14],[0,0,0],24,14],
@@ -235,9 +235,11 @@ export const SUIT_MODELS = {
         ["cyl","under",[.16,.34,.1],.016,.016,.22,"y",[.6,0,.4],20],
       ],
       head: [
-        ["ball","face",[0,-.001,.013],[.085,.1,.09],[0,0,0],24,14],
-        ["box","glow",[0,.014,-.072],[.1,.02,.02],[0,0,0],.004],
-        ["ball","visor",[0,.009,.008],[.17,.175,.17],[0,0,0],32,18],
+        ["ball","hull",[0,.009,.015],[.162,.165,.167],[0,0,0],32,18],
+        ["ball","visor",[0,.029,-.037],[.14,.075,.13],[0,0,0],32,18],
+        ["box","glow",[-.05,.021,-.165],[.06,.012,.01],[0,0,0],.002],
+        ["box","glow",[.05,.021,-.165],[.06,.012,.01],[0,0,0],.002],
+        ["box","hull",[0,-.071,-.147],[.085,.06,.05],[0,0,0],.015],
         ["cyl","trim",[0,.189,.013],.04,.04,.03,"y",[0,0,0],20],
         ["cyl","glow",[0,.209,.013],.025,.025,.02,"y",[0,0,0],20],
         ["cyl","metal",[-.165,-.031,.013],.035,.035,.04,"x",[0,0,0],20],
@@ -298,7 +300,7 @@ export const SUIT_MODELS = {
     },
   },
   bathysphere: {
-    materials: {hull:{color:"#b4772f",metalness:.9,roughness:.32},trim:{color:"#1d4f55",metalness:.35,roughness:.55},under:{color:"#3a3128",metalness:.05,roughness:.9},metal:{color:"#8a5a2a",metalness:.95,roughness:.28},glow:{color:"#70fff0",metalness:0,roughness:.4,emissive:"#2fe6d6",emissiveIntensity:5},visor:{color:"#0a2a2c",metalness:.8,roughness:.06,emissive:"#2fe6d6",emissiveIntensity:1.4}},
+    materials: {hull:{color:"#a85c34",metalness:.9,roughness:.34},trim:{color:"#b44a18",metalness:.3,roughness:.52},under:{color:"#24302a",metalness:.05,roughness:.85},metal:{color:"#4a4440",metalness:.9,roughness:.45},glow:{color:"#70fff0",metalness:0,roughness:.4,emissive:"#2fe6d6",emissiveIntensity:5},visor:{color:"#0a2a2c",metalness:.8,roughness:.06,emissive:"#2fe6d6",emissiveIntensity:1.4}},
     parts: {
       hips: [
         ["ball","under",[0,.032,.006],[.23,.14,.14],[0,0,0],24,14],

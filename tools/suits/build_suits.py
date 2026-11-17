@@ -3,9 +3,10 @@
 Run from the repository root:
     blender -b -P tools/suits/build_suits.py
 
-Writes dist/suit-models.mjs, the compact part recipe the game builds
-its meshes from, plus a reference dist/assets/suits/<id>.glb export and a
-Cycles portrait in tools/suits/renders/<id>.png for each suit.
+Writes dist/suit-models.mjs, the compact part recipe the game builds its
+lightweight fallback meshes from (worn while the photoreal GLBs from
+build_suits_hq.py stream in), plus a reference tools/suits/renders/<id>_recipe.glb
+export and a Cycles portrait in tools/suits/renders/<id>.png for each suit.
 
 Each GLB contains one mesh object per animated joint of the teammate rig in
 dist/teammate.mjs. Coordinates in this script use the game's (Three.js) frame:
@@ -33,7 +34,7 @@ def q(values):
     return [round(float(v), 4) for v in values]
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-OUT = os.path.join(ROOT, 'dist', 'assets', 'suits')
+OUT = os.path.join(ROOT, 'tools', 'suits', 'renders')
 PORTRAITS = os.path.join(ROOT, 'tools', 'suits', 'renders')
 os.makedirs(OUT, exist_ok=True)
 os.makedirs(PORTRAITS, exist_ok=True)
@@ -237,13 +238,13 @@ def arms(s, m, bicep_r=.074, fore_r=.064, glove_r=(.062, .073, .057)):
 def vanguard():
     s = Suit('vanguard')
     m = {
-        'hull': material('hull', 0x5b6b3a, .35, .5),
-        'trim': material('trim', 0x2b2f2c, .6, .42),
+        'hull': material('hull', 0x454c2a, .3, .55),
+        'trim': material('trim', 0xb48c42, .9, .32),
         'under': material('under', 0x1f2321, .1, .85),
         'metal': material('metal', 0x8b8f88, .85, .32),
         'glow': material('glow', 0xffa040, 0, .4, 0xff8a1f, 6),
-        'visor': material('visor', 0x3a2100, .9, .12, 0xff8a1f, .6),
-        'stripe': material('stripe', 0xd8a21c, .2, .5),
+        'visor': material('visor', 0x8c4c06, .55, .08, 0xff8a1f, .4),
+        'stripe': material('stripe', 0xb88a1a, .2, .5),
     }
     # Torso — broad armoured cuirass.
     s.ball('upper', m['under'], (0, .19 + 1.09, .01), (.25, .31, .17))
@@ -373,12 +374,12 @@ def wraith():
 def lifeline():
     s = Suit('lifeline')
     m = {
-        'hull': material('hull', 0xe7ebee, .1, .35),
-        'trim': material('trim', 0xc8282c, .2, .45),
-        'under': material('under', 0xb7c0c6, .0, .75),
+        'hull': material('hull', 0xd9d6cf, .1, .45),
+        'trim': material('trim', 0xb01d22, .2, .45),
+        'under': material('under', 0xc9c6bd, .0, .78),
         'metal': material('metal', 0xa9b2b8, .8, .3),
-        'glow': material('glow', 0x5dffc8, 0, .4, 0x2dffb0, 5),
-        'visor': material('visor', 0x9fe8ff, .1, .03, 0x50c8e8, .25, alpha=.32),
+        'glow': material('glow', 0x6ff3ff, 0, .4, 0x50d8f0, 5),
+        'visor': material('visor', 0x050607, .3, .04),
         'face': material('face', 0x223038, .3, .5),
     }
     # Puffy pressurised torso with ribbed segments.
@@ -401,10 +402,12 @@ def lifeline():
         s.cyl('upper', m['glow'], (side * .085, 1.3, .27), .068, .1, verts=24, bevel=0)
         s.ball('upper', m['metal'], (side * .085, 1.49, .27), (.065, .03, .065))
         s.cyl('upper', m['under'], (side * .16, 1.43, .1), .016, .22, rot=(.6, 0, side * .4))
-    # Dome helmet: transparent bubble, visible head inside, sensor lamp.
-    s.ball('head', m['face'], (0, 1.65, .01), (.085, .1, .09))
-    s.box('head', m['glow'], (0, 1.665, -.075), (.1, .02, .02), bevel=.004)
-    s.ball('head', m['visor'], (0, 1.66, .005), (.17, .175, .17), segments=32, rings=18)
+    # White helmet shell, glossy black visor with cyan eye strips, red beacon.
+    s.ball('head', m['hull'], (0, 1.66, .012), (.162, .165, .167), segments=32, rings=18)
+    s.ball('head', m['visor'], (0, 1.68, -.04), (.14, .075, .13), segments=32, rings=18)
+    for side in (-1, 1):
+        s.box('head', m['glow'], (side * .05, 1.672, -.168), (.06, .012, .01), bevel=.002)
+    s.box('head', m['hull'], (0, 1.58, -.15), (.085, .06, .05), bevel=.015)
     s.cyl('head', m['trim'], (0, 1.84, .01), .04, .03)
     s.cyl('head', m['glow'], (0, 1.86, .01), .025, .02)
     for side in (-1, 1):
@@ -441,10 +444,10 @@ def lifeline():
 def bathysphere():
     s = Suit('bathysphere')
     m = {
-        'hull': material('hull', 0xb4772f, .9, .32),
-        'trim': material('trim', 0x1d4f55, .35, .55),
-        'under': material('under', 0x3a3128, .05, .9),
-        'metal': material('metal', 0x8a5a2a, .95, .28),
+        'hull': material('hull', 0xa85c34, .9, .34),
+        'trim': material('trim', 0xb44a18, .3, .52),
+        'under': material('under', 0x24302a, .05, .85),
+        'metal': material('metal', 0x4a4440, .9, .45),
         'glow': material('glow', 0x70fff0, 0, .4, 0x2fe6d6, 5),
         'visor': material('visor', 0x0a2a2c, .8, .06, 0x2fe6d6, 1.4),
     }
@@ -518,7 +521,7 @@ def export(objects, ident):
     for obj in objects:
         obj.select_set(True)
     bpy.ops.export_scene.gltf(
-        filepath=os.path.join(OUT, ident + '.glb'), export_format='GLB', use_selection=True,
+        filepath=os.path.join(OUT, ident + '_recipe.glb'), export_format='GLB', use_selection=True,
         export_apply=True, export_yup=True, export_texcoords=False, export_normals=True,
         export_materials='EXPORT', export_cameras=False, export_lights=False,
     )
