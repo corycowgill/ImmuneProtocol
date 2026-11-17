@@ -1,6 +1,6 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { WebSocket } from 'ws';
-import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH, COOP_NAME_LIMIT, COOP_RECONNECT_MS, COOP_TICK_RATE as TICK_RATE } from '../dist/coop-protocol.mjs';
+import { CAMPAIGN_AREAS, COOP_SUITS, DEFAULT_COOP_SUIT, COOP_CODE_ALPHABET, COOP_CODE_LENGTH, COOP_NAME_LIMIT, COOP_RECONNECT_MS, COOP_TICK_RATE as TICK_RATE } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
 import { normalizeWeaponLoadout } from '../dist/weapon-mods.mjs';
 
@@ -28,6 +28,10 @@ function readName(value) {
   if (typeof value !== 'string') return 'Nano soldier';
   const cleaned = value.normalize('NFC').replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/gu, '').trim();
   return Array.from(cleaned).slice(0, COOP_NAME_LIMIT).join('') || 'Nano soldier';
+}
+
+function readSuit(value) {
+  return COOP_SUITS.includes(value) ? value : DEFAULT_COOP_SUIT;
 }
 
 function generateCode() {
@@ -112,6 +116,9 @@ export class CoopRooms {
       case 'ready':
         this.setReady(room, player, message, now);
         break;
+      case 'suit':
+        this.setSuit(room, player, message, now);
+        break;
       case 'supply':
         if (room.phase === 'playing' && room.players.every(entry => entry.connection)) {
           room.simulation.selectJunctionSupply(message.choice);
@@ -161,6 +168,7 @@ export class CoopRooms {
       token: randomBytes(24).toString('base64url'),
       name: readName(message.name),
       weaponLoadout: normalizeWeaponLoadout(message.loadout),
+      suit: readSuit(message.suit),
       ready: false,
     };
     room.players.push(player);
@@ -257,6 +265,15 @@ export class CoopRooms {
     this.publishRoom(room);
   }
 
+  setSuit(room, player, message, now) {
+    // Suits are chosen in the lobby or at the mission checkpoint, never mid-deployment.
+    if (room.phase !== 'lobby' && room.phase !== 'finished') return;
+    if (!COOP_SUITS.includes(message.suit) || message.suit === player.suit) return;
+    player.suit = message.suit;
+    room.touchedAt = now;
+    this.publishRoom(room);
+  }
+
   setReady(room, player, message, now) {
     if (room.phase === 'playing' || typeof message.ready !== 'boolean') return;
     if (message.loadout && typeof message.loadout === 'object') {
@@ -279,7 +296,7 @@ export class CoopRooms {
       room.missionIndex = (room.missionIndex + 1) % CAMPAIGN_AREAS.length;
       if (room.missionIndex === 0) room.results = [];
     }
-    const participants = room.players.map(({ id, name, weaponLoadout }) => ({ id, name, weaponLoadout }));
+    const participants = room.players.map(({ id, name, weaponLoadout, suit }) => ({ id, name, weaponLoadout, suit }));
     room.simulation = this.createSimulation(participants, CAMPAIGN_AREAS[room.missionIndex]);
     room.simulation.start();
     room.tick = 0;
@@ -385,7 +402,9 @@ export class CoopRooms {
     const disconnected = room.players.filter(player => !player.connection);
     const message = {
       type: 'room', code: room.code, phase: room.phase, ownerId: room.ownerId,
-      players: room.players.map(({ id, name, ready, connection }) => ({ id, name, ready, connected: !!connection })),
+      players: room.players.map(({ id, name, ready, connection, suit, weaponLoadout }) => ({
+        id, name, ready, connected: !!connection, suit, weaponLoadout,
+      })),
       missionIndex: room.missionIndex,
       results: room.results,
     };

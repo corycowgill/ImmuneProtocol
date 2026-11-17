@@ -1,16 +1,19 @@
 import { RULES, Simulation } from './simulation.mjs';
 import { normalizeWeaponLoadout, weaponStats } from './weapon-mods.mjs';
+import { COOP_SUITS, DEFAULT_COOP_SUIT } from './coop-protocol.mjs';
+
+const normalizeSuit = suit => COOP_SUITS.includes(suit) ? suit : DEFAULT_COOP_SUIT;
 
 const RESPAWN_HEALTH = 50;
 
 class CoopSuit {
-  constructor({ id, name, weaponLoadout }, spawn, repairAmount) {
+  constructor({ id, name, weaponLoadout, suit }, spawn, repairAmount) {
     this.spawn = spawn;
     this.repairAmount = repairAmount;
     this.baseMagazineSize = RULES.magazine;
     this.weaponLoadout = Object.freeze(normalizeWeaponLoadout(weaponLoadout));
     this.configuredWeapon = weaponStats(this.weaponLoadout);
-    this.player = { id, name, ammo: this.magazineSize };
+    this.player = { id, name, suit: normalizeSuit(suit), ammo: this.magazineSize };
     this.resetPose(RULES.health);
   }
 
@@ -76,7 +79,7 @@ export class CoopSimulation extends Simulation {
   start() {
     super.start();
     this.createSquad(this.suits.map(({ player, weaponLoadout }) => ({
-      id: player.id, name: player.name, weaponLoadout,
+      id: player.id, name: player.name, suit: player.suit, weaponLoadout,
     })));
     this.eventSequence = 0;
     this.sequenceEvents();

@@ -8,3 +8,5 @@ export const COOP_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const COOP_CODE_LENGTH = 8;
 export const COOP_NAME_LIMIT = 24;
 export const CAMPAIGN_AREAS = Object.freeze(['artery', 'junction', 'heart', 'lungs', 'stomach', 'intestines', 'ear', 'brain']);
+export const COOP_SUITS = Object.freeze(['vanguard', 'wraith', 'lifeline', 'bathysphere']);
+export const DEFAULT_COOP_SUIT = COOP_SUITS[0];
