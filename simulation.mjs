@@ -41,8 +41,6 @@ export const RULES = Object.freeze({
   health: 100,
   tissue: 100,
   magazine: 30,
-  initialReserve: 150,
-  reserveCap: 240,
   repairRadius: 5.4,
   arenaX: 29,
   arenaZ: 41,
@@ -144,7 +142,6 @@ const JUNCTION_GASH_DRAIN = .85;
 const REINFORCEMENT_TIME = 12;
 const REINFORCEMENT_HOLD = 2;
 const REINFORCED_SPEED = .6;
-const JUNCTION_SUPPLY_AMMO = 35;
 const LATCH_RANGE = 1.9;
 const LATCH_WINDUP = 0.45;
 const LATCH_TEAR = 0.27;
@@ -218,10 +215,7 @@ export class Simulation {
     suit.weaponLoadout = Object.freeze(normalizeWeaponLoadout(value));
     suit.configuredWeapon = weaponStats(suit.weaponLoadout);
     const { player, magazineSize } = suit;
-    // Return loose rounds to the reserve even if it is already at its refill limit.
-    const extraRounds = Math.max(0, player.ammo - magazineSize);
-    player.ammo -= extraRounds;
-    player.reserve += extraRounds;
+    player.ammo = Math.min(player.ammo, magazineSize);
     if (player.ammo === magazineSize) suit.reloading = 0;
     else if (suit.reloading > 0) suit.reloading *= suit.weapon.reloadSeconds / previousReload;
   }
@@ -331,7 +325,7 @@ export class Simulation {
     this.tutorial = null;
     this.player = {
       x: 0, y: 1.7, z: this.valve ? 2 : this.area === 'junction' ? 13 : 18, yaw: 0, pitch: 0,
-      health: RULES.health, ammo: this.magazineSize, reserve: RULES.initialReserve,
+      health: RULES.health, ammo: this.magazineSize,
     };
     if (this.organMission) [this.player.x, this.player.z] = this.organMission.entry;
     this.nodes = TISSUE_NODES[this.area].map(node => ({ ...node, health: RULES.tissue, underAttack: false }));
@@ -432,18 +426,11 @@ export class Simulation {
     this.junctionSupplyLocked = false;
     this.reinforcement = null;
     if (choice === 'ammo') {
-      let amount = 0;
       for (const suit of this.activeSuits()) {
-        const { player, magazineSize } = suit;
-        const added = Math.min(JUNCTION_SUPPLY_AMMO, Math.max(0, RULES.reserveCap - player.reserve));
-        amount += added;
-        player.reserve += added;
-        const rounds = Math.min(magazineSize - player.ammo, player.reserve);
-        player.ammo += rounds;
-        player.reserve -= rounds;
+        suit.player.ammo = suit.magazineSize;
         suit.reloading = 0;
       }
-      this.events.push({ type: 'junctionSupply', choice, amount });
+      this.events.push({ type: 'junctionSupply', choice });
     } else if (choice === 'left' || choice === 'right') {
       this.reinforcement = { branch: choice, remaining: REINFORCEMENT_TIME, duration: REINFORCEMENT_TIME, started: false };
       this.events.push({ type: 'junctionSupply', choice, ...JUNCTION_INLETS[choice] });
@@ -476,12 +463,11 @@ export class Simulation {
     }
     const junction = this.area === 'junction';
     this.intermission = junction ? JUNCTION_BREAK_TIME : INTERMISSION_TIME;
-    this.resupplyAfterWave(junction ? 12 : 55, junction ? 12 : 18);
+    this.restoreSuitHealthAfterWave(junction ? 12 : 18);
     if (this.gastric) startGastric(this);
   }
 
-  resupplyAfterWave(reserve, health, player = this.player) {
-    player.reserve += Math.min(reserve, Math.max(0, RULES.reserveCap - player.reserve));
+  restoreSuitHealthAfterWave(health, player = this.player) {
     player.health = Math.min(RULES.health, player.health + health);
   }
 
@@ -566,7 +552,6 @@ export class Simulation {
       if (this.tutorial === 'repair' && this.tissue === RULES.tissue) {
         this.tutorial = null;
         this.player.ammo = this.magazineSize;
-        this.player.reserve = RULES.initialReserve;
         this.reloading = 0;
         this.spawnCountdown = 1.35;
         this.events.push({ type: 'tutorial', stage: 'complete' });
@@ -641,9 +626,6 @@ export class Simulation {
         ...attack, at: index === 0 ? this.clock + attack.delay : null, warned: false, spawned: false,
       })),
     };
-    for (const { player, magazineSize } of this.activeSuits()) {
-      player.reserve = Math.max(player.reserve, magazineSize * 2);
-    }
     this.events.push({ type: 'airway', stage: 'start' });
   }
 
@@ -685,14 +667,6 @@ export class Simulation {
         const { nodeId, name } = airway.ports[attack.lane];
         airway.incoming = { remaining, nodeIds: [nodeId], names: [name] };
       }
-    }
-    this.resupplyEmptySuits();
-  }
-
-  resupplyEmptySuits() {
-    if (!this.enemies.length) return;
-    for (const { player, magazineSize } of this.activeSuits()) {
-      if (!player.ammo && !player.reserve) player.reserve = magazineSize;
     }
   }
 
@@ -820,14 +794,7 @@ export class Simulation {
 
     valve.phase = phase;
     this.events.push({ type: 'valve', stage: phase, x: HEART_VALVE.x, y: HEART_VALVE.y, z: HEART_VALVE.z });
-    const colony = this.colony;
-    if (!colony) return;
-    if (open) colony.attackCooldown = 0;
-    else {
-      for (const { player, magazineSize } of this.activeSuits()) {
-        if (player.ammo + player.reserve < magazineSize) player.reserve += magazineSize;
-      }
-    }
+    if (open && this.colony) this.colony.attackCooldown = 0;
   }
 
   advanceColony(dt) {
@@ -956,14 +923,11 @@ export class Simulation {
 
   updateRifle(dt, input, repairing, suit = this) {
     const { player, magazineSize, weapon } = suit;
-    if (this.tutorial && player.ammo === 0 && player.reserve === 0) player.reserve = magazineSize;
     suit.fireCooldown = Math.max(0, suit.fireCooldown - dt);
     if (suit.reloading > 0) {
       suit.reloading = Math.max(0, suit.reloading - dt);
       if (suit.reloading === 0) {
-        const rounds = Math.min(magazineSize - player.ammo, player.reserve);
-        player.ammo += rounds;
-        player.reserve -= rounds;
+        player.ammo = magazineSize;
         this.events.push({ type: 'reload', stage: 'complete' });
       }
     }
@@ -971,19 +935,12 @@ export class Simulation {
     const reloadPressed = input.reload && !suit.reloadHeld;
     suit.reloadHeld = Boolean(input.reload);
     if (repairing || suit.reloading > 0) return;
-    if (reloadPressed || (input.fire && player.ammo === 0)) {
-      if (player.ammo < magazineSize && player.reserve > 0) {
-        suit.reloading = weapon.reloadSeconds;
-        this.events.push({ type: 'reload', stage: 'start' });
-        return;
-      }
-    }
-    if (!input.fire || suit.fireCooldown > 0) return;
-    if (player.ammo === 0) {
-      suit.fireCooldown = 0.27;
-      this.events.push({ type: 'dry' });
+    if (player.ammo < magazineSize && (reloadPressed || (input.fire && player.ammo === 0))) {
+      suit.reloading = weapon.reloadSeconds;
+      this.events.push({ type: 'reload', stage: 'start' });
       return;
     }
+    if (!input.fire || suit.fireCooldown > 0) return;
     this.shoot(input.aim, suit);
   }
 

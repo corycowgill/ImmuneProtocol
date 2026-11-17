@@ -10,7 +10,7 @@ class CoopSuit {
     this.baseMagazineSize = RULES.magazine;
     this.weaponLoadout = Object.freeze(normalizeWeaponLoadout(weaponLoadout));
     this.configuredWeapon = weaponStats(this.weaponLoadout);
-    this.player = { id, name, ammo: this.magazineSize, reserve: RULES.initialReserve };
+    this.player = { id, name, ammo: this.magazineSize };
     this.resetPose(RULES.health);
   }
 
@@ -109,14 +109,13 @@ export class CoopSimulation extends Simulation {
     return closest;
   }
 
-  resupplyAfterWave(reserve, health) {
+  restoreSuitHealthAfterWave(health) {
     for (const suit of this.suits) {
       if (suit.player.downed) {
         suit.resetPose(RESPAWN_HEALTH);
-        super.resupplyAfterWave(reserve, 0, suit.player);
         this.events.push({ type: 'suit', stage: 'respawn', playerId: suit.player.id });
       } else {
-        super.resupplyAfterWave(reserve, health, suit.player);
+        super.restoreSuitHealthAfterWave(health, suit.player);
       }
     }
   }

@@ -1043,7 +1043,7 @@ function offerExtraction() {
   setText(extractionTissue, Math.round(sim.tissue) + '%');
   drawNodeBreakdown(extractionNodes, sim.nodes);
   setText(extractionSuit, Math.ceil(sim.player.health) + '%');
-  setText(extractionAmmo, sim.player.ammo + ' / ' + sim.player.reserve);
+  setText(extractionAmmo, sim.player.ammo + ' / ∞');
   setText(extractionBonus, '+' + sim.overtimeForecast.bonus.toLocaleString() + ' score');
   extractionDialog.showModal();
   extractNow.focus();
@@ -1426,7 +1426,7 @@ function drawJunctionStatus() {
   if (sim.junctionSupplyLocked) note = 'Turret moved. Support used for this wave.';
   else if (choice === 'turret') note = usingGamepad ? 'Face clear ground and press RB to move the turret.'
     : isTouch ? 'Face clear ground and tap Turret to move it.' : 'Face clear ground and press Q to move the turret.';
-  else if (choice === 'ammo') note = 'Extra ammo selected.';
+  else if (choice === 'ammo') note = 'Magazines will be loaded at the start of the next wave.';
   else if (choice) note = branches[choice].name + ' inlet reinforcement selected.';
   setText(junctionSupplyNote, note);
 }
@@ -1591,7 +1591,6 @@ function drawHud() {
   setText(equipmentLabel, sim.repairing ? 'TISSUE SEALER' : 'NEEDLE CARBINE');
   ammoValue.hidden = reserveValue.hidden = sim.repairing;
   setText(ammoValue, pad(player.ammo));
-  setText(reserveValue, ' / ' + pad(player.reserve));
   let ammoStatus = 'ready';
   let ammoMessage = '';
   if (!sim.repairing) {
@@ -1600,10 +1599,10 @@ function drawHud() {
       ammoMessage = 'RELOADING';
     } else if (player.ammo === 0) {
       ammoStatus = 'empty';
-      ammoMessage = player.reserve > 0 ? 'MAGAZINE EMPTY' : 'OUT OF AMMO';
+      ammoMessage = 'MAGAZINE EMPTY';
     } else if (player.ammo <= Math.ceil(sim.magazineSize / 5)) {
       ammoStatus = 'low';
-      ammoMessage = 'LOW AMMO';
+      ammoMessage = 'MAGAZINE LOW';
     }
   }
   if (ammoPanel.dataset.state !== ammoStatus) ammoPanel.dataset.state = ammoStatus;
@@ -1670,7 +1669,7 @@ function drawHud() {
   else if (valve?.exposed && !valve.colonyDefeated && player.ammo > 0) prompt = 'SHOOT THE EXPOSED COLONY';
   else if (sim.settling && tissue < 100) prompt = 'MOVE TO A DAMAGED NODE TO REPAIR';
   else if (player.ammo === 0) {
-    prompt = player.reserve ? (usingGamepad ? 'PRESS X TO RELOAD' : isTouch ? 'RELOAD CARBINE' : 'PRESS R TO RELOAD') : 'AWAITING RESUPPLY';
+    prompt = usingGamepad ? 'PRESS X TO RELOAD' : isTouch ? 'RELOAD CARBINE' : 'PRESS R TO RELOAD';
   } else if (phase === 'intermission' && tissue < 100) {
     prompt = 'MOVE TO A DAMAGED NODE TO REPAIR';
   }
@@ -2017,14 +2016,14 @@ function applyEvents() {
         let detail = lane ? lane + ' INLET' : 'PATHOGENS INBOUND';
         if (sim.boss) detail = 'WATCH FOR THE PULSING CORE';
         else if (sim.overtime) detail = 'TEAL BREACH · AMBER SPORE PRESSURE';
-        else if (support === 'ammo') detail = 'EXTRA AMMO DELIVERED';
+        else if (support === 'ammo') detail = 'MAGAZINES LOADED';
         else if (support === 'turret') detail = 'TURRET IN POSITION';
         else if (support) detail = branches[support].name + ' INLET REINFORCED';
         announce(sim.boss ? 'MEGA VIRUS' : pattern ? pattern.name.toUpperCase() : sim.organWave?.toUpperCase() ?? 'WAVE ' + pad(event.wave), detail);
       } else if (sim.settling) {
         announce('INLETS CLEAR', sim.gash ? 'SEAL THE GASH TO EXTRACT' : 'REPAIR TISSUE BEFORE EXTRACTION', 2.8);
       } else if (event.wave < sim.waves && sim.gastric?.stage !== 'intake') {
-        announce('WAVE CONTAINED', sim.junctionForecast ? 'CHOOSE SUPPORT FOR THE NEXT WAVE' : 'RESUPPLIED  /  REPAIR TISSUE', 3);
+        announce('WAVE CONTAINED', sim.junctionForecast ? 'CHOOSE SUPPORT FOR THE NEXT WAVE' : 'RELOAD AND REPAIR TISSUE', 3);
       }
       if (!onlineRun && event.stage === 'clear' && (sim.phase === 'intermission' || sim.airway?.state === 'reopen')) armoryRound = event.wave;
     }

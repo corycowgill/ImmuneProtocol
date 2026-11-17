@@ -299,7 +299,7 @@
           <div class="junction-supply-options">
             <button type="button" data-junction-supply="left" data-branch="left" aria-keyshortcuts="1" aria-pressed="false"><kbd aria-hidden="true">1</kbd><span>Reinforce Amber</span></button>
             <button type="button" data-junction-supply="right" data-branch="right" aria-keyshortcuts="2" aria-pressed="false"><kbd aria-hidden="true">2</kbd><span>Reinforce Teal</span></button>
-            <button type="button" data-junction-supply="ammo" aria-keyshortcuts="3" aria-pressed="false"><kbd aria-hidden="true">3</kbd><span>Extra ammo</span></button>
+            <button type="button" data-junction-supply="ammo" aria-keyshortcuts="3" aria-pressed="false"><kbd aria-hidden="true">3</kbd><span>Load magazines</span></button>
             <button type="button" data-junction-supply="turret" aria-keyshortcuts="4" aria-pressed="false" disabled><kbd aria-hidden="true">4</kbd><span>Redeploy turret</span></button>
           </div>
           <p id="junction-supply-note" role="status">Choose one support option.</p>
@@ -315,7 +315,7 @@
         </div>
         <div id="ammo-panel" class="ammo-panel">
           <div class="hud-label" id="equipment-label">NEEDLE CARBINE</div>
-          <strong id="ammo-value">30</strong><span id="reserve-value"> / 150</span>
+          <strong id="ammo-value">30</strong><span id="reserve-value" title="Unlimited reserve ammunition"> / ∞</span>
           <div class="reload-feedback">
             <div id="reload-state" role="status"></div>
             <progress id="reload-progress" max="100" value="0" aria-label="Reload progress" hidden></progress>
@@ -522,7 +522,7 @@
         <details>
           <summary>Mission objectives</summary>
           <dl class="manual-missions">
-            <div><dt>Capillary Junction</dt><dd>Watch the attack countdown. Between waves, choose inlet reinforcement, ammo, or turret redeployment. To move a deployed turret, pick Redeploy turret, face clear ground, then use the turret control before the break ends. Seal gashes before extraction. Stay for overtime to earn bonus score.</dd></div>
+            <div><dt>Capillary Junction</dt><dd>Watch the attack countdown. Between waves, choose inlet reinforcement, a fresh magazine for the next wave, or turret redeployment. To move a deployed turret, pick Redeploy turret, face clear ground, then use the turret control before the break ends. Seal gashes before extraction. Stay for overtime to earn bonus score.</dd></div>
             <div><dt>Heart Valve</dt><dd>Fire through the opening to hit the colony. Repair the valve wound while the valve is closed. Repair the other node at any time and restore both to finish.</dd></div>
             <div><dt>Bronchial Fork</dt><dd>Leave the central airway before exhale. After wave two, reopen both bronchi with Repair. Keep both at 45% integrity or higher through one full breath.</dd></div>
             <div><dt>Gastric Chamber</dt><dd>After wave one, use Repair to close the intake on the west bank. Avoid redirected acid as you cross to the east bank and open the drain with Repair. Watch the exposed lower passage for flanking enemies.</dd></div>
@@ -592,7 +592,7 @@
       <dl class="result-stats extraction-stats">
         <div><dt>Tissue average</dt><dd id="extraction-tissue">100%</dd></div>
         <div><dt>Suit integrity</dt><dd id="extraction-suit">100%</dd></div>
-        <div><dt>Loaded / reserve</dt><dd id="extraction-ammo">30 / 150</dd></div>
+        <div><dt>Loaded / reserve</dt><dd id="extraction-ammo">30 / ∞</dd></div>
       </dl>
       <dl id="extraction-nodes" class="node-breakdown" aria-label="Tissue node integrity" hidden></dl>
       <div class="overtime-forecast">
