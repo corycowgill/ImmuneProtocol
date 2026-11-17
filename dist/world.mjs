@@ -1576,12 +1576,9 @@ export class World {
     const shot = { type: 'shot', x: start.x, y: 1, z: start.z - 10, hit: true };
     const fire = { type: 'turret', stage: 'fire', x: sim.turret.x, y: 1, z: sim.turret.z,
       impact: { x: start.x - 2, y: 1, z: start.z - 13 } };
-    sim.events = [shot, fire];
-    if (sim.area === 'artery') {
-      start.id = 'warmup-local';
-      sim.players = [start, { ...start, id: 'warmup-teammate', name: 'Teammate', x: start.x - 2.2, z: start.z - 9 }];
-      sim.events.push({ ...shot, playerId: 'warmup-teammate' });
-    }
+    start.id = 'warmup-local';
+    sim.players = [start, { ...start, id: 'warmup-teammate', name: 'Teammate', x: start.x - 2.2, z: start.z - 9 }];
+    sim.events = [shot, fire, { ...shot, playerId: 'warmup-teammate' }];
     this.render(sim, .02, PRELOAD_INPUT, false, false);
     // Keep both the healthy tissue's and recovery objective's lighting variants compiled.
     if (sim.area === 'lungs') {
@@ -1599,7 +1596,7 @@ export class World {
     }
     sim.repairing = true;
     sim.repairTarget = sim.nodes[0];
-    if (sim.players) sim.players[1].repairing = true;
+    sim.players[1].repairing = true;
     this.render(sim, .24, PRELOAD_INPUT, false, false);
     warmTextures(this.scene);
     await this.renderer.compileAsync(this.scene, this.camera);

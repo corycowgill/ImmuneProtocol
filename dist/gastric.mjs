@@ -121,9 +121,7 @@ export function advanceGastric(sim, dt) {
     }
     gastric.flankRemaining = gastric.nextFlank === 0 ? FLANKS[0].at - elapsed : null;
   }
-  if (!sim.player.ammo && !sim.player.reserve && sim.enemies.length) {
-    sim.player.reserve = sim.magazineSize;
-  }
+  sim.resupplyEmptySuits();
 }
 
 export function pendingGastricEnemies(gastric) {

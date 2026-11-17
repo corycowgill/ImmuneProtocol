@@ -32,11 +32,14 @@ class CoopSuit {
   }
 
   clearActions() {
+    this.organNextDamage = 0;
     this.repairProgress = 0;
     this.repairing = false;
     this.repairTarget = null;
     this.nearNode = null;
     this.nearTissue = false;
+    this.nearGash = false;
+    this.nearGastricValve = null;
     this.canRepair = false;
     this.reloading = 0;
     this.reloadHeld = false;
@@ -45,13 +48,13 @@ class CoopSuit {
 }
 
 export class CoopSimulation extends Simulation {
-  constructor(profiles) {
-    super('artery');
+  constructor(profiles, area = 'artery') {
+    super(area);
     if (profiles.length !== 2 || profiles[0].id === profiles[1].id) {
       throw new Error('Co-op requires two distinct players');
     }
     // Add pressure on both routes without changing any of the solo waves.
-    this.missions = this.missions.map(mission => ({
+    this.missions = this.missions.map(mission => mission.arrivals || mission.boss ? mission : ({
       ...mission,
       cadence: mission.cadence * .82,
       species: mission.species.flatMap((type, index) => index % 3 === 2 ? [type, 'virus'] : [type]),
@@ -62,7 +65,7 @@ export class CoopSimulation extends Simulation {
 
   createSquad(profiles) {
     this.suits = profiles.map((profile, index) => new CoopSuit(
-      profile, { x: index === 0 ? -2.2 : 2.2, y: this.player.y, z: this.player.z }, this.repairAmount,
+      profile, { x: this.player.x + (index === 0 ? -2.2 : 2.2), y: this.player.y, z: this.player.z }, this.repairAmount,
     ));
     this.suitsById = new Map(this.suits.map(suit => [suit.player.id, suit]));
     this.players = this.suits.map(suit => suit.player);
@@ -116,10 +119,25 @@ export class CoopSimulation extends Simulation {
     }
   }
 
+  activeSuits() {
+    return this.suits;
+  }
+
+  moveSuits(dt, inputsById) {
+    for (const suit of this.suits) {
+      if (suit.player.health <= 0) continue;
+      this.movePlayer(dt, inputsById[suit.player.id] ?? {}, suit);
+      if (this.organ?.phase === 'active') this.applyOrganHazard(dt, suit);
+    }
+  }
+
+  actSuits(dt, inputsById) {
+    for (const suit of this.suits) this.act(dt, suit, inputsById[suit.player.id] ?? {});
+  }
+
   act(dt, suit, input) {
     const { player } = suit;
     if (player.health <= 0) return;
-    this.movePlayer(dt, input, suit);
     const eventStart = this.events.length;
     if (input.deploy) this.deployTurret(suit);
     const repairing = this.updateRepair(dt, input.repair, suit);
@@ -132,41 +150,28 @@ export class CoopSimulation extends Simulation {
     }
   }
 
-  step(dt, inputsById = {}) {
-    this.events = [];
-    if (this.phase !== 'combat' && this.phase !== 'intermission') return;
-    dt = Math.max(0, Math.min(.1, dt));
-    this.clock += dt;
-    for (const node of this.nodes) node.underAttack = false;
-    for (const suit of this.suits) this.act(dt, suit, inputsById[suit.player.id] ?? {});
-    this.updateTurret(dt);
-
-    if (this.phase === 'intermission') {
-      this.intermission = Math.max(0, this.intermission - dt);
-      if (this.intermission === 0) this.beginWave();
-    } else {
-      const mission = this.missions[this.wave - 1];
-      this.spawnCountdown -= dt;
-      if (this.spawnIndex < mission.species.length && this.spawnCountdown <= 0) {
-        this.spawn(mission.species[this.spawnIndex]);
-        this.spawnCountdown += mission.cadence;
-      }
-      this.advanceEnemies(dt);
-      this.advanceProjectiles(dt);
-      this.remaining = mission.species.length - this.spawnIndex + this.enemies.length;
-      for (const suit of this.suits) {
-        if (suit.player.health > 0 || suit.player.downed) continue;
-        const playerId = suit.player.id;
-        if (suit.repairing) this.events.push({ type: 'repairStop', playerId });
-        suit.clearActions();
-        suit.player.downed = true;
-        suit.player.aiming = false;
-        this.events.push({ type: 'suit', stage: 'down', playerId });
-      }
-      if (this.failedNode) this.endMission('lost', 'tissue');
-      else if (this.players.every(player => player.downed)) this.endMission('lost', 'suit');
-      else if (this.remaining === 0 && this.projectiles.length === 0) this.clearWave();
+  updateSuitStatus() {
+    for (const suit of this.suits) {
+      if (suit.player.health > 0 || suit.player.downed) continue;
+      const playerId = suit.player.id;
+      if (suit.repairing) this.events.push({ type: 'repairStop', playerId });
+      suit.clearActions();
+      suit.player.downed = true;
+      suit.player.aiming = false;
+      this.events.push({ type: 'suit', stage: 'down', playerId });
     }
+  }
+
+  suitsDefeated() {
+    return this.players.every(player => player.health === 0);
+  }
+
+  openExtractionChoice() {
+    this.endMission('won');
+  }
+
+  step(dt, inputsById = {}) {
+    super.step(dt, inputsById);
     this.sequenceEvents();
   }
 
@@ -193,18 +198,24 @@ export class CoopSimulation extends Simulation {
       })),
       weaponLoadout, weapon, baseMagazineSize, magazineSize, reloading, reloadProgress,
       repairAmount, repairing, repairProgress, canRepair, nearTissue,
-      repairTarget: nodeCopy(suit.repairTarget), repairTargetId: suit.repairTarget?.id ?? null,
+      repairTargetId: suit.repairTarget?.id ?? null, nearGash: suit.nearGash,
+      nearGastricValveId: suit.nearGastricValve?.id ?? null,
       nearNode: nodeCopy(suit.nearNode), nearNodeId: suit.nearNode?.id ?? null,
       objective: nodeCopy(this.objective), objectiveId: this.objective.id,
       failedNode: nodeCopy(this.failedNode), failedNodeId: this.failedNode?.id ?? null,
       turret: this.turret ? { ...this.turret } : null,
       turretPlacement: player.downed ? null : this.turretPlacementFor(player),
-      turretCharges: this.turretCharges, canRedeployTurret: false,
+      turretCharges: this.turretCharges, canRedeployTurret: this.canRedeployTurret,
       nodes,
       enemies: this.enemies.map(enemy => ({ ...enemy, node: nodeCopy(enemy.node) })),
       projectiles: this.projectiles.map(({ owner, ...projectile }) => ({ ...projectile, ownerId: owner.id })),
       events: this.events,
-      tutorial: null, extractionPending: false, settling: false, overtime: false, overtimeBonus: 0,
+      tutorial: null, settling: this.settling,
+      valve: this.valve, boss: this.boss, airway: this.airway, gastric: this.gastric,
+      organ: this.organ, organWave: this.organWave,
+      gash: this.gash, reinforcement: this.reinforcement, junctionWave: this.junctionWave,
+      junctionSupply: this.junctionSupply, junctionSupplyLocked: this.junctionSupplyLocked,
+      junctionForecast: this.junctionForecast, junctionSurge: this.junctionSurge,
     };
   }
 }

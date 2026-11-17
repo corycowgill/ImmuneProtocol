@@ -1,4 +1,5 @@
 import { Simulation } from './simulation.mjs';
+import { ORGAN_MISSIONS } from './organs.mjs';
 import { COOP_PATH, COOP_HEALTH_PATH, COOP_PROTOCOL_VERSION, COOP_RECONNECT_MS, COOP_SERVICE, COOP_TICK_RATE } from './coop-protocol.mjs';
 
 export const PUBLIC_COOP_ORIGIN = 'https://immune-protocol-coop.onrender.com';
@@ -37,10 +38,15 @@ export async function verifyCoopHost() {
 }
 
 function hydrate(state) {
-  for (const key of ['nearNode', 'repairTarget', 'objective', 'failedNode']) {
+  for (const key of ['nearNode', 'objective', 'failedNode']) {
     const id = state[key + 'Id'] ?? state[key]?.id;
     state[key] = state.nodes.find(node => node.id === id) ?? state[key] ?? null;
   }
+  if (state.gash) state.gash.node = state.nodes.find(node => node.id === state.gash.nodeId);
+  const valves = state.gastric ? [state.gastric.intake, state.gastric.drain] : [];
+  state.nearGastricValve = valves.find(valve => valve.id === state.nearGastricValveId) ?? null;
+  state.repairTarget = [...state.nodes, ...valves, state.gash].find(target => target && target.id === state.repairTargetId) ?? null;
+  state.organMission = ORGAN_MISSIONS[state.area];
   for (const enemy of state.enemies) {
     if (enemy.nodeId) enemy.node = state.nodes.find(node => node.id === enemy.nodeId);
   }
@@ -264,7 +270,8 @@ export class CoopClient extends EventTarget {
     const ratio = Math.min(1, Math.max(0, (now - receivedAt) / span));
     const player = { ...state.player };
     if (this.connected && this.room?.phase === 'playing' && !this.room.reconnectDeadline && !player.downed) {
-      const movement = { player, weapon: state.weapon, confineToArena: Simulation.prototype.confineToArena };
+      const { weapon, valve, organ, organMission } = state;
+      const movement = { player, weapon, valve, organ, organMission, confineToArena: Simulation.prototype.confineToArena };
       for (const packet of this.pending) Simulation.prototype.movePlayer.call(movement, INPUT_TICK, packet.input);
       Simulation.prototype.movePlayer.call(movement, this.elapsed, this.buffer);
     }

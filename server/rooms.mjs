@@ -1,12 +1,12 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { WebSocket } from 'ws';
-import { COOP_CODE_ALPHABET, COOP_CODE_LENGTH, COOP_NAME_LIMIT, COOP_RECONNECT_MS, COOP_TICK_RATE as TICK_RATE } from '../dist/coop-protocol.mjs';
+import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH, COOP_NAME_LIMIT, COOP_RECONNECT_MS, COOP_TICK_RATE as TICK_RATE } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
 import { normalizeWeaponLoadout } from '../dist/weapon-mods.mjs';
 
 const INPUT_TIMEOUT = 750;
 const LOBBY_IDLE_LIMIT = 20 * 60_000;
-const RESULTS_IDLE_LIMIT = 2 * 60_000;
+const RESULTS_IDLE_LIMIT = 20 * 60_000;
 const MAX_ROOMS = 24;
 const MAX_LOOK = 1200;
 const EMPTY_INPUT = Object.freeze({});
@@ -57,7 +57,7 @@ function resetInput(player) {
 }
 
 export class CoopRooms {
-  constructor({ simulation = players => new CoopSimulation(players), graceMs = COOP_RECONNECT_MS, intermissionMs = 45_000 } = {}) {
+  constructor({ simulation = (players, area) => new CoopSimulation(players, area), graceMs = COOP_RECONNECT_MS, intermissionMs = 45_000 } = {}) {
     this.rooms = new Map();
     this.createSimulation = simulation;
     this.graceMs = graceMs;
@@ -112,6 +112,11 @@ export class CoopRooms {
       case 'ready':
         this.setReady(room, player, message, now);
         break;
+      case 'supply':
+        if (room.phase === 'playing' && room.players.every(entry => entry.connection)) {
+          room.simulation.selectJunctionSupply(message.choice);
+        }
+        break;
       case 'leave':
         this.leave(connection, now);
         break;
@@ -129,6 +134,7 @@ export class CoopRooms {
     do { code = generateCode(); } while (this.rooms.has(code));
     const room = {
       code, ownerId: '', players: [], phase: 'lobby', simulation: null, tick: 0, events: [],
+      missionIndex: 0, results: [],
       deadline: null, heldWave: null, intermissionRemaining: null, touchedAt: now,
     };
     this.rooms.set(code, room);
@@ -244,6 +250,8 @@ export class CoopRooms {
     if (room.phase === 'finished') {
       room.phase = 'lobby';
       room.simulation = null;
+      room.missionIndex = 0;
+      room.results = [];
     }
     for (const remaining of room.players) remaining.ready = false;
     this.publishRoom(room);
@@ -267,8 +275,12 @@ export class CoopRooms {
   }
 
   startMatch(room) {
+    if (room.phase === 'finished' && room.simulation.phase === 'won') {
+      room.missionIndex = (room.missionIndex + 1) % CAMPAIGN_AREAS.length;
+      if (room.missionIndex === 0) room.results = [];
+    }
     const participants = room.players.map(({ id, name, weaponLoadout }) => ({ id, name, weaponLoadout }));
-    room.simulation = this.createSimulation(participants);
+    room.simulation = this.createSimulation(participants, CAMPAIGN_AREAS[room.missionIndex]);
     room.simulation.start();
     room.tick = 0;
     room.heldWave = null;
@@ -348,11 +360,16 @@ export class CoopRooms {
     room.tick++;
     room.events.push(...sim.events);
     if (sim.phase === 'won' || sim.phase === 'lost') {
+      if (sim.phase === 'won') {
+        const { area, tissue, score, kills } = sim;
+        const nodes = sim.nodes.map(({ name, health }) => ({ name, health }));
+        room.results.push({ area, tissue, score, kills, nodes });
+      }
       room.phase = 'finished';
       room.touchedAt = now;
       this.publishRoom(room);
       this.publishStates(room);
-    } else if (sim.phase === 'intermission' && room.heldWave !== sim.wave) {
+    } else if (sim.phase === 'intermission' && !sim.settling && room.heldWave !== sim.wave) {
       room.heldWave = sim.wave;
       room.phase = 'intermission';
       room.deadline = now + this.intermissionMs;
@@ -369,7 +386,12 @@ export class CoopRooms {
     const message = {
       type: 'room', code: room.code, phase: room.phase, ownerId: room.ownerId,
       players: room.players.map(({ id, name, ready, connection }) => ({ id, name, ready, connected: !!connection })),
+      missionIndex: room.missionIndex,
+      results: room.results,
     };
+    if (room.phase === 'finished' && room.simulation.phase === 'won') {
+      message.nextArea = CAMPAIGN_AREAS[room.missionIndex + 1] ?? null;
+    }
     if (room.deadline !== null) message.deadline = room.deadline;
     if (disconnected.length) message.reconnectDeadline = Math.min(...disconnected.map(player => player.disconnectedAt + this.graceMs));
     for (const player of room.players) send(player.connection?.client, message);

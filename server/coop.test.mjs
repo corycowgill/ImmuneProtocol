@@ -3,7 +3,7 @@ import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { test } from 'node:test';
 import WebSocket from 'ws';
-import { COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from '../dist/coop-protocol.mjs';
+import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
 import { createCoopServer } from './index.mjs';
 
@@ -142,7 +142,7 @@ test('shares authoritative combat, reload-safe reconnect, and the team intermiss
   await connectedAgain.take(roomPhase('playing'));
   assert.deepEqual(await host.take(message => roomPhase('playing')(message) && message.reconnectDeadline === undefined && message.players.every(player => player.connected)), {
     type: 'room', code: hostSession.code, phase: 'playing', ownerId: hostSession.id,
-    players: lobby.players,
+    players: lobby.players, missionIndex: 0, results: [],
   });
   const resumeView = await connectedAgain.take(tagged('state'));
   assert.equal(resumeView.state.player.ammo, sawShot.state.player.ammo);
@@ -192,4 +192,67 @@ test('ends an active room when a detached seat runs out of reconnect time', asyn
   const returning = await connect(t, origin);
   returning.send({ type: 'resume', code: formerGuest.code, token: formerGuest.token });
   assert.equal((await returning.take(tagged('error'))).code, 'SESSION_EXPIRED');
+});
+
+test('both seats advance through the full campaign, retry a mission, and restart together', async t => {
+  let sim;
+  const origin = await localServer(t, {
+    simulation(players, area) {
+      sim = new CoopSimulation(players, area);
+      return sim;
+    },
+  });
+  const host = await connect(t, origin);
+  let guest = await connect(t, origin);
+  host.send({ type: 'create', loadout: { optic: 'marksman-optic' } });
+  const { code, id: hostId } = await host.take(tagged('session'));
+  guest.send({ type: 'join', code });
+  const { id: guestId, token } = await guest.take(tagged('session'));
+  const ready = { type: 'ready', ready: true };
+
+  async function deploy(area, index) {
+    host.send(ready);
+    await host.take(message => message.type === 'room' && message.players[0].ready && !message.players[1].ready);
+    guest.send(ready);
+    for (const side of [host, guest]) {
+      const room = await side.take(roomPhase('playing'));
+      assert.equal(room.code, code);
+      assert.equal(room.missionIndex, index);
+      assert.deepEqual(room.players.map(player => player.id), [hostId, guestId]);
+      const { state } = await side.take(message => tagged('state')(message) && message.tick === 0);
+      assert.equal(state.area, area);
+      assert.equal(state.players[0].weaponLoadout.optic, 'marksman-optic');
+    }
+  }
+
+  for (const [index, area] of CAMPAIGN_AREAS.entries()) {
+    await deploy(area, index);
+    if (area === 'heart') {
+      sim.endMission('lost', 'tissue');
+      for (const side of [host, guest]) {
+        const room = await side.take(roomPhase('finished'));
+        assert.equal(room.nextArea, undefined);
+        assert.equal(room.results.length, index);
+      }
+      await deploy(area, index);
+    }
+    sim.endMission('won');
+    for (const side of [host, guest]) {
+      const room = await side.take(roomPhase('finished'));
+      assert.equal(room.nextArea, CAMPAIGN_AREAS[index + 1] ?? null);
+      assert.deepEqual(room.results.map(result => result.area), CAMPAIGN_AREAS.slice(0, index + 1));
+    }
+    if (area === 'stomach') {
+      guest.socket.terminate();
+      await host.take(message => roomPhase('finished')(message) && !message.players[1].connected);
+      guest = await connect(t, origin);
+      guest.send({ type: 'resume', code, token });
+      assert.equal((await guest.take(tagged('session'))).id, guestId);
+      const checkpoint = await guest.take(roomPhase('finished'));
+      assert.equal(checkpoint.nextArea, 'intestines');
+      assert.equal(checkpoint.results.length, 5);
+      await guest.take(tagged('state'));
+    }
+  }
+  await deploy('artery', 0);
 });

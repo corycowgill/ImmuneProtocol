@@ -37,7 +37,9 @@ The game prepares arena geometry, textures, audio, and armory previews before it
 
 ## Online co-op
 
-Two players share five waves in Arterial Junction. On the multiplayer server's game page, open **Online co-op**, enter a callsign, and choose **Create room**. Send the invite link to your friend. They open it, enter a callsign, and choose **Join room**. Choose **Ready** when both players are in the lobby.
+Two players share all eight missions in one room, from Arterial Junction to the Mega Virus fight in Neural Cortex. On the multiplayer server's game page, open **Online co-op**, enter a callsign, and choose **Create room**. Send the invite link to your friend. They open it, enter a callsign, and choose **Join room**. Choose **Ready** when both players are in the lobby.
+
+After each mission, both players ready up at the shared checkpoint. A win unlocks the next deployment in the room, while a loss lets both players retry the current mission. Each deployment starts with fresh suits and supplies and keeps both weapon loadouts. The squad extracts after stabilizing Capillary Junction and earns a combined campaign report after the final boss. Campaign progress belongs to the active room.
 
 Each suit has its own carbine build, ammo, and health. You share the tissue nodes, one turret, the wave timer, and the mission score. If one suit goes down, it returns at the next wave if the teammate clears the current one. Both players can use the armory between waves and ready up to continue. The game holds your place for up to 75 seconds after a disconnect.
 
