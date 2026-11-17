@@ -3,8 +3,10 @@ import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { test } from 'node:test';
 import WebSocket from 'ws';
+import { hitBrainBoss } from '../dist/brain-boss.mjs';
 import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
+import { JUNCTION_GASH_SITES } from '../dist/simulation.mjs';
 import { createCoopServer } from './index.mjs';
 
 async function localServer(t, options) {
@@ -209,6 +211,7 @@ test('both seats advance through the full campaign, retry a mission, and restart
   guest.send({ type: 'join', code });
   const { id: guestId, token } = await guest.take(tagged('session'));
   const ready = { type: 'ready', ready: true };
+  const checkpoint = message => roomPhase('finished')(message) && message.players.every(player => !player.ready);
 
   async function deploy(area, index) {
     host.send(ready);
@@ -230,7 +233,7 @@ test('both seats advance through the full campaign, retry a mission, and restart
     if (area === 'heart') {
       sim.endMission('lost', 'tissue');
       for (const side of [host, guest]) {
-        const room = await side.take(roomPhase('finished'));
+        const room = await side.take(message => checkpoint(message) && message.missionIndex === index);
         assert.equal(room.nextArea, undefined);
         assert.equal(room.results.length, index);
       }
@@ -238,7 +241,7 @@ test('both seats advance through the full campaign, retry a mission, and restart
     }
     sim.endMission('won');
     for (const side of [host, guest]) {
-      const room = await side.take(roomPhase('finished'));
+      const room = await side.take(message => checkpoint(message) && message.missionIndex === index);
       assert.equal(room.nextArea, CAMPAIGN_AREAS[index + 1] ?? null);
       assert.deepEqual(room.results.map(result => result.area), CAMPAIGN_AREAS.slice(0, index + 1));
     }
@@ -248,11 +251,94 @@ test('both seats advance through the full campaign, retry a mission, and restart
       guest = await connect(t, origin);
       guest.send({ type: 'resume', code, token });
       assert.equal((await guest.take(tagged('session'))).id, guestId);
-      const checkpoint = await guest.take(roomPhase('finished'));
-      assert.equal(checkpoint.nextArea, 'intestines');
-      assert.equal(checkpoint.results.length, 5);
+      const resumed = await guest.take(checkpoint);
+      assert.equal(resumed.nextArea, 'intestines');
+      assert.equal(resumed.results.length, 5);
       await guest.take(tagged('state'));
     }
   }
   await deploy('artery', 0);
+});
+
+test('both co-op suits can complete organ-specific objectives', () => {
+  const profiles = [{ id: 'alpha' }, { id: 'bravo' }];
+  const deploy = area => {
+    const sim = new CoopSimulation(profiles, area);
+    sim.start();
+    return sim;
+  };
+  function repair(sim, index, point, seconds = 3) {
+    const player = sim.players[index];
+    Object.assign(player, { x: point.x, z: point.z });
+    for (let tick = 0; tick < seconds * 30; tick++) {
+      sim.step(1 / 30, { [player.id]: { repair: true } });
+    }
+  }
+
+  const junction = deploy('junction');
+  junction.wave = junction.waves;
+  junction.clearWave();
+  const node = junction.nodes[0];
+  junction.gash = { ...JUNCTION_GASH_SITES.left, id: 'test-gash', node, nodeId: node.id,
+    drainPerSecond: 1, sealRemaining: 10 };
+  repair(junction, 1, junction.gash);
+  assert.equal(junction.gash, null);
+  for (let tick = 0; tick < 300 && junction.phase !== 'won'; tick++) junction.step(1 / 30);
+  assert.equal(junction.phase, 'won');
+
+  const heart = deploy('heart');
+  for (let tick = 0; tick < 420 && !heart.valve.exposed; tick++) heart.step(1 / 30);
+  assert.ok(heart.valve.exposed);
+  heart.hitEnemy(heart.colony, heart.colony.health, true, heart.colony, 'player');
+  heart.patrolIndex = 4;
+  heart.enemies.length = 0;
+  repair(heart, 1, heart.objective, 7);
+  assert.equal(heart.phase, 'won');
+
+  const lungs = deploy('lungs');
+  lungs.wave = lungs.waves;
+  lungs.spawnIndex = lungs.missions.at(-1).species.length;
+  lungs.clearWave();
+  repair(lungs, 0, lungs.nodes[0]);
+  repair(lungs, 1, lungs.nodes[1]);
+  assert.deepEqual(lungs.airway.ports.map(port => port.open), [true, true]);
+  for (let tick = 0; tick < 900 && lungs.phase !== 'won'; tick++) {
+    lungs.enemies.length = 0;
+    lungs.step(1 / 30);
+  }
+  assert.equal(lungs.phase, 'won');
+
+  const stomach = deploy('stomach');
+  stomach.spawnIndex = stomach.missions[0].species.length;
+  stomach.clearWave();
+  repair(stomach, 0, stomach.gastric.intake);
+  assert.equal(stomach.gastric.stage, 'drain');
+  repair(stomach, 1, stomach.gastric.drain, 6);
+  assert.equal(stomach.gastric.stage, 'drained');
+  assert.equal(stomach.wave, 2);
+
+  const acid = deploy('stomach');
+  acid.organ = acid.createOrganPhase('active');
+  for (const player of acid.players) Object.assign(player, { x: acid.organ.x, z: acid.organ.z });
+  acid.step(1 / 30);
+  assert.deepEqual(acid.events.filter(event => event.type === 'damage').map(event => event.playerId), ['alpha', 'bravo']);
+
+  const brain = deploy('brain');
+  brain.wave = brain.waves - 1;
+  brain.beginWave();
+  assert.ok(brain.players.every(player => player.reserve >= 66));
+  for (let phase = 1; phase <= 3; phase++) {
+    for (let tick = 0; tick < 300 && brain.boss.state !== 'exposed'; tick++) {
+      brain.enemies.length = 0;
+      brain.step(1 / 30);
+    }
+    assert.equal(brain.boss.state, 'exposed');
+    assert.equal(brain.boss.phase, phase);
+    while (brain.boss.phase === phase && brain.boss.state === 'exposed') {
+      hitBrainBoss(brain, { vulnerable: true }, brain.boss.weakPoint);
+    }
+  }
+  brain.enemies.length = 0;
+  for (let tick = 0; tick < 60 && brain.phase !== 'won'; tick++) brain.step(1 / 30);
+  assert.equal(brain.phase, 'won');
 });

@@ -53,12 +53,14 @@ export class CoopSimulation extends Simulation {
     if (profiles.length !== 2 || profiles[0].id === profiles[1].id) {
       throw new Error('Co-op requires two distinct players');
     }
-    // Add pressure on both routes without changing any of the solo waves.
-    this.missions = this.missions.map(mission => mission.arrivals || mission.boss ? mission : ({
-      ...mission,
-      cadence: mission.cadence * .82,
-      species: mission.species.flatMap((type, index) => index % 3 === 2 ? [type, 'virus'] : [type]),
-    }));
+    // Keep authored organ routes and timed attacks intact.
+    if (area === 'artery') {
+      this.missions = this.missions.map(mission => ({
+        ...mission,
+        cadence: mission.cadence * .82,
+        species: mission.species.flatMap((type, index) => index % 3 === 2 ? [type, 'virus'] : [type]),
+      }));
+    }
     this.eventSequence = 0;
     this.createSquad(profiles);
   }
