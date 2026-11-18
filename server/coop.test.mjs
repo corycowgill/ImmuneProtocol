@@ -156,6 +156,8 @@ test('shares authoritative combat, reload-safe reconnect, and the team intermiss
   simulation.spawnIndex = simulation.missions[0].species.length;
   simulation.enemies = [];
   simulation.projectiles = [];
+  // Skip the post-wave countdown so the armory opens on the next tick.
+  simulation.outro = { remaining: 0, duration: 0 };
   const armory = await host.take(roomPhase('intermission'));
   await connectedAgain.take(roomPhase('intermission'));
   assert.ok(armory.deadline > Date.now());
@@ -290,9 +292,9 @@ test('both co-op suits can complete organ-specific objectives', () => {
   for (let tick = 0; tick < 420 && !heart.valve.exposed; tick++) heart.step(1 / 30);
   assert.ok(heart.valve.exposed);
   heart.hitEnemy(heart.colony, heart.colony.health, true, heart.colony, 'player');
-  heart.patrolIndex = 4;
+  heart.patrolIndex = Infinity;
   heart.enemies.length = 0;
-  repair(heart, 1, heart.objective, 7);
+  repair(heart, 1, heart.objective, 12);
   assert.equal(heart.phase, 'won');
 
   const lungs = deploy('lungs');
@@ -338,7 +340,7 @@ test('both co-op suits can complete organ-specific objectives', () => {
     }
   }
   brain.enemies.length = 0;
-  for (let tick = 0; tick < 60 && brain.phase !== 'won'; tick++) brain.step(1 / 30);
+  for (let tick = 0; tick < 200 && brain.phase !== 'won'; tick++) brain.step(1 / 30);
   assert.equal(brain.phase, 'won');
 });
 
@@ -366,4 +368,33 @@ test('solo and co-op can repeatedly reload full magazines after the old reserve 
       }
     }
   }
+});
+
+test('three-node arenas, the macrophage sweep and the post-wave countdown', () => {
+  const lymph = new Simulation('lymph');
+  lymph.start();
+  assert.equal(lymph.nodes.length, 3);
+  lymph.nodes[2].health = 40;
+  assert.equal(Math.round(lymph.tissue), 80);
+  lymph.organCycle = 0;
+  lymph.organ = lymph.createOrganPhase('active');
+  lymph.organ.remaining = 30;
+  for (let index = 0; index < 3; index++) {
+    lymph.enemies.push(lymph.createEnemy('virus', lymph.organ.x + index, lymph.organ.z, lymph.nodes[0]));
+  }
+  for (let tick = 0; tick < 60; tick++) lymph.step(1 / 30);
+  assert.equal(lymph.kills, 3);
+
+  const artery = new Simulation('artery');
+  artery.start();
+  artery.spawnIndex = artery.missions[0].species.length;
+  artery.enemies.length = 0;
+  artery.step(1 / 30);
+  assert.equal(artery.phase, 'combat');
+  assert.ok(artery.outro);
+  for (let tick = 0; tick < 3.5 * 30; tick++) artery.step(1 / 30);
+  assert.equal(artery.phase, 'combat');
+  for (let tick = 0; tick < 30; tick++) artery.step(1 / 30);
+  assert.equal(artery.phase, 'intermission');
+  assert.equal(artery.outro, null);
 });
