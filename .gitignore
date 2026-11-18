@@ -1,3 +1,11 @@
 node_modules/
 tools/suits/renders/
 __pycache__/
+# TRELLIS pipeline: large, reproducible intermediates (download.py re-fetches and
+# checksum-verifies the originals; process.py rebuilds masters and bakes).
+tools/trellis/originals/*.glb
+tools/trellis/masters/
+tools/trellis/work/
+tools/trellis/renders/preview/
+tools/trellis/reports/*.png
+tools/trellis/reports/*.log

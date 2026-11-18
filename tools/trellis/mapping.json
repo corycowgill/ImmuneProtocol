@@ -1,0 +1,30 @@
+{
+  "wraith": {
+    "source": "A",
+    "file": "originals/source_A.glb",
+    "sha256": "139b33890d6bd354cb543bf6badf321cac957a2d05d2736232b25c087c48a45b",
+    "source_url": "https://www.icloud.com/iclouddrive/095ZXPcMdomQ8PGmt2XKit92Q#sample%5F2026-11-18T041346.939",
+    "confidence": "high"
+  },
+  "bathysphere": {
+    "source": "B",
+    "file": "originals/source_B.glb",
+    "sha256": "6524c503dfe1ed804372cfb6a51a5a2269c4e9937d357f113154eda1aab08509",
+    "source_url": "https://www.icloud.com/iclouddrive/073S8FRuaaB1Qh4E2ACkFFA7A#sample%5F2026-11-18T041139.397",
+    "confidence": "high"
+  },
+  "vanguard": {
+    "source": "C",
+    "file": "originals/source_C.glb",
+    "sha256": "45621c7d798340a760c9ef1ab8c3483069bceb38da5579e1bc679aae8deb4a65",
+    "source_url": "https://www.icloud.com/iclouddrive/01411-jiNRedi0T9W6d5-F8MA#sample%5F2026-11-18T041454.829",
+    "confidence": "low"
+  },
+  "lifeline": {
+    "source": "D",
+    "file": "originals/source_D.glb",
+    "sha256": "4a79b9980b4430c65a51df29f4094a2511570738d6b2d451ca28f789f3aac1f7",
+    "source_url": "https://www.icloud.com/iclouddrive/0f82eGNuY8rC3-lvtRTis18Gg#sample%5F2026-11-18T041245.923",
+    "confidence": "high"
+  }
+}

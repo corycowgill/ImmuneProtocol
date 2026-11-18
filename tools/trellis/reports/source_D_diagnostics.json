@@ -1,0 +1,128 @@
+{
+  "mesh_objects": 1,
+  "armatures": 0,
+  "vertices": 234994,
+  "triangles": 294813,
+  "faces": 294813,
+  "material_slots": 1,
+  "uv_maps": [
+    "UVMap"
+  ],
+  "non_manifold_edges": 0,
+  "boundary_edges": 154159,
+  "degenerate_faces": 9,
+  "zero_length_edges": 11,
+  "loose_vertices": 0,
+  "disconnected_regions": 11600,
+  "largest_region_share": 0.0038,
+  "inconsistent_normal_edges": 0,
+  "vertex_groups": 0,
+  "shape_keys": 0,
+  "regions_over_1000_verts": 0,
+  "bounds_blender_xyz": {
+    "min": [
+      -0.4756,
+      -0.1283,
+      -0.5009
+    ],
+    "max": [
+      0.4753,
+      0.1292,
+      0.501
+    ]
+  },
+  "size_blender_xyz": [
+    0.9509,
+    0.2575,
+    1.0019
+  ],
+  "materials": [
+    {
+      "name": "Material_0",
+      "textures": [
+        {
+          "image": "Image_0",
+          "size": [
+            2048,
+            2048
+          ],
+          "colorspace": "sRGB",
+          "feeds": [
+            "Base Color"
+          ],
+          "channels": 4
+        },
+        {
+          "image": "Image_1",
+          "size": [
+            2048,
+            2048
+          ],
+          "colorspace": "Non-Color",
+          "feeds": [
+            "Color"
+          ],
+          "channels": 4
+        }
+      ],
+      "Base Color": "linked",
+      "Metallic": "linked",
+      "Roughness": "linked",
+      "Normal": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Emission Color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "Alpha": 1.0
+    }
+  ],
+  "source": "D",
+  "object_hierarchy": [
+    {
+      "name": "world",
+      "type": "EMPTY",
+      "parent": null,
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "name": "geometry_0",
+      "type": "MESH",
+      "parent": "world",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  ]
+}

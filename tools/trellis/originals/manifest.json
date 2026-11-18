@@ -1,0 +1,86 @@
+{
+  "A": {
+    "source_url": "https://www.icloud.com/iclouddrive/095ZXPcMdomQ8PGmt2XKit92Q#sample%5F2026-11-18T041346.939",
+    "remote_filename": "sample_2026-11-18T041346.939.glb",
+    "size": 12784136,
+    "icloud_checksum": "AYC5IB9YInVPIx6dZGxCd0bsOQYx",
+    "sha256": "139b33890d6bd354cb543bf6badf321cac957a2d05d2736232b25c087c48a45b",
+    "local_file": "originals/source_A.glb",
+    "glb": {
+      "gltf_version": "2.0",
+      "generator": "https://github.com/mikedh/trimesh",
+      "meshes": 1,
+      "materials": 1,
+      "images": 2,
+      "skins": 0,
+      "animations": 0,
+      "bin_bytes": 12782288,
+      "extensions_required": [
+        "EXT_texture_webp"
+      ]
+    }
+  },
+  "B": {
+    "source_url": "https://www.icloud.com/iclouddrive/073S8FRuaaB1Qh4E2ACkFFA7A#sample%5F2026-11-18T041139.397",
+    "remote_filename": "sample_2026-11-18T041139.397.glb",
+    "size": 11874628,
+    "icloud_checksum": "Ad2GhgxGCxUknLDojZuRZQ0rM60b",
+    "sha256": "6524c503dfe1ed804372cfb6a51a5a2269c4e9937d357f113154eda1aab08509",
+    "local_file": "originals/source_B.glb",
+    "glb": {
+      "gltf_version": "2.0",
+      "generator": "https://github.com/mikedh/trimesh",
+      "meshes": 1,
+      "materials": 1,
+      "images": 2,
+      "skins": 0,
+      "animations": 0,
+      "bin_bytes": 11872780,
+      "extensions_required": [
+        "EXT_texture_webp"
+      ]
+    }
+  },
+  "C": {
+    "source_url": "https://www.icloud.com/iclouddrive/01411-jiNRedi0T9W6d5-F8MA#sample%5F2026-11-18T041454.829",
+    "remote_filename": "sample_2026-11-18T041454.829.glb",
+    "size": 12918500,
+    "icloud_checksum": "AezqQh7pZD4H7bwpRa1+E79Ud5hi",
+    "sha256": "45621c7d798340a760c9ef1ab8c3483069bceb38da5579e1bc679aae8deb4a65",
+    "local_file": "originals/source_C.glb",
+    "glb": {
+      "gltf_version": "2.0",
+      "generator": "https://github.com/mikedh/trimesh",
+      "meshes": 1,
+      "materials": 1,
+      "images": 2,
+      "skins": 0,
+      "animations": 0,
+      "bin_bytes": 12916656,
+      "extensions_required": [
+        "EXT_texture_webp"
+      ]
+    }
+  },
+  "D": {
+    "source_url": "https://www.icloud.com/iclouddrive/0f82eGNuY8rC3-lvtRTis18Gg#sample%5F2026-11-18T041245.923",
+    "remote_filename": "sample_2026-11-18T041245.923.glb",
+    "size": 12782564,
+    "icloud_checksum": "AWWEjnM2jwtp15jQFcDIvSv8QP0k",
+    "sha256": "4a79b9980b4430c65a51df29f4094a2511570738d6b2d451ca28f789f3aac1f7",
+    "local_file": "originals/source_D.glb",
+    "glb": {
+      "gltf_version": "2.0",
+      "generator": "https://github.com/mikedh/trimesh",
+      "meshes": 1,
+      "materials": 1,
+      "images": 2,
+      "skins": 0,
+      "animations": 0,
+      "bin_bytes": 12780716,
+      "extensions_required": [
+        "EXT_texture_webp"
+      ]
+    }
+  }
+}

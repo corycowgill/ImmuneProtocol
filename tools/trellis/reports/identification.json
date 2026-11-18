@@ -1,0 +1,125 @@
+{
+  "unambiguous": true,
+  "consistent": true,
+  "assignment_margin": 0.994,
+  "combined_matrix": {
+    "A": {
+      "vanguard": 0.83,
+      "wraith": 0.214,
+      "lifeline": 0.843,
+      "bathysphere": 0.866
+    },
+    "B": {
+      "vanguard": 0.69,
+      "wraith": 0.701,
+      "lifeline": 0.608,
+      "bathysphere": 0.011
+    },
+    "C": {
+      "vanguard": 0.327,
+      "wraith": 0.367,
+      "lifeline": 0.792,
+      "bathysphere": 0.753
+    },
+    "D": {
+      "vanguard": 0.908,
+      "wraith": 0.691,
+      "lifeline": 0.108,
+      "bathysphere": 0.78
+    }
+  },
+  "assignments": [
+    {
+      "source": "A",
+      "character": "wraith",
+      "confidence": "high",
+      "score": 0.214,
+      "next_best_gap": 0.615,
+      "signal_distances": {
+        "colour": 0.203,
+        "texture": 0.534,
+        "palette": 0.0,
+        "shape": 0.099
+      },
+      "palette_share": {
+        "vanguard": 0.0,
+        "wraith": 0.556,
+        "lifeline": 0.005,
+        "bathysphere": 0.0
+      },
+      "silhouette_head_torso_ratio": [
+        0.145,
+        0.229
+      ]
+    },
+    {
+      "source": "B",
+      "character": "bathysphere",
+      "confidence": "high",
+      "score": 0.011,
+      "next_best_gap": 0.596,
+      "signal_distances": {
+        "colour": 0.224,
+        "texture": 0.135,
+        "palette": 0.0,
+        "shape": 0.005
+      },
+      "palette_share": {
+        "vanguard": 0.007,
+        "wraith": 0.126,
+        "lifeline": 0.037,
+        "bathysphere": 0.307
+      },
+      "silhouette_head_torso_ratio": [
+        0.124,
+        0.242
+      ]
+    },
+    {
+      "source": "C",
+      "character": "vanguard",
+      "confidence": "low",
+      "score": 0.327,
+      "next_best_gap": 0.041,
+      "signal_distances": {
+        "colour": 0.302,
+        "texture": 0.334,
+        "palette": 0.589,
+        "shape": 0.013
+      },
+      "palette_share": {
+        "vanguard": 0.15,
+        "wraith": 0.364,
+        "lifeline": 0.022,
+        "bathysphere": 0.0
+      },
+      "silhouette_head_torso_ratio": [
+        0.159,
+        0.265
+      ]
+    },
+    {
+      "source": "D",
+      "character": "lifeline",
+      "confidence": "high",
+      "score": 0.108,
+      "next_best_gap": 0.583,
+      "signal_distances": {
+        "colour": 0.295,
+        "texture": 0.143,
+        "palette": 0.0,
+        "shape": 0.058
+      },
+      "palette_share": {
+        "vanguard": 0.0,
+        "wraith": 0.06,
+        "lifeline": 0.484,
+        "bathysphere": 0.0
+      },
+      "silhouette_head_torso_ratio": [
+        0.119,
+        0.17
+      ]
+    }
+  ]
+}
