@@ -10,6 +10,7 @@ import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from './coop-pro
 import { GamepadInput } from './gamepad.mjs';
 import { GamepadMenu } from './gamepad-menu.mjs';
 import { applyRenderedPreviews, installLevelHud } from './level-hud.mjs';
+import { DIFFICULTIES } from './difficulty.mjs';
 
 installLevelHud(document);
 const byId = id => document.getElementById(id);
@@ -987,10 +988,15 @@ async function launch(area, run = null, drill = null, onlineState = null) {
   }
 }
 
+// Solo runs name their difficulty on the pause screen and mission report.
+function difficultyTag() {
+  return !onlineRun && DIFFICULTIES[sim?.difficulty] ? ' · ' + DIFFICULTIES[sim.difficulty].name : '';
+}
+
 function pause() {
   if (!running || paused || sim.extractionPending) return;
   suspendCombat();
-  setText(byId('pause-mission'), missionName(sim.area));
+  setText(byId('pause-mission'), missionName(sim.area) + difficultyTag());
   setText(byId('pause-detail'), onlineRun ? 'The online match continues while this menu is open.' : usingGamepad
     ? 'Press Menu to resume the mission.' : isTouch
     ? 'Combat and wave timers are on hold.'
@@ -1246,7 +1252,8 @@ function finish() {
   }
   resultTitle.textContent = complete ? 'Campaign complete' : won && bossPractice ? 'Mega Virus defeated'
     : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : sim.organMission ? missionName(sim.area) + ' secured' : 'Artery secured') : 'Mission failed';
-  resultKicker.lastChild.textContent = onlineRun ? ' CO-OP REPORT' : practice ? ' FREE MODE REPORT' : ' MISSION REPORT';
+  resultKicker.lastChild.textContent = (onlineRun ? ' CO-OP REPORT' : practice ? ' FREE MODE REPORT' : ' MISSION REPORT') +
+    difficultyTag().toUpperCase();
   setText(returnMenu, onlineRun ? 'Leave room' : practice ? 'Free Mode' : 'Main menu');
   let detail;
   const allNodes = sim.nodes.length > 2 ? 'All three tissue nodes' : 'Both tissue nodes';
@@ -1507,7 +1514,7 @@ function drawTurretHud() {
   turretStatus.dataset.state = state;
   setText(turretStatusValue, {
     online: 'TURRET ONLINE', engaging: 'TURRET ENGAGING', jammed: 'TURRET JAMMED',
-    ready: moving ? 'REDEPLOY READY' : 'TURRET READY', blocked: 'FIND CLEAR GROUND',
+    ready: moving || turret ? 'REDEPLOY READY' : 'TURRET READY', blocked: 'FIND CLEAR GROUND',
   }[state]);
 }
 
