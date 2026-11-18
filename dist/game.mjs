@@ -9,7 +9,9 @@ import { CoopClient, PUBLIC_COOP_ORIGIN, savedCoopSession, verifyCoopHost } from
 import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from './coop-protocol.mjs';
 import { GamepadInput } from './gamepad.mjs';
 import { GamepadMenu } from './gamepad-menu.mjs';
+import { applyRenderedPreviews, installLevelHud } from './level-hud.mjs';
 
+installLevelHud(document);
 const byId = id => document.getElementById(id);
 const menu = byId('menu');
 const game = byId('game');
@@ -112,7 +114,14 @@ const nodeRows = [...document.querySelectorAll('[data-tissue-node]')].map(row =>
 const nodeMarkers = [
   { marker: byId('objective-marker'), label: byId('marker-label'), distance: byId('marker-distance'), edge: byId('objective-edge'), edgeLabel: byId('objective-edge-label') },
   { marker: byId('secondary-marker'), label: byId('secondary-marker-label'), distance: byId('secondary-marker-distance'), edge: byId('secondary-edge'), edgeLabel: byId('secondary-edge-label') },
+  { marker: byId('tertiary-marker'), label: byId('tertiary-marker-label'), distance: byId('tertiary-marker-distance'), edge: byId('tertiary-edge'), edgeLabel: byId('tertiary-edge-label') },
 ];
+const waveOutro = byId('wave-outro');
+const waveOutroTitle = byId('wave-outro-title');
+const waveOutroCount = byId('wave-outro-count');
+const waveOutroDetail = byId('wave-outro-detail');
+const waveOutroFill = byId('wave-outro-fill');
+let outroSecond = 0;
 const turretStatus = byId('turret-status');
 const turretStatusValue = byId('turret-status-value');
 const turretMarker = byId('turret-marker');
@@ -237,7 +246,7 @@ const coopNameKey = 'immune-protocol.coop-name';
 const megaVirusKey = 'immune-protocol.mega-virus-reached';
 const campaignAreas = CAMPAIGN_AREAS;
 const missions = {
-  artery: { name: 'Arterial Junction', briefing: 'Defend the core and lateral branch through five waves.' },
+  artery: { name: 'Arterial Junction', briefing: 'Defend the core, lateral branch and venous wall through five waves in the bloodstream.' },
   junction: { name: 'Capillary Junction', briefing: 'Read the attack forecast and defend both inlets.' },
   heart: { name: 'Heart Valve', briefing: 'Time your shots through the valve and defend the outer wall.' },
   ...ORGAN_MISSIONS,
@@ -343,7 +352,7 @@ function readCheckpoint() {
     if (saved.upgrade !== null && !Object.hasOwn(FIELD_UPGRADES, saved.upgrade)) return null;
     const valid = saved.results.every((result, index) => result?.area === campaignAreas[index] &&
       [result.tissue, result.score, result.kills].every(Number.isFinite) &&
-      Array.isArray(result.nodes) && result.nodes.length === 2 &&
+      Array.isArray(result.nodes) && result.nodes.length >= 2 &&
       result.nodes.every(node => typeof node?.name === 'string' && Number.isFinite(node.health)));
     return valid && saved.results.length <= unlockedMission ? saved : null;
   } catch {
@@ -584,6 +593,7 @@ async function prepareGame() {
       ...missionThumbnails.map(image => image.decode().catch(() => { image.hidden = true; })),
       document.fonts.ready,
     ]);
+    applyRenderedPreviews(document, world.previews);
     setStartupProgress(90);
     setText(startupStatus, 'Preparing carbine previews');
     armoryArt = await prepareArmoryArt(world.renderer);
@@ -592,6 +602,10 @@ async function prepareGame() {
     startupLoad.hidden = true;
     ready = true;
     displayMissionAccess();
+    if (new URL(location.href).searchParams.has('debug')) {
+      // Test hook for automated screenshots: launch any arena and inspect the running simulation.
+      window.__immune = { launch: area => { if (running) mainMenu(); return launch(area, null, { upgrade: null }); }, sim: () => sim, world, resume };
+    }
     if (roomCode(new URL(location.href).searchParams.get('room'))) {
       const intro = byId('studio-intro');
       if (intro.open) intro.addEventListener('close', openCoop, { once: true });
@@ -926,7 +940,7 @@ async function launch(area, run = null, drill = null, onlineState = null) {
     else if (heart) announce('HEART VALVE', 'HIT THE COLONY · DEFEND THE FLANK', 3.2);
     else if (junction) announce('CAPILLARY JUNCTION', 'DEFEND BOTH INLETS', 2.8);
     else if (nextSim.organ) announce(missionName(area).toUpperCase(), ORGAN_MISSIONS[area].hazard.instruction.toUpperCase(), 2.4);
-    else if (!sim.tutorial) announce('WAVE 01', 'DEFEND BOTH TISSUE NODES', 3.1);
+    else if (!sim.tutorial) announce('WAVE 01', (sim.nodes.length > 2 ? 'DEFEND ALL THREE' : 'DEFEND BOTH') + ' TISSUE NODES', 3.1);
     else {
       announcementTimer = 0;
       alertBox.replaceChildren();
@@ -1235,13 +1249,14 @@ function finish() {
   resultKicker.lastChild.textContent = onlineRun ? ' CO-OP REPORT' : practice ? ' FREE MODE REPORT' : ' MISSION REPORT';
   setText(returnMenu, onlineRun ? 'Leave room' : practice ? 'Free Mode' : 'Main menu');
   let detail;
-  if (complete) detail = 'The Mega Virus is down. The infection is contained across all eight missions.';
+  const allNodes = sim.nodes.length > 2 ? 'All three tissue nodes' : 'Both tissue nodes';
+  if (complete) detail = 'The Mega Virus is down. The infection is contained across all ' + campaignAreas.length + ' missions.';
   else if (won) {
     if (sim.overtimeBonus > 0) detail = 'Overtime cleared. +' + sim.overtimeBonus.toLocaleString() + ' score.';
     else if (sim.airway?.state === 'secured') detail = 'Both bronchi stayed open through a full breath.';
     else if (sim.gastric?.stage === 'drained') detail = 'The basin is drained and the lower passage is clear.';
     else if (sim.boss) detail = 'The Mega Virus is down and both tissue nodes survived.';
-    else detail = next ? '' : 'Both tissue nodes survived.';
+    else detail = next ? '' : allNodes + ' survived.';
     if (next) detail = [detail, missionName(next) + ' is open for deployment.'].filter(Boolean).join(' ');
   }
   else if (sim.overtime) {
@@ -1441,7 +1456,30 @@ function nodeStatus(node) {
   return '';
 }
 
+// Shown between the last kill of a wave and the wave-clear / armory or mission report.
+function drawWaveOutro() {
+  const outro = sim.outro;
+  waveOutro.hidden = !outro || sim.phase !== 'combat' && !sim.valve && !sim.airway;
+  if (waveOutro.hidden) {
+    outroSecond = 0;
+    return;
+  }
+  const seconds = Math.max(1, Math.ceil(outro.remaining));
+  const finalWave = outro.final || !!sim.valve || !!sim.airway;
+  waveOutro.dataset.final = String(finalWave);
+  setText(waveOutroTitle, finalWave ? 'AREA SECURED' : 'WAVE ' + pad(sim.wave) + ' CLEARED');
+  setText(waveOutroCount, String(seconds));
+  setText(waveOutroDetail, finalWave ? 'Mission report in' : sim.area === 'junction' || onlineRun ? 'Regroup in' : 'Armory opens in');
+  waveOutroFill.style.transform = 'scaleX(' + clamp(outro.remaining / outro.duration, 0, 1).toFixed(3) + ')';
+  if (seconds !== outroSecond) {
+    if (outroSecond) audio.play({ type: 'outroTick', final: finalWave });
+    outroSecond = seconds;
+  }
+}
+
 function drawNodeHud() {
+  for (const row of nodeRows.slice(sim.nodes.length)) row.row.hidden = true;
+  for (const marker of nodeMarkers.slice(sim.nodes.length)) marker.marker.hidden = marker.edge.hidden = true;
   for (const [index, node] of sim.nodes.entries()) {
     const { row, name, value, meter, state } = nodeRows[index];
     row.hidden = index > 0 && !!sim.tutorial;
@@ -1578,6 +1616,7 @@ function drawHud() {
   const { player, tissue, wave, waves, remaining, phase, intermission, valve } = sim;
   const suitPercent = Math.ceil(player.health);
   drawNodeHud();
+  drawWaveOutro();
   drawTurretHud();
   drawOrganHazard();
   drawBossHud();
@@ -1630,6 +1669,7 @@ function drawHud() {
         : (sim.settling ? 'EXTRACT IN ' : 'NEXT WAVE IN ') + Math.ceil(intermission) + 's';
     }
     else if (remaining === 0 && sim.projectiles.length) status = 'SPORE SHOTS IN FLIGHT';
+    else if (sim.outro) status = 'AREA CLEAR';
     setText(threats, status);
   }
   const nearby = sim.nearNode;
@@ -1927,6 +1967,11 @@ function applyEvents() {
       if (['dry', 'reload', 'hit', 'kill', 'repairStart', 'repairStop'].includes(event.type) ||
         (event.type === 'damage' && event.target === 'player')) continue;
     }
+    if (event.type === 'outro') {
+      // The countdown banner takes over the centre of the screen.
+      announcementTimer = 0;
+      alertBox.replaceChildren();
+    }
     if (event.type === 'suit' && !teammate) {
       if (event.stage === 'down') announce('SUIT DOWN', 'YOUR TEAMMATE CAN FINISH THE WAVE', 3.2);
       if (event.stage === 'respawn') announce('SUIT RESTORED', 'READY FOR THE NEXT WAVE', 2.5);
@@ -1934,7 +1979,7 @@ function applyEvents() {
     if (event.type === 'tutorial' && event.stage === 'complete') {
       trainingComplete = true;
       writeSetting(tutorialKey, true);
-      announce('DEFEND BOTH TISSUE NODES', usingGamepad ? 'PRESS RB TO DEPLOY YOUR TURRET'
+      announce(sim.nodes.length > 2 ? 'DEFEND ALL THREE TISSUE NODES' : 'DEFEND BOTH TISSUE NODES', usingGamepad ? 'PRESS RB TO DEPLOY YOUR TURRET'
         : isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
       audio.play({ type: 'wave', stage: 'start' });
     }
