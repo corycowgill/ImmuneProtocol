@@ -136,6 +136,25 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
   let suitWorn = false;
   let wornVersion = -1;
   const worn = [];
+  // Default joint layout, restored for suits without their own pivots.
+  const defaultLayout = new Map([upper, head, hips, ...legs.flatMap(leg => [leg.thigh, leg.shin, leg.boot])]
+    .map(group => [group, group.position.clone()]));
+  const defaultShoulders = arms.map(arm => arm.shoulder.clone());
+
+  function fitRig(rig) {
+    for (const [group, position] of defaultLayout) group.position.copy(position);
+    arms.forEach((arm, index) => arm.shoulder.copy(defaultShoulders[index]));
+    if (!rig) return;
+    upper.position.copy(rig.upper);
+    head.position.subVectors(rig.head, rig.upper);
+    hips.position.copy(rig.hips);
+    for (const [index, side] of ['L', 'R'].entries()) {
+      legs[index].thigh.position.subVectors(rig['thigh_' + side], rig.hips);
+      legs[index].shin.position.subVectors(rig['shin_' + side], rig['thigh_' + side]);
+      legs[index].boot.position.subVectors(rig['boot_' + side], rig['shin_' + side]);
+      arms[index].shoulder.subVectors(rig['bicep_' + side], rig.upper);
+    }
+  }
 
   function wearSuit(id) {
     // Re-dress when a textured model finishes streaming in over the primitive one.
@@ -147,6 +166,7 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     wornVersion = suitModelVersion();
     for (const part of worn.splice(0)) part.removeFromParent();
     for (const part of stock) part.visible = !parts;
+    fitRig(parts?.rig);
     if (!parts) return;
     for (const [name, template] of parts) {
       const parent = suitJoints[name];

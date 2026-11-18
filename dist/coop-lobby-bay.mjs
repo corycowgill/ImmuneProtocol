@@ -27,6 +27,8 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;
   renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   // Image-based lighting so the suits' metal, glass, and painted plates reflect a studio.
   // The floor and pedestals set their own envMap so a low envMapIntensity applies to them.
@@ -49,6 +51,10 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
   const rim = new THREE.DirectionalLight(0x7fd8ff, 2.4);
   rim.position.set(3, 3, 4);
   scene.add(rim);
+  // Cool back light from the opposite side so dark suits (Wraith) keep an edge.
+  const backRim = new THREE.DirectionalLight(0xbfe4ff, 2.2);
+  backRim.position.set(-3, 2.6, 4);
+  scene.add(backRim);
   const fill = new THREE.PointLight(0xff5d4a, 6, 6, 1.6);
   fill.position.set(0, .4, -1.8);
   scene.add(fill);
@@ -80,6 +86,16 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
     ring.rotation.x = Math.PI / 2;
     ring.position.y = .085;
     pedestal.add(ring);
+    disc.receiveShadow = true;
+    // Soft key spot per pedestal: models the armour and casts a contact shadow.
+    const spot = new THREE.SpotLight(0xfff4ea, 18, 6, .5, .8, 1.6);
+    spot.position.set(-.6, 3.1, -1.6);
+    spot.target.position.set(0, .9, 0);
+    spot.castShadow = true;
+    spot.shadow.mapSize.set(1024, 1024);
+    spot.shadow.bias = -.0004;
+    spot.shadow.normalBias = .02;
+    pedestal.add(spot, spot.target);
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(.48, .5, 2.3, 40, 1, true), new THREE.MeshBasicMaterial({
       color: 0x75f1b4, transparent: true, opacity: .06, side: THREE.DoubleSide, depthWrite: false,
       blending: THREE.AdditiveBlending, toneMapped: false,
@@ -127,6 +143,8 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
       bay.rig.root.visible = present;
       bay.beam.visible = present;
       if (present) {
+        // Subtle idle: slow breathing sway of head and rifle through the rig.
+        if (!still) bay.actor.pitch = -.08 + Math.sin(clock * 1.3 + index * 2.1) * .035;
         bay.rig.update(bay.actor, 0, dt, true);
         bay.rig.root.visible = true;
         if (!still) bay.turntable.rotation.y = Math.sin(clock * .45 + index * 1.7) * .55 + bay.spin;

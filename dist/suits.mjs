@@ -167,10 +167,15 @@ export const suitModelVersion = () => modelVersion;
 
 function glbParts(id, gltf) {
   const parts = new Map();
+  // Suits built from TRELLIS scans carry their own joint pivots (glTF extras, game
+  // units). The teammate rig moves its joints there so limbs bend at the suit's knees.
+  const rig = {};
   for (const node of [...gltf.scene.children]) { // Copy: re-parenting mutates children.
     if (!Object.hasOwn(SUIT_MODELS[id].parts, node.name)) continue;
     node.traverse(child => {
-      if (child.isMesh) child.frustumCulled = false; // Arm segments are rescaled every frame.
+      if (!child.isMesh) return;
+      child.frustumCulled = false; // Arm segments are rescaled every frame.
+      child.castShadow = true;
     });
     // Joint geometry is authored relative to its pivot; any node transform is
     // gltfpack's dequantisation and must be kept.
@@ -178,7 +183,9 @@ function glbParts(id, gltf) {
     group.name = id + ' ' + node.name;
     group.add(node);
     parts.set(node.name, group);
+    if (Array.isArray(node.userData?.pivot)) rig[node.name] = new THREE.Vector3().fromArray(node.userData.pivot);
   }
+  if (Object.keys(rig).length === parts.size) parts.rig = rig;
   return parts.size === Object.keys(SUIT_MODELS[id].parts).length ? parts : null;
 }
 
@@ -233,6 +240,8 @@ export function suitParts(id) {
   if (!Object.hasOwn(SUIT_MODELS, id)) return null;
   if (glbModels.has(id)) return glbModels.get(id);
   loadSuitModel(id);
+  // Fallback: the primitive recipe is worn only until the GLB arrives (or if it fails).
+  if (!models.has(id)) console.info('Suit ' + id + ': showing the primitive stand-in while the scanned model loads');
   if (!models.has(id)) models.set(id, buildSuit(id));
   return models.get(id);
 }
