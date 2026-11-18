@@ -1,0 +1,35 @@
+{
+  "geometry": {
+    "before": {
+      "vertices": 234994,
+      "triangles": 294813,
+      "boundary_edges": 154159,
+      "non_manifold_edges": 0,
+      "inconsistent_winding_edges": 0,
+      "degenerate_faces": 7,
+      "loose_vertices": 0
+    },
+    "after": {
+      "vertices": 144410,
+      "triangles": 294126,
+      "boundary_edges": 697,
+      "non_manifold_edges": 1796,
+      "inconsistent_winding_edges": 0,
+      "degenerate_faces": 0,
+      "loose_vertices": 0
+    },
+    "welded_seam_vertices": 90431,
+    "removed_floater_vertices": 153,
+    "bevels": "not added: TRELLIS output is dense, irregular triangles with no clean edge loops, so a bevel modifier produces artifacts; hard edges are kept via angle-based shading instead"
+  },
+  "class_coverage": {
+    "white_suit": 0.5652,
+    "paint_red": 0.1382,
+    "rubber": 0.1599,
+    "metal": 0.0195,
+    "visor": 0.0142,
+    "unclassified": 0.1029
+  },
+  "visor_albedo_cleaned_texels": 59764,
+  "master_blend": "masters/lifeline.blend"
+}

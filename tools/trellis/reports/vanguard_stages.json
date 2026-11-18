@@ -1,0 +1,13 @@
+{
+  "master": {
+    "sha256": "45621c7d798340a760c9ef1ab8c3483069bceb38da5579e1bc679aae8deb4a65",
+    "ok": true,
+    "master": "masters/vanguard.blend"
+  },
+  "runtime": {
+    "sha256": "45621c7d798340a760c9ef1ab8c3483069bceb38da5579e1bc679aae8deb4a65",
+    "ok": true,
+    "glb": "dist/assets/suits/vanguard.glb",
+    "triangles": 49103
+  }
+}

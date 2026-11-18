@@ -1,0 +1,13 @@
+{
+  "master": {
+    "sha256": "139b33890d6bd354cb543bf6badf321cac957a2d05d2736232b25c087c48a45b",
+    "ok": true,
+    "master": "masters/wraith.blend"
+  },
+  "runtime": {
+    "sha256": "139b33890d6bd354cb543bf6badf321cac957a2d05d2736232b25c087c48a45b",
+    "ok": true,
+    "glb": "dist/assets/suits/wraith.glb",
+    "triangles": 48754
+  }
+}

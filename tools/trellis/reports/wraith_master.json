@@ -1,0 +1,35 @@
+{
+  "geometry": {
+    "before": {
+      "vertices": 249465,
+      "triangles": 290439,
+      "boundary_edges": 177705,
+      "non_manifold_edges": 0,
+      "inconsistent_winding_edges": 0,
+      "degenerate_faces": 7,
+      "loose_vertices": 0
+    },
+    "after": {
+      "vertices": 139791,
+      "triangles": 288956,
+      "boundary_edges": 1678,
+      "non_manifold_edges": 3516,
+      "inconsistent_winding_edges": 0,
+      "degenerate_faces": 0,
+      "loose_vertices": 0
+    },
+    "welded_seam_vertices": 109397,
+    "removed_floater_vertices": 277,
+    "bevels": "not added: TRELLIS output is dense, irregular triangles with no clean edge loops, so a bevel modifier produces artifacts; hard edges are kept via angle-based shading instead"
+  },
+  "class_coverage": {
+    "composite": 0.2978,
+    "fabric": 0.6542,
+    "rubber": 0.0,
+    "metal": 0.0103,
+    "visor": 0.0368,
+    "unclassified": 0.0009
+  },
+  "visor_albedo_cleaned_texels": 154326,
+  "master_blend": "masters/wraith.blend"
+}

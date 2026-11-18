@@ -1,0 +1,164 @@
+{
+  "_comment": "Per-character settings. target_height is metres from floor to helmet top; the TRELLIS sources are unit height. facing_deg rotates the source about the vertical axis so it faces the game's -Z (Blender +Y). Landmarks are fractions of height/width auto-detected by process.py; any value set under 'landmark_overrides' wins. 'classes' maps material classes to physically based [roughness, metallic] targets; the original TRELLIS roughness/metal variation is kept around each target (see process.py classify). pad_width (fraction of height) keeps shoulder armour on the torso when arms are cut for the rig.",
+  "vanguard": {
+    "target_height": 1.9,
+    "facing_deg": 180,
+    "landmark_overrides": {},
+    "classes": {
+      "paint_olive": [
+        0.55,
+        0.0
+      ],
+      "fabric": [
+        0.8,
+        0.0
+      ],
+      "rubber": [
+        0.68,
+        0.0
+      ],
+      "metal": [
+        0.38,
+        1.0
+      ],
+      "brass": [
+        0.3,
+        1.0
+      ],
+      "visor": [
+        0.06,
+        0.2
+      ]
+    },
+    "visor": "amber",
+    "pad_width": 0.055,
+    "known_issues": [
+      "TRELLIS textures carry no emissive data, so no light strips glow",
+      "2K base colour spread over thousands of tiny UV charts: soft at close range (no upscaling applied)",
+      "rigid-segment rig (the game's animation system), not a skinned mesh: small seams can show at bent joints",
+      "T-pose arms are bent down at the shoulder procedurally after baking; hands keep TRELLIS's open-hand shape",
+      "TRELLIS predicted ~0.66 metallic on painted plates; re-derived per class",
+      "brass/gold accents are mostly too small or dark to classify (0.02% of texels)"
+    ]
+  },
+  "wraith": {
+    "target_height": 1.86,
+    "facing_deg": 180,
+    "landmark_overrides": {},
+    "classes": {
+      "composite": [
+        0.48,
+        0.0
+      ],
+      "fabric": [
+        0.84,
+        0.0
+      ],
+      "rubber": [
+        0.66,
+        0.0
+      ],
+      "metal": [
+        0.36,
+        1.0
+      ],
+      "visor": [
+        0.05,
+        0.0
+      ]
+    },
+    "visor": "dark",
+    "pad_width": 0.07,
+    "known_issues": [
+      "TRELLIS textures carry no emissive data, so no light strips glow",
+      "2K base colour spread over thousands of tiny UV charts: soft at close range (no upscaling applied)",
+      "rigid-segment rig (the game's animation system), not a skinned mesh: small seams can show at bent joints",
+      "T-pose arms are bent down at the shoulder procedurally after baking; hands keep TRELLIS's open-hand shape",
+      "no cyan/violet accent texels exist in the source; the brief's illuminated details are absent"
+    ]
+  },
+  "lifeline": {
+    "target_height": 1.86,
+    "facing_deg": 180,
+    "landmark_overrides": {},
+    "classes": {
+      "white_suit": [
+        0.5,
+        0.0
+      ],
+      "paint_red": [
+        0.42,
+        0.0
+      ],
+      "rubber": [
+        0.66,
+        0.0
+      ],
+      "metal": [
+        0.34,
+        1.0
+      ],
+      "visor": [
+        0.05,
+        0.0
+      ]
+    },
+    "visor": "dark",
+    "keep_variation": 0.8,
+    "pad_width": 0.05,
+    "known_issues": [
+      "TRELLIS textures carry no emissive data, so no light strips glow",
+      "2K base colour spread over thousands of tiny UV charts: soft at close range (no upscaling applied)",
+      "rigid-segment rig (the game's animation system), not a skinned mesh: small seams can show at bent joints",
+      "T-pose arms are bent down at the shoulder procedurally after baking; hands keep TRELLIS's open-hand shape",
+      "white plates and white fabric share one colour and are not separated; one 'white suit' class keeps TRELLIS's own roughness variation",
+      "TRELLIS painted reflections into the visor albedo; visor texels replaced by the visor's median colour (original kept)"
+    ]
+  },
+  "bathysphere": {
+    "target_height": 1.94,
+    "facing_deg": 180,
+    "landmark_overrides": {
+      "crotch": 0.47,
+      "hip": 0.52,
+      "knee": 0.28
+    },
+    "classes": {
+      "copper": [
+        0.32,
+        1.0
+      ],
+      "paint_orange": [
+        0.5,
+        0.0
+      ],
+      "fabric": [
+        0.78,
+        0.0
+      ],
+      "rubber": [
+        0.64,
+        0.0
+      ],
+      "metal": [
+        0.42,
+        1.0
+      ],
+      "visor": [
+        0.05,
+        0.0
+      ]
+    },
+    "visor": "light",
+    "pad_width": 0.08,
+    "landmark_notes": "Legs are bridged near the knees in the TRELLIS mesh, so the centre-line crotch detector reports 33% of height; values set from the reference artwork (crotch ~47-48%).",
+    "known_issues": [
+      "TRELLIS textures carry no emissive data, so no light strips glow",
+      "2K base colour spread over thousands of tiny UV charts: soft at close range (no upscaling applied)",
+      "rigid-segment rig (the game's animation system), not a skinned mesh: small seams can show at bent joints",
+      "T-pose arms are bent down at the shoulder procedurally after baking; hands keep TRELLIS's open-hand shape",
+      "legs are bridged near the knees in the source mesh; hip/knee landmarks are overridden from the reference proportions",
+      "24% of texels did not match a class and keep their original TRELLIS roughness/metal"
+    ]
+  }
+}

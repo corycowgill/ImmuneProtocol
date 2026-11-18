@@ -1,0 +1,37 @@
+{
+  "baseline": {
+    "sha256": "4a79b9980b4430c65a51df29f4094a2511570738d6b2d451ca28f789f3aac1f7",
+    "ok": true,
+    "renders": [
+      "renders/lifeline/A_front.png",
+      "renders/lifeline/A_three_quarter.png",
+      "renders/lifeline/A_side.png",
+      "renders/lifeline/A_rear.png",
+      "renders/lifeline/A_closeup.png"
+    ]
+  },
+  "master": {
+    "sha256": "4a79b9980b4430c65a51df29f4094a2511570738d6b2d451ca28f789f3aac1f7",
+    "ok": true,
+    "master": "masters/lifeline.blend"
+  },
+  "enhanced": {
+    "sha256": "4a79b9980b4430c65a51df29f4094a2511570738d6b2d451ca28f789f3aac1f7",
+    "ok": true,
+    "renders": [
+      "renders/lifeline/B_front.png",
+      "renders/lifeline/B_three_quarter.png",
+      "renders/lifeline/B_side.png",
+      "renders/lifeline/B_rear.png",
+      "renders/lifeline/B_closeup.png",
+      "renders/lifeline/QA_classes_front.png",
+      "renders/lifeline/QA_classes_rear.png"
+    ]
+  },
+  "runtime": {
+    "sha256": "4a79b9980b4430c65a51df29f4094a2511570738d6b2d451ca28f789f3aac1f7",
+    "ok": true,
+    "glb": "dist/assets/suits/lifeline.glb",
+    "triangles": 48957
+  }
+}

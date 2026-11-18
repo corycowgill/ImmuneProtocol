@@ -1,0 +1,13 @@
+{
+  "master": {
+    "sha256": "6524c503dfe1ed804372cfb6a51a5a2269c4e9937d357f113154eda1aab08509",
+    "ok": true,
+    "master": "masters/bathysphere.blend"
+  },
+  "runtime": {
+    "sha256": "6524c503dfe1ed804372cfb6a51a5a2269c4e9937d357f113154eda1aab08509",
+    "ok": true,
+    "glb": "dist/assets/suits/bathysphere.glb",
+    "triangles": 48699
+  }
+}

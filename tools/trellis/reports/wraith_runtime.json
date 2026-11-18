@@ -1,0 +1,39 @@
+{
+  "source_triangles": 288956,
+  "runtime_triangles": 48754,
+  "joint_faces": {
+    "hips": 8288,
+    "upper": 27746,
+    "head": 2775,
+    "thigh_L": 1382,
+    "thigh_R": 1227,
+    "shin_L": 1111,
+    "shin_R": 1131,
+    "boot_L": 1093,
+    "boot_R": 1048,
+    "bicep_L": 439,
+    "bicep_R": 334,
+    "forearm_L": 830,
+    "forearm_R": 859,
+    "glove_L": 237,
+    "glove_R": 254
+  },
+  "landmarks_m": {
+    "height": 1.8615,
+    "shoulder_x": 0.1955,
+    "arm_z": 1.4865,
+    "elbow_x": 0.4567,
+    "wrist_x": 0.6807,
+    "crotch": 0.8002,
+    "hip": 0.8933,
+    "leg_x": 0.1282,
+    "waist": 1.0968,
+    "neck": 1.6613,
+    "knee": 0.518,
+    "ankle": 0.168,
+    "pad_width": 0.07
+  },
+  "texture_size": 2048,
+  "glb_bytes": 2651776,
+  "raw_glb_bytes": 5156092
+}

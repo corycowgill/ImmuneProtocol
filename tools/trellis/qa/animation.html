@@ -1,0 +1,96 @@
+<!doctype html>
+<!--
+  Rig/animation QA for scanned suits, using the game's own teammate rig and renderer.
+  Serve the repository root (python3 -m http.server) and open
+  /tools/trellis/qa/animation.html?suit=lifeline
+  Renders neutral, idle, walk, run and combat poses side by side, then sets
+  window.qaResult = { suit, rig, triangles, drawCalls, frameMs }.
+-->
+<html lang="en">
+<head><meta charset="utf-8"><title>Suit animation QA</title>
+<style>body{margin:0;background:#202326;color:#ddd;font:13px monospace}canvas{display:block}#log{position:fixed;left:8px;bottom:6px}</style></head>
+<body>
+<canvas id="c" width="1500" height="560"></canvas><div id="log"></div>
+<script type="module">
+import * as THREE from '../../../dist/vendor/three.module.js';
+import { RoomEnvironment } from '../../../dist/vendor/RoomEnvironment.js';
+import { createTeammate } from '../../../dist/teammate.mjs';
+import { loadSuitModel } from '../../../dist/suits.mjs';
+
+const suit = new URLSearchParams(location.search).get('suit') || 'lifeline';
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.setScissorTest(true);
+const pmrem = new THREE.PMREMGenerator(renderer);
+const env = pmrem.fromScene(new RoomEnvironment(), .04).texture;
+const mask = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+mask.needsUpdate = true;
+
+const poses = [
+  { name: 'neutral', speed: 0, aiming: false, pitch: 0 },
+  { name: 'idle', speed: 0, aiming: false, pitch: -.15, time: 1.3 },
+  { name: 'walk', speed: 1.6, aiming: false, pitch: 0 },
+  { name: 'run', speed: 4.5, aiming: false, pitch: 0 },
+  { name: 'combat', speed: 0, aiming: true, pitch: -.05 },
+];
+const parts = await loadSuitModel(suit);
+const panels = poses.map((pose, index) => {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x3a3d42);
+  scene.environment = env;
+  scene.environmentIntensity = .6;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x303030, 1.2));
+  const key = new THREE.DirectionalLight(0xfff3e6, 2.4);
+  key.position.set(-2, 3, -3);
+  scene.add(key);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(3, 32), new THREE.MeshStandardMaterial({ color: 0x55585e, roughness: .9 }));
+  floor.rotation.x = -Math.PI / 2;
+  scene.add(floor);
+  const rig = createTeammate(mask, { marker: false });
+  scene.add(rig.root);
+  const camera = new THREE.PerspectiveCamera(32, 300 / 560, .1, 20);
+  camera.position.set(2.2, 1.35, -3.6);
+  camera.lookAt(0, .95, 0);
+  return { pose, scene, rig, camera, index };
+});
+
+// Drive each rig through its pose with the game's update() for ~1.4 s of simulated time.
+const dt = 1 / 60;
+for (const panel of panels) {
+  const { pose, rig } = panel;
+  const actor = { id: 'qa-' + pose.name, x: 0, z: 0, yaw: -.45, pitch: pose.pitch, aiming: pose.aiming,
+    connected: true, downed: false, suit, name: '' };
+  const steps = Math.round((pose.time ?? 1.42) / dt);
+  for (let step = 0; step < steps; step++) {
+    actor.z -= pose.speed * dt * Math.cos(actor.yaw);
+    actor.x -= pose.speed * dt * Math.sin(actor.yaw);
+    rig.update(actor, 0, dt, false);
+  }
+  rig.root.position.set(0, 0, 0); // keep the moving rig framed
+}
+
+let triangles = 0;
+let drawCalls = 0;
+const start = performance.now();
+const frames = 10;
+for (let frame = 0; frame < frames; frame++) {
+  renderer.info.reset();
+  renderer.info.autoReset = false;
+  for (const { scene, camera, index } of panels) {
+    renderer.setViewport(index * 300, 0, 300, 560);
+    renderer.setScissor(index * 300, 0, 300, 560);
+    renderer.render(scene, camera);
+  }
+  triangles = renderer.info.render.triangles / panels.length;
+  drawCalls = renderer.info.render.calls / panels.length;
+}
+const frameMs = (performance.now() - start) / frames;
+const ctx = document.getElementById('log');
+ctx.textContent = suit + ' | ' + poses.map(p => p.name).join(' / ') + ' | rig pivots: ' + (parts?.rig ? 'from suit' : 'default') +
+  ' | ~' + Math.round(triangles) + ' tris, ' + drawCalls + ' draws per suit view (incl. floor)';
+window.qaResult = { suit, loaded: !!parts, rig: !!parts?.rig, triangles, drawCalls, frameMs };
+</script>
+</body>
+</html>

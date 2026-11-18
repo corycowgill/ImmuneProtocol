@@ -1,0 +1,36 @@
+{
+  "geometry": {
+    "before": {
+      "vertices": 220288,
+      "triangles": 280379,
+      "boundary_edges": 142584,
+      "non_manifold_edges": 1,
+      "inconsistent_winding_edges": 0,
+      "degenerate_faces": 1,
+      "loose_vertices": 0
+    },
+    "after": {
+      "vertices": 138419,
+      "triangles": 279685,
+      "boundary_edges": 487,
+      "non_manifold_edges": 1078,
+      "inconsistent_winding_edges": 0,
+      "degenerate_faces": 0,
+      "loose_vertices": 0
+    },
+    "welded_seam_vertices": 81610,
+    "removed_floater_vertices": 259,
+    "bevels": "not added: TRELLIS output is dense, irregular triangles with no clean edge loops, so a bevel modifier produces artifacts; hard edges are kept via angle-based shading instead"
+  },
+  "class_coverage": {
+    "copper": 0.4619,
+    "paint_orange": 0.0084,
+    "fabric": 0.1893,
+    "rubber": 0.0132,
+    "metal": 0.0805,
+    "visor": 0.0029,
+    "unclassified": 0.2438
+  },
+  "visor_albedo_cleaned_texels": 12233,
+  "master_blend": "masters/bathysphere.blend"
+}
