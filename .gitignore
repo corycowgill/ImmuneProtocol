@@ -9,3 +9,4 @@ tools/trellis/work/
 tools/trellis/renders/preview/
 tools/trellis/reports/*.png
 tools/trellis/reports/*.log
+tools/trellis/renders/*/*.png
