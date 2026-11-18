@@ -5,14 +5,21 @@ import { createHeartValve, createValveColony } from './heart-valve.mjs';
 import { createTurret } from './turret.mjs';
 import { createOrganEnemies, createOrganEnvironment, organProfile } from './organ-world.mjs';
 import { createMegaVirus } from './mega-virus.mjs';
+import { bioSurface, createLevelProps } from './level-props.mjs';
+import { ORGAN_MISSIONS } from './organs.mjs';
+import { RENDERED_PREVIEWS } from './level-hud.mjs';
 import { createTeammate } from './teammate.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS } from './weapon-mods.mjs';
 import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, TISSUE_NODES } from './simulation.mjs';
 
 const TAU = Math.PI * 2;
 const PRELOAD_INPUT = Object.freeze({ moveX: 0, moveZ: 0, lookX: 0, lookY: 0 });
-const CHAMBER_WIDTH = 35;
-const CHAMBER_DEPTH = 49;
+// The tissue shell sits a little outside the playable ellipse (ARENA in simulation.mjs).
+const CHAMBER_WIDTH = 51;
+const CHAMBER_DEPTH = 71;
+// Horizontal stretch applied to anatomy that was laid out for the original, smaller arenas.
+const LAYOUT_SCALE = 1.45;
+const WALL_HEIGHT = 22;
 const UP = new THREE.Vector3(0, 1, 0);
 const FORWARD = new THREE.Vector3(0, 0, 1);
 
@@ -127,7 +134,7 @@ function wallPosition(angle, height) {
   const ripple = 1 + Math.sin(angle * 7 + height * .23) * .044
     + Math.cos(angle * 13 - height * .28) * .018
     + Math.sin(angle * 3 + height * .18) * .023;
-  const arch = 1 - .22 * (height / 16) ** 3 - .03 * Math.cos(height * 1.12 + angle * 5);
+  const arch = 1 - .22 * (height / 20) ** 3 - .03 * Math.cos(height * 1.12 + angle * 5);
   return new THREE.Vector3(Math.cos(angle) * CHAMBER_WIDTH * ripple * arch, height,
     Math.sin(angle) * CHAMBER_DEPTH * ripple * arch);
 }
@@ -144,7 +151,7 @@ function colorGeometry(geometry, paint) {
 }
 
 function floorGeometry() {
-  const geometry = new THREE.PlaneGeometry(2 * CHAMBER_WIDTH + 8, 2 * CHAMBER_DEPTH + 8, 150, 184);
+  const geometry = new THREE.PlaneGeometry(2 * CHAMBER_WIDTH + 8, 2 * CHAMBER_DEPTH + 8, 190, 240);
   geometry.rotateX(-Math.PI / 2);
   const vertices = geometry.attributes.position;
   const uv = geometry.attributes.uv;
@@ -165,12 +172,12 @@ function floorGeometry() {
 }
 
 function wallGeometry() {
-  const geometry = new THREE.PlaneGeometry(1, 1, 168, 44);
+  const geometry = new THREE.PlaneGeometry(1, 1, 220, 52);
   const vertices = geometry.attributes.position;
   const uv = geometry.attributes.uv;
   for (let i = 0; i < vertices.count; i++) {
     const angle = uv.getX(i) * TAU;
-    const height = uv.getY(i) * 17.5 - .5;
+    const height = uv.getY(i) * WALL_HEIGHT - .5;
     const point = wallPosition(angle, height);
     vertices.setXYZ(i, point.x, point.y, point.z);
     uv.setXY(i, angle * 7.5, height / 3.3 + Math.sin(angle * 8) * .16);
@@ -454,7 +461,7 @@ function makeRoom(scene, tile, normal, glow, random) {
     const x = roofVertices.getX(i);
     const z = roofVertices.getZ(i);
     const edge = Math.min(1, Math.hypot(x / CHAMBER_WIDTH, z / CHAMBER_DEPTH));
-    roofVertices.setY(i, 14.5 + (1 - edge ** 2) * 5 + Math.cos(x * .41 + z * .25) * .9);
+    roofVertices.setY(i, 18.5 + (1 - edge ** 2) * 6.5 + Math.cos(x * .41 + z * .25) * .9);
     roofUv.setXY(i, x / 3.7, z / 3.7);
   }
   roof.computeVertexNormals();
@@ -465,11 +472,11 @@ function makeRoom(scene, tile, normal, glow, random) {
   const tinyVesselMaterial = skin({ color: 0xdf9193, roughness: .32, clearcoat: .68 });
   const lobe = texturedLobe(1, 32, 20, .24);
   const transform = new THREE.Object3D();
-  const folds = instanceMesh(scene, lobe, lobeMaterial, 60);
+  const folds = instanceMesh(scene, lobe, lobeMaterial, 96);
 
   for (let i = 0; i < folds.count; i++) {
     const angle = i / folds.count * TAU + random() * .055;
-    const height = 1.1 + random() * 9.4;
+    const height = 1.1 + random() * 13;
     const center = wallPosition(angle, height);
     center.x *= .995;
     center.z *= .995;
@@ -495,9 +502,9 @@ function makeRoom(scene, tile, normal, glow, random) {
   ];
   for (const { points, radius } of branches) addVessel(arteryDetails, vesselMaterial, points, radius, .37);
 
-  for (let i = 0; i < 44; i++) {
+  for (let i = 0; i < 70; i++) {
     const angle = random() * TAU;
-    const low = random() * 9;
+    const low = random() * 12;
     const sweep = (random() - .5) * .5;
     const points = [];
     for (let j = 0; j < 5; j++) {
@@ -510,13 +517,13 @@ function makeRoom(scene, tile, normal, glow, random) {
   }
 
   const growthMaterial = skin({ color: 0xc88d8f, roughness: .37, clearcoat: .6 });
-  const growths = instanceMesh(scene, texturedLobe(1, 12, 8, .32), growthMaterial, 965);
+  const growths = instanceMesh(scene, texturedLobe(1, 12, 8, .32), growthMaterial, 1700);
   const patch = new THREE.Vector3();
   const ciliaGeometry = tubeGeometry([
     new THREE.Vector3(0, -.2, 0), new THREE.Vector3(.02, .1, .02),
     new THREE.Vector3(.02, .45, .09), new THREE.Vector3(.12, .69, .16),
   ], .068, .22, 7, 5);
-  const cilia = instanceMesh(scene, ciliaGeometry, tinyVesselMaterial, 670);
+  const cilia = instanceMesh(scene, ciliaGeometry, tinyVesselMaterial, 1150);
 
   for (let i = 0; i < growths.count; i++) {
     const angle = random() * TAU;
@@ -554,10 +561,12 @@ function makeRoom(scene, tile, normal, glow, random) {
   filament.position.set(3.5, 3.8, -31.2);
   filament.scale.y *= 2.25;
   arteryDetails.add(filament);
-  arteryDetails.scale.set(1.25, 1, 1.22);
+  arteryDetails.scale.set(1.25 * LAYOUT_SCALE, 1.18, 1.22 * LAYOUT_SCALE);
 
   const junctionDetails = makeJunction(scene, skin, glow);
   const heartDetails = makeHeartChamber(scene, skin, glow);
+  // The heart's play space grew; push its muscular walls out to match.
+  heartDetails.scale.set(1.2, 1.1, 1.12);
   return { surfaces, arteryDetails, junctionDetails, heartDetails, floor, wall, canopy, growths, cilia };
 }
 
@@ -570,7 +579,7 @@ function makeAtmosphere(scene, glow, random) {
     roughness: .37,
     sheen: .38,
     sheenColor: 0xffa997,
-  }), 91);
+  }), 170);
   cells.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   cells.frustumCulled = false;
   const cellPath = [];
@@ -579,19 +588,19 @@ function makeAtmosphere(scene, glow, random) {
     const radial = Math.sqrt(random()) * .89 + .11;
     const x = Math.cos(angle) * radial * (CHAMBER_WIDTH - 3);
     const z = Math.sin(angle) * radial * (CHAMBER_DEPTH - 3);
-    const y = .72 + random() * 11 + (Math.abs(x) < 6 ? 1.7 : 0);
+    const y = .72 + random() * 15 + (Math.abs(x) < 6 ? 1.7 : 0);
     const radius = .11 + random() ** 2 * .98;
     cellPath.push({ x, y, z, radius, phase: random() * TAU, spin: (random() - .5) * .45 });
     cells.setColorAt(i, new THREE.Color().setRGB(.55 + random() * .45, .45 + random() * .55, .39 + random() * .48));
   }
 
-  const positions = new Float32Array(1000 * 3);
+  const positions = new Float32Array(1900 * 3);
   const colors = new Float32Array(positions.length);
   for (let index = 0; index < positions.length; index += 3) {
     const angle = random() * TAU;
     const radial = Math.sqrt(random());
     positions[index] = Math.cos(angle) * radial * (CHAMBER_WIDTH - 2);
-    positions[index + 1] = .05 + random() ** 1.45 * 14;
+    positions[index + 1] = .05 + random() ** 1.45 * 18;
     positions[index + 2] = Math.sin(angle) * radial * (CHAMBER_DEPTH - 2);
     const value = .23 + random() * .77;
     colors[index] = value;
@@ -620,7 +629,10 @@ function makeAtmosphere(scene, glow, random) {
     [-17, 2.5, 6, 15], [15, 5.1, 11, 15], [-6, 1.6, -11, 10],
   ];
   for (let index = 0; index < cloudPoints.length; index++) {
-    const [x, y, z, size] = cloudPoints[index];
+    const [baseX, y, baseZ, baseSize] = cloudPoints[index];
+    const x = baseX * LAYOUT_SCALE;
+    const z = baseZ * LAYOUT_SCALE;
+    const size = baseSize * 1.3;
     const cloud = sprite(haze, index > 4 ? 0xb77266 : 0xfac597, size, index > 4 ? .115 : .26);
     cloud.position.set(x, y, z);
     cloud.scale.y *= .66;
@@ -1281,7 +1293,7 @@ export class World {
     this.scene.environment = reflectionTexture();
     this.scene.environmentIntensity = .51;
 
-    this.camera = new THREE.PerspectiveCamera(61, 1, .063, 119);
+    this.camera = new THREE.PerspectiveCamera(61, 1, .063, 175);
     this.camera.rotation.order = 'YXZ';
     this.camera.position.set(0, 1.7, 18);
     this.clock = 0;
@@ -1361,10 +1373,12 @@ export class World {
     this.areaLights = { ambient, backlight, fill, warm, side };
     this.atmosphere = makeAtmosphere(this.scene, this.glow, this.random);
     this.organEnvironments = new Map();
+    this.levelProps = new Map();
     this.baseShellMaterials = [this.room.floor.material, this.room.wall.material, this.room.canopy.material];
     this.tissueViews = [
       makeTissue(this.scene, this.glow, normal, this.random),
       makeTissue(this.scene, this.glow, normal, randomSource(327113), true),
+      makeTissue(this.scene, this.glow, normal, randomSource(551903), true),
     ];
     this.junctionField = makeJunctionField(this.room.junctionDetails, this.tissueViews[0], this.glow);
     this.turretView = createTurret(this.glow);
@@ -1530,6 +1544,7 @@ export class World {
         this.setArea(area);
         const fixture = new Simulation(area);
         fixture.start();
+        if (Object.hasOwn(RENDERED_PREVIEWS, area)) this.capturePreview(area, fixture);
         await this.prepareArea(fixture, warmTextures);
         if (area === 'brain') {
           const finale = new Simulation('brain', { bossPractice: true });
@@ -1547,6 +1562,29 @@ export class World {
       this.setArea(startArea);
       this.prewarmingEnemies = false;
       this.resize(true);
+    }
+  }
+
+  // Renders a 480 x 270 Free Mode thumbnail from just behind the insertion point.
+  capturePreview(area, sim) {
+    this.previews ??= {};
+    try {
+      const { x, z } = sim.player;
+      this.camera.position.set(x, 2.3, z + 8);
+      this.camera.rotation.set(-.06, 0, 0);
+      this.camera.aspect = 16 / 9;
+      this.camera.updateProjectionMatrix();
+      this.camera.updateMatrixWorld();
+      this.organEnvironment?.update(null, 2, false);
+      this.props?.update(null, 2, 1 / 60, false);
+      this.updateTissue(sim, 0, true);
+      this.renderer.setSize(480, 270, false);
+      this.renderer.render(this.scene, this.camera);
+      this.previews[area] = this.renderer.domElement.toDataURL('image/webp', .86);
+    } catch {
+      // Free Mode hides a card whose preview could not be drawn.
+    } finally {
+      this.renderer.setSize(160, 90, false);
     }
   }
 
@@ -1629,6 +1667,7 @@ export class World {
       environment.shell = this.baseShellMaterials.map((source, index) => {
         const material = source.clone();
         Object.assign(material, environment.maps);
+        if (profile.surfaces) Object.assign(material, bioSurface(profile.surfaces[index]));
         material.color.setHex([profile.floor, profile.wall, profile.ceiling][index]);
         material.normalScale.setScalar(index === 0 ? .32 : .53);
         material.roughness = index === 0 ? .83 : .76;
@@ -1641,6 +1680,16 @@ export class World {
       this.megaVirus = createMegaVirus(membraneMaps, this.glow);
       this.scene.add(this.megaVirus.root);
     }
+    if (!this.levelProps.has(this.area)) {
+      const props = createLevelProps(this.area, {
+        glow: this.glow, floorHeight, nodes: TISSUE_NODES[this.area], obstacles: ORGAN_MISSIONS[this.area]?.obstacles ?? [],
+      });
+      props.setQuality(this.quality !== 'low');
+      this.levelProps.set(this.area, props);
+    }
+    this.props?.root.removeFromParent();
+    this.props = this.levelProps.get(this.area);
+    this.scene.add(this.props.root);
     this.organEnvironment?.root.removeFromParent();
     this.organEnvironment = this.organEnvironments.get(this.area);
     if (this.organEnvironment) this.scene.add(this.organEnvironment.root);
@@ -1649,7 +1698,8 @@ export class World {
     canopy.scale.y = heart ? .54 : junction ? .63 : profile ? .85 : 1;
     this.scene.background.setHex(profile?.background ?? (heart ? 0x26181f : junction ? 0x1d1115 : 0x230f11));
     this.scene.fog.color.setHex(profile?.fog ?? (heart ? 0x3c2228 : junction ? 0x332528 : 0x462524));
-    this.scene.fog.density = profile?.density ?? (heart ? .024 : junction ? .029 : .030);
+    // Larger arenas need thinner haze so the far side of the chamber still reads.
+    this.scene.fog.density = (profile?.density ?? (heart ? .024 : junction ? .029 : .030)) * .64;
 
     const { ambient, backlight, fill, warm, side } = this.areaLights;
     ambient.color.setHex(profile?.back ?? 0xf6d4ba);
@@ -1689,8 +1739,10 @@ export class World {
     for (let i = 0; i < this.tissueViews.length; i++) {
       const view = this.tissueViews[i];
       const node = this.nodes[i];
+      view.root.visible = !!node;
+      if (!node) continue;
       view.root.position.set(node.x, node.y + floorHeight(node.x, node.z), node.z);
-      view.root.rotation.y = junction ? (i === 0 ? .31 : -.31) : i === 0 ? 0 : -.49;
+      view.root.rotation.y = junction ? (i === 0 ? .31 : -.31) : [0, -.49, .62][i];
       view.opening = 0;
       view.wound.reshape(0);
       view.channel.visible = false;
@@ -1716,6 +1768,7 @@ export class World {
     cells.count = low ? 35 : cellPath.length;
     motes.geometry.setDrawRange(0, low ? 280 : motes.geometry.attributes.position.count);
     clouds.forEach(({ cloud }, index) => { cloud.visible = !low || index % 3 === 2; });
+    for (const props of this.levelProps.values()) props.setQuality(!low);
     this.resize(true);
   }
 
@@ -2294,6 +2347,7 @@ export class World {
     this.organEnvironment?.updateAirways?.(sim, this.clock, dt, reduceMotion);
     this.organEnvironment?.updateGastric?.(sim, this.clock, dt, reduceMotion);
     this.megaVirus?.update(sim.boss, this.clock, dt, reduceMotion);
+    this.props?.update(sim, this.clock, dt, reduceMotion);
     if (sim.valve) this.heart.update(sim.valve, dt, reduceMotion, this.quality === 'low');
     this.updateTissue(sim, dt, reduceMotion);
     if (this.area === 'junction') this.updateJunctionField(sim, dt, reduceMotion);
