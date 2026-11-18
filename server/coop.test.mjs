@@ -6,6 +6,7 @@ import WebSocket from 'ws';
 import { hitBrainBoss } from '../dist/brain-boss.mjs';
 import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
+import { DIFFICULTIES, applyDifficulty } from '../dist/difficulty.mjs';
 import { JUNCTION_GASH_SITES, Simulation } from '../dist/simulation.mjs';
 import { createCoopServer } from './index.mjs';
 
@@ -397,4 +398,72 @@ test('three-node arenas, the macrophage sweep and the post-wave countdown', () =
   for (let tick = 0; tick < 30; tick++) artery.step(1 / 30);
   assert.equal(artery.phase, 'intermission');
   assert.equal(artery.outro, null);
+});
+
+test('difficulty reshapes solo missions and leaves scripted encounters intact', () => {
+  const deploy = (area, level) => {
+    const sim = applyDifficulty(new Simulation(area), level);
+    sim.start();
+    return sim;
+  };
+  const pathogens = sim => sim.missions.reduce((sum, wave) => sum + (wave.arrivals ?? wave.species).length, 0);
+  for (const area of CAMPAIGN_AREAS) {
+    const [easy, medium, hard] = ['easy', 'medium', 'hard'].map(level => deploy(area, level));
+    assert.deepEqual(medium.missions, new Simulation(area).missions, area);
+    assert.equal(easy.missions.length, medium.missions.length, area);
+    assert.equal(hard.missions.length, medium.missions.length, area);
+    // The heart's only wave is the colony itself.
+    if (area === 'heart') assert.equal(pathogens(easy), pathogens(medium));
+    else assert.ok(pathogens(easy) < pathogens(medium), area);
+    assert.ok(pathogens(hard) >= pathogens(medium), area);
+    assert.equal(easy.turretCharges, 2);
+    assert.equal(medium.turretCharges, 1);
+    assert.equal(hard.turretCharges, 1);
+    assert.ok(easy.repairAmount > medium.repairAmount && hard.repairAmount < medium.repairAmount, area);
+    const virus = [easy, medium, hard].map(sim => sim.createEnemy('virus', 0, 0, sim.nodes[0]).maxHealth);
+    assert.ok(virus[0] < virus[1] && virus[1] < virus[2], area);
+  }
+
+  // Lanes stay attached to their pathogens, and Hard keeps the Gastric Chamber's wave sizes.
+  const lungs = deploy('lungs', 'easy');
+  for (const wave of lungs.missions) assert.equal(wave.lanes.length, wave.species.length);
+  assert.deepEqual(deploy('stomach', 'hard').missions.map(wave => wave.species), new Simulation('stomach').missions.map(wave => wave.species));
+
+  // Capillary Junction surges keep the arrival that carries their forecast, including Overtime.
+  const junction = deploy('junction', 'easy');
+  for (const wave of junction.missions) {
+    for (const surge of wave.surges) assert.equal(wave.arrivals.filter(arrival => arrival.surge === surge).length, 1);
+  }
+  junction.wave = junction.missions.length;
+  junction.extractionPending = true;
+  junction.chooseExtraction('stay');
+  const overtime = junction.missions.at(-1);
+  assert.equal(overtime.name, 'Overtime');
+  assert.ok(overtime.arrivals.length < 9);
+  assert.equal(junction.spawnIndex, 0);
+
+  // The heart colony and Mega Virus waves are untouched; the boss scales through its hit size.
+  assert.deepEqual(deploy('heart', 'easy').missions[0].species, ['colony']);
+  const brain = deploy('brain', 'hard');
+  assert.ok(brain.missions.at(-1).boss);
+  brain.wave = brain.missions.length - 1;
+  brain.beginWave();
+  const health = brain.boss.health;
+  hitBrainBoss(brain, { vulnerable: true }, brain.boss.weakPoint);
+  assert.equal(health - brain.boss.health, Math.round(28 / DIFFICULTIES.hard.enemyHealth));
+
+  // Hard raises tissue damage only where two nodes are defended; suits always take more.
+  const tissueLoss = (area, level) => {
+    const sim = deploy(area, level);
+    const node = sim.nodes[0];
+    sim.damageNode(node, 10);
+    return 100 - node.health;
+  };
+  assert.equal(tissueLoss('lungs', 'hard'), 10 * DIFFICULTIES.hard.tissueDamage);
+  assert.equal(tissueLoss('artery', 'hard'), 10);
+  assert.equal(tissueLoss('artery', 'easy'), 10 * DIFFICULTIES.easy.tissueDamage);
+  const suit = deploy('artery', 'hard');
+  const attacker = suit.createEnemy('virus', 0, 0, suit.nodes[0]);
+  suit.damageTarget(attacker, 'player', 10);
+  assert.equal(100 - suit.player.health, 10 * DIFFICULTIES.hard.suitDamage);
 });

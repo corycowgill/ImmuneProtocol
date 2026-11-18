@@ -15,6 +15,7 @@ const PHASES = [
   { health: 0, sealed: 3.4, warning: 1.85, exposed: 2.45, points: [2, 0, 1], spawn: ['guard', 'splitter', 'virus'] },
 ];
 const MAX_HEALTH = 1848;
+const HIT_DAMAGE = 28;
 const COLLAPSE_TIME = 1.25;
 
 export function createBrainBoss(sim) {
@@ -141,7 +142,9 @@ export function hitBrainBoss(sim, hit, impact) {
     return;
   }
   const pattern = PHASES[boss.phase - 1];
-  boss.health = Math.max(pattern.health, boss.health - 28);
+  // Difficulty scales the boss's effective health by changing how much each hit removes.
+  const damage = Math.round(HIT_DAMAGE / (sim.enemyHealthScale ?? 1));
+  boss.health = Math.max(pattern.health, boss.health - damage);
   emit(sim, 'hit', impact);
   if (boss.health > pattern.health) return;
   if (boss.phase === 3) {
