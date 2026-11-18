@@ -23,9 +23,7 @@
     "bevels": "not added: TRELLIS output is dense, irregular triangles with no clean edge loops, so a bevel modifier produces artifacts; hard edges are kept via angle-based shading instead"
   },
   "class_coverage": {
-    "composite": 0.2978,
-    "fabric": 0.6542,
-    "rubber": 0.0,
+    "tactical": 0.952,
     "metal": 0.0103,
     "visor": 0.0368,
     "unclassified": 0.0009

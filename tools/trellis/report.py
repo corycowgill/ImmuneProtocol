@@ -55,8 +55,9 @@ def main():
                 '- Rig: rigid segments on the game\'s 15-joint teammate rig, suit-specific pivots %s' % (
                     {k: v for k, v in runtime.get('landmarks_m', {}).items() if k in ('hip', 'knee', 'neck', 'shoulder_x', 'arm_z')}),
                 '- Export re-import check: %s (height %s m)' % ('OK' if check.get('ok') else check.get('problems'), check.get('height_m')),
+                '- Game rig test (neutral, idle, walk, run, combat): %s' % runtime.get('game_rig_test', 'not run'),
                 '- Known issues: %s' % '; '.join(config[c].get('known_issues', [])),
-                '- Renders: `renders/%s/A_*.png` (original), `B_*.png` (enhanced), `QA_classes_*`, `QA_segments_*`' % c, '']
+                '- Renders: `renders/%s/A_*.jpg` (original), `B_*.jpg` (enhanced), `QA_classes_*`, `QA_segments_*`, `QA_animation.jpg`' % c, '']
     path = os.path.join(REPORTS, 'REPORT.md')
     open(path, 'w').write('\n'.join(out) + '\n')
     print('Wrote', path)

@@ -35,5 +35,19 @@
   },
   "texture_size": 2048,
   "glb_bytes": 3091560,
-  "raw_glb_bytes": 5192492
+  "raw_glb_bytes": 5192492,
+  "game_rig_test": {
+    "poses": [
+      "neutral",
+      "idle",
+      "walk",
+      "run",
+      "combat"
+    ],
+    "loaded": true,
+    "suit_pivots_used": true,
+    "triangles_per_suit": 49115,
+    "draw_calls_per_view_incl_floor": 29,
+    "note": "rendered with the game's createTeammate rig in tools/trellis/qa/animation.html (software WebGL, so frame time is not representative)"
+  }
 }

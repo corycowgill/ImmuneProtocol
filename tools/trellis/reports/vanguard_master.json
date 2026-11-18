@@ -23,14 +23,13 @@
     "bevels": "not added: TRELLIS output is dense, irregular triangles with no clean edge loops, so a bevel modifier produces artifacts; hard edges are kept via angle-based shading instead"
   },
   "class_coverage": {
-    "paint_olive": 0.6626,
+    "paint_olive": 0.6606,
     "fabric": 0.0181,
     "rubber": 0.2405,
     "metal": 0.0232,
     "brass": 0.0002,
-    "visor": 0.0012,
-    "unclassified": 0.0543
+    "visor": 0.0037,
+    "unclassified": 0.0537
   },
-  "visor_albedo_cleaned_texels": 4934,
   "master_blend": "masters/vanguard.blend"
 }

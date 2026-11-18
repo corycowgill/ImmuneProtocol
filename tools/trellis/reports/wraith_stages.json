@@ -9,5 +9,33 @@
     "ok": true,
     "glb": "dist/assets/suits/wraith.glb",
     "triangles": 48754
+  },
+  "baseline": {
+    "sha256": "139b33890d6bd354cb543bf6badf321cac957a2d05d2736232b25c087c48a45b",
+    "ok": true,
+    "renders": [
+      "renders/wraith/A_front.png",
+      "renders/wraith/A_three_quarter.png",
+      "renders/wraith/A_side.png",
+      "renders/wraith/A_rear.png",
+      "renders/wraith/A_closeup.png"
+    ]
+  },
+  "enhanced": {
+    "sha256": "139b33890d6bd354cb543bf6badf321cac957a2d05d2736232b25c087c48a45b",
+    "ok": true,
+    "renders": [
+      "renders/wraith/B_front.png",
+      "renders/wraith/B_three_quarter.png",
+      "renders/wraith/B_side.png",
+      "renders/wraith/B_rear.png",
+      "renders/wraith/B_closeup.png",
+      "renders/wraith/QA_classes_front.png",
+      "renders/wraith/QA_classes_rear.png"
+    ]
+  },
+  "qa_classes": {
+    "sha256": "139b33890d6bd354cb543bf6badf321cac957a2d05d2736232b25c087c48a45b",
+    "ok": true
   }
 }

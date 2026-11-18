@@ -278,7 +278,7 @@ def master(character):
     # TRELLIS paints reflections into visor albedo; under real reflections they read
     # as stickers. Visor texels take the visor's dark median colour (original saved).
     vmask = (labels == 'visor') & valid
-    if vmask.any():
+    if vmask.any() and cfg['visor'] == 'dark':  # coloured visors (Vanguard amber) are genuine artwork
         base_px = pixels(base_node.image)
         dark = base_px[..., :3][vmask]
         lum = dark.mean(1)
@@ -350,6 +350,45 @@ def master(character):
     report['master_blend'] = os.path.relpath(path, C.HERE)
     json.dump(report, open(os.path.join(C.DIRS['reports'], character + '_master.json'), 'w'), indent=2)
     return {'master': report['master_blend']}
+
+
+def regenerate_class_map(character):
+    """Rebuild classes_qa.png from the master's saved inputs (no re-bake of AO/normals)."""
+    tex_dir = os.path.join(C.DIRS['masters'], character + '_textures')
+    obj = bpy.data.objects[character + '_master']
+    cfg = C.config()[character]
+    size = bpy.data.images[character + '_orm'].size[0] if character + '_orm' in bpy.data.images else 2048
+    pos = bake_with(obj, image('pos', size, True), emit_vector('position'))
+    nrm = bake_with(obj, image('nrm', size, True), emit_vector('normal'))
+    valid = pos[..., 3] > .5
+    lo, hi = pos[valid][:, :3].min(0), pos[valid][:, :3].max(0)
+    position = (pos[..., :3] - lo) / np.maximum(hi - lo, 1e-6)
+    normal = nrm[..., :3] / np.maximum(np.linalg.norm(nrm[..., :3], axis=-1, keepdims=True), 1e-6)
+    albedo = pixels(bpy.data.images.load(os.path.join(tex_dir, 'basecolor_original.png')))[..., :3]
+    mr = pixels(bpy.data.images.load(os.path.join(tex_dir, 'metalrough_original.png')))
+    labels = M.classify(character, albedo, mr[..., 1], mr[..., 2], position, normal, valid, cfg['visor'], cfg['classes'])
+    labels = M.fill_visor(labels, position, normal, valid)
+    cmap = M.class_map(np.where(valid, labels, 'unclassified'))
+    img = image(character + '_classes_qa', size, colorspace='sRGB')
+    set_pixels(img, np.dstack([cmap, np.ones(cmap.shape[:2], np.float32)]))
+    save_png(img, os.path.join(tex_dir, 'classes_qa.png'))
+
+
+def qa_classes(character):
+    bpy.ops.wm.open_mainfile(filepath=os.path.join(C.DIRS['masters'], character + '.blend'))
+    regenerate_class_map(character)
+    obj = bpy.data.objects[character + '_master']
+    C.normalise(obj, character)
+    mat = obj.material_slots[0].material
+    cls = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    cls.image = bpy.data.images.load(os.path.join(C.DIRS['masters'], character + '_textures', 'classes_qa.png'), check_existing=False)
+    em = mat.node_tree.nodes.new('ShaderNodeEmission')
+    out_node = next(n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL')
+    mat.node_tree.links.new(cls.outputs['Color'], em.inputs['Color'])
+    mat.node_tree.links.new(em.outputs[0], out_node.inputs['Surface'])
+    cam = C.studio(8)
+    out = os.path.join(C.DIRS['renders'], character)
+    C.render_views(cam, C.config()[character]['target_height'], os.path.join(out, 'QA_classes'), views=['front', 'rear'], subjects=[obj])
 
 
 def enhanced(character):
@@ -671,6 +710,7 @@ def runtime(character):
 
 
 STAGES = {'baseline': baseline, 'master': master, 'enhanced': enhanced, 'runtime': runtime}
+EXTRA_STAGES = {'qa_classes': qa_classes}  # run explicitly; not part of 'all'
 
 
 def main():
@@ -678,7 +718,8 @@ def main():
     if not args:
         raise SystemExit(__doc__)
     stage, characters = args[0], args[1:] or CHARACTERS
-    order = list(STAGES) if stage == 'all' else [stage]
+    STAGES.update(EXTRA_STAGES) if stage in EXTRA_STAGES else None
+    order = [s for s in STAGES if s not in EXTRA_STAGES] if stage == 'all' else [stage]
     failures = []
     for character in characters:
         _, digest = C.source_path(character)

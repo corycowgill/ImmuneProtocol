@@ -33,5 +33,9 @@
     "ok": true,
     "glb": "dist/assets/suits/lifeline.glb",
     "triangles": 48957
+  },
+  "qa_classes": {
+    "sha256": "4a79b9980b4430c65a51df29f4094a2511570738d6b2d451ca28f789f3aac1f7",
+    "ok": true
   }
 }

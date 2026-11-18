@@ -12,7 +12,7 @@ import numpy as np
 CLASS_COLOURS = {  # for the QA class map
     'paint_white': (235, 235, 235), 'paint_red': (220, 30, 30), 'paint_olive': (110, 130, 50),
     'paint_orange': (255, 140, 20), 'copper': (180, 90, 40), 'brass': (220, 180, 60),
-    'composite': (70, 70, 90), 'fabric': (40, 140, 220), 'rubber': (30, 30, 30),
+    'composite': (70, 70, 90), 'tactical': (90, 90, 160), 'white_suit': (235, 235, 235), 'fabric': (40, 140, 220), 'rubber': (30, 30, 30),
     'metal': (170, 170, 190), 'visor': (255, 0, 255), 'unclassified': (0, 255, 0),
 }
 
@@ -53,7 +53,7 @@ def classify(character, albedo, rough, metal, position, normal, valid, visor_mod
     if visor_mode == 'dark':
         visor = head & (forward > .35) & (v < .22)
     elif visor_mode == 'amber':
-        visor = head & (forward > .35) & (h > .05) & (h < .16) & (s > .45) & (v > .3)
+        visor = head & (forward > .35) & (h > .05) & (h < .24) & (s > .35) & (v > .25)  # amber to yellow-olive glass
     else:  # 'light': glass porthole on a metal helmet
         visor = head & (forward > .5) & (s < .3) & (v > .55)
     metallic_hint = metal > .5
@@ -75,10 +75,10 @@ def classify(character, albedo, rough, metal, position, normal, valid, visor_mod
         masks['rubber'] = neutral_dark & (rough < .55)
         masks['fabric'] = neutral_dark & (rough >= .55)
     elif character == 'wraith':
+        # Plates and fabric are both near-black; TRELLIS roughness is too noisy to
+        # split them (doing so mottles the plates), so they share one class.
         masks['metal'] = (grey | white) & metallic_hint
-        masks['composite'] = (dark | grey) & (rough < .72) & ~masks['metal']
-        masks['fabric'] = (dark | grey) & (rough >= .72) & ~masks['metal']
-        masks['rubber'] = np.zeros_like(dark)
+        masks['tactical'] = (dark | grey) & ~masks['metal']
     elif character == 'bathysphere':
         masks['paint_orange'] = orange & (s > .72) & (v > .62)
         masks['copper'] = (orange | red) & ~masks['paint_orange']

@@ -9,5 +9,33 @@
     "ok": true,
     "glb": "dist/assets/suits/bathysphere.glb",
     "triangles": 48699
+  },
+  "baseline": {
+    "sha256": "6524c503dfe1ed804372cfb6a51a5a2269c4e9937d357f113154eda1aab08509",
+    "ok": true,
+    "renders": [
+      "renders/bathysphere/A_front.png",
+      "renders/bathysphere/A_three_quarter.png",
+      "renders/bathysphere/A_side.png",
+      "renders/bathysphere/A_rear.png",
+      "renders/bathysphere/A_closeup.png"
+    ]
+  },
+  "enhanced": {
+    "sha256": "6524c503dfe1ed804372cfb6a51a5a2269c4e9937d357f113154eda1aab08509",
+    "ok": true,
+    "renders": [
+      "renders/bathysphere/B_front.png",
+      "renders/bathysphere/B_three_quarter.png",
+      "renders/bathysphere/B_side.png",
+      "renders/bathysphere/B_rear.png",
+      "renders/bathysphere/B_closeup.png",
+      "renders/bathysphere/QA_classes_front.png",
+      "renders/bathysphere/QA_classes_rear.png"
+    ]
+  },
+  "qa_classes": {
+    "sha256": "6524c503dfe1ed804372cfb6a51a5a2269c4e9937d357f113154eda1aab08509",
+    "ok": true
   }
 }
