@@ -35,6 +35,24 @@ The carbine has unlimited reserve ammunition. Magazine capacity and reload speed
 
 The game prepares arena geometry, textures, audio, and armory previews before it enables deployment. The first load includes all ten arenas and the Mega Virus encounter.
 
+## Difficulty
+
+Choose **Easy**, **Medium**, or **Hard** under **Start campaign** on the main menu. Hover, focus, or select an option to see exactly what it changes. The choice is saved in the browser and applies when each campaign or Free Mode mission starts, so you can change it between missions. The pause screen and mission report name the difficulty you're playing. Medium is the standard balance that every mission is tuned around.
+
+| | Easy | Medium | Hard |
+| --- | --- | --- | --- |
+| Pathogens per wave | One in three removed | Standard | One extra for every seven, except in Gastric Chamber |
+| Spawn timing | 30% slower | Standard | 10% faster |
+| Pathogen and Mega Virus health | −25% | Standard | +15% |
+| Tissue damage | −35% | Standard | +10% in two-node arenas, standard in three-node arenas |
+| Suit damage, including hazards | −40% | Standard | +15% |
+| Tissue restored per repair pulse | +30% | Standard | −15% |
+| Auto-turret placements | Two, so you can move it once | One | One |
+
+Capillary Junction thins or reinforces each surge but always keeps the pathogen that triggers its forecast, and Overtime follows the same rules. The Heart Valve colony and flank patrol, the bronchus and gastric counterattacks, the lower-passage flank, and the Mega Virus brood keep their numbers and timing; only their health and damage change. Online co-op always plays Medium. The best score on the main menu counts runs from every difficulty.
+
+Run `npm run balance` to play every mission headlessly with two scripted strategies on each difficulty. The anchor guards the weakest node. The rover runs to the node under the most pressure and switches targets when Shellbacks block its shots. The script prints win rates and the lowest tissue integrity per run, and exits with an error if a mission is never won on some difficulty. Narrow it with `npm run balance -- --difficulty hard --trials 20 stomach colon`.
+
 ## Online co-op
 
 Two players share all ten missions in one room, from Arterial Junction to the Mega Virus fight in Neural Cortex. On the multiplayer server's game page, open **Online co-op**, enter a callsign, and choose **Create room**. Send the invite link to your friend. They open it, enter a callsign, and choose **Join room**. Choose **Ready** when both players are in the lobby.
@@ -43,7 +61,7 @@ After each mission, both players ready up at the shared checkpoint. A win unlock
 
 In the lobby, each player picks a suit: **Vanguard** (heavy assault armor), **Wraith** (stealth infiltrator), **Lifeline** (field corpsman), or **Bathysphere** (deep-dive pressure suit). Both suits stand side by side in the lobby's deployment bay, and your teammate sees your suit during missions. Suits can be changed in the lobby or at a mission checkpoint, and the browser remembers your choice.
 
-Each suit has its own carbine build, ammo, and health. You share the tissue nodes, one turret, the wave timer, and the mission score. If one suit goes down, it returns at the next wave if the teammate clears the current one. Both players can use the armory between waves and ready up to continue. The game holds your place for up to 75 seconds after a disconnect.
+Each suit has its own carbine build, ammo, and health. Co-op missions always use the Medium difficulty. You share the tissue nodes, one turret, the wave timer, and the mission score. If one suit goes down, it returns at the next wave if the teammate clears the current one. Both players can use the armory between waves and ready up to continue. The game holds your place for up to 75 seconds after a disconnect.
 
 To test locally with two browser windows, run these commands from the repository root with Node 22 and npm. Open the resulting game at [http://127.0.0.1:8017](http://127.0.0.1:8017) and share its invite between the windows.
 
@@ -112,7 +130,7 @@ When mouse capture is unavailable, drag the view to look. On touchscreens, move 
 
 Connect an Xbox controller to your device and press a button with the game tab focused. Use the D-pad or left stick to navigate menus, **A** to select, and **B** to go back. In Capillary Junction, the D-pad chooses support during the wave break. Left reinforces Amber, right reinforces Teal, up selects Load magazines, and down selects turret redeployment. If your browser gates audio, click the game or press a keyboard key once to enable it. Enter co-op callsigns and room codes with your keyboard.
 
-Each node has its own integrity meter and direction marker. Losing any node ends the mission. You can deploy one turret per mission on clear ground ahead of you. It stays where you place it and fires one shot every 2.6 seconds at targets within about 12 meters. Hits damage and briefly slow pathogens. Put it near an approach to the node you plan to leave.
+Each node has its own integrity meter and direction marker. Losing any node ends the mission. You can deploy one turret per mission on clear ground ahead of you, or place it twice on Easy. It stays where you place it and fires one shot every 2.6 seconds at targets within about 12 meters. Hits damage and briefly slow pathogens. Put it near an approach to the node you plan to leave.
 
 Settings is available from the main menu and pause screen. Look sensitivity applies to mouse, touch, and the Xbox right stick. Low graphics reduces rendering load on slower devices. Both settings are saved in the browser.
 
@@ -165,7 +183,8 @@ flowchart LR
 | [`dist/organ-world.mjs`](dist/organ-world.mjs) | Procedural anatomy, organ-specific materials, and animated hazard geometry. |
 | [`dist/level-props.mjs`](dist/level-props.mjs) | Set dressing and ambient VFX: red-blood-cell rivers and a pumping valve gate, neutrophil patrols that engulf bacteria, the villus forest, the colon microbiome, the lymph-node macrophage, the firing neural web, obstacle props, and light shafts. |
 | [`dist/bio-textures.mjs`](dist/bio-textures.mjs) | Tileable red cell, mucosa, biofilm, neural, and leukocyte surface maps generated at load time. |
-| [`dist/level-hud.mjs`](dist/level-hud.mjs) | The third node readout and marker, the wave-clear countdown banner, and Free Mode cards whose previews are rendered while the arenas load. |
+| [`dist/level-hud.mjs`](dist/level-hud.mjs) | The third node readout and marker, the wave-clear countdown banner, the main menu's difficulty picker, and Free Mode cards whose previews are rendered while the arenas load. |
+| [`dist/difficulty.mjs`](dist/difficulty.mjs) | Easy, Medium, and Hard settings, their menu descriptions, per-mission exceptions, and the rules that reshape a solo mission's waves when it starts. [`tools/balance/balance-bot.mjs`](tools/balance/balance-bot.mjs) checks that every mission stays winnable. |
 | [`dist/brain-boss.mjs`](dist/brain-boss.mjs), [`dist/mega-virus.mjs`](dist/mega-virus.mjs) | The finale's phase rules, physical shot gates, and connected 3D creature. |
 | [`dist/carbine.mjs`](dist/carbine.mjs) | The 3D carbine and armored gloves, including modular parts, finishes, and articulated reload poses. |
 | [`dist/weapon-mods.mjs`](dist/weapon-mods.mjs), [`dist/armory-art.mjs`](dist/armory-art.mjs) | Attachment stats, saved build validation, and armory images rendered from the same 3D parts used in combat. |
