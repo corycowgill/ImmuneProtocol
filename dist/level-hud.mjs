@@ -1,5 +1,10 @@
 // HUD and menu pieces for the expanded campaign: the third tissue-node readout and marker, the
-// wave-clear countdown banner, and Free Mode cards for the Colonic Reservoir and Lymph Node.
+// wave-clear countdown banner, Free Mode cards for the Colonic Reservoir and Lymph Node, and the
+// difficulty picker on the main menu.
+import { Simulation } from './simulation.mjs';
+import { DIFFICULTIES, applyDifficulty, normalizeDifficulty } from './difficulty.mjs';
+
+const DIFFICULTY_KEY = 'immune-protocol.difficulty';
 
 const STYLE = `
 .node-row[data-tissue-node="2"]{--node-color:#e7b4ff}
@@ -17,6 +22,32 @@ const STYLE = `
 .wave-outro-bar div{height:100%;width:100%;background:var(--green);transform-origin:left;transition:transform .1s linear}
 .wave-outro[data-final="true"]{border-color:#ffd58a80;color:#ffd58a}
 .wave-outro[data-final="true"] .wave-outro-bar div{background:#ffd58a}
+.difficulty-picker{position:relative;display:flex;align-items:center;gap:10px;min-height:42px;padding:3px 3px 3px 13px;border:1px solid #dfc5ae45;background:#140f12d9}
+.difficulty-label{flex:none;font:600 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:#e4d7d0}
+.difficulty-options{flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
+.difficulty-options button{min-height:34px;padding:0 6px;border:1px solid transparent;background:transparent;color:#efe5dc;font:700 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;transition:background .18s,border-color .18s,color .18s}
+.difficulty-options button:hover{border-color:#c8f79470;color:var(--green)}
+.difficulty-options button:focus-visible{outline-offset:-4px}
+.difficulty-options button[aria-checked="true"]{border-color:var(--green);background:#293224;color:var(--green)}
+.difficulty-options button[data-difficulty="easy"][aria-checked="true"]{border-color:#8fe4dd;background:#1a2f2e;color:#9ff0e8}
+.difficulty-options button[data-difficulty="hard"][aria-checked="true"]{border-color:#ff9a7a;background:#3a1f1a;color:#ffb39a}
+.difficulty-detail{--tone:var(--green);position:absolute;z-index:6;left:calc(100% + 18px);top:50%;width:340px;padding:13px 15px 12px;border:1px solid #dfc5ae55;border-left:3px solid var(--tone);background:linear-gradient(145deg,#211816,#141113);box-shadow:0 22px 60px #000a;color:#eadfd6;font-size:12px;line-height:1.42;text-align:left;opacity:0;visibility:hidden;pointer-events:none;transform:translate(-6px,-50%);transition:opacity .16s,transform .16s,visibility 0s .16s}
+.difficulty-detail[data-difficulty="easy"]{--tone:#8fe4dd}
+.difficulty-detail[data-difficulty="hard"]{--tone:#ff9a7a}
+.difficulty-detail strong{display:block;margin-bottom:4px;color:var(--tone);font:800 21px/1 var(--display);letter-spacing:.03em;text-transform:uppercase}
+.difficulty-detail p{margin:0}
+.difficulty-detail ul{margin:7px 0 0;padding-left:16px;color:#d9ccc3;font-size:11px;line-height:1.45}
+.difficulty-detail li+li{margin-top:2px}
+.difficulty-picker:is([data-open],:has(:focus-visible)) .difficulty-detail,:root[data-input="gamepad"] .difficulty-picker:focus-within .difficulty-detail{opacity:1;visibility:visible;transform:translate(0,-50%);transition:opacity .16s,transform .16s}
+@media(hover:hover){.difficulty-picker:hover .difficulty-detail{opacity:1;visibility:visible;transform:translate(0,-50%);transition:opacity .16s,transform .16s}}
+@media(max-width:1100px),(orientation:landscape) and (max-height:500px){
+  .difficulty-detail{left:0;right:0;top:calc(100% + 6px);width:auto;transform:translateY(-6px)}
+  .difficulty-picker:is(:hover,[data-open],:has(:focus-visible)) .difficulty-detail,:root[data-input="gamepad"] .difficulty-picker:focus-within .difficulty-detail{transform:none}
+}
+@media(max-height:800px) and (min-width:721px){
+  .menu-navigation .menu-option{min-height:58px}
+  .menu-navigation .menu-campaign{min-height:64px}
+}
 @keyframes outro-in{from{opacity:0;transform:translate(-50%,-10px) scale(.96)}to{opacity:1;transform:translateX(-50%)}}
 `;
 
@@ -34,7 +65,110 @@ function renameIds(root, from, to) {
   }
 }
 
+export function currentDifficulty() {
+  try { return normalizeDifficulty(localStorage.getItem(DIFFICULTY_KEY)); } catch { return normalizeDifficulty(); }
+}
+
+// Solo missions pick up the menu's difficulty when they start. Co-op suits are driven by the server.
+const startMission = Simulation.prototype.start;
+Simulation.prototype.start = function start() {
+  if (!this.difficulty && !this.players) applyDifficulty(this, currentDifficulty());
+  return startMission.call(this);
+};
+
+// A compact Easy/Medium/Hard switch under the campaign button. Hovering, focusing or choosing an
+// option opens a card that lists exactly what that difficulty changes.
+function installDifficultyPicker(document) {
+  const navigation = document.querySelector('.menu-navigation');
+  if (!navigation || document.getElementById('difficulty-picker')) return;
+  const picker = document.createElement('div');
+  picker.id = 'difficulty-picker';
+  picker.className = 'difficulty-picker';
+  const label = document.createElement('span');
+  label.id = 'difficulty-label';
+  label.className = 'difficulty-label';
+  label.textContent = 'Difficulty';
+  const options = document.createElement('div');
+  options.className = 'difficulty-options';
+  options.setAttribute('role', 'radiogroup');
+  options.setAttribute('aria-labelledby', label.id);
+  const detail = document.createElement('div');
+  detail.id = 'difficulty-detail';
+  detail.className = 'difficulty-detail';
+  let selected = currentDifficulty();
+  let pointerType = '';
+
+  const describe = id => {
+    const level = DIFFICULTIES[id];
+    detail.dataset.difficulty = id;
+    const title = document.createElement('strong');
+    title.textContent = level.name;
+    const summary = document.createElement('p');
+    summary.textContent = level.summary;
+    const list = document.createElement('ul');
+    for (const change of level.changes) {
+      const item = document.createElement('li');
+      item.textContent = change;
+      list.append(item);
+    }
+    detail.replaceChildren(title, summary, list);
+  };
+  const buttons = Object.entries(DIFFICULTIES).map(([id, { name }]) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.difficulty = id;
+    button.setAttribute('role', 'radio');
+    button.setAttribute('aria-describedby', detail.id);
+    button.textContent = name;
+    return button;
+  });
+  const select = id => {
+    selected = id;
+    try { localStorage.setItem(DIFFICULTY_KEY, id); } catch { /* Private browsing may block storage. */ }
+    for (const button of buttons) {
+      const checked = button.dataset.difficulty === id;
+      button.setAttribute('aria-checked', String(checked));
+      button.tabIndex = checked ? 0 : -1;
+    }
+    describe(id);
+  };
+  for (const [index, button] of buttons.entries()) {
+    const id = button.dataset.difficulty;
+    button.addEventListener('pointerdown', event => { pointerType = event.pointerType; });
+    button.addEventListener('click', () => {
+      select(id);
+      // Touch screens have no hover, so a tap keeps the card open until the next tap elsewhere.
+      if (pointerType === 'touch' || pointerType === 'pen') picker.dataset.open = '';
+      pointerType = '';
+    });
+    button.addEventListener('pointerenter', () => describe(id));
+    button.addEventListener('focus', () => describe(id));
+    button.addEventListener('pointerleave', () => describe(picker.contains(document.activeElement) ?
+      document.activeElement.dataset.difficulty ?? selected : selected));
+    button.addEventListener('keydown', event => {
+      const step = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[event.key];
+      if (!step) return;
+      event.preventDefault();
+      const next = buttons[(index + step + buttons.length) % buttons.length];
+      select(next.dataset.difficulty);
+      next.focus();
+    });
+  }
+  document.addEventListener('pointerdown', event => {
+    if (!picker.contains(event.target)) delete picker.dataset.open;
+  });
+  options.append(...buttons);
+  picker.append(label, options, detail);
+  const anchor = document.getElementById('deploy');
+  if (anchor?.parentElement === navigation) anchor.after(picker);
+  else navigation.prepend(picker);
+  select(selected);
+}
+
 export function installLevelHud(document) {
+  installDifficultyPicker(document);
+  const summary = document.querySelector('.briefing .summary');
+  if (summary) summary.textContent = 'Fight infection and repair living tissue across ten missions inside the host.';
   const style = document.createElement('style');
   style.textContent = STYLE;
   document.head.append(style);
