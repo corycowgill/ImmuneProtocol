@@ -13,6 +13,8 @@ const ORGAN_CUES = {
   lungs: ['field/virus-pounce', 'field/valve-open', .66],
   stomach: ['field/spore-windup', 'field/valve-open', .69],
   intestines: ['field/valve-close', 'field/valve-open', .74],
+  colon: ['field/peristalsis', 'field/peristalsis', .82],
+  lymph: ['field/macrophage', 'field/engulf', .9],
   ear: ['field/branch', 'field/spore-windup', 1.11],
   brain: ['field/branch', 'field/valve-blocked', .88],
 };
@@ -26,6 +28,43 @@ const EFFECTS = [
   'field/mega-pulse', 'field/mega-membrane', 'field/mega-collapse',
   ...Object.values(ENEMY_CUES).flatMap(stages => Object.values(stages).map(([name]) => name)),
 ];
+
+// Short procedural cues for the colon, lymph node and wave countdown, rendered once at load.
+const SYNTH_RATE = 44100;
+const SYNTHESIZED = {
+  'field/outro-tick': [.12, t => (Math.sin(t * 2 * Math.PI * 1320) + Math.sin(t * 2 * Math.PI * 1980)) * .18 *
+    Math.min(1, t / .003) * Math.max(0, 1 - t / .12)],
+  'field/outro-start': [1.1, t => {
+    const ring = (frequency, start) => t < start ? 0 : Math.sin((t - start) * 2 * Math.PI * frequency) *
+      Math.min(1, (t - start) / .01) * Math.exp(-(t - start) * 3.2);
+    return (ring(660, 0) + ring(990, .12) + .4 * ring(660, .32) + .3 * ring(990, .44)) * .22;
+  }],
+  'field/engulf': [.5, (t, noise) => {
+    const sweep = Math.sin(2 * Math.PI * (320 * t - 250 * t * t / .45 / 2)) * Math.exp(-t * 5);
+    return (sweep * .55 + noise(900) * .25 * Math.exp(-t * 7)) * Math.min(1, t / .01);
+  }],
+  'field/peristalsis': [1.8, (t, noise) => (noise(220) * .9 + Math.sin(t * 2 * Math.PI * 38) * .35) *
+    (.55 + .45 * Math.sin(t * 2 * Math.PI * 3.2)) * Math.min(1, t / .25) * Math.min(1, (1.8 - t) / .6)],
+  'field/macrophage': [1.4, (t, noise) => (Math.sin(2 * Math.PI * (55 * t - 6.5 * t * t)) * .45 + noise(400) * .6) *
+    (.6 + .4 * Math.sin(t * 2 * Math.PI * 1.7)) * Math.min(1, t / .2) * Math.min(1, (1.4 - t) / .5)],
+};
+
+function synthesize(context, duration, voice) {
+  const length = Math.round(duration * SYNTH_RATE);
+  const buffer = context.createBuffer(1, length, SYNTH_RATE);
+  const data = buffer.getChannelData(0);
+  // One-pole low-passed noise whose cutoff each cue chooses.
+  let state = 0;
+  let seed = 22695477;
+  const noise = cutoff => {
+    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+    const white = seed / 2147483648 - 1;
+    state += (white - state) * Math.min(1, 2 * Math.PI * cutoff / SYNTH_RATE);
+    return state * 3;
+  };
+  for (let i = 0; i < length; i++) data[i] = Math.max(-1, Math.min(1, voice(i / SYNTH_RATE, noise)));
+  return buffer;
+}
 
 export class GameAudio {
   constructor() {
@@ -93,6 +132,13 @@ export class GameAudio {
         return null;
       }
     };
+    for (const [name, [duration, voice]] of Object.entries(SYNTHESIZED)) {
+      try {
+        this.samples.set(name, synthesize(decoder, duration, voice));
+      } catch {
+        // Missing cues fall back to silence.
+      }
+    }
     const effects = Promise.all(EFFECTS.map(async name => {
       const buffer = await decode(`./assets/sfx/${name}.wav`);
       if (buffer) this.samples.set(name, buffer);
@@ -233,7 +279,14 @@ export class GameAudio {
         if (!event.lethal) this.playSample('weapon/hit', event.source === 'turret' ? .18 : event.crit ? .43 : .36, { pan: this.spatialPan(event) });
         break;
       case 'kill':
-        this.playSample('weapon/kill', event.source === 'turret' ? .25 : .45, { pan: this.spatialPan(event) });
+        if (event.source === 'immune') this.playSample('field/engulf', .5, { pan: this.spatialPan(event), rate: .9 + Math.random() * .2 });
+        else this.playSample('weapon/kill', event.source === 'turret' ? .25 : .45, { pan: this.spatialPan(event) });
+        break;
+      case 'outro':
+        this.playSample('field/outro-start', .42);
+        break;
+      case 'outroTick':
+        this.playSample('field/outro-tick', .5, { rate: event.final ? .8 : 1 });
         break;
       case 'branch': {
         const { branch } = event;
