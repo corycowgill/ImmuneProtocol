@@ -6,26 +6,43 @@ const UP = new THREE.Vector3(0, 1, 0);
 
 const PROFILES = {
   lungs: {
+    surfaces: ['leukocyte', 'mucosa', 'mucosa'],
     seed: 78121, tissue: [213, 167, 165], floor: 0xd9a1a3, wall: 0xf6bdc3, ceiling: 0xfbc9c6,
     background: 0x251f2a, fog: 0x5e4650, density: .027, back: 0xffbfc7, key: 0xadc6ee,
     low: 0x864155, accent: 0xf6b8bf, atmosphere: 0xfad8e3, hazard: 0xbeeafa,
   },
   stomach: {
+    surfaces: ['mucosa', 'mucosa', 'mucosa'],
     seed: 12579, tissue: [182, 140, 102], floor: 0xd9a173, wall: 0xe49a71, ceiling: 0xd97760,
     background: 0x282119, fog: 0x584329, density: .029, back: 0xffb36e, key: 0xc4ed91,
     low: 0x6a2728, accent: 0xc1755b, atmosphere: 0xdab77b, hazard: 0xd9e982,
   },
   intestines: {
-    seed: 15387, tissue: [209, 158, 142], floor: 0xe4a58c, wall: 0xf6989c, ceiling: 0xe98786,
+    surfaces: ['mucosa', 'mucosa', 'mucosa'],
+    seed: 15387, tissue: [209, 158, 142], floor: 0xf2cfc4, wall: 0xf6989c, ceiling: 0xe98786,
     background: 0x241119, fog: 0x573136, density: .034, back: 0xff9a8f, key: 0xffc391,
     low: 0x783039, accent: 0xec9e8b, atmosphere: 0xf3ad9b, hazard: 0xffba79,
   },
+  colon: {
+    surfaces: ['biofilm', 'mucosa', 'mucosa'],
+    seed: 33719, tissue: [196, 150, 118], floor: 0xc99472, wall: 0xd99a86, ceiling: 0xc98074,
+    background: 0x1f1810, fog: 0x4b3a22, density: .031, back: 0xffc58a, key: 0xb9e08b,
+    low: 0x5a3324, accent: 0xd8a06a, atmosphere: 0xd9c78f, hazard: 0xffa45c, hazardStyle: 2,
+  },
+  lymph: {
+    surfaces: ['leukocyte', 'leukocyte', 'neural'],
+    seed: 64151, tissue: [214, 196, 200], floor: 0xc7a7b0, wall: 0xd8bcc6, ceiling: 0xc6a8ba,
+    background: 0x16192a, fog: 0x3a4058, density: .026, back: 0xd6e4ff, key: 0x9fe4d2,
+    low: 0x4a3b5c, accent: 0xf0d6e0, atmosphere: 0xcfe6ff, hazard: 0xbff7e2, hazardStyle: 3,
+  },
   ear: {
+    surfaces: ['leukocyte', 'leukocyte', 'leukocyte'],
     seed: 57839, tissue: [187, 182, 185], floor: 0x9e8797, wall: 0xb5a7ba, ceiling: 0xc9b2c0,
     background: 0x221e2a, fog: 0x3f4255, density: .026, back: 0xded2ec, key: 0x87c7de,
     low: 0x4e435d, accent: 0xe5c6be, atmosphere: 0xadcce5, hazard: 0x8fe9ea,
   },
   brain: {
+    surfaces: ['neural', 'neural', 'neural'],
     seed: 90119, tissue: [180, 155, 178], floor: 0xb99bab, wall: 0xbaa2bd, ceiling: 0xa287b8,
     background: 0x1e142c, fog: 0x47354d, density: .025, back: 0xc7a5fa, key: 0x8ac5ef,
     low: 0x5d3c73, accent: 0xd3b2d1, atmosphere: 0xb69fef, hazard: 0xdcadff,
@@ -495,16 +512,124 @@ function makeIntestines(root, skin, lobe, random, glow) {
   }
   tubes(root, folds, skin(0xde887d));
   tubes(root, pillars, skin(0xae5359));
-  const villi = instances(root, lobe, skin(0xd29584, { clearcoat: .68 }), 440, index => {
-    const x = (index % 2 ? -1 : 1) * (12.5 + random() ** .85 * 15);
-    const z = -35 + random() * 62;
-    const height = .21 + random() ** 2 * 1.28;
-    return { position: [x, height * .47, z], scale: [.085 + random() * .23, height, .10 + random() * .19],
-      angles: [(random() - .5) * .65, 0, Math.sign(x) * (.22 + random() * .29)], brightness: .64 + random() * .43 };
-  });
+  // The villus forest itself lives in level-props.mjs.
   centerGlow(root, glow, 4, 4, -34, 0xffa57f, 204, 28);
   centerGlow(root, glow, -16, 3.3, -9, 0xfac095, 126, 23);
-  return (time, active) => { villi.scale.y = 1 + Math.sin(time * 1.3) * (active ? .065 : .018); };
+  return () => {};
+}
+
+function makeColon(root, skin, lobe, random, glow) {
+  const haustra = [];
+  const bands = [];
+  for (let i = 0; i < 9; i++) {
+    const z = -41 + i * 9.6;
+    const points = [];
+    for (let segment = 0; segment <= 16; segment++) {
+      const theta = segment / 16 * Math.PI;
+      points.push([Math.cos(theta) * 28, 1.5 + 11.5 * Math.sin(theta) ** .7, z + Math.sin(theta * 3 + i) * 1.4]);
+    }
+    haustra.push(tube(points, 1.25 + random() * .5, 48, 12));
+  }
+  for (const angle of [.55, Math.PI / 2, Math.PI - .55]) {
+    const points = [];
+    for (let step = 0; step <= 12; step++) {
+      const z = -46 + step * 7.8;
+      points.push([Math.cos(angle) * 27, 1.5 + Math.sin(angle) * 11.5 + Math.sin(step * .9) * .4, z]);
+    }
+    bands.push(tube(points, .9, 60, 10));
+  }
+  tubes(root, haustra, skin(0xc98b72, { clearcoat: .74, roughness: .38 }));
+  tubes(root, bands, skin(0xa86656, { roughness: .5 }));
+  const pouches = instances(root, lobe, skin(0xd49c84, { clearcoat: .7 }), 34, index => {
+    const side = index % 2 ? -1 : 1;
+    const z = -42 + Math.floor(index / 2) * 5.2;
+    const size = 2.6 + random() * 1.8;
+    return { position: [side * (27 + random() * 2), 3 + random() * 5, z], scale: [size * .6, size, size * .9],
+      angles: [0, side * .3, side * .2], brightness: .7 + random() * .3 };
+  });
+  pouches.frustumCulled = false;
+  const residue = instances(root, lobe, skin(0x6e5330, { roughness: .78, clearcoat: .2 }), 46, () => {
+    const angle = random() * TAU;
+    const radial = .86 + random() * .1;
+    const size = .5 + random() ** 2 * 2.2;
+    return { position: [Math.cos(angle) * 30 * radial, size * .3, Math.sin(angle) * 41 * radial],
+      scale: [size * 1.3, size * .6, size], angles: [0, random() * TAU, 0], brightness: .55 + random() * .4 };
+  });
+  residue.frustumCulled = false;
+  centerGlow(root, glow, -6, 4.5, -30, 0xffb56a, 220, 34);
+  centerGlow(root, glow, 14, 3.5, 6, 0xb6e07a, 150, 30);
+  return (time, active) => {
+    const squeeze = active ? .07 : .02;
+    pouches.scale.set(1 - Math.sin(time * 1.6) * squeeze, 1, 1);
+  };
+}
+
+function makeLymph(root, skin, lobe, random, glow) {
+  const trabeculae = [];
+  const reticulum = [];
+  for (let i = 0; i < 14; i++) {
+    const angle = i / 14 * TAU + random() * .2;
+    const x = Math.cos(angle) * 28;
+    const z = Math.sin(angle) * 39;
+    trabeculae.push(tube([[x, 0, z], [x * .9, 6, z * .9], [x * .62, 11.5, z * .62], [x * .3, 13.5, z * .3],
+      [0, 14.2, 0]], .55 + random() * .3, 30, 9));
+  }
+  for (let i = 0; i < 90; i++) {
+    const a = [(random() - .5) * 52, 7 + random() * 7, (random() - .5) * 74];
+    const b = [a[0] + (random() - .5) * 12, a[1] + (random() - .5) * 4, a[2] + (random() - .5) * 12];
+    const mid = [(a[0] + b[0]) / 2, Math.max(a[1], b[1]) + .8, (a[2] + b[2]) / 2];
+    reticulum.push(tube([a, mid, b], .05 + random() * .06, 10, 5));
+  }
+  tubes(root, trabeculae, skin(0xc9a6b2, { clearcoat: .7 }));
+  tubes(root, reticulum, skin(0xe6d4dc, { roughness: .35, emissive: 0x6a7fa8, emissiveIntensity: .12 }));
+  // Follicles: dense spheres of resting lymphocytes packed against the capsule.
+  const follicles = [];
+  for (let i = 0; i < 8; i++) {
+    const angle = i / 8 * TAU + .3;
+    follicles.push([Math.cos(angle) * 26, 2 + random() * 4, Math.sin(angle) * 36, 3.4 + random() * 1.6]);
+  }
+  const lymphocytes = instances(root, lobe, skin(0xf4eef4, { roughness: .4, clearcoat: .8, sheen: .8, sheenColor: 0xe0ecff,
+    emissive: 0x4a5878, emissiveIntensity: .35 }),
+    follicles.length * 70, index => {
+      const [x, y, z, radius] = follicles[Math.floor(index / 70)];
+      const phi = index * 2.39996;
+      const h = (index % 70) / 69 * 2 - 1;
+      const r = Math.sqrt(1 - h * h) * radius * (.75 + random() * .3);
+      const size = .32 + random() * .16;
+      return { position: [x + Math.cos(phi) * r, y + h * radius * .8, z + Math.sin(phi) * r],
+        scale: [size, size, size], angles: [random(), random(), random()], brightness: .78 + random() * .22 };
+    });
+  lymphocytes.frustumCulled = false;
+  const germinal = new THREE.MeshPhysicalMaterial({ color: 0x9fd7ff, emissive: 0x5fa8ff, emissiveIntensity: .45,
+    roughness: .3, transparent: true, opacity: .4, depthWrite: false });
+  for (const [x, y, z, radius] of follicles) {
+    const core = place(root, lobe, germinal, x, y, z);
+    core.scale.setScalar(radius * .55);
+  }
+  // Dendritic cells drift overhead with long antigen-presenting processes.
+  const dendrites = [];
+  const dendriticBodies = [];
+  for (let i = 0; i < 7; i++) {
+    const center = [(random() - .5) * 40, 8 + random() * 4, (random() - .5) * 60];
+    dendriticBodies.push(center);
+    for (let arm = 0; arm < 9; arm++) {
+      const theta = arm * 2.39996 + random();
+      const lift = (random() - .5) * 1.6;
+      const reach = 3 + random() * 3.5;
+      dendrites.push(tube([center, [center[0] + Math.cos(theta) * reach * .45, center[1] + lift * .5, center[2] + Math.sin(theta) * reach * .45],
+        [center[0] + Math.cos(theta + .3) * reach, center[1] + lift, center[2] + Math.sin(theta + .3) * reach]], .09 + random() * .05, 14, 6));
+    }
+  }
+  const dendriticSkin = skin(0xe7cbbf, { clearcoat: .8, emissive: 0x7a4d9c, emissiveIntensity: .12 });
+  tubes(root, dendrites, dendriticSkin);
+  for (const [x, y, z] of dendriticBodies) place(root, lobe, dendriticSkin, x, y, z).scale.set(.9, .7, .9);
+  centerGlow(root, glow, 0, 6, -24, 0xbcd8ff, 210, 36);
+  centerGlow(root, glow, -14, 4, 14, 0xa6f0d6, 140, 30);
+  centerGlow(root, glow, 16, 4, 14, 0xd6c8ff, 140, 30);
+  return (time, active) => {
+    lymphocytes.position.y = Math.sin(time * .9) * .05;
+    germinal.emissiveIntensity = .4 + Math.sin(time * 2.1) * .12 + (active ? .25 : 0);
+  };
 }
 
 function makeEar(root, skin, lobe, random, glow) {
@@ -610,17 +735,21 @@ function makeBrain(root, skin, lobe, random, glow) {
 }
 
 const BUILDERS = {
-  lungs: makeLungs, stomach: makeStomach, intestines: makeIntestines, ear: makeEar, brain: makeBrain,
+  lungs: makeLungs, stomach: makeStomach, intestines: makeIntestines, colon: makeColon, lymph: makeLymph,
+  ear: makeEar, brain: makeBrain,
 };
+// Anatomy was authored for the original 29 x 41 m arenas; stretch it to the enlarged chambers.
+const ANATOMY_SCALE = [1.45, 1.22, 1.45];
 
 function hazardSurface(area, root, profile, floorHeight) {
-  const circle = area === 'stomach' || area === 'ear' || area === 'brain';
+  const circle = area === 'stomach' || area === 'ear' || area === 'brain' || area === 'lymph';
   const geometry = new THREE.PlaneGeometry(2, 2, 24, 24);
   geometry.rotateX(-Math.PI / 2);
   const material = new THREE.ShaderMaterial({
     uniforms: {
       tint: { value: new THREE.Color(profile.hazard) }, time: { value: 0 }, intensity: { value: 0 },
-      shape: { value: circle ? 1 : 0 }, style: { value: ['lungs', 'stomach', 'intestines', 'ear', 'brain'].indexOf(area) },
+      shape: { value: circle ? 1 : 0 },
+      style: { value: profile.hazardStyle ?? ['lungs', 'stomach', 'intestines', 'ear', 'brain'].indexOf(area) },
     },
     vertexShader: `
       varying vec2 uvLocal;
@@ -699,7 +828,10 @@ export function createOrganEnvironment(area, { membraneMaps, floorHeight, glow, 
     normalScale: new THREE.Vector2(.9, .9), ...overrides,
   });
   const lobe = tissueLobe();
-  const updateAnatomy = BUILDERS[area](root, skin, lobe, seedRandom(profile.seed), glow);
+  const anatomy = new THREE.Group();
+  anatomy.scale.set(...ANATOMY_SCALE);
+  root.add(anatomy);
+  const updateAnatomy = BUILDERS[area](anatomy, skin, lobe, seedRandom(profile.seed), glow);
   const updateHazard = hazardSurface(area, root, profile, floorHeight);
   const updateAirways = area === 'lungs' ? makeBronchialPorts(root, skin, lobe, glow, floorHeight, nodes) : null;
   const updateGastric = area === 'stomach' ? makeGastricValves(root, skin, lobe, glow, floorHeight) : null;
