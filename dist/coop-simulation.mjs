@@ -216,7 +216,7 @@ export class CoopSimulation extends Simulation {
       events: this.events,
       tutorial: null, settling: this.settling,
       valve: this.valve, boss: this.boss, airway: this.airway, gastric: this.gastric,
-      organ: this.organ, organWave: this.organWave,
+      organ: this.organ, organWave: this.organWave, outro: this.outro,
       gash: this.gash, reinforcement: this.reinforcement, junctionWave: this.junctionWave,
       junctionSupply: this.junctionSupply, junctionSupplyLocked: this.junctionSupplyLocked,
       junctionForecast: this.junctionForecast, junctionSurge: this.junctionSurge,

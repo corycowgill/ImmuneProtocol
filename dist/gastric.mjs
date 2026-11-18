@@ -1,8 +1,8 @@
 export const GASTRIC_VALVES = Object.freeze([
-  Object.freeze({ id: 'gastric-intake', name: 'Intake valve', x: -17, y: 1.25, z: -1 }),
-  Object.freeze({ id: 'gastric-drain', name: 'Drain valve', x: 16, y: 1.25, z: -9 }),
+  Object.freeze({ id: 'gastric-intake', name: 'Intake valve', x: -26, y: 1.25, z: 0 }),
+  Object.freeze({ id: 'gastric-drain', name: 'Drain valve', x: 25, y: 1.25, z: -14 }),
 ]);
-export const GASTRIC_PASSAGE = Object.freeze({ x: 0, y: 1.5, z: 23 });
+export const GASTRIC_PASSAGE = Object.freeze({ x: 0, y: 1.5, z: 36 });
 export const GASTRIC_REPAIR_RADIUS = 2.7;
 
 const DRAIN_TIME = 2.4;
@@ -13,6 +13,8 @@ const FLANKS = [
   { at: 3.8, lane: 0, type: 'bacillus' },
   { at: 6.15, lane: 1, type: 'spore' },
   { at: 7.5, lane: 0, type: 'virus' },
+  { at: 10.2, lane: 1, type: 'guard' },
+  { at: 12.4, lane: 0, type: 'splitter' },
 ];
 
 export function createGastric() {
@@ -64,8 +66,8 @@ export function shapeGastricHazard(sim) {
   const { gastric, organ } = sim;
   if (!gastric || !organ || (gastric.stage !== 'drain' && gastric.stage !== 'draining')) return;
   const draining = gastric.stage === 'draining';
-  organ.x = 5.8;
-  organ.radius = draining ? 5.5 * gastric.level / CHANNEL_LEVEL : 5.5;
+  organ.x = 8.4;
+  organ.radius = draining ? 7.5 * gastric.level / CHANNEL_LEVEL : 7.5;
   organ.label = draining ? 'Draining acid' : organ.phase === 'recovery' ? 'Drain-channel surge in' : 'Drain-channel surge';
   organ.detail = 'Keep clear of the drain channel';
 }
@@ -83,7 +85,7 @@ function advanceCounterattacks(sim) {
     }
     if (remaining <= 0) {
       attack.spawned = true;
-      sim.enemies.push(sim.createEnemy(attack.type, node.x + Math.sign(node.x) * 8, node.z - 11, node));
+      sim.enemies.push(sim.createEnemy(attack.type, node.x + Math.sign(node.x) * 11, node.z - 15, node));
       emit(sim, 'counterattack-arrival', node);
     } else if (attack.warned && (!gastric.incoming || remaining < gastric.incoming.remaining)) {
       gastric.incoming = { remaining, name: node.name };
