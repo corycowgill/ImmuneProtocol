@@ -346,7 +346,7 @@ export class GameAudio {
         break;
       }
       case 'enemyAttack': {
-        const family = event.enemyType === 'guard' ? 'bacillus' : event.enemyType === 'splitter' ? 'virus' : event.enemyType;
+        const family = event.behavior ?? event.enemyType;
         const cue = ENEMY_CUES[family]?.[event.stage];
         if (!cue) break;
         const [name, volume] = cue;

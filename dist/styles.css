@@ -971,3 +971,48 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
   :is(.menu-option,.menu-tool,.mission-card,.armory-card,.armory-slot):active{filter:brightness(1.17)}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+.guide-panel{width:min(1180px,calc(100vw - 32px));height:min(840px,calc(100dvh - 32px));padding:clamp(16px,2.6vw,28px);overflow:hidden;overscroll-behavior:contain}
+.guide-panel[open]{display:flex;flex-direction:column;gap:14px}
+.guide-top h2{margin:4px 0 0;padding-right:50px;font-size:clamp(32px,5vw,52px)}
+.guide-layout{flex:1;min-height:0;display:grid;grid-template-columns:minmax(200px,250px) minmax(0,1fr);gap:14px}
+.guide-list{min-height:0;overflow:auto;display:grid;align-content:start;gap:6px;padding-right:4px}
+.guide-card{display:grid;grid-template-columns:54px minmax(0,1fr);align-items:center;gap:10px;min-height:62px;padding:4px 8px 4px 4px;border:1px solid var(--line);background:#1b1514;color:var(--paper);text-align:left;transition:background .18s,border-color .18s}
+.guide-card img{width:54px;height:54px;object-fit:contain;background:radial-gradient(circle,#3a2422,#120d0e 72%)}
+.guide-card-label{display:grid;gap:2px;min-width:0}
+.guide-card strong{font:800 18px/1 var(--display);text-transform:uppercase}
+.guide-card-label span{color:var(--muted);font:500 10px/1.3 var(--mono);overflow-wrap:anywhere}
+.guide-card:hover{border-color:#c8f79466}
+.guide-card[aria-selected="true"]{border-color:#c8f79498;background:#232b1f}
+.guide-card[aria-selected="true"] strong{color:var(--green)}
+.guide-stage{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.guide-viewer{position:relative;min-height:0;border:1px solid var(--line);background:radial-gradient(circle at 50% 45%,#40231f,#150d0f 70%)}
+.guide-viewer canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.guide-viewer canvas:active{cursor:grabbing}
+.guide-hint{position:absolute;left:12px;bottom:12px;color:var(--muted);font:500 10px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;pointer-events:none}
+.guide-provoke{position:absolute;right:10px;bottom:10px}
+.guide-detail{min-height:0;overflow:auto;padding-right:6px}
+.guide-heading h3{margin:6px 0 4px;color:var(--paper);font:800 clamp(30px,4vw,44px)/.95 var(--display);text-transform:uppercase}
+.guide-panel .guide-role{margin:0 0 14px;color:var(--hot);font:500 12px/1.35 var(--mono)}
+.guide-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 14px;margin:0 0 16px}
+.guide-stats>div{display:grid;grid-template-columns:1fr auto;gap:4px 8px;padding-top:6px;border-top:1px solid var(--line)}
+.guide-stats dt{color:var(--muted);font:500 10px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.guide-stats dd{margin:0;font:700 13px/1.2 var(--mono)}
+.guide-meter{grid-column:1/-1;height:4px;background:#ffffff14}
+.guide-meter::after{content:"";display:block;height:100%;width:calc(var(--fill) * 100%);background:linear-gradient(90deg,var(--green),var(--hot))}
+.guide-section{margin-bottom:16px}
+.guide-section h4{margin:0 0 6px;color:var(--green);font:500 11px/1.4 var(--mono);letter-spacing:.15em;text-transform:uppercase}
+.guide-panel .guide-section p{margin:0 0 8px;font-size:14px;line-height:1.5}
+.guide-panel .guide-section .guide-tactics{color:var(--paper)}
+.guide-places{display:flex;flex-wrap:wrap;gap:5px;margin:0;padding:0;list-style:none}
+.guide-places li{padding:4px 8px;border:1px solid var(--line);background:#1b1514;font:500 11px/1.3 var(--mono)}
+.guide-facts{display:grid;gap:7px;margin:0;padding-left:18px;color:var(--muted);font-size:14px;line-height:1.45}
+.guide-facts li::marker{color:var(--green)}
+@media(max-width:900px){
+  .guide-panel{overflow:auto}
+  .guide-panel[open]{display:block}
+  .guide-top{margin-bottom:12px}
+  .guide-layout,.guide-stage{display:block}
+  .guide-list{grid-auto-flow:column;grid-auto-columns:minmax(190px,62vw);overflow-x:auto;overflow-y:hidden;padding:0 0 6px}
+  .guide-viewer{height:min(62vw,340px);margin:12px 0}
+  .guide-detail{overflow:visible;padding:0}
+}

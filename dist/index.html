@@ -31,6 +31,7 @@
     <symbol id="shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6zm-4 9 2.5 2.5L16 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
     <symbol id="target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v5m0 10v5M2 12h5m10 0h5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
     <symbol id="carbine-icon" viewBox="0 0 24 24"><path d="M2 9h18v4h-8l-2 5H7l1-5H2zM20 10h3M5 7v2m12-2v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="microbe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4M5.3 5.3l2.8 2.8M15.9 15.9l2.8 2.8M5.3 18.7l2.8-2.8M15.9 8.1l2.8-2.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="10.5" cy="11" r="1.3" fill="currentColor"/></symbol>
     <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
     <symbol id="pause-icon" viewBox="0 0 24 24"><path d="M9 5v14m6-14v14" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
     <symbol id="settings-icon" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M10 3.5v5M15 9.5v5M9 15.5v5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
@@ -86,6 +87,7 @@
             </button>
             <div class="menu-utilities">
               <button id="manual" class="menu-tool" type="button"><svg aria-hidden="true"><use href="#book"></use></svg> Field manual</button>
+              <button id="guide" class="menu-tool" type="button"><svg aria-hidden="true"><use href="#microbe"></use></svg> Disease guide</button>
               <button id="new-campaign" class="menu-tool" type="button" hidden disabled>Start new campaign</button>
             </div>
           </nav>
@@ -448,6 +450,25 @@
         </div>
         <button id="deploy-practice" class="button primary" type="button" disabled>Deploy <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
       </footer>
+    </dialog>
+
+    <dialog id="guide-dialog" class="panel guide-panel" aria-labelledby="guide-title">
+      <button class="icon-button close-dialog" data-close="guide-dialog" type="button" aria-label="Close disease guide"><svg aria-hidden="true"><use href="#close"></use></svg></button>
+      <header class="guide-top">
+        <p class="eyebrow">Pathogen field briefing</p>
+        <h2 id="guide-title">Disease guide</h2>
+      </header>
+      <div class="guide-layout">
+        <div class="guide-list" role="tablist" aria-label="Pathogens" data-guide-list></div>
+        <div class="guide-stage">
+          <div class="guide-viewer">
+            <canvas data-guide-viewer role="img" aria-label="Animated 3D model of the selected pathogen. Drag to turn it."></canvas>
+            <span class="guide-hint" aria-hidden="true">Drag to turn</span>
+            <button class="menu-tool guide-provoke" type="button" data-guide-provoke>Provoke</button>
+          </div>
+          <article class="guide-detail" data-guide-detail aria-live="polite"></article>
+        </div>
+      </div>
     </dialog>
 
     <dialog id="manual-dialog" class="panel manual-panel" aria-labelledby="manual-title">

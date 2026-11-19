@@ -11,7 +11,8 @@ import { ORGAN_MISSIONS } from './organs.mjs';
 import { RENDERED_PREVIEWS } from './level-hud.mjs';
 import { createTeammate } from './teammate.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
-import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, TISSUE_NODES } from './simulation.mjs';
+import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, SPECIES, TISSUE_NODES } from './simulation.mjs';
+import { animatePathogen, loadEnemyModels, pathogenMotion } from './enemy-models.mjs';
 
 const TAU = Math.PI * 2;
 const PRELOAD_INPUT = Object.freeze({ moveX: 0, moveZ: 0, lookX: 0, lookY: 0 });
@@ -1266,13 +1267,22 @@ function reflectionTexture() {
 }
 
 const MAX_PARTICLES = 288;
-const SPECIES_COLORS = { virus: 0xff6d4a, bacillus: 0xffd078, spore: 0xf384ff, colony: 0xffb572, guard: 0xe89a6d, splitter: 0xeb91cf };
+const SPECIES_COLORS = {
+  virus: 0xff6d4a, bacillus: 0xffd078, spore: 0xf384ff, colony: 0xa8e07a, guard: 0x6fd8cf, splitter: 0xc96bdc,
+  phage: 0xb98cff, flagellate: 0xa678ff, blister: 0xff7a5c, filovirus: 0xff5a46, amoeba: 0xb7b2ff, rogue: 0xff6650,
+};
 const ATTACK_GLOW = {
   virus: new THREE.Color(0xde653b),
   bacillus: new THREE.Color(0xef9b46),
   spore: new THREE.Color(0xd681b9),
-  guard: new THREE.Color(0xfe8e66),
+  guard: new THREE.Color(0x5fe0d4),
   splitter: new THREE.Color(0xe798f5),
+  phage: new THREE.Color(0xb47cff),
+  flagellate: new THREE.Color(0xc46cff),
+  blister: new THREE.Color(0xff5c48),
+  filovirus: new THREE.Color(0xff5136),
+  amoeba: new THREE.Color(0x9f96ff),
+  rogue: new THREE.Color(0xff4d3d),
 };
 const HEALTHY = new THREE.Color(0xffc6ad);
 const HEALTHY_FLANK = new THREE.Color(0xf1c1d5);
@@ -1410,6 +1420,12 @@ export class World {
       bacillus: bacillusModel(normal),
       spore: sporeModel(normal),
     };
+    // Photoreal scanned models replace these procedural organisms once they load.
+    this.enemyModels = new Map();
+    this.enemyModelsReady = loadEnemyModels().then(models => {
+      this.enemyModels = models;
+      this.dressGuardModel();
+    });
     this.sporeDroplet = texturedLobe(1, 18, 12, .11);
     this.sporeTrail = new THREE.SphereGeometry(1, 9, 6);
     this.sporeDropletMaterial = biologicalMaterial(0xca659e, normal, {
@@ -1509,7 +1525,7 @@ export class World {
     };
 
     onProgress(0, total);
-    await this.textureReady;
+    await Promise.all([this.textureReady, this.enemyModelsReady]);
     onProgress(1, total);
     // Prime GPU programs and texture uploads on the actual renderer using a small frame.
     this.renderer.setPixelRatio(1);
@@ -1595,10 +1611,10 @@ export class World {
   async prepareArea(sim, warmTextures) {
     const start = sim.player;
     let offset = -5;
-    for (const type of Object.keys(this.templates)) {
+    for (const type of Object.keys(SPECIES)) {
       if (type === 'colony') continue;
       const enemy = sim.createEnemy(type, start.x + offset, start.z - 11);
-      if (type === 'bacillus' || type === 'guard') enemy.latched = true;
+      if (enemy.behavior === 'bacillus') enemy.latched = true;
       sim.enemies.push(enemy);
       offset += 2;
     }
@@ -1888,12 +1904,35 @@ export class World {
     }
   }
 
+  // The scanned model when it has loaded, else the procedural organism, else the
+  // procedural organism of the species' behavior family.
+  enemyTemplate(type) {
+    return this.enemyModels.get(type) ?? this.templates[type] ?? this.templates[SPECIES[type]?.behavior];
+  }
+
+  // The Shellback's armored front is a gameplay tell, so the scanned capsid wears
+  // the procedural carapace on the side that blocks shots.
+  dressGuardModel() {
+    const model = this.enemyModels.get('guard');
+    if (!model) return;
+    if (!this.templates.guard) Object.assign(this.templates, createOrganEnemies(membraneMaps, texturedLobe(1, 25, 16, .16)));
+    const carapace = this.templates.guard.getObjectByName('guard-carapace').clone();
+    carapace.traverse(part => {
+      if (!part.material) return;
+      part.material = part.material.clone();
+      part.material.color.setHex(0x9ec9c0);
+      part.material.sheenColor?.setHex(0x8fe0d6);
+    });
+    carapace.scale.setScalar(1.12);
+    model.add(carapace);
+  }
+
   updateEnemies(enemies, dt, reduceMotion = false) {
     for (const view of this.enemyViews.values()) view.present = false;
     for (const enemy of enemies) {
       let view = this.enemyViews.get(enemy.id);
       if (!view) {
-        const model = this.templates[enemy.type].clone();
+        const model = this.enemyTemplate(enemy.type).clone();
         const membrane = model.getObjectByName('attack-membrane');
         // Keep the shader on the template when removing the warmup enemies.
         const clonedMembrane = membrane && !this.prewarmingEnemies ? membrane.material.clone() : null;
@@ -1912,6 +1951,8 @@ export class World {
           fringe: model.getObjectByName('spore-fringe'),
           guard: model.getObjectByName('guard-carapace'),
           sacs: model.children.filter(part => part.name === 'splitter-sac'),
+          motion: pathogenMotion(model),
+          clench: 0,
         };
         this.enemyViews.set(enemy.id, view);
       }
@@ -1921,6 +1962,7 @@ export class World {
         view.hit = Math.max(0, view.hit - dt * 7);
         const throb = reduceMotion ? 0 : Math.sin(this.clock * 3.1) * .025;
         view.model.scale.set(1 + throb + view.hit * .07, 1 - throb - view.hit * .06, 1);
+        if (!reduceMotion) animatePathogen(view.motion, dt);
         view.shadow.visible = false;
         continue;
       }
@@ -1940,6 +1982,7 @@ export class World {
       const pulse = 1 + (reduceMotion ? 0 : Math.sin(angle * 3) * .045 + view.hit * .13);
       view.model.scale.set(pulse, pulse - view.hit * .18, pulse);
       this.poseEnemyAttack(enemy, view, reduceMotion);
+      if (!reduceMotion) animatePathogen(view.motion, dt, view.clench);
       if (enemy.latched) this.updateTethers(enemy, view, angle, reduceMotion);
       if (view.guard && !enemy.latched) {
         view.model.rotation.set(reduceMotion ? 0 : Math.sin(angle * 3) * .042, enemy.heading, 0);
@@ -1970,6 +2013,8 @@ export class World {
     const progress = enemy.actionProgress ?? 0;
     const motion = reduceMotion ? .55 : 1;
     let glow = 0;
+    // Scanned models coil (positive) or flare (negative) their spikes and tendrils.
+    view.clench = 0;
     if (spikes) spikes.scale.setScalar(1);
     if (fringe) fringe.scale.set(1, 1, 1);
     switch (enemy.action) {
@@ -1979,6 +2024,7 @@ export class World {
         model.scale.y *= 1 - .36 * progress * motion;
         model.scale.z *= 1 - .24 * progress * motion;
         spikes?.scale.setScalar(1 - .22 * progress * motion);
+        view.clench = progress * motion;
         glow = .32 + .68 * progress;
         break;
       case 'virus-pounce': {
@@ -1986,6 +2032,7 @@ export class World {
         model.rotation.set((.42 - progress * .84) * motion, enemy.heading, 0);
         model.scale.set(1 - .17 * thrust * motion, 1 - .16 * thrust * motion, 1 + .52 * thrust * motion);
         spikes?.scale.setScalar(1 + .11 * thrust * motion);
+        view.clench = -.8 * thrust * motion;
         glow = .9;
         break;
       }
@@ -1993,6 +2040,7 @@ export class World {
         const recoil = Math.sin(progress * Math.PI) * motion;
         model.rotation.set(-.46 * recoil, enemy.heading, 0);
         model.scale.set(1 + .23 * recoil, 1 - .34 * recoil, 1 + .18 * recoil);
+        view.clench = .4 * recoil;
         glow = (1 - progress) * .42;
         break;
       }
@@ -2002,6 +2050,7 @@ export class World {
         model.scale.y *= 1 - .23 * progress * motion;
         model.scale.z *= 1 + .30 * progress * motion;
         fringe?.scale.set(1 - .20 * progress * motion, 1 - .36 * progress * motion, 1 - .20 * progress * motion);
+        view.clench = progress * motion;
         glow = .34 + .66 * progress;
         break;
       case 'spore-recover': {
@@ -2009,15 +2058,18 @@ export class World {
         model.rotation.set(.36 * expel, enemy.heading, 0);
         model.scale.set(1 - .28 * expel, 1 + .35 * expel, 1 - .28 * expel);
         fringe?.scale.set(1 + .29 * expel, 1 + .27 * expel, 1 + .29 * expel);
+        view.clench = -expel;
         glow = (1 - progress) * .48;
         break;
       }
       case 'bacillus-windup':
         model.scale.y *= 1 + .29 * progress * motion;
+        view.clench = progress * motion;
         glow = .23 + .65 * progress;
         break;
       case 'bacillus-tear':
         model.scale.y *= 1 - .23 * Math.sin(progress * Math.PI) * motion;
+        view.clench = -.7 * Math.sin(progress * Math.PI) * motion;
         glow = .76 * (1 - progress);
         break;
     }

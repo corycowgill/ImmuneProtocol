@@ -50,13 +50,22 @@ export const RULES = Object.freeze({
   arenaZ: ARENA.z,
 });
 
-const SPECIES = {
+// Every species fights with one of three behaviors: virus (coil and lunge), bacillus
+// (latch onto tissue and tear) or spore (keep distance and spit). Variants stand in
+// for a base species in later waves and stay close to its numbers.
+export const SPECIES = {
   virus: { radius: 0.92, y: 1.63, health: 60, speed: 2.28, suitDamage: 11, tissueDamage: 6, score: 100 },
   bacillus: { radius: 1.12, y: 1.13, health: 115, speed: 1.47, tissueDamage: 10, period: 1.75, score: 180 },
   spore: { radius: 0.73, y: 2.10, health: 36, speed: 3.55, suitDamage: 9, tissueDamage: 4, score: 130 },
   guard: { behavior: 'bacillus', radius: 1.32, y: 1.33, health: 144, speed: 1.62, tissueDamage: 12, period: 1.9, score: 260 },
   splitter: { behavior: 'virus', radius: 1.07, y: 1.75, health: 84, speed: 3.35, suitDamage: 13, tissueDamage: 7, score: 200 },
   colony: { radius: 1.10, y: 3.35, health: 1100, tissueDamage: 11, period: 1.57, score: 900 },
+  phage: { behavior: 'virus', radius: 0.88, y: 1.85, health: 52, speed: 2.6, suitDamage: 10, tissueDamage: 5, score: 115 },
+  flagellate: { behavior: 'virus', radius: 0.95, y: 1.5, health: 66, speed: 2.45, suitDamage: 12, tissueDamage: 6, score: 125 },
+  blister: { behavior: 'spore', radius: 0.84, y: 2.2, health: 44, speed: 3.2, suitDamage: 10, tissueDamage: 5, score: 150 },
+  filovirus: { behavior: 'bacillus', radius: 1.15, y: 1.2, health: 118, speed: 1.55, tissueDamage: 10, period: 1.7, score: 195 },
+  amoeba: { behavior: 'bacillus', radius: 1.2, y: 1.25, health: 126, speed: 1.22, tissueDamage: 9, period: 1.95, score: 205 },
+  rogue: { behavior: 'bacillus', radius: 1.2, y: 1.3, health: 128, speed: 1.5, tissueDamage: 11, period: 1.8, score: 225 },
 };
 
 const FRAGMENT = { radius: .55, y: 1.35, health: 24, speed: 4.05, suitDamage: 5, tissueDamage: 2, score: 55 };
@@ -67,8 +76,8 @@ const MISSIONS = [
   { cadence: 1.55, species: ['virus', 'virus', 'virus', 'spore', 'virus', 'virus', 'spore', 'virus', 'virus'] },
   { cadence: 1.30, species: ['virus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'bacillus', 'virus', 'virus', 'spore', 'virus', 'bacillus', 'spore'] },
   { cadence: 1.05, species: ['spore', 'virus', 'bacillus', 'virus', 'spore', 'spore', 'bacillus', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'virus', 'bacillus'] },
-  { cadence: 0.90, species: ['virus', 'bacillus', 'spore', 'spore', 'bacillus', 'virus', 'virus', 'bacillus', 'spore', 'bacillus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'virus', 'spore', 'bacillus', 'virus'] },
-  { cadence: 0.76, species: ['bacillus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'spore', 'bacillus', 'virus', 'spore', 'bacillus', 'spore', 'bacillus', 'virus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'bacillus', 'virus'] },
+  { cadence: 0.90, species: ['virus', 'bacillus', 'spore', 'spore', 'bacillus', 'virus', 'phage', 'bacillus', 'spore', 'filovirus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'phage', 'spore', 'bacillus', 'virus'] },
+  { cadence: 0.76, species: ['bacillus', 'spore', 'virus', 'filovirus', 'spore', 'phage', 'bacillus', 'blister', 'bacillus', 'virus', 'spore', 'filovirus', 'spore', 'bacillus', 'phage', 'spore', 'virus', 'bacillus', 'virus', 'blister', 'bacillus', 'virus'] },
 ];
 
 const SURGE_SPACING = .68;
@@ -119,6 +128,23 @@ const HEART_MAX_PLAYER_Z = 28;
 const HEART_MAX_PLAYER_X = 20;
 const HEART_PATROL = ['virus', 'spore', 'bacillus', 'spore', 'virus', 'virus', 'bacillus', 'spore', 'virus', 'bacillus'];
 const HEART_PATROL_ENTRIES = [{ x: 19, z: 27 }, { x: -18, z: 24 }, { x: 22, z: -4 }];
+// Which areas each species attacks in, for the disease guide. Gastric
+// counterattacks and Mega Virus broods only use species already in their waves.
+export function speciesHabitats() {
+  const rosters = {
+    artery: MISSIONS.flatMap(wave => wave.species),
+    junction: [...JUNCTION_MISSIONS, JUNCTION_OVERTIME].flatMap(wave => wave.arrivals.map(arrival => arrival.type)),
+    heart: [...HEART_MISSIONS.flatMap(wave => wave.species), ...HEART_PATROL],
+    ...Object.fromEntries(Object.entries(ORGAN_MISSIONS).map(([area, mission]) => [area, mission.waves.flatMap(wave => wave.species)])),
+  };
+  rosters.lungs.push(...AIRWAY_ATTACKS.flatMap(attack => attack.species));
+  const habitats = Object.fromEntries(Object.keys(SPECIES).map(type => [type, []]));
+  for (const [area, species] of Object.entries(rosters)) {
+    for (const type of new Set(species)) habitats[type].push(area);
+  }
+  return habitats;
+}
+
 const AIRWAY_SEAL_POINTS = 36;
 const AIRWAY_MINIMUM_INTEGRITY = 45;
 const AIRWAY_ATTACK_WARNING = 2.4;
@@ -1355,7 +1381,7 @@ export class Simulation {
 
   attackEvent(enemy, stage, target, origin = enemy, playerId = enemy.actionPlayerId) {
     const event = {
-      type: 'enemyAttack', enemyType: enemy.type, id: enemy.id, stage, target,
+      type: 'enemyAttack', enemyType: enemy.type, behavior: enemy.behavior, id: enemy.id, stage, target,
       x: origin.x, y: origin.y, z: origin.z,
     };
     if (target === 'tissue') event.nodeId = enemy.nodeId;

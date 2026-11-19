@@ -15,6 +15,7 @@ import { GamepadMenu } from './gamepad-menu.mjs';
 import { applyRenderedPreviews, installLevelHud } from './level-hud.mjs';
 import { DIFFICULTIES } from './difficulty.mjs';
 import { COSMETIC_SLOTS, cosmeticArt, createLoadoutPicker, drawWeaponHud, installArsenalUi, weaponName } from './arsenal-ui.mjs';
+import { createDiseaseGuide } from './disease-guide.mjs';
 
 installLevelHud(document);
 installArsenalUi(document);
@@ -265,6 +266,12 @@ const attackWarnings = {
   'bacillus-windup': 'BACILLUS TEARING TISSUE',
   'guard-windup': 'SHELLBACK TEARING TISSUE',
   'splitter-windup': 'SPLITTER ABOUT TO LUNGE',
+  'phage-windup': 'PHAGE ABOUT TO POUNCE',
+  'flagellate-windup': 'WHIPTAIL ABOUT TO LUNGE',
+  'blister-windup': 'BLISTER MORTAR CHARGING',
+  'filovirus-windup': 'FILOVIRUS STRANGLING TISSUE',
+  'amoeba-windup': 'AMOEBA ENGULFING TISSUE',
+  'rogue-windup': 'ROGUE CELL INVADING TISSUE',
 };
 const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo', Digit4: 'turret' };
 const supplyPad = { left: 'left', right: 'right', up: 'ammo', down: 'turret' };
@@ -2214,6 +2221,9 @@ function frame(now) {
   }
   animation = requestAnimationFrame(frame);
 }
+
+const diseaseGuide = createDiseaseGuide(byId('guide-dialog'), { missionName });
+byId('guide').addEventListener('click', () => diseaseGuide.open());
 
 byId('manual').addEventListener('click', () => {
   const active = byId(usingGamepad ? 'controller-manual' : isTouch ? 'touch-manual' : 'keyboard-manual');
