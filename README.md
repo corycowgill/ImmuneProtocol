@@ -80,6 +80,37 @@ Capillary Junction thins or reinforces each surge but always keeps the pathogen 
 
 Run `npm run balance` to play every mission headlessly with two scripted strategies on each difficulty. The anchor guards the weakest node. The rover runs to the node under the most pressure and switches targets when Shellbacks block its shots. The script prints win rates and the lowest tissue integrity per run, and exits with an error if a mission is never won on some difficulty. Narrow it with `npm run balance -- --difficulty hard --trials 20 stomach colon`.
 
+## Pathogens and the disease guide
+
+Open **Disease guide** on the main menu to browse every pathogen. Each entry shows its animated 3D model (drag to turn it, or choose **Provoke** to see its attack windup), a description and counter tactics, its health, speed, damage and score, the missions it attacks in, and three facts. The stats and mission lists come straight from the simulation, so they stay current.
+
+Every pathogen fights with one of three behaviors. Lungers coil, then leap at a fixed landing point. Latchers ignore your suit, grab a tissue node and tear. Ranged pathogens hang back and spit.
+
+| Pathogen | Behavior | First seen in |
+| --- | --- | --- |
+| Crown Virus | Lunger | Arterial Junction |
+| Spitting Spore | Ranged | Arterial Junction |
+| Bacillus | Latcher | Arterial Junction |
+| Valve Colony | Stationary, fight it through the valve | Heart Valve |
+| Phage Lander | Lunger, lighter and quicker | Arterial Junction, Wave 4 |
+| Filovirus | Latcher, tears a little faster | Arterial Junction, Wave 4 |
+| Blister Mortar | Ranged, tougher than a spore | Arterial Junction, Wave 5 |
+| Shellback | Latcher with an armored front | Bronchial Fork |
+| Splitter | Lunger that splits in two on death | Bronchial Fork |
+| Whiptail | Lunger, sturdier and harder hitting | Gastric Chamber |
+| Amoeba | Latcher, slow and very tough | Gastric Chamber |
+| Rogue Cell | Latcher, hits hard | Lymph Node |
+
+The pathogens are photoreal 3D scans processed in Blender by `tools/enemies/process.py` (Blender 4.2 LTS or newer, plus `gltfpack`, for example `npx gltfpack`). Put the source scans in `tools/enemies/originals/` (they are not committed; `originals/manifest.json` records each file's size and SHA-256), then run `blender -b -P tools/enemies/process.py -- [species ...]`. Set `GLTFPACK` to the `gltfpack` binary or its npm `cli.js` if it isn't on your `PATH`. `tools/enemies/enemies.json` maps each species to its scan and sets its triangle budget, material and motion. For each species the script:
+
+- Welds the scan, removes reconstruction floaters, and scales it to a unit radius.
+- Rebuilds a clean surface with a voxel remesh and decimates it to about 14k–24k triangles. Open shells skip the remesh. The Valve Colony, which appears once, keeps a lighter decimation of the scan and its own UVs.
+- Bakes 1K albedo, ORM and normal maps from the full scan, with a fine pore bump for micro detail, then darkens crevices with the baked occlusion. The material adds clearcoat and sheen for a wet, living look.
+- Adds morph-target animation: a looping **Idle** clip (Breathe plus three sway targets that make spikes, tendrils, legs and flagella writhe while the body breathes) and a **Clench** target that the game drives from each attack windup.
+- Exports `dist/assets/enemies/<species>.glb` and renders a Cycles portrait for the guide to `dist/assets/enemies/portraits/<species>.webp`.
+
+The models load while the game prepares its arenas. If one fails to load, its older procedural organism from `dist/world.mjs` stands in and the browser console says so. `npm run test:coop` also checks that every species has a model, animation targets, a portrait, a guide entry and at least one mission.
+
 ## Online co-op
 
 Two players share all ten missions in one room, from Arterial Junction to the Mega Virus fight in Neural Cortex. On the multiplayer server's game page, open **Online co-op**, enter a callsign, and choose **Create room**. Send the invite link to your friend. They open it, enter a callsign, and choose **Join room**. Choose **Ready** when both players are in the lobby.
