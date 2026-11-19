@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { WEAPON_ACCENTS, WEAPON_FINISHES } from './weapon-mods.mjs';
+import { createArsenalView } from './arsenal-models.mjs';
 import { suitModelVersion, suitParts } from './suits.mjs';
 
 const DOWN = new THREE.Vector3(0, -1, 0);
@@ -198,6 +198,15 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
   const flashMaterial = new THREE.MeshBasicMaterial({ color: 0xf9df92, transparent: true, opacity: .85, toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending });
   const flash = mesh(muzzle, new THREE.ConeGeometry(.038, .15, 6), flashMaterial, 0, 0, -.072);
   flash.rotation.x = -Math.PI / 2;
+  // The teammate holds the same weapon model, parts, stickers and charm as their first-person view,
+  // scaled down to the rig. The primitive stand-in above only keeps the muzzle joint.
+  for (const part of rifle.children) if (part !== muzzle) part.visible = false;
+  const arsenal = createArsenalView({ showHands: false });
+  const ARSENAL_SCALE = .68;
+  arsenal.model.scale.setScalar(ARSENAL_SCALE);
+  arsenal.model.position.set(0, .017, 0);
+  arsenal.model.traverse(part => { if (part.isMesh) part.castShadow = true; });
+  rifle.add(arsenal.model);
   flash.visible = false;
 
   const sealer = joint(holding);
@@ -276,28 +285,15 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     segment.quaternion.setFromUnitVectors(DOWN, armDirection.divideScalar(Math.max(length, .001)));
   }
 
-  function configureRifle(loadout = {}) {
+  function configureRifle(loadout) {
     if (loadout === previousLoadout) return;
     previousLoadout = loadout;
-    const { barrel: barrelId, muzzle: muzzleId, optic: opticId, magazine: magazineId, receiver, finish, accent } = loadout;
-    const key = [barrelId, muzzleId, opticId, magazineId, receiver, finish, accent].join('/');
+    const key = JSON.stringify(loadout ?? null);
     if (loadoutKey === key) return;
     loadoutKey = key;
-    const barrelLength = barrelId === 'short-barrel' ? .107 : barrelId === 'heavy-barrel' ? .22 : .177;
-    const barrelRadius = barrelId === 'heavy-barrel' ? .028 : .020;
-    barrel.scale.set(barrelRadius, barrelLength, barrelRadius);
-    barrel.position.z = -.308 - barrelLength * .5;
-    tip.position.z = -.316 - barrelLength;
-    tip.scale.set(muzzleId === 'compensator' ? .076 : .061, .061, muzzleId === 'flash-hider' ? .126 : .081);
-    muzzle.position.z = tip.position.z - tip.scale.z * .5;
-    flash.scale.setScalar(muzzleId === 'flash-hider' ? .65 : 1);
-    sight.position.y = opticId === 'marksman-optic' ? .113 : opticId === 'reflex-sight' ? .101 : .091;
-    sight.scale.z = opticId === 'marksman-optic' ? .139 : .056;
-    magazine.scale.y = magazineId === 'extended-magazine' ? .168 : magazineId === 'quick-magazine' ? .087 : .118;
-    magazine.position.y = -.031 - magazine.scale.y * .48;
-    rifleShell.color.set((Object.hasOwn(WEAPON_FINISHES, finish) && WEAPON_FINISHES[finish].color) || '#c7c3ae');
-    rifleLight.emissive.set((Object.hasOwn(WEAPON_ACCENTS, accent) && WEAPON_ACCENTS[accent].color) || '#75f1b4');
-    rifleLight.emissiveIntensity = receiver === 'rapid-receiver' ? 1.30 : .82;
+    arsenal.setLoadout(loadout ?? undefined);
+    muzzle.position.copy(arsenal.muzzle.position).multiplyScalar(ARSENAL_SCALE);
+    muzzle.position.y += .017;
   }
 
   function hide() {
@@ -362,6 +358,7 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     sealer.visible = repair;
     flash.visible = !reduceMotion && !prone && !repair && flashTime > 0;
     configureRifle(player.weaponLoadout);
+    arsenal.update(dt, { recoil, movement: gait, stride }, 1);
     wearSuit(player.suit ?? null);
 
     for (const arm of arms) {
