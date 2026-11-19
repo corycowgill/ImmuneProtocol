@@ -1,7 +1,10 @@
 import { Simulation, JUNCTION_INLETS, RULES } from './simulation.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
-import { DEFAULT_WEAPON_LOADOUT, WEAPON_ACCENTS, WEAPON_FINISHES, WEAPON_SLOTS, legacyWeaponLoadout, normalizeWeaponLoadout, weaponStats } from './weapon-mods.mjs';
+import {
+  WEAPON_ACCENTS, WEAPON_FINISHES, WEAPON_SLOTS, WEAPON_TYPES, legacyWeaponLoadout, loadoutInSlot, loadoutWithBuild,
+  loadoutWithWeapon, magazineCapacity, normalizeWeaponBuild, normalizeWeaponLoadout, weaponStats,
+} from './weapon-mods.mjs';
 import { FIELD_UPGRADE_ART, prepareArmoryArt } from './armory-art.mjs';
 import { World } from './world.mjs';
 import { GameAudio } from './audio.mjs';
@@ -11,8 +14,10 @@ import { GamepadInput } from './gamepad.mjs';
 import { GamepadMenu } from './gamepad-menu.mjs';
 import { applyRenderedPreviews, installLevelHud } from './level-hud.mjs';
 import { DIFFICULTIES } from './difficulty.mjs';
+import { COSMETIC_SLOTS, cosmeticArt, createLoadoutPicker, drawWeaponHud, installArsenalUi, weaponName } from './arsenal-ui.mjs';
 
 installLevelHud(document);
+installArsenalUi(document);
 const byId = id => document.getElementById(id);
 const menu = byId('menu');
 const game = byId('game');
@@ -224,7 +229,7 @@ const xbox = new GamepadInput();
 const xboxMenus = new GamepadMenu({ main: menu, onBack: backFromControllerMenu });
 const keys = new Set();
 const touch = { fire: false, repair: false, reload: false, x: 0, z: 0 };
-const input = { moveX: 0, moveZ: 0, lookX: 0, lookY: 0, fire: false, reload: false, repair: false, deploy: false, sprint: false, aim: false };
+const input = { moveX: 0, moveZ: 0, lookX: 0, lookY: 0, fire: false, reload: false, repair: false, deploy: false, sprint: false, aim: false, swap: false };
 const isTouch = matchMedia('(pointer: coarse)').matches;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const controlKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyR', 'KeyQ', 'KeyP', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'Escape']);
@@ -268,17 +273,19 @@ const armorySlots = {
   ...WEAPON_SLOTS,
   finish: { name: 'Body finish', options: WEAPON_FINISHES },
   accent: { name: 'Accent color', options: WEAPON_ACCENTS },
+  ...COSMETIC_SLOTS,
 };
+const degrees = radians => radians * 180 / Math.PI;
 const armoryMetrics = [
-  { name: 'Body damage', value: stats => stats.bodyDamage },
-  { name: 'Critical damage', value: stats => stats.criticalDamage },
+  { name: 'Damage per shot', value: stats => Math.round(stats.bodyDamage * stats.pellets + stats.splashDamage), delta: 'damage' },
+  { name: 'Critical damage', value: stats => Math.round(stats.criticalDamage * stats.pellets + stats.splashDamage), delta: 'critical' },
   { name: 'Fire rate', value: stats => Math.round(60 / stats.interval), unit: ' RPM', delta: 'RPM' },
-  { name: 'Capacity', value: (stats, baseCapacity) => baseCapacity + stats.magazineDelta, unit: ' rds', delta: 'rounds' },
+  { name: 'Capacity', value: (stats, baseCapacity) => magazineCapacity(stats, baseCapacity), unit: ' rds', delta: 'rounds' },
   { name: 'Reload time', value: stats => stats.reloadSeconds, unit: ' s', digits: 2, delta: 's reload' },
   { name: 'Aimed crit zone', value: stats => Math.round(stats.aimCritical * 100), unit: '%', points: true },
-  { name: 'Hip-fire crit zone', value: stats => Math.round(stats.hipCritical * 100), unit: '%', points: true },
-  { name: 'Aim turn speed', value: stats => Math.round(stats.aimSensitivity * 100), unit: '%', points: true },
-  { name: 'Muzzle flash', value: stats => Math.round(stats.muzzleFlash * 100), unit: '%', points: true },
+  { name: 'Hip-fire spread', value: stats => degrees(stats.hipSpread), unit: '°', digits: 1, delta: '° hip spread' },
+  { name: 'Aimed spread', value: stats => degrees(stats.aimSpread), unit: '°', digits: 2, delta: '° aimed spread' },
+  { name: 'Move speed', value: stats => Math.round(stats.moveSpeed * 100), unit: '%', points: true },
 ];
 
 let world;
@@ -291,6 +298,11 @@ let coopClock = 0;
 let armoryArt;
 let armoryRound = 0;
 let activeArmorySlot = Object.keys(WEAPON_SLOTS)[0];
+// Which carried weapon the armory's part tabs are customizing.
+let editingSlot = 'primary';
+let loadoutPicker;
+let swapTap = false;
+let wheelSwapAt = 0;
 let sim;
 let campaign = null;
 let selectedUpgrade = null;
@@ -338,10 +350,11 @@ function writeSetting(key, value) {
   try { localStorage.setItem(key, value); } catch { /* Private browsing may block storage. */ }
 }
 
+// Missions always start with the primary weapon in hand.
 function readWeaponLoadout() {
   try {
     const saved = JSON.parse(readSetting(weaponLoadoutKey));
-    if (saved && typeof saved === 'object' && !Array.isArray(saved)) return normalizeWeaponLoadout(saved);
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) return normalizeWeaponLoadout({ ...saved, slot: 'primary' });
   } catch { /* Recover from a malformed setting using the legacy preferences. */ }
   return legacyWeaponLoadout(readSetting(weaponModKey), readSetting(weaponFinishKey));
 }
@@ -454,13 +467,20 @@ function compareWeaponStats(current, alternative, baseCapacity) {
   }).join(' · ');
 }
 
+// The armory shows and edits the carried weapon chosen with the loadout picker.
+function editedLoadout() {
+  return loadoutInSlot(weaponLoadout, editingSlot);
+}
+
 function drawArmoryOptions(stats, baseCapacity) {
+  const edited = editedLoadout();
+  const cards = armoryArt.thumbnailsFor?.(edited.weapon) ?? armoryArt.thumbnails;
   for (const tab of armoryTabs.children) {
     const slot = tab.dataset.slot;
     const active = slot === activeArmorySlot;
     tab.setAttribute('aria-selected', String(active));
     tab.tabIndex = active ? 0 : -1;
-    setText(tab.lastElementChild, armorySlots[slot].options[weaponLoadout[slot]].name);
+    setText(tab.lastElementChild, armorySlots[slot].options[edited[slot]].name);
   }
   for (const panel of armoryOptions.children) {
     const slot = panel.dataset.slot;
@@ -468,12 +488,18 @@ function drawArmoryOptions(stats, baseCapacity) {
     if (panel.hidden) continue;
     for (const card of panel.children) {
       const part = card.dataset.option;
-      const equipped = weaponLoadout[slot] === part;
+      const equipped = edited[slot] === part;
       card.setAttribute('aria-pressed', String(equipped));
+      const picture = card.querySelector('img[data-part]');
+      const source = cards[slot]?.[part]?.src;
+      if (picture && source && picture.src !== source) picture.src = source;
       const comparison = card.querySelector('.armory-compare');
       if (equipped) setText(comparison, 'Equipped');
-      else if (!Object.hasOwn(WEAPON_SLOTS, slot)) setText(comparison, '');
-      else setText(comparison, compareWeaponStats(stats, weaponStats({ ...weaponLoadout, [slot]: part }), baseCapacity) || 'No stat change');
+      else if (!Object.hasOwn(WEAPON_SLOTS, slot) && slot !== 'charm') setText(comparison, '');
+      else {
+        const alternative = weaponStats(loadoutInSlot(loadoutWithBuild(weaponLoadout, edited.weapon, { [slot]: part }), editingSlot));
+        setText(comparison, compareWeaponStats(stats, alternative, baseCapacity) || 'No stat change');
+      }
     }
   }
 }
@@ -483,12 +509,17 @@ function armoryBaseCapacity() {
 }
 
 function drawArmory() {
-  const stats = weaponStats(weaponLoadout);
+  const edited = editedLoadout();
+  const stats = weaponStats(edited);
   const baseCapacity = armoryBaseCapacity();
-  const preview = armoryArt.render(weaponLoadout);
+  loadoutPicker.draw(weaponLoadout, editingSlot);
+  setText(armoryReset, 'Reset ' + WEAPON_TYPES[edited.weapon].short.toLowerCase());
+  armoryTitle.previousElementSibling.lastChild.textContent = ' ' + (editingSlot === 'primary' ? 'PRIMARY' : 'SECONDARY') +
+    ' · ' + WEAPON_TYPES[edited.weapon].name.toUpperCase();
+  const preview = armoryArt.render(edited);
   preview.setAttribute('role', 'img');
-  preview.setAttribute('aria-label', 'Needle Carbine in ' + WEAPON_FINISHES[weaponLoadout.finish].name +
-    ' with ' + WEAPON_ACCENTS[weaponLoadout.accent].name + ' accents');
+  preview.setAttribute('aria-label', WEAPON_TYPES[edited.weapon].name + ' in ' + WEAPON_FINISHES[edited.finish].name +
+    ' with ' + WEAPON_ACCENTS[edited.accent].name + ' accents');
   if (armoryPreview.firstElementChild !== preview) armoryPreview.replaceChildren(preview);
   armoryMetrics.forEach((metric, index) => {
     const value = metric.value(stats, baseCapacity).toFixed(metric.digits ?? 0);
@@ -501,6 +532,18 @@ function setupArmory() {
   armoryStats.replaceChildren();
   armoryTabs.replaceChildren();
   armoryOptions.replaceChildren();
+  if (!loadoutPicker) {
+    loadoutPicker = createLoadoutPicker(document, {
+      onPick: (slot, weapon) => {
+        if (weaponLoadout.arsenal[slot] !== weapon) equipWeaponLoadout(loadoutWithWeapon(weaponLoadout, slot, weapon));
+      },
+      onEdit: slot => {
+        editingSlot = slot;
+        drawArmory();
+      },
+    });
+    armoryTabs.before(loadoutPicker.element);
+  }
   for (const { name } of armoryMetrics) {
     const stat = document.createElement('div');
     const label = document.createElement('dt');
@@ -534,7 +577,15 @@ function setupArmory() {
       card.dataset.option = id;
       const label = document.createElement('strong');
       label.textContent = option.name;
-      if (option.color) {
+      if (slot === 'sticker' || slot === 'charm') {
+        const picture = new Image(225, 130);
+        picture.className = 'armory-art';
+        picture.alt = '';
+        picture.src = cosmeticArt(slot, id);
+        const detail = document.createElement('small');
+        detail.textContent = option.detail;
+        card.append(picture, label, detail);
+      } else if (option.color) {
         card.classList.add('armory-color');
         card.style.setProperty('--swatch', option.color);
         const swatch = document.createElement('span');
@@ -544,6 +595,7 @@ function setupArmory() {
       } else {
         const picture = armoryArt.thumbnails[slot][id].cloneNode();
         picture.alt = '';
+        picture.dataset.part = id;
         const detail = document.createElement('small');
         detail.textContent = option.detail;
         card.append(picture, label, detail);
@@ -555,13 +607,14 @@ function setupArmory() {
     }
     armoryOptions.append(panel);
   }
-  drawArmoryOptions(weaponStats(weaponLoadout), RULES.magazine);
+  drawArmoryOptions(weaponStats(editedLoadout()), RULES.magazine);
 }
 
 function equipWeaponLoadout(loadout) {
-  weaponLoadout = normalizeWeaponLoadout(loadout);
+  weaponLoadout = normalizeWeaponLoadout({ ...normalizeWeaponLoadout(loadout), slot: 'primary' });
   writeSetting(weaponLoadoutKey, JSON.stringify(weaponLoadout));
-  if (armoryRound && !onlineRun) sim.setWeaponLoadout(weaponLoadout);
+  // Armory edits between waves keep whichever weapon is in hand.
+  if (armoryRound && !onlineRun) sim.setWeaponLoadout({ ...weaponLoadout, slot: sim.weaponLoadout.slot });
   if ((onlineRun && armoryRound) || (coopClient?.localPlayer?.ready && ['lobby', 'finished'].includes(coopClient.room?.phase))) {
     coopClient.setReady(false, weaponLoadout);
   }
@@ -838,6 +891,7 @@ function clearControls() {
   fireTap = false;
   reloadTap = false;
   deployTap = false;
+  swapTap = false;
   lookPointer = null;
   stickPointer = null;
   touch.fire = false;
@@ -895,7 +949,7 @@ async function launch(area, run = null, drill = null, onlineState = null) {
       tutorial: area === 'artery' && !trainingComplete && !drill,
       upgrades: upgrade ? [upgrade] : [],
       bossPractice: !!drill?.bossPractice,
-      weaponLoadout,
+      weaponLoadout: { ...weaponLoadout, slot: 'primary' },
     });
     if (!onlineState) nextSim.start();
     sim = nextSim;
@@ -1018,8 +1072,9 @@ function suspendCombat() {
 function openArmory(round = 0) {
   if (!ready || armoryDialog.open) return;
   if (round) suspendCombat();
-  setText(armoryContext, round ? 'Wave ' + round + ' complete. Adjust your build before resuming.' : 'Compare parts and tune your carbine.');
+  setText(armoryContext, round ? 'Wave ' + round + ' complete. Adjust your build before resuming.' : 'Pick a primary and a secondary, then tune parts, looks and charms.');
   armoryDone.firstChild.textContent = round ? 'Resume mission ' : 'Done ';
+  if (round && sim?.weaponLoadout) editingSlot = sim.weaponLoadout.slot;
   armoryDone.disabled = false;
   coopArmoryStatus.hidden = !onlineRun || !round;
   drawArmory();
@@ -1359,6 +1414,7 @@ function controllerFrame(now) {
   xboxState = current;
   reloadTap ||= current.pressed.reload;
   if (current.pressed.deploy && !sim.tutorial && (sim.turretCharges > 0 || sim.canRedeployTurret)) deployTap = true;
+  if (current.pressed.swap && !sim.tutorial) swapTap = true;
   if (!junctionSupply.hidden) {
     const direction = Object.keys(supplyPad).find(key => current.pressed[key]);
     if (direction) supplyButtons.find(button => button.dataset.junctionSupply === supplyPad[direction])?.click();
@@ -1634,7 +1690,7 @@ function drawHud() {
   setText(suitStatus, suitCritical ? 'SUIT CRITICAL' : 'SUIT INTEGRITY');
   setText(suitValue, suitPercent + '%');
   fillMeter(healthMeter, healthFill, suitPercent);
-  setText(equipmentLabel, sim.repairing ? 'TISSUE SEALER' : 'NEEDLE CARBINE');
+  setText(equipmentLabel, sim.repairing ? 'TISSUE SEALER' : sim.switching > 0 ? 'DRAWING ' + weaponName(sim) : weaponName(sim));
   ammoValue.hidden = reserveValue.hidden = sim.repairing;
   setText(ammoValue, pad(player.ammo));
   let ammoStatus = 'ready';
@@ -1967,11 +2023,11 @@ function applyEvents() {
           const dz = actor.z - sim.player.z;
           const distance = Math.hypot(dx, dz);
           const pan = (dx * Math.cos(sim.player.yaw) - dz * Math.sin(sim.player.yaw)) / Math.max(1, distance);
-          audio.play({ type: 'shot', teammate: true, distance, pan });
+          audio.play({ type: 'shot', teammate: true, distance, pan, weapon: event.weapon, pellet: event.pellet, blast: event.blast });
         }
         continue;
       }
-      if (['dry', 'reload', 'hit', 'kill', 'repairStart', 'repairStop'].includes(event.type) ||
+      if (['dry', 'reload', 'hit', 'kill', 'repairStart', 'repairStop', 'swap'].includes(event.type) ||
         (event.type === 'damage' && event.target === 'player')) continue;
     }
     if (event.type === 'outro') {
@@ -1990,7 +2046,7 @@ function applyEvents() {
         : isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
       audio.play({ type: 'wave', stage: 'start' });
     }
-    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss', 'airway', 'gastric'].includes(event.type) && Number.isFinite(event.x)) {
+    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss', 'airway', 'gastric', 'explosion'].includes(event.type) && Number.isFinite(event.x)) {
       const { x, z, yaw } = sim.player;
       const dx = event.x - x;
       const dz = event.z - z;
@@ -2084,6 +2140,7 @@ function applyEvents() {
 
 function drawCombatFeedback(aiming) {
   reticle.classList.toggle('aim', aiming);
+  drawWeaponHud(sim, aiming, world.weaponPose.aim > .86);
   hitMarker.style.opacity = String(clamp(hitTimer * 7, 0, 1));
   damageFlash.style.opacity = String(damageTimer * (reducedMotion ? 0.42 : 1.6));
 }
@@ -2105,6 +2162,7 @@ function frame(now) {
     input.reload = reloadTap || keys.has('KeyR') || touch.reload;
     input.repair = keys.has('KeyE') || touch.repair || !!controller?.repair;
     input.deploy = deployTap;
+    input.swap = swapTap;
     input.sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') || !!controller?.sprint;
     input.aim = rightButton || !!controller?.aim;
     hitTimer = Math.max(0, hitTimer - dt);
@@ -2130,6 +2188,7 @@ function frame(now) {
       fireTap = false;
       reloadTap = false;
       deployTap = false;
+      swapTap = false;
       touch.reload = false;
     }
     const aiming = world.render(sim, dt, input, reducedMotion);
@@ -2173,7 +2232,9 @@ armoryDialog.addEventListener('cancel', event => {
   event.preventDefault();
   if (!onlineRun || !armoryRound) closeArmory();
 });
-armoryReset.addEventListener('click', () => equipWeaponLoadout(DEFAULT_WEAPON_LOADOUT));
+armoryReset.addEventListener('click', () => {
+  equipWeaponLoadout(loadoutWithBuild(weaponLoadout, editedLoadout().weapon, normalizeWeaponBuild({})));
+});
 armoryTabs.addEventListener('click', event => {
   const tab = event.target.closest('[role="tab"]');
   if (!tab) return;
@@ -2200,7 +2261,8 @@ armoryOptions.addEventListener('click', event => {
   if (!card) return;
   const slot = card.parentElement.dataset.slot;
   const part = card.dataset.option;
-  if (weaponLoadout[slot] !== part) equipWeaponLoadout({ ...weaponLoadout, [slot]: part });
+  const edited = editedLoadout();
+  if (edited[slot] !== part) equipWeaponLoadout(loadoutWithBuild(weaponLoadout, edited.weapon, { [slot]: part }));
 });
 for (const button of supplyButtons) {
   button.addEventListener('click', () => {
@@ -2384,6 +2446,12 @@ window.addEventListener('keydown', event => {
     }
     return;
   }
+  const wanted = { Digit1: 'primary', Digit2: 'secondary' }[event.code];
+  if (wanted) {
+    event.preventDefault();
+    if (!event.repeat && !sim.tutorial && sim.weaponLoadout?.slot !== wanted) swapTap = true;
+    return;
+  }
   if (!controlKeys.has(event.code)) return;
   if (event.code === 'Space' && event.target instanceof HTMLButtonElement) return;
   event.preventDefault();
@@ -2397,6 +2465,13 @@ window.addEventListener('keydown', event => {
   keys.add(event.code);
 });
 window.addEventListener('keyup', event => keys.delete(event.code));
+window.addEventListener('wheel', event => {
+  if (!running || paused || sim.extractionPending || sim.tutorial || !locked || !event.deltaY) return;
+  const now = performance.now();
+  if (now - wheelSwapAt < 260) return;
+  wheelSwapAt = now;
+  swapTap = true;
+}, { passive: true });
 window.addEventListener('mousemove', event => {
   if (running && !paused && !sim.extractionPending && locked) {
     if (event.movementX || event.movementY) switchFromGamepad(event);
@@ -2464,7 +2539,10 @@ for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
     joystick.firstElementChild.style.transform = '';
   });
 }
-touchControls.querySelectorAll('[data-touch]:not([data-touch="turret"])').forEach(button => {
+byId('touch-swap').addEventListener('click', () => {
+  if (running && !paused && !sim.extractionPending && !sim.tutorial) swapTap = true;
+});
+touchControls.querySelectorAll('[data-touch]:not([data-touch="turret"]):not([data-touch="swap"])').forEach(button => {
   const name = button.dataset.touch;
   button.addEventListener('pointerdown', event => {
     if (!running || paused || sim.extractionPending) return;
