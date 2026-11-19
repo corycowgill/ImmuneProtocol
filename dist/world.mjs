@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.js';
-import { createCarbine } from './carbine.mjs';
+import { createArsenalView } from './arsenal-models.mjs';
+import { ExplosionFX } from './explosions.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve, createValveColony } from './heart-valve.mjs';
 import { createTurret } from './turret.mjs';
@@ -9,7 +10,7 @@ import { bioSurface, createLevelProps } from './level-props.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { RENDERED_PREVIEWS } from './level-hud.mjs';
 import { createTeammate } from './teammate.mjs';
-import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS } from './weapon-mods.mjs';
+import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, TISSUE_NODES } from './simulation.mjs';
 
 const TAU = Math.PI * 2;
@@ -1327,12 +1328,14 @@ export class World {
     this.scene.add(side);
     this.shotLight = new THREE.PointLight(0xa8ffc4, 0, 8, 2);
     this.scene.add(this.shotLight);
+    this.explosions = new ExplosionFX(this.scene, { floorHeight, burst: (...args) => this.burst(...args) });
 
     this.weaponScene = new THREE.Scene();
     this.weaponScene.environment = this.scene.environment;
     this.weaponScene.environmentIntensity = .83;
     this.weaponCamera = new THREE.PerspectiveCamera(55, 1, .026, 5);
-    this.carbine = createCarbine();
+    // The arsenal view holds the gloves and all five weapons; only the equipped one is visible.
+    this.carbine = createArsenalView();
     this.weaponScene.add(this.carbine.model);
     this.repairTool = createRepairTool(this.carbine.supportHand);
     this.weaponScene.add(this.repairTool.model);
@@ -1358,7 +1361,7 @@ export class World {
     this.weaponScene.add(this.weaponKey, this.weaponKey.target, this.weaponRim, weaponBounce, this.weaponFlash);
     this.weaponPose = {
       sim: null, stride: 0, movement: 0, aim: 0, recoil: 0, flash: 0, lowered: 0,
-      swayX: 0, swayY: 0,
+      swayX: 0, swayY: 0, swap: 0,
     };
     this.weaponLightRotation = new THREE.Quaternion();
     this.weaponSight = this.carbine.sight.getWorldPosition(new THREE.Vector3());
@@ -1521,10 +1524,11 @@ export class World {
       // Cycle slots together to upload each component without rendering every possible build.
       const slotVariants = Object.entries(WEAPON_SLOTS).map(([slot, { options }]) => [slot, Object.keys(options)]);
       const variantCount = Math.max(...slotVariants.map(([, options]) => options.length));
-      const warmupBuilds = Array.from({ length: variantCount }, (_, index) => ({
-        ...DEFAULT_WEAPON_LOADOUT,
+      const warmupBuilds = WEAPON_ORDER.flatMap(weapon => Array.from({ length: variantCount }, (_, index) => ({
+        ...loadoutWithWeapon(DEFAULT_WEAPON_LOADOUT, 'primary', weapon),
+        weapon,
         ...Object.fromEntries(slotVariants.map(([slot, options]) => [slot, options[index] ?? 'standard'])),
-      }));
+      })));
       this.carbine.flash.visible = true;
       // The world has no shadow casters. Only the weapon needs both quality variants.
       for (const enabled of [!shadows, shadows]) {
@@ -1643,10 +1647,15 @@ export class World {
   setWeaponLoadout(loadout) {
     this.weaponSource = null;
     this.carbine.setLoadout(loadout);
+    // Each weapon has its own sight line, magazine and support-hand position.
+    this.weaponSight.copy(this.carbine.sight.position);
+    this.magazineRest.copy(this.carbine.magazine.position);
+    this.supportRest.copy(this.carbine.supportRest);
   }
 
   setArea(area) {
     this.teammateView.hide();
+    this.explosions?.clear();
     this.megaVirus?.update(null, 0, 0, true);
     const junction = area === 'junction';
     const heart = area === 'heart';
@@ -2140,6 +2149,8 @@ export class World {
     pose.stride += dt * (sprint ? 14 : 9) * pose.movement;
     pose.aim = damp(pose.aim, aiming ? 1 : 0, 18, dt);
     pose.lowered = damp(pose.lowered, sim.repairing ? 1 : 0, 12, dt);
+    // A freshly drawn weapon rises from below the frame.
+    pose.swap = sim.switching > 0 ? 1 - smoothstep(sim.switchProgress ?? 1, 0, 1) : damp(pose.swap, 0, 20, dt);
     pose.recoil = damp(pose.recoil, 0, 16, dt);
     pose.flash = Math.max(0, pose.flash - dt);
     pose.swayX = damp(pose.swayX, reduceMotion ? 0 : clamp(input.lookX * .001, -.027, .027), 15, dt);
@@ -2148,7 +2159,8 @@ export class World {
     const { model, muzzle, flash, magazine, magazineGrip, supportHand, bolt, poseHands } = this.carbine;
     if (sim.events !== this.lastEvents && sim.events.some(event => event.type === 'shot' &&
       (event.playerId == null || event.playerId === sim.player.id))) {
-      pose.recoil = Math.min(1.24, pose.recoil + (reduceMotion ? .43 : 1));
+      const kick = sim.weapon.recoil ?? 1;
+      pose.recoil = Math.min(1.24 * Math.max(1, kick * .8), pose.recoil + (reduceMotion ? .43 : 1) * kick);
       pose.flash = reduceMotion ? 0 : .037;
       flash.rotation.z = this.random() * TAU;
     }
@@ -2164,14 +2176,15 @@ export class World {
     const idle = reduceMotion ? 0 : Math.sin(this.clock * 2.1) * .005 * (1 - aim);
     const hipX = Math.min(.34, .14 + .12 * this.camera.aspect);
     const sway = 1 - aim * .9;
+    const hip = this.carbine.hipOffset;
     model.position.set(
-      lerp(hipX, -this.weaponSight.x, aim) + walk * .022 - pose.swayX * sway - reloadTilt * .075,
-      lerp(-.255, -this.weaponSight.y, aim) + idle + step * .011 + pose.swayY * sway
-        + reloadTilt * .07 - pose.lowered * .42 - pose.recoil * .014,
-      lerp(-.60, -.61, aim) + pose.recoil * .068 - reloadTilt * .13,
+      lerp(hipX + hip.x, -this.weaponSight.x, aim) + walk * .022 - pose.swayX * sway - reloadTilt * .075,
+      lerp(-.255 + hip.y, -this.weaponSight.y, aim) + idle + step * .011 + pose.swayY * sway
+        + reloadTilt * .07 - pose.lowered * .42 - pose.recoil * .014 - pose.swap * .34,
+      lerp(-.60 + hip.z, -.61 + hip.z * .6, aim) + pose.recoil * .068 - reloadTilt * .13,
     );
     model.rotation.set(
-      lerp(.12, 0, aim) + pose.recoil * .065 + reloadTilt * .12 - seat * .047 - pose.lowered * .63 - pose.swayY,
+      lerp(.12, 0, aim) + pose.recoil * .065 + reloadTilt * .12 - seat * .047 - pose.lowered * .63 - pose.swayY - pose.swap * .7,
       lerp(.18, 0, aim) + reloadTilt * .19 - pose.swayX,
       lerp(-.06, 0, aim) + walk * .035 + reloadTilt * .55 - pose.lowered * .25,
     );
@@ -2188,7 +2201,9 @@ export class World {
     flash.visible = pose.flash > 0;
     const flashStrength = sim.weapon.muzzleFlash;
     flash.scale.setScalar(Math.sqrt(flashStrength));
-    model.visible = pose.lowered < .91;
+    // Looking through a rifle scope replaces the model with the scope overlay.
+    model.visible = pose.lowered < .91 && !(sim.weapon.scope && aim > .86);
+    this.carbine.update(dt, pose, sim.player.ammo);
     this.updateRepairTool(sim, idle, walk, reduceMotion);
 
     this.weaponLightRotation.copy(this.camera.quaternion).invert();
@@ -2231,7 +2246,7 @@ export class World {
     this.toolStream.visible = true;
   }
 
-  addShot(event, flashStrength) {
+  addShot(event, flashStrength, reduceMotion) {
     const start = this.carbine.muzzle.getWorldPosition(new THREE.Vector3());
     // Match the on-screen muzzle position across the two camera fields of view.
     const ratio = Math.tan(this.camera.fov * Math.PI / 360) / Math.tan(this.weaponCamera.fov * Math.PI / 360);
@@ -2241,9 +2256,12 @@ export class World {
     const end = Number.isFinite(event.x) && Number.isFinite(event.y) && Number.isFinite(event.z)
       ? new THREE.Vector3(event.x, event.y, event.z)
       : new THREE.Vector3(0, 0, -36).applyQuaternion(this.camera.quaternion).add(this.camera.position);
-    this.addTracer(start, end, this.shotMaterial, .064);
-    this.shotLight.intensity = 13 * flashStrength;
-    this.shotLight.position.copy(start);
+    if (event.rocket) this.explosions.launch(start, end, event.travel, reduceMotion);
+    else if (!event.blast) this.addTracer(start, end, this.shotMaterial, event.weapon === 'sniper' ? .12 : .064);
+    if (!event.pellet) {
+      this.shotLight.intensity = 13 * flashStrength;
+      this.shotLight.position.copy(start);
+    }
     if (event.hit) this.burst(end.x, end.y, end.z, event.crit ? 0xffc875 : 0xff765a, event.crit ? 18 : 9, 3);
   }
 
@@ -2254,9 +2272,10 @@ export class World {
   }
 
   addTeammateShot(event, reduceMotion) {
-    if (!this.teammateView.fire(event.playerId, reduceMotion, this.teammateMuzzle)) return;
+    if (event.blast || !this.teammateView.fire(event.playerId, reduceMotion, this.teammateMuzzle)) return;
     const end = new THREE.Vector3(event.x, event.y, event.z);
-    this.addTracer(this.teammateMuzzle, end, this.teammateShotMaterial, .074);
+    if (event.rocket) this.explosions.launch(this.teammateMuzzle, end, event.travel, reduceMotion);
+    else this.addTracer(this.teammateMuzzle, end, this.teammateShotMaterial, .074);
     if (event.hit) this.burst(end.x, end.y, end.z, event.crit ? 0xffc875 : 0xff765a, reduceMotion ? 4 : 8, 2.6);
   }
 
@@ -2275,9 +2294,10 @@ export class World {
       this.lastEvents = events;
       for (const event of events) {
         if (event.type === 'shot') {
-          if (event.playerId == null || event.playerId === playerId) this.addShot(event, flashStrength);
+          if (event.playerId == null || event.playerId === playerId) this.addShot(event, flashStrength, reduceMotion);
           else this.addTeammateShot(event, reduceMotion);
         }
+        if (event.type === 'explosion') this.explosions.explode(event.x, event.y, event.z, event.radius, reduceMotion);
         if (event.type === 'turret' && event.stage === 'fire') this.addTurretShot(event, reduceMotion);
         if (event.type === 'turret' && (event.stage === 'deployed' || event.stage === 'redeployed') && !reduceMotion) {
           this.burst(event.x, floorHeight(event.x, event.z) + .11, event.z, 0xb78079, 15, 1.2);
@@ -2336,11 +2356,13 @@ export class World {
     this.camera.position.set(player.x, player.y, player.z);
     this.camera.rotation.set(player.pitch, player.yaw, 0);
     const aiming = input.aim && !sim.reloading && !sim.repairing;
-    const targetFov = aiming ? 48 : 61;
+    // Each weapon and optic zooms by its own amount; the Lancet scope zooms furthest.
+    const targetFov = aiming ? sim.weapon.zoom ?? 48 : 61;
     if (Math.abs(targetFov - this.camera.fov) > .04) {
-      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1, dt * 10));
+      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1, dt * 12));
       this.camera.updateProjectionMatrix();
     }
+    this.explosions.update(dt, reduceMotion ? null : this.camera);
     this.camera.updateMatrixWorld();
     this.updateAtmosphere(dt);
     this.organEnvironment?.update(sim.organ, this.clock, reduceMotion, sim.gastric);
