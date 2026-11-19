@@ -45,6 +45,36 @@ const SYNTHESIZED = {
   }],
   'field/peristalsis': [1.8, (t, noise) => (noise(220) * .9 + Math.sin(t * 2 * Math.PI * 38) * .35) *
     (.55 + .45 * Math.sin(t * 2 * Math.PI * 3.2)) * Math.min(1, t / .25) * Math.min(1, (1.8 - t) / .6)],
+  // Weapon voices: a heavy rifle crack, a shotgun boom, a light pistol snap, the rocket's launch
+  // and burst, and the swap rattle.
+  'weapon/sniper': [1.3, (t, noise) => {
+    const crack = noise(5200) * Math.exp(-t * 38) * 1.2;
+    const body = (noise(700) * .8 + Math.sin(2 * Math.PI * (95 * t - 30 * t * t))) * Math.exp(-t * 6);
+    const tail = noise(300) * .45 * Math.exp(-t * 2.6) * Math.min(1, t / .05);
+    return (crack + body * .8 + tail) * Math.min(1, t / .0015) * .75;
+  }],
+  'weapon/shotgun': [.9, (t, noise) => {
+    const blast = noise(2600) * Math.exp(-t * 22) * 1.3;
+    const thump = Math.sin(2 * Math.PI * (70 * t - 25 * t * t)) * Math.exp(-t * 9);
+    return (blast + thump + noise(450) * .5 * Math.exp(-t * 5)) * Math.min(1, t / .0015) * .72;
+  }],
+  'weapon/pistol': [.22, (t, noise) => (noise(4200) * Math.exp(-t * 55) + Math.sin(2 * Math.PI * 340 * t) * .5 * Math.exp(-t * 40)) *
+    Math.min(1, t / .001) * .6],
+  'weapon/rocket': [1.1, (t, noise) => {
+    const pop = noise(1800) * Math.exp(-t * 30);
+    const whoosh = noise(900 + 1400 * Math.min(1, t * 2)) * Math.min(1, t / .06) * Math.exp(-t * 2.4);
+    return (pop + whoosh * .9) * Math.min(1, t / .002) * .7;
+  }],
+  'weapon/explosion': [2.4, (t, noise) => {
+    const crack = noise(3000) * Math.exp(-t * 26) * 1.2;
+    const boom = (Math.sin(2 * Math.PI * (52 * t - 9 * t * t)) * 1.3 + noise(160) * 1.6) * Math.exp(-t * 2.3);
+    const debris = noise(1200) * .35 * Math.exp(-t * 3.5) * Math.max(0, Math.sin(t * 41)) ;
+    return (crack + boom + debris) * Math.min(1, t / .002) * .8;
+  }],
+  'weapon/swap': [.32, (t, noise) => {
+    const click = (at, gain) => t < at ? 0 : noise(3500) * gain * Math.exp(-(t - at) * 60);
+    return click(0, .7) + click(.11, .5) + click(.2, .9) + Math.sin(2 * Math.PI * 900 * t) * .08 * Math.exp(-t * 20);
+  }],
   'field/macrophage': [1.4, (t, noise) => (Math.sin(2 * Math.PI * (55 * t - 6.5 * t * t)) * .45 + noise(400) * .6) *
     (.6 + .4 * Math.sin(t * 2 * Math.PI * 1.7)) * Math.min(1, t / .2) * Math.min(1, (1.4 - t) / .5)],
 };
@@ -255,6 +285,14 @@ export class GameAudio {
     if (this.context?.state !== 'running') return;
     switch (event.type) {
       case 'shot': {
+        // Shotgun pellets and rocket bursts share one report per trigger pull.
+        if (event.pellet || event.blast) break;
+        const voice = { sniper: 'weapon/sniper', shotgun: 'weapon/shotgun', pistol: 'weapon/pistol', launcher: 'weapon/rocket' }[event.weapon];
+        if (voice && this.samples.has(voice)) {
+          const volume = event.teammate ? .5 / (1 + (event.distance ?? 0) * .085) : voice === 'weapon/pistol' ? .5 : .78;
+          this.playSample(voice, volume, { pan: this.spatialPan(event), rate: .96 + Math.random() * .08 });
+          break;
+        }
         const readyShots = SHOTS.filter(name => this.samples.has(name));
         if (!readyShots.length) break;
         const sample = readyShots[this.shotIndex++ % readyShots.length];
@@ -272,6 +310,14 @@ export class GameAudio {
         }
         break;
       }
+      case 'explosion': {
+        const attenuation = 1 / (1 + (event.distance ?? 0) * .03);
+        this.playSample('weapon/explosion', .95 * attenuation, { pan: this.spatialPan(event), rate: .92 + Math.random() * .12 });
+        break;
+      }
+      case 'swap':
+        if (!event.teammate) this.playSample('weapon/swap', .45, { rate: event.weapon === 'pistol' ? 1.15 : event.weapon === 'launcher' ? .8 : 1 });
+        break;
       case 'dry':
         this.playSample('weapon/dry', 0.42);
         break;
