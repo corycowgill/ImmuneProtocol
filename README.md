@@ -29,9 +29,36 @@ Choose **Start campaign** to deploy into Arterial Junction. Between missions, eq
 
 Open **Free Mode** to browse rendered previews of all ten arenas. Select a mission to read its briefing, choose a field upgrade, then select **Deploy**. Free Mode runs leave your campaign checkpoint, mission progression, and best score intact. Reaching the Mega Virus in Neural Cortex in either mode unlocks **Practice Mega Virus**, which starts directly at Wave 3 with fresh supplies.
 
-The **Armory** lets you mix a barrel, muzzle, optic, receiver, and magazine. Each slot has three illustrated options. The armory compares each part against your equipped build and shows the combined weapon in 3D. Pick a body finish and an accent color independently. Your build is saved in the browser and works alongside your field upgrade.
+## Weapons
 
-The carbine has unlimited reserve ammunition. Magazine capacity and reload speed depend on your weapon build. The armory reopens between waves. First-time Arterial Junction training uses stock weapon stats until the guided breach is sealed.
+You carry two weapons, a primary and a secondary, from the first mission. Pick any two different weapons in the **Armory**. Switch between them with **1** and **2**, the mouse wheel, **Y** on a controller, or the **Swap** button on touchscreens. Each weapon keeps its own magazine when you switch. Drawing a weapon takes a moment, and you can't fire until it's up.
+
+| Weapon | Role | How it plays |
+| --- | --- | --- |
+| Needle Carbine | Assault | Accurate automatic fire, 30 rounds. The default primary. |
+| Lancet Rifle | Sniper | 110 damage per bolt-action shot, once a second, 5 rounds. Deep zoom and a scope overlay when aimed, with near-perfect accuracy; wild from the hip. |
+| Burst Scattergun | Shotgun | Nine pellets per shell, 6 shells. Devastating up close; damage falls off sharply past 7 m and bottoms out at 22 m. |
+| Phage Launcher | Rocket | Two rockets that fly visibly and burst on impact, splashing every pathogen within about 5 m (Shellback armor doesn't stop splash). Very slow 3.9 s reload. |
+| Sting Pistol | Sidearm | Light 11-damage rounds at 830 rounds a minute, 16 per magazine, half-second reload, and a little extra move speed. The default secondary. |
+
+Every weapon spreads its shots in a cone. Aiming down sights (hold right click or LT) narrows the cone and zooms in, and the crosshair widens and narrows with the current spread. The Lancet's scope zooms furthest.
+
+The **Armory** shows both carried weapons at the top. Pick which one to customize, then mix its barrel, muzzle, optic, receiver, and magazine. Each slot has three options with their own 3D parts on every weapon. Parts change damage, fire rate, spread, zoom, capacity, and reload speed, scaled to each weapon. The armory compares each option against the equipped build and shows the weapon in 3D. Each weapon also has its own cosmetics:
+
+- **Body finish** and **accent color**.
+- **Stickers** printed on the receiver: Biohazard, Happy virus, Voltage, Big heart, Pathogen skull, Gold star, or the Hallucinated crest.
+- **Charms** that dangle and swing from the weapon and buff it while it's in your hands:
+
+| Charm | Buff | Effect |
+| --- | --- | --- |
+| Lucky clover | Luck | Critical hit zones 30% larger |
+| Macrophage fang | Strength | +10% damage |
+| Quicksilver hourglass | Reload speed | Reloads 20% faster, swaps 25% faster |
+| Flagellum feather | Movement speed | +8% move speed |
+| Steady eye | Accuracy | 30% tighter spread |
+| Ration capsule | Capacity | 25% larger magazines |
+
+Builds for all five weapons are saved in the browser and work alongside your field upgrade. Older saved carbine builds carry over. Every weapon has unlimited reserve ammunition. The armory reopens between waves, and changes there keep the weapon you have in hand. Missions start with the primary. First-time Arterial Junction training uses the stock carbine until the guided breach is sealed. In online co-op each player brings their own two weapons; teammates see your shots, rockets, and explosions.
 
 The game prepares arena geometry, textures, audio, and armory previews before it enables deployment. The first load includes all ten arenas and the Mega Virus encounter.
 
@@ -61,7 +88,7 @@ After each mission, both players ready up at the shared checkpoint. A win unlock
 
 In the lobby, each player picks a suit: **Vanguard** (heavy assault armor), **Wraith** (stealth infiltrator), **Lifeline** (field corpsman), or **Bathysphere** (deep-dive pressure suit). Both suits stand side by side in the lobby's deployment bay, and your teammate sees your suit during missions. Suits can be changed in the lobby or at a mission checkpoint, and the browser remembers your choice.
 
-Each suit has its own carbine build, ammo, and health. Co-op missions always use the Medium difficulty. You share the tissue nodes, one turret, the wave timer, and the mission score. If one suit goes down, it returns at the next wave if the teammate clears the current one. Both players can use the armory between waves and ready up to continue. The game holds your place for up to 75 seconds after a disconnect.
+Each suit has its own two weapons, builds, ammo, and health. Co-op missions always use the Medium difficulty. You share the tissue nodes, one turret, the wave timer, and the mission score. If one suit goes down, it returns at the next wave if the teammate clears the current one. Both players can use the armory between waves and ready up to continue. The game holds your place for up to 75 seconds after a disconnect.
 
 To test locally with two browser windows, run these commands from the repository root with Node 22 and npm. Open the resulting game at [http://127.0.0.1:8017](http://127.0.0.1:8017) and share its invite between the windows.
 
@@ -124,6 +151,7 @@ git subtree push --prefix=dist origin gh-pages
 | Reload | R | X |
 | Repair | Hold E near a damaged tissue node or open gash | Hold LB |
 | Deploy or redeploy auto-turret | Q | RB |
+| Switch weapon | 1 / 2 or mouse wheel | Y |
 | Pause | Esc or P | Menu ☰ |
 
 When mouse capture is unavailable, drag the view to look. On touchscreens, move with the joystick, drag to look, and use the action buttons.
@@ -187,7 +215,9 @@ flowchart LR
 | [`dist/difficulty.mjs`](dist/difficulty.mjs) | Easy, Medium, and Hard settings, their menu descriptions, per-mission exceptions, and the rules that reshape a solo mission's waves when it starts. [`tools/balance/balance-bot.mjs`](tools/balance/balance-bot.mjs) checks that every mission stays winnable. |
 | [`dist/brain-boss.mjs`](dist/brain-boss.mjs), [`dist/mega-virus.mjs`](dist/mega-virus.mjs) | The finale's phase rules, physical shot gates, and connected 3D creature. |
 | [`dist/carbine.mjs`](dist/carbine.mjs) | The 3D carbine and armored gloves, including modular parts, finishes, and articulated reload poses. |
-| [`dist/weapon-mods.mjs`](dist/weapon-mods.mjs), [`dist/armory-art.mjs`](dist/armory-art.mjs) | Attachment stats, saved build validation, and armory images rendered from the same 3D parts used in combat. |
+| [`dist/weapon-mods.mjs`](dist/weapon-mods.mjs), [`dist/armory-art.mjs`](dist/armory-art.mjs) | The five weapons, their parts, stickers and charms, the two-weapon loadout and its saved-build validation, and armory images rendered from the same 3D parts used in combat. |
+| [`dist/arsenal-models.mjs`](dist/arsenal-models.mjs), [`dist/arsenal-ui.mjs`](dist/arsenal-ui.mjs) | 3D models for the sniper rifle, shotgun, rocket launcher, and pistol with every part variant, receiver stickers and swinging charms; the weapon strip, spread crosshair, scope overlay, swap controls, and armory loadout picker. |
+| [`dist/explosions.mjs`](dist/explosions.mjs) | Rocket flights with smoke trails, and explosions with a fireball, flash, smoke column, ground shockwave, sparks, light, and camera shake. |
 | [`dist/repair-tool.mjs`](dist/repair-tool.mjs) | The 3D tissue sealer that replaces the carbine while the player repairs the wound. |
 | [`dist/heart-valve.mjs`](dist/heart-valve.mjs) | The moving valve and attached colony. The scene follows the same timing as the simulation's shot and repair windows. |
 | [`dist/turret.mjs`](dist/turret.mjs) | The 3D auto-turret with its aiming mount, deployment animation, and recoil. |
