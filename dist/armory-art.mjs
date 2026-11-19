@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
-import { createCarbine } from './carbine.mjs';
-import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS } from './weapon-mods.mjs';
+import { createArsenalView } from './arsenal-models.mjs';
+import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 
 export const ARMORY_ART_SIZE = { width: 450, height: 260 };
 export const FIELD_UPGRADE_ART = './assets/field-upgrades.webp';
@@ -56,7 +56,7 @@ export async function prepareArmoryArt(renderer) {
   const { width, height } = ARMORY_ART_SIZE;
   const photography = new THREE.Scene();
   photography.background = new THREE.Color(0x201917);
-  const carbine = createCarbine({ showHands: false });
+  const carbine = createArsenalView({ showHands: false });
   photography.add(carbine.model);
   photography.add(new THREE.HemisphereLight(0xf0eee9, 0xa6917f, 2.1));
   const key = new THREE.DirectionalLight(0xfff1d6, 3.5);
@@ -108,11 +108,51 @@ export async function prepareArmoryArt(renderer) {
     cards.dispose();
   }
 
+  // Other weapons get their part cards the first time the armory shows them.
+  const weaponThumbnails = { carbine: thumbnails };
+  const cardCapture = createCapture(renderer, width / 2, height / 2);
+  const previewCamera = camera.clone();
+  function frame(view, loadout) {
+    if (loadout.weapon === 'carbine') return camera;
+    // Fit the whole weapon: launchers and rifles are longer than the carbine, pistols much shorter.
+    const bounds = new THREE.Box3();
+    view.model.updateMatrixWorld(true);
+    view.model.traverse(part => {
+      if (part.isMesh && part.userData.weapon === loadout.weapon && part.visible) bounds.expandByObject(part);
+    });
+    const center = bounds.getCenter(new THREE.Vector3());
+    const size = bounds.getSize(new THREE.Vector3()).length();
+    previewCamera.position.set(center.x - size * .95, center.y + size * .3, center.z - size * .6);
+    previewCamera.lookAt(center);
+    return previewCamera;
+  }
   return {
     thumbnails,
+    thumbnailsFor(weapon) {
+      if (weaponThumbnails[weapon]) return weaponThumbnails[weapon];
+      const cards = {};
+      const base = loadoutWithWeapon(DEFAULT_WEAPON_LOADOUT, 'primary', weapon);
+      for (const [slot, { options }] of Object.entries(WEAPON_SLOTS)) {
+        cards[slot] = {};
+        for (const option of Object.keys(options)) {
+          carbine.setLoadout({ ...base, weapon, [slot]: option });
+          const focus = carbine.anchors()[slot];
+          const reach = weapon === 'pistol' ? .32 : weapon === 'launcher' ? .62 : .5;
+          cardCamera.position.set(focus.x - reach, focus.y + reach * .35, focus.z - reach * .45);
+          cardCamera.lookAt(focus);
+          cardCamera.fov = 36;
+          cardCamera.updateProjectionMatrix();
+          const canvas = cardCapture.draw(photography, cardCamera);
+          const image = new Image(canvas.width, canvas.height);
+          image.src = canvas.toDataURL('image/webp', .84);
+          cards[slot][option] = image;
+        }
+      }
+      return (weaponThumbnails[weapon] = cards);
+    },
     render(loadout) {
       carbine.setLoadout(loadout);
-      return preview.draw(photography, camera);
+      return preview.draw(photography, frame(carbine, loadout));
     },
   };
 }

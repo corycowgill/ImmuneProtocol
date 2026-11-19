@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import { DEFAULT_WEAPON_LOADOUT, normalizeWeaponLoadout } from './weapon-mods.mjs';
 
-const FINISH_COLORS = {
+export const FINISH_COLORS = {
   factory: { shell: 0xbeb6a3, steel: 0x7d8588, receiver: 0x383d41, trim: 0xa4a9a5 },
   obsidian: { shell: 0x343836, steel: 0x61646a, receiver: 0x252628, trim: 0x96908a },
   arctic: { shell: 0xe3e7dc, steel: 0x8daab6, receiver: 0x3b505c, trim: 0xb9cdd0 },
@@ -10,14 +10,14 @@ const FINISH_COLORS = {
   desert: { shell: 0xd3aa75, steel: 0x8d7d69, receiver: 0x4d4033, trim: 0xc3aa8d },
 };
 
-const ACCENT_COLORS = {
+export const ACCENT_COLORS = {
   factory: { cell: 0x4c9a60, emitter: 0x4ebf74, glass: 0x548d76, cover: 0x579879 },
   amber: { cell: 0xbf802e, emitter: 0xf7b548, glass: 0xa97843, cover: 0xbc8f55 },
   violet: { cell: 0x9363be, emitter: 0xc38ef0, glass: 0x83639f, cover: 0x9272ae },
   ice: { cell: 0x58a3bc, emitter: 0x6dd9ec, glass: 0x6899ae, cover: 0x6aa7bd },
 };
 
-function finishTexture(kind) {
+export function finishTexture(kind) {
   const size = 192;
   const pixels = new Uint8Array(size * size * 4);
   const grain = new Float32Array(size);
@@ -405,6 +405,9 @@ export function createCarbine({ showHands = true } = {}) {
   const trigger = panel(.015,.046,.012,.003,metal,0,-.082,-.02);
   trigger.rotation.x = .3;
 
+  // Everything added so far is the carbine itself; the gloves, sleeves and muzzle follow.
+  const bodyParts = [...model.children];
+
   const gloveGeometry = new THREE.SphereGeometry(1,22,16);
   const up = new THREE.Vector3(0,1,0);
   const direction = new THREE.Vector3();
@@ -538,5 +541,15 @@ export function createCarbine({ showHands = true } = {}) {
     currentLoadout = next;
   }
 
-  return { model, muzzle, flash, sight, magazine, magazineGrip, supportHand, bolt, poseHands, setLoadout };
+  // Other weapons reuse the gloves and muzzle flash and hide the carbine body.
+  function setBodyVisible(visible) {
+    for (const part of bodyParts) part.visible = visible && (!part.name || slotVisible(part));
+  }
+
+  function slotVisible(part) {
+    const [slot, id] = part.name.split(':');
+    return !Object.hasOwn(slotParts, slot) || currentLoadout[slot] === id;
+  }
+
+  return { model, muzzle, flash, sight, magazine, magazineGrip, supportHand, gripHand, bolt, poseHands, setLoadout, setBodyVisible };
 }
