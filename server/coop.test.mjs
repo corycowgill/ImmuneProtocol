@@ -7,6 +7,9 @@ import { hitBrainBoss } from '../dist/brain-boss.mjs';
 import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
 import { DIFFICULTIES, applyDifficulty } from '../dist/difficulty.mjs';
+import {
+  DEFAULT_WEAPON_LOADOUT, loadoutWithBuild, loadoutWithWeapon, normalizeWeaponLoadout, weaponStats,
+} from '../dist/weapon-mods.mjs';
 import { JUNCTION_GASH_SITES, Simulation } from '../dist/simulation.mjs';
 import { createCoopServer } from './index.mjs';
 
@@ -466,4 +469,91 @@ test('difficulty reshapes solo missions and leaves scripted encounters intact', 
   const attacker = suit.createEnemy('virus', 0, 0, suit.nodes[0]);
   suit.damageTarget(attacker, 'player', 10);
   assert.equal(100 - suit.player.health, 10 * DIFFICULTIES.hard.suitDamage);
+});
+
+test('two carried weapons: loadouts, swapping, spread, pellets, rockets and charms', () => {
+  // Saves from before weapons existed become the carbine build, with the pistol as secondary.
+  const legacy = normalizeWeaponLoadout({ optic: 'marksman-optic', finish: 'crimson' });
+  assert.equal(legacy.weapon, 'carbine');
+  assert.equal(legacy.optic, 'marksman-optic');
+  assert.deepEqual([legacy.arsenal.primary, legacy.arsenal.secondary], ['carbine', 'pistol']);
+  const swapped = loadoutWithWeapon(legacy, 'secondary', 'carbine');
+  assert.deepEqual([swapped.arsenal.primary, swapped.arsenal.secondary], ['pistol', 'carbine']);
+  assert.equal(swapped.arsenal.builds.carbine.optic, 'marksman-optic');
+
+  const arm = (primary, secondary = 'pistol', build = {}) => {
+    const loadout = loadoutWithBuild(loadoutWithWeapon(loadoutWithWeapon(DEFAULT_WEAPON_LOADOUT, 'primary', primary), 'secondary', secondary), primary, build);
+    const sim = new Simulation('artery', { weaponLoadout: loadout });
+    sim.start();
+    sim.tutorial = null;
+    sim.enemies.length = 0;
+    return sim;
+  };
+  const target = (sim, type, distance) => {
+    const enemy = sim.createEnemy(type, sim.player.x, sim.player.z - distance, sim.nodes[0]);
+    sim.enemies.push(enemy);
+    sim.player.yaw = 0;
+    sim.player.pitch = Math.atan2(enemy.y - sim.player.y, distance);
+    return enemy;
+  };
+
+  // Each weapon keeps its own magazine across swaps and can't fire mid-swap.
+  const sniper = arm('sniper');
+  assert.equal(sniper.magazineSize, 5);
+  sniper.updateRifle(1 / 30, { fire: true, aim: true }, false);
+  assert.equal(sniper.player.ammo, 4);
+  sniper.updateRifle(1 / 30, { swap: true }, false);
+  assert.equal(sniper.weaponLoadout.weapon, 'pistol');
+  assert.equal(sniper.player.ammo, 16);
+  assert.ok(sniper.switching > 0);
+  sniper.updateRifle(1 / 30, { fire: true }, false);
+  assert.equal(sniper.player.ammo, 16);
+  for (let tick = 0; tick < 30; tick++) sniper.updateRifle(1 / 30, {}, false);
+  sniper.updateRifle(1 / 30, { swap: true }, false);
+  assert.equal(sniper.weaponLoadout.weapon, 'sniper');
+  assert.equal(sniper.player.ammo, 4);
+
+  // Aiming tightens spread; the scope is far more accurate than the hip.
+  const stats = weaponStats(loadoutWithWeapon(DEFAULT_WEAPON_LOADOUT, 'primary', 'sniper'));
+  assert.ok(stats.aimSpread < stats.hipSpread / 50);
+
+  // Shotgun pellets lose damage with range.
+  const damage = distance => {
+    const sim = arm('shotgun', 'pistol', { charm: 'eye' });
+    const enemy = target(sim, 'guard', distance);
+    enemy.heading = Math.PI;
+    enemy.health = enemy.maxHealth = 10000;
+    sim.updateRifle(1 / 30, { fire: true, aim: true }, false);
+    return 10000 - enemy.health;
+  };
+  assert.ok(damage(5) > damage(30) * 2.5);
+
+  // Rockets burst on arrival and splash nearby pathogens.
+  const rocket = arm('launcher');
+  const struck = target(rocket, 'bacillus', 12);
+  const neighbour = rocket.createEnemy('virus', rocket.player.x + 2.5, rocket.player.z - 12, rocket.nodes[0]);
+  rocket.enemies.push(neighbour);
+  rocket.updateRifle(1 / 30, { fire: true }, false);
+  assert.ok(rocket.enemies.includes(struck));
+  for (let tick = 0; tick < 20; tick++) {
+    rocket.clock += 1 / 30;
+    rocket.updateRifle(1 / 30, {}, false);
+  }
+  assert.ok(!rocket.enemies.includes(struck) && !rocket.enemies.includes(neighbour));
+  assert.equal(rocket.player.ammo, 1);
+
+  // Charms buff the weapon they hang on.
+  const plain = weaponStats(DEFAULT_WEAPON_LOADOUT);
+  const lucky = weaponStats(loadoutWithBuild(DEFAULT_WEAPON_LOADOUT, 'carbine', { charm: 'clover' }));
+  const swift = weaponStats(loadoutWithBuild(DEFAULT_WEAPON_LOADOUT, 'carbine', { charm: 'feather' }));
+  assert.ok(lucky.aimCritical > plain.aimCritical);
+  assert.ok(swift.moveSpeed > plain.moveSpeed);
+
+  // Co-op suits swap through the same input flag.
+  const coop = new CoopSimulation([{ id: 'alpha', weaponLoadout: loadoutWithWeapon(DEFAULT_WEAPON_LOADOUT, 'primary', 'shotgun') }, { id: 'bravo' }]);
+  coop.start();
+  coop.step(1 / 30, { alpha: { swap: true } });
+  assert.equal(coop.snapshotFor('alpha').weaponLoadout.weapon, 'pistol');
+  assert.equal(coop.snapshotFor('bravo').weaponLoadout.weapon, 'carbine');
+  assert.equal(coop.snapshotFor('alpha').weaponLoadout.arsenal.builds, undefined);
 });
