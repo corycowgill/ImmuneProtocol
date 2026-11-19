@@ -135,7 +135,8 @@ export function traceBrainBoss(boss, origin, ray, limit) {
   return hit;
 }
 
-export function hitBrainBoss(sim, hit, impact) {
+// `power` is the hit's damage relative to a standard carbine round.
+export function hitBrainBoss(sim, hit, impact, power = 1) {
   const { boss } = sim;
   if (!hit.vulnerable) {
     emit(sim, 'block', impact);
@@ -143,7 +144,7 @@ export function hitBrainBoss(sim, hit, impact) {
   }
   const pattern = PHASES[boss.phase - 1];
   // Difficulty scales the boss's effective health by changing how much each hit removes.
-  const damage = Math.round(HIT_DAMAGE / (sim.enemyHealthScale ?? 1));
+  const damage = Math.round(HIT_DAMAGE * power / (sim.enemyHealthScale ?? 1));
   boss.health = Math.max(pattern.health, boss.health - damage);
   emit(sim, 'hit', impact);
   if (boss.health > pattern.health) return;

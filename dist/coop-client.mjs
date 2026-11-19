@@ -256,6 +256,7 @@ export class CoopClient extends EventTarget {
       fire: this.buffer.fire || input.fire,
       reload: this.buffer.reload || input.reload,
       deploy: this.buffer.deploy || input.deploy,
+      swap: this.buffer.swap || input.swap,
     };
     this.elapsed += dt;
     while (this.elapsed >= INPUT_TICK) {
@@ -265,7 +266,7 @@ export class CoopClient extends EventTarget {
         this.pending.push(packet);
         if (this.pending.length > MAX_PENDING) this.pending.shift();
       }
-      this.buffer = { ...input, lookX: 0, lookY: 0, deploy: false };
+      this.buffer = { ...input, lookX: 0, lookY: 0, deploy: false, swap: false };
     }
   }
 

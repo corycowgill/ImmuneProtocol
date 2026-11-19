@@ -1,17 +1,22 @@
 import { RULES, Simulation } from './simulation.mjs';
-import { normalizeWeaponLoadout, weaponStats } from './weapon-mods.mjs';
+import { magazineCapacity, normalizeWeaponLoadout, weaponStats } from './weapon-mods.mjs';
 import { COOP_SUITS, DEFAULT_COOP_SUIT } from './coop-protocol.mjs';
 
 const normalizeSuit = suit => COOP_SUITS.includes(suit) ? suit : DEFAULT_COOP_SUIT;
 
 const RESPAWN_HEALTH = 50;
 
+// State packets carry the build in hand and the names of both carried weapons, not every build.
+function snapshotLoadout({ arsenal, ...build }) {
+  return { ...build, arsenal: { primary: arsenal.primary, secondary: arsenal.secondary } };
+}
+
 class CoopSuit {
   constructor({ id, name, weaponLoadout, suit }, spawn, repairAmount) {
     this.spawn = spawn;
     this.repairAmount = repairAmount;
     this.baseMagazineSize = RULES.magazine;
-    this.weaponLoadout = Object.freeze(normalizeWeaponLoadout(weaponLoadout));
+    this.weaponLoadout = Object.freeze(normalizeWeaponLoadout({ ...weaponLoadout, slot: 'primary' }));
     this.configuredWeapon = weaponStats(this.weaponLoadout);
     this.player = { id, name, suit: normalizeSuit(suit), ammo: this.magazineSize };
     this.resetPose(RULES.health);
@@ -22,7 +27,11 @@ class CoopSuit {
   }
 
   get magazineSize() {
-    return this.baseMagazineSize + this.weapon.magazineDelta;
+    return magazineCapacity(this.weapon, this.baseMagazineSize);
+  }
+
+  get switchProgress() {
+    return this.switching > 0 ? 1 - this.switching / this.weapon.switchSeconds : 0;
   }
 
   get reloadProgress() {
@@ -47,6 +56,7 @@ class CoopSuit {
     this.reloading = 0;
     this.reloadHeld = false;
     this.fireCooldown = 0;
+    this.switching = 0;
   }
 }
 
@@ -88,7 +98,8 @@ export class CoopSimulation extends Simulation {
   setWeaponLoadoutFor(id, loadout) {
     const suit = this.suitsById.get(id);
     if (!suit || (this.phase !== 'ready' && this.phase !== 'intermission')) return false;
-    this.setWeaponLoadout(loadout, suit);
+    // Armory edits never change which weapon the suit has in hand.
+    this.setWeaponLoadout({ ...normalizeWeaponLoadout(loadout), slot: suit.weaponLoadout.slot }, suit);
     if (this.phase === 'ready') suit.player.ammo = suit.magazineSize;
     return true;
   }
@@ -189,8 +200,9 @@ export class CoopSimulation extends Simulation {
     const nodes = this.nodes.map(node => ({ ...node }));
     const nodeById = new Map(nodes.map(node => [node.id, node]));
     const nodeCopy = node => nodeById.get(node?.id) ?? null;
-    const { player, weapon, weaponLoadout, baseMagazineSize, magazineSize,
+    const { player, weapon, baseMagazineSize, magazineSize, switching, switchProgress,
       reloading, reloadProgress, repairAmount, repairing, repairProgress, canRepair, nearTissue } = suit;
+    const weaponLoadout = snapshotLoadout(suit.weaponLoadout);
     return {
       area: this.area,
       phase: this.phase, clock: this.clock, wave: this.wave, waves: this.waves, remaining: this.remaining,
@@ -198,9 +210,9 @@ export class CoopSimulation extends Simulation {
       localPlayerId: id,
       player: { ...player },
       players: this.suits.map(member => ({
-        ...member.player, weaponLoadout: member.weaponLoadout, repairing: member.repairing, reloadProgress: member.reloadProgress,
+        ...member.player, weaponLoadout: snapshotLoadout(member.weaponLoadout), repairing: member.repairing, reloadProgress: member.reloadProgress,
       })),
-      weaponLoadout, weapon, baseMagazineSize, magazineSize, reloading, reloadProgress,
+      weaponLoadout, weapon, baseMagazineSize, magazineSize, reloading, reloadProgress, switching, switchProgress,
       repairAmount, repairing, repairProgress, canRepair, nearTissue,
       repairTargetId: suit.repairTarget?.id ?? null, nearGash: suit.nearGash,
       nearGastricValveId: suit.nearGastricValve?.id ?? null,
