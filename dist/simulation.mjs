@@ -2,7 +2,8 @@ import { ORGAN_MISSIONS } from './organs.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
 import {
-  DEFAULT_WEAPON_STATS, WEAPON_SLOTS, legacyWeaponLoadout, normalizeWeaponLoadout, weaponStats,
+  DEFAULT_WEAPON_STATS, WEAPON_SLOTS, legacyWeaponLoadout, loadoutInSlot, magazineCapacity, normalizeWeaponLoadout,
+  otherSlot, weaponStats,
 } from './weapon-mods.mjs';
 import {
   GASTRIC_REPAIR_RADIUS, advanceGastric, createGastric, gastricValve, pendingGastricEnemies,
@@ -136,6 +137,8 @@ const ENTRANCES = [
 
 const TURN_SENSITIVITY = 0.00225;
 const RIFLE_RANGE = 68;
+// Rockets fly no farther than this before they burst.
+const ROCKET_RANGE = 60;
 const REPAIR_TIME = 0.82;
 const REPAIR_PER_CYCLE = 13;
 const INTERMISSION_TIME = 6.5;
@@ -231,13 +234,39 @@ export class Simulation {
   }
 
   setWeaponLoadout(value, suit = this) {
+    const previous = suit.weaponLoadout;
     const previousReload = suit.weapon.reloadSeconds;
     suit.weaponLoadout = Object.freeze(normalizeWeaponLoadout(value));
     suit.configuredWeapon = weaponStats(suit.weaponLoadout);
     const { player, magazineSize } = suit;
+    suit.slotAmmo ??= {};
+    if (previous.slot !== suit.weaponLoadout.slot || previous.weapon !== suit.weaponLoadout.weapon) {
+      // Each carried weapon keeps its own magazine; a reload in progress is abandoned.
+      suit.slotAmmo[previous.slot] = { weapon: previous.weapon, ammo: player.ammo };
+      const stored = suit.slotAmmo[suit.weaponLoadout.slot];
+      player.ammo = stored?.weapon === suit.weaponLoadout.weapon ? Math.min(stored.ammo, magazineSize) : magazineSize;
+      suit.reloading = 0;
+      return;
+    }
     player.ammo = Math.min(player.ammo, magazineSize);
     if (player.ammo === magazineSize) suit.reloading = 0;
     else if (suit.reloading > 0) suit.reloading *= suit.weapon.reloadSeconds / previousReload;
+  }
+
+  // Brings out the other carried weapon. It can't fire until the swap finishes.
+  swapWeapon(suit = this) {
+    if (this.tutorial || suit.repairing) return false;
+    this.setWeaponLoadout(loadoutInSlot(suit.weaponLoadout, otherSlot(suit.weaponLoadout.slot)), suit);
+    suit.switching = suit.weapon.switchSeconds;
+    suit.fireCooldown = Math.max(suit.fireCooldown, suit.switching);
+    const event = { type: 'swap', weapon: suit.weaponLoadout.weapon, slot: suit.weaponLoadout.slot };
+    if (suit.player.id != null) event.playerId = suit.player.id;
+    this.events.push(event);
+    return true;
+  }
+
+  get switchProgress() {
+    return this.switching > 0 ? 1 - this.switching / this.weapon.switchSeconds : 0;
   }
 
   setWeaponMod(id) {
@@ -252,7 +281,7 @@ export class Simulation {
   }
 
   get magazineSize() {
-    return this.baseMagazineSize + this.weapon.magazineDelta;
+    return magazineCapacity(this.weapon, this.baseMagazineSize);
   }
 
   get reloadProgress() {
@@ -382,6 +411,9 @@ export class Simulation {
     this.reloading = 0;
     this.fireCooldown = 0;
     this.reloadHeld = false;
+    this.switching = 0;
+    this.slotAmmo = {};
+    this.rockets = [];
     this.spawnIndex = 0;
     this.spawnCountdown = 0;
     this.nextEnemyId = 1;
@@ -892,7 +924,7 @@ export class Simulation {
     const strafe = input.moveX || 0;
     const forward = input.moveZ || 0;
     const diagonal = Math.max(1, Math.hypot(strafe, forward));
-    let speed = input.aim ? 3.3 : input.sprint && !input.fire ? 8.8 : 5.8;
+    let speed = (input.aim ? 3.3 : input.sprint && !input.fire ? 8.8 : 5.8) * (weapon.moveSpeed ?? 1);
     if (this.organ?.phase === 'active' && this.organMission.hazard.slow && withinHazard(player, this.organ)) {
       speed *= this.organMission.hazard.slow;
     }
@@ -988,8 +1020,15 @@ export class Simulation {
   }
 
   updateRifle(dt, input, repairing, suit = this) {
+    this.advanceRockets(suit);
+    if (input.swap) this.swapWeapon(suit);
     const { player, magazineSize, weapon } = suit;
     suit.fireCooldown = Math.max(0, suit.fireCooldown - dt);
+    if (suit.switching > 0) {
+      suit.switching = Math.max(0, suit.switching - dt);
+      suit.reloadHeld = Boolean(input.reload);
+      return;
+    }
     if (suit.reloading > 0) {
       suit.reloading = Math.max(0, suit.reloading - dt);
       if (suit.reloading === 0) {
@@ -1079,13 +1118,31 @@ export class Simulation {
     const { player, weapon } = suit;
     player.ammo -= 1;
     suit.fireCooldown = weapon.interval;
-    const pitchCos = Math.cos(player.pitch);
-    const dx = -Math.sin(player.yaw) * pitchCos;
-    const dy = Math.sin(player.pitch);
-    const dz = -Math.cos(player.yaw) * pitchCos;
-    let distance = RIFLE_RANGE;
+    const spread = aiming ? weapon.aimSpread : weapon.hipSpread;
+    for (let pellet = 0; pellet < weapon.pellets; pellet++) {
+      const ray = this.aimRay(player, this.tutorial ? 0 : spread);
+      if (weapon.projectileSpeed) this.launchRocket(suit, ray);
+      else this.fireRay(suit, ray, aiming, pellet);
+    }
+  }
+
+  // A direction inside a cone of `spread` radians around the crosshair.
+  aimRay(player, spread) {
+    const angle = Math.random() * Math.PI * 2;
+    const offset = spread * Math.sqrt(Math.random());
+    const yaw = player.yaw + Math.cos(angle) * offset / Math.max(.25, Math.cos(player.pitch));
+    const pitch = player.pitch + Math.sin(angle) * offset;
+    const pitchCos = Math.cos(pitch);
+    return { x: -Math.sin(yaw) * pitchCos, y: Math.sin(pitch), z: -Math.cos(yaw) * pitchCos };
+  }
+
+  // Finds what a ray from the player meets first: a pathogen, the closed heart valve or the boss.
+  traceRay(player, ray, aiming, weapon, range = RIFLE_RANGE) {
+    const { x: dx, y: dy, z: dz } = ray;
+    let distance = range;
     let target;
     let critical = false;
+    let blocked = false;
     for (const enemy of this.enemies) {
       if (enemy.tutorial && this.tutorial === 'observe') continue;
       const x = enemy.x - player.x;
@@ -1113,32 +1170,82 @@ export class Simulation {
           distance = crossing;
           target = undefined;
           critical = false;
-          this.events.push({ type: 'valve', stage: 'blocked', x, y, z: HEART_VALVE.z });
+          blocked = true;
         }
       }
     }
 
-    const bossHit = traceBrainBoss(this.boss, player, { x: dx, y: dy, z: dz }, distance);
+    const bossHit = traceBrainBoss(this.boss, player, ray, distance);
     if (bossHit) distance = bossHit.distance;
-    const impact = {
-      x: player.x + dx * distance, y: player.y + dy * distance, z: player.z + dz * distance,
-    };
+    const impact = { x: player.x + dx * distance, y: player.y + dy * distance, z: player.z + dz * distance };
+    return { target, critical, distance, impact, bossHit, blocked };
+  }
+
+  fireRay(suit, ray, aiming, pellet) {
+    const { player, weapon } = suit;
+    const { target, critical, distance, impact, bossHit, blocked } = this.traceRay(player, ray, aiming, weapon);
+    const kind = weapon.weapon ?? 'carbine';
+    // Shotgun pellets lose punch with range.
+    const span = weapon.falloffEnd - weapon.falloffStart;
+    const reach = distance <= weapon.falloffStart ? 1 : distance >= weapon.falloffEnd ? 0 : 1 - (distance - weapon.falloffStart) / span;
+    const falloff = weapon.falloffMinimum + (1 - weapon.falloffMinimum) * reach;
+    if (blocked) this.events.push({ type: 'valve', stage: 'blocked', ...impact });
     if (bossHit) {
       if (bossHit.vulnerable) {
         // Preserve multiple core openings even with the fastest receiver.
         suit.fireCooldown = Math.max(suit.fireCooldown, DEFAULT_WEAPON_STATS.interval);
       }
-      this.events.push({ type: 'shot', hit: bossHit.vulnerable, crit: bossHit.vulnerable, ...impact });
-      hitBrainBoss(this, bossHit, impact);
+      this.events.push({ type: 'shot', weapon: kind, pellet, hit: bossHit.vulnerable, crit: bossHit.vulnerable, ...impact });
+      hitBrainBoss(this, bossHit, impact, weapon.bodyDamage * falloff / DEFAULT_WEAPON_STATS.bodyDamage);
       return;
     }
     if (target?.type === 'guard' && guardFaces(target, player)) {
-      this.events.push({ type: 'shot', hit: false, crit: false, ...impact });
+      this.events.push({ type: 'shot', weapon: kind, pellet, hit: false, crit: false, ...impact });
       this.blockGuardHit(target, impact, 'player');
       return;
     }
-    this.events.push({ type: 'shot', hit: Boolean(target), crit: critical, ...impact });
-    if (target) this.hitEnemy(target, critical ? weapon.criticalDamage : weapon.bodyDamage, critical, impact, 'player');
+    this.events.push({ type: 'shot', weapon: kind, pellet, hit: Boolean(target), crit: critical, ...impact });
+    if (target) this.hitEnemy(target, (critical ? weapon.criticalDamage : weapon.bodyDamage) * falloff, critical, impact, 'player');
+  }
+
+  // Rockets travel visibly and burst where the ray ends; damage lands when they arrive.
+  launchRocket(suit, ray) {
+    const { player, weapon } = suit;
+    const { target, distance, impact, bossHit } = this.traceRay(player, ray, true, weapon, ROCKET_RANGE);
+    const travel = distance / weapon.projectileSpeed;
+    this.rockets.push({ owner: suit, target, bossHit, impact, at: this.clock + travel, weapon });
+    this.events.push({
+      type: 'shot', weapon: 'launcher', rocket: true, travel, hit: false, crit: false, ...impact,
+    });
+  }
+
+  advanceRockets(suit) {
+    if (!this.rockets?.length) return;
+    let count = 0;
+    for (const rocket of this.rockets) {
+      if (rocket.owner === suit && rocket.at <= this.clock + 1e-9) this.detonate(rocket);
+      else this.rockets[count++] = rocket;
+    }
+    this.rockets.length = count;
+  }
+
+  detonate({ target, bossHit, impact, weapon }) {
+    const radius = weapon.splashRadius;
+    this.events.push({ type: 'explosion', radius, ...impact });
+    if (bossHit?.vulnerable && this.boss?.state === 'exposed') {
+      this.events.push({ type: 'shot', weapon: 'launcher', blast: true, hit: true, crit: true, ...impact });
+      hitBrainBoss(this, bossHit, impact, (weapon.bodyDamage + weapon.splashDamage) / DEFAULT_WEAPON_STATS.bodyDamage);
+    }
+    // Splash ignores Shellback armour; the pathogen it struck takes the direct hit too.
+    for (const enemy of [...this.enemies]) {
+      if (!this.enemies.includes(enemy) || (enemy.tutorial && this.tutorial === 'observe')) continue;
+      const gap = Math.max(0, Math.hypot(enemy.x - impact.x, enemy.y - impact.y, enemy.z - impact.z) - enemy.radius);
+      const direct = enemy === target;
+      if (gap > radius && !direct) continue;
+      const splash = gap > radius ? 0 : weapon.splashDamage * (1 - .55 * gap / radius);
+      const point = { x: enemy.x, y: enemy.y, z: enemy.z };
+      this.hitEnemy(enemy, splash + (direct ? weapon.bodyDamage : 0), direct, point, 'player');
+    }
   }
 
   blockGuardHit(guard, impact, source) {
