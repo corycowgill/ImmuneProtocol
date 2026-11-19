@@ -1,0 +1,50 @@
+{
+  "coronavirusEnemy.glb": {
+    "bytes": 12661624,
+    "sha256": "e174c1297569eb5892b4b5948df6931fb321ff752a6efe96815ad86ee73bd0c5"
+  },
+  "sample_2026-11-19T191453.093.glb": {
+    "bytes": 16565492,
+    "sha256": "1a021b96794e7392231ced5ef8c41f51d9b95ae2f8884e5941f4e01fd1d1140b"
+  },
+  "sample_2026-11-19T191644.096.glb": {
+    "bytes": 19656852,
+    "sha256": "aedaaeeb8c38f279f2bd52daf2cac4a16c5bf0d5658daa27c81cda25f1954e88"
+  },
+  "sample_2026-11-19T191858.351.glb": {
+    "bytes": 13772676,
+    "sha256": "9a64bddc43c819926a0402d015f1f421886b8ac1f5e014439f5a27e1b1dcffde"
+  },
+  "sample_2026-11-19T192111.194.glb": {
+    "bytes": 15562112,
+    "sha256": "d912508d651185a6d65bb32f6d575d7320df5fe3bfc40a989891f8bca48333ad"
+  },
+  "sample_2026-11-19T192648.543.glb": {
+    "bytes": 12018668,
+    "sha256": "ea6f41052a37cc2e3e403da067a80d1fabc484473e85bc053358ad0009a93b34"
+  },
+  "sample_2026-11-19T193149.605.glb": {
+    "bytes": 14725968,
+    "sha256": "0d469ba590ab97c595d3f02558f34e8ba72834e7451bc842a0787bf7897a4d93"
+  },
+  "sample_2026-11-19T193623.523.glb": {
+    "bytes": 18571232,
+    "sha256": "19b23894969195a804d86a265cf32c0c8977b08bd55719daf61b41a3e2fe69da"
+  },
+  "sample_2026-11-19T194206.184.glb": {
+    "bytes": 20314308,
+    "sha256": "d129d88d6beead9fc4649a806318279995e84561d6640f6aae1e67c64d535899"
+  },
+  "sample_2026-11-19T194340.915.glb": {
+    "bytes": 16624384,
+    "sha256": "923cbae61f0f0c22ad9e892a7c50268e9c99fb3ce369c15f296f9b9b7a8725b5"
+  },
+  "shooterVirusPurpoleEnemy.glb": {
+    "bytes": 11763560,
+    "sha256": "6971ec24ef52202895ca832909b4cdc63fd4ef61262d83dceda5027b0e46ea77"
+  },
+  "yellowBacteriaEnemy.glb": {
+    "bytes": 14011088,
+    "sha256": "8159e94c30d5c63ed6fcaecb23097c669a3a96d418ce07ea16fb956746d7d1d4"
+  }
+}
