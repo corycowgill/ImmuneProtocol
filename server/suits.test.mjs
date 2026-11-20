@@ -6,7 +6,6 @@ import { test } from 'node:test';
 import WebSocket from 'ws';
 import { COOP_SUITS, DEFAULT_COOP_SUIT } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
-import { SUIT_MODELS } from '../dist/suit-models.mjs';
 import { createCoopServer } from './index.mjs';
 
 async function connect(t, origin) {
@@ -39,23 +38,9 @@ async function connect(t, origin) {
 
 const lobbyWith = check => message => message.type === 'room' && message.phase === 'lobby' && check(message.players);
 
-test('every selectable suit has a model for each rig joint', () => {
-  const joints = ['hips', 'upper', 'head', ...['thigh', 'shin', 'boot', 'bicep', 'forearm', 'glove'].flatMap(part => [part + '_L', part + '_R'])];
-  assert.ok(COOP_SUITS.includes(DEFAULT_COOP_SUIT));
-  for (const id of COOP_SUITS) {
-    const { materials, parts } = SUIT_MODELS[id];
-    assert.deepEqual(Object.keys(parts).sort(), [...joints].sort(), id);
-    for (const items of Object.values(parts)) {
-      for (const [kind, material] of items) {
-        assert.ok(['box', 'ball', 'cyl', 'torus'].includes(kind));
-        assert.ok(Object.hasOwn(materials, material), id + ' uses ' + material);
-      }
-    }
-  }
-});
-
 test('every suit ships a textured Blender model with a node per rig joint', () => {
   const joints = ['hips', 'upper', 'head', ...['thigh', 'shin', 'boot', 'bicep', 'forearm', 'glove'].flatMap(part => [part + '_L', part + '_R'])];
+  assert.ok(COOP_SUITS.includes(DEFAULT_COOP_SUIT));
   for (const id of COOP_SUITS) {
     const file = readFileSync(new URL('../dist/assets/suits/' + id + '.glb', import.meta.url));
     assert.equal(file.toString('latin1', 0, 4), 'glTF', id);
