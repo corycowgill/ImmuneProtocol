@@ -41,3 +41,24 @@ test('every charm has a model that hangs from every weapon', () => {
     }
   }
 });
+
+test('every weapon has a modelled body, a bolt node and a weathering atlas', async () => {
+  const { readFileSync } = await import('node:fs');
+  for (const weapon of WEAPON_ORDER) {
+    const file = readFileSync(new URL('../dist/assets/weapons/' + weapon + '.glb', import.meta.url));
+    assert.equal(file.toString('ascii', 0, 4), 'glTF', weapon + ' is a binary glTF');
+    const json = JSON.parse(file.toString('utf8', 20, 20 + file.readUInt32LE(12)));
+    const names = json.nodes.map(node => node.name);
+    assert.ok(names.includes('body'), weapon + ' has a body node');
+    assert.ok(names.includes('bolt'), weapon + ' has a bolt node');
+    const roles = new Set(json.materials.map(material => material.name));
+    for (const role of roles) {
+      assert.ok(['shell', 'steel', 'dark', 'edge', 'rubber', 'accent', 'glass', 'cellGlass', 'shellCasing', 'brass']
+        .includes(role), weapon + ' material ' + role + ' maps to a kit role');
+    }
+    assert.ok(json.meshes.every(mesh => mesh.primitives.every(primitive => 'TEXCOORD_1' in primitive.attributes)),
+      weapon + ' meshes carry atlas UVs');
+    const atlas = readFileSync(new URL('../dist/assets/weapons/' + weapon + '-weathering.webp', import.meta.url));
+    assert.equal(atlas.toString('ascii', 8, 12), 'WEBP');
+  }
+});
