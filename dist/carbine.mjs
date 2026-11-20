@@ -543,7 +543,22 @@ export function createCarbine({ showHands = true } = {}) {
 
   // Other weapons reuse the gloves and muzzle flash and hide the carbine body.
   function setBodyVisible(visible) {
-    for (const part of bodyParts) part.visible = visible && (!part.name || slotVisible(part));
+    for (const part of bodyParts) part.visible = visible && !part.userData.replaced && (!part.name || slotVisible(part));
+  }
+
+  // Swaps the procedural body and bolt for modelled ones; slot parts, sights and gloves stay.
+  function replaceBody(modelled, modelledBolt) {
+    for (const part of bodyParts) {
+      if (!part.isMesh) continue;
+      part.visible = false;
+      part.userData.replaced = true;
+    }
+    model.add(modelled);
+    bodyParts.push(modelled);
+    if (modelledBolt) {
+      for (const part of bolt.children) part.visible = false;
+      bolt.add(modelledBolt);
+    }
   }
 
   function slotVisible(part) {
@@ -553,6 +568,7 @@ export function createCarbine({ showHands = true } = {}) {
 
   return {
     model, muzzle, flash, sight, magazine, magazineGrip, supportHand, gripHand, bolt, poseHands, setLoadout, setBodyVisible,
-    shell: ivory,
+    replaceBody, shell: ivory,
+    materials: { shell: ivory, steel: metal, dark, edge, rubber, accent: green, glass, cellGlass },
   };
 }

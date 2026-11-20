@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
-import { createArsenalView } from './arsenal-models.mjs';
+import { createArsenalView, weaponModelsReady } from './arsenal-models.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 
 export const ARMORY_ART_SIZE = { width: 450, height: 260 };
@@ -55,6 +55,7 @@ function createCapture(renderer, width, height) {
 
 export async function prepareArmoryArt(renderer) {
   const { width, height } = ARMORY_ART_SIZE;
+  await weaponModelsReady;
   const photography = new THREE.Scene();
   photography.background = new THREE.Color(0x201917);
   // A studio environment gives the metal and lacquer real reflections.

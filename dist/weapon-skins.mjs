@@ -348,6 +348,86 @@ export function decalTexture(id) {
   return (decalTextures[id] = map);
 }
 
+// Adds a shader patch to a material, keeping any patches it already has.
+export function extendShader(material, key, patch) {
+  const previous = material.onBeforeCompile;
+  const keys = [...(material.userData.shaderKeys ?? []), key];
+  material.userData.shaderKeys = keys;
+  material.onBeforeCompile = (shader, renderer) => {
+    previous.call(material, shader, renderer);
+    patch(shader);
+  };
+  material.customProgramCacheKey = () => keys.join('+');
+  return material;
+}
+
+// How each weapon material ages: baked occlusion darkens crevices, and the baked
+// edge mask wears the coating back to `color` with its own roughness and metalness.
+const WEAR = {
+  shell: { color: 0xc9c4b8, amount: .45, rough: .62, metal: .05, occlusion: .85 },
+  dark: { color: 0x9a9c9c, amount: .75, rough: .32, metal: .9, occlusion: .9 },
+  steel: { color: 0xd4d7d8, amount: .55, rough: .18, metal: 1, occlusion: .85 },
+  edge: { color: 0xe3e5e5, amount: .35, rough: .16, metal: 1, occlusion: .7 },
+  rubber: { color: 0x2a2b2d, amount: .25, rough: .9, metal: 0, occlusion: .9 },
+};
+
+// Weathered materials read a baked atlas (R occlusion, G worn edges) through a
+// `weatheringUv` attribute. The Blender models carry their own; procedural parts point at
+// the atlas corner the bake leaves clear: no occlusion, no wear.
+const CLEAR_CORNER = [.99, .01];
+const CLEAR_ATLAS = new THREE.DataTexture(new Uint8Array([255, 0, 0, 255]), 1, 1);
+CLEAR_ATLAS.needsUpdate = true;
+
+export function ensureWeathering(root) {
+  root.traverse(part => {
+    const geometry = part.geometry;
+    if (!part.isMesh || !geometry || geometry.getAttribute('weatheringUv')) return;
+    const count = geometry.getAttribute('position').count;
+    const values = new Float32Array(count * 2);
+    for (let i = 0; i < count; i++) values.set(CLEAR_CORNER, i * 2);
+    geometry.setAttribute('weatheringUv', new THREE.BufferAttribute(values, 2));
+  });
+}
+
+export function setWeatheringAtlas(material, atlas) {
+  if (material.userData.weatheringAtlas) material.userData.weatheringAtlas.value = atlas;
+}
+
+export function makeWeathered(material, role) {
+  const wear = WEAR[role];
+  if (!wear || material.userData.weathered) return material;
+  material.userData.weathered = true;
+  const atlas = { value: CLEAR_ATLAS };
+  material.userData.weatheringAtlas = atlas;
+  const uniforms = {
+    weatheringAtlas: atlas,
+    weatherColor: { value: new THREE.Color(wear.color) },
+    weatherAmount: { value: wear.amount },
+    weatherRough: { value: wear.rough },
+    weatherMetal: { value: wear.metal },
+    weatherOcclusion: { value: wear.occlusion },
+  };
+  return extendShader(material, 'weathered', shader => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec2 weatheringUv;\nvarying vec2 vWeatheringUv;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWeatheringUv = weatheringUv;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vWeatheringUv;\nuniform sampler2D weatheringAtlas;\n' +
+        'uniform vec3 weatherColor;\nuniform float weatherAmount;\nuniform float weatherRough;\nuniform float weatherMetal;\n' +
+        'uniform float weatherOcclusion;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' +
+        'vec2 weathering = texture2D(weatheringAtlas, vWeatheringUv).rg;\n' +
+        'float weatherWear = clamp(weathering.g * weatherAmount, 0.0, 1.0);\n' +
+        'diffuseColor.rgb = mix(diffuseColor.rgb, weatherColor, weatherWear);\n' +
+        'diffuseColor.rgb *= mix(1.0, weathering.r, weatherOcclusion);')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' +
+        'roughnessFactor = mix(roughnessFactor, weatherRough, weatherWear);')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n' +
+        'metalnessFactor = mix(metalnessFactor, weatherMetal, weatherWear);');
+  });
+}
+
 // Patches a polymer material to sample its colour (and glow) maps triplanar in object space.
 export function makeSkinnable(material) {
   const scale = { value: SKIN_LOOK.none.scale };
@@ -357,7 +437,7 @@ export function makeSkinnable(material) {
   const setup = 'vec3 skinWeights = pow(abs(normalize(vSkinNormal)), vec3(4.0));\n' +
     'skinWeights /= skinWeights.x + skinWeights.y + skinWeights.z;\n' +
     'vec3 skinPoint = vSkinPosition * skinScale;\n';
-  material.onBeforeCompile = shader => {
+  return extendShader(material, 'weapon-skin', shader => {
     shader.uniforms.skinScale = scale;
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vSkinPosition;\nvarying vec3 vSkinNormal;')
@@ -367,9 +447,7 @@ export function makeSkinnable(material) {
       .replace('#include <map_fragment>', '#ifdef USE_MAP\n{\n' + setup + 'diffuseColor *= ' + triplanar('map') + ';\n}\n#endif')
       .replace('#include <emissivemap_fragment>',
         '#ifdef USE_EMISSIVEMAP\n{\n' + setup + 'totalEmissiveRadiance *= ' + triplanar('emissiveMap') + '.rgb;\n}\n#endif');
-  };
-  material.customProgramCacheKey = () => 'weapon-skin';
-  return material;
+  });
 }
 
 // Dresses a skinnable polymer material for a build: the plain finish or a patterned skin.

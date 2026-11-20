@@ -7,7 +7,61 @@ import { ACCENT_COLORS, FINISH_COLORS, createCarbine, finishTexture } from './ca
 import {
   DEFAULT_WEAPON_LOADOUT, WEAPON_CHARMS, WEAPON_DECALS, WEAPON_STICKERS, normalizeWeaponLoadout,
 } from './weapon-mods.mjs';
-import { decalTexture, dressShell, makeSkinnable } from './weapon-skins.mjs';
+import { GLTFLoader } from './vendor/GLTFLoader.js';
+import { MeshoptDecoder } from './vendor/meshopt_decoder.mjs';
+import {
+  decalTexture, dressShell, ensureWeathering, makeSkinnable, makeWeathered, setWeatheringAtlas,
+} from './weapon-skins.mjs';
+
+// Blender-modelled bodies (tools/weapons/build_weapons.py) replace the procedural ones once
+// loaded. Each GLB has a `body` node and a `bolt` node for the moving part, with materials
+// named after the kit roles below, and a second UV layer into the weapon's baked
+// occlusion and edge-wear atlas. The procedural weapon stands in until then, or if a
+// model fails to load.
+const MODELLED = ['carbine', 'sniper', 'shotgun', 'launcher', 'pistol'];
+let weaponModels = new Map();
+export const weaponModelsReady = typeof document === 'undefined' ? Promise.resolve(weaponModels)
+  : Promise.all(MODELLED.map(kind => new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
+    .loadAsync(new URL('./assets/weapons/' + kind + '.glb', import.meta.url).href)
+    .then(async gltf => {
+      const atlas = await new THREE.TextureLoader()
+        .loadAsync(new URL('./assets/weapons/' + kind + '-weathering.webp', import.meta.url).href)
+        .catch(() => null);
+      if (atlas) {
+        // Blender's atlas is stored bottom-up; glTF UVs already count from the top.
+        atlas.flipY = false;
+        atlas.colorSpace = THREE.NoColorSpace;
+        atlas.anisotropy = 4;
+      }
+      gltf.scene.userData.weatheringAtlas = atlas;
+      return [kind, gltf.scene];
+    }, error => {
+      console.warn('Could not load the ' + kind + ' model; keeping the procedural weapon', error);
+      return [kind, null];
+    })))
+    .then(entries => (weaponModels = new Map(entries.filter(([, scene]) => scene))));
+
+// A copy of one node of a weapon model, drawn with the given kit materials.
+function modelledNode(scene, name, materials, kind) {
+  const source = scene.getObjectByName(name);
+  if (!source) return null;
+  const node = source.clone();
+  node.traverse(part => {
+    if (!part.isMesh) return;
+    const geometry = part.geometry;
+    // The atlas UVs arrive as the glTF's second texture coordinate set.
+    if (!geometry.getAttribute('weatheringUv') && geometry.getAttribute('uv1')) {
+      geometry.setAttribute('weatheringUv', geometry.getAttribute('uv1'));
+      geometry.deleteAttribute('uv1');
+    }
+    ensureWeathering(part);
+    part.material = materials[part.material.name] ?? materials.dark;
+    part.userData.weapon = kind;
+  });
+  const atlas = scene.userData.weatheringAtlas;
+  if (atlas) for (const material of Object.values(materials)) setWeatheringAtlas(material, atlas);
+  return node;
+}
 
 const textures = {};
 const texture = kind => (textures[kind] ??= finishTexture(kind));
@@ -15,10 +69,10 @@ const texture = kind => (textures[kind] ??= finishTexture(kind));
 function createKit() {
   const brushed = texture('steel');
   const molded = texture('polymer');
-  return {
-    shell: makeSkinnable(new THREE.MeshStandardMaterial({
+  const kit = {
+    shell: makeWeathered(makeSkinnable(new THREE.MeshStandardMaterial({
       color: 0xbeb6a3, metalness: .18, roughness: .52, map: molded, roughnessMap: molded, bumpMap: molded, bumpScale: .0027,
-    })),
+    })), 'shell'),
     steel: new THREE.MeshPhysicalMaterial({
       color: 0x7d8588, metalness: .79, roughness: .45, map: brushed, roughnessMap: brushed,
       bumpMap: brushed, bumpScale: .0016, clearcoat: .09, clearcoatRoughness: .5,
@@ -38,6 +92,8 @@ function createKit() {
     shellCasing: new THREE.MeshStandardMaterial({ color: 0xb8332b, metalness: .25, roughness: .45 }),
     brass: new THREE.MeshStandardMaterial({ color: 0xc89a4b, metalness: .9, roughness: .3 }),
   };
+  for (const role of ['steel', 'dark', 'edge', 'rubber']) makeWeathered(kit[role], role);
+  return kit;
 }
 
 function paint(kit, build) {
@@ -349,8 +405,8 @@ function buildSniper(kit) {
   return {
     root, bolt, ...slots,
     supportRest: new THREE.Vector3(-.075, -.074, -.44),
-    sticker: { position: new THREE.Vector3(-.0565, .005, -.1), size: .05 },
-    decal: { position: new THREE.Vector3(-.0602, .024, -.46), width: .3, height: .034 },
+    sticker: { position: new THREE.Vector3(-.0508, .005, -.1), size: .05 },
+    decal: { position: new THREE.Vector3(-.0596, .01, -.46), width: .3, height: .028 },
     charm: new THREE.Vector3(-.066, .012, -.24),
   };
 }
@@ -400,7 +456,7 @@ function buildShotgun(kit) {
   return {
     root, bolt, ...slots,
     supportRest: new THREE.Vector3(-.075, -.085, -.42),
-    sticker: { position: new THREE.Vector3(-.0635, .03, -.03), size: .046 },
+    sticker: { position: new THREE.Vector3(-.0606, -.012, -.02), size: .04 },
     decal: { position: new THREE.Vector3(-.0406, -.035, .21), width: .22, height: .07 },
     charm: new THREE.Vector3(-.074, 0, -.215),
   };
@@ -469,7 +525,7 @@ function buildLauncher(kit) {
       return point;
     },
     supportRest: new THREE.Vector3(-.06, -.07, -.36),
-    sticker: { position: new THREE.Vector3(-.067, y - .015, -.08), size: .055 },
+    sticker: { position: new THREE.Vector3(-.0648, y - .015, -.08), size: .055 },
     decal: { position: new THREE.Vector3(0, y, -.28), width: .3, height: .05, curve: .0668, angle: -.42 },
     charm: new THREE.Vector3(-.075, .035, -.12),
     hipOffset: new THREE.Vector3(0, .015, 0),
@@ -525,7 +581,7 @@ function buildPistol(kit) {
     root, bolt, ...slots,
     supportRest: new THREE.Vector3(-.05, -.115, .035),
     sticker: { position: new THREE.Vector3(-.0255, .035, -.09), size: .03 },
-    decal: { position: new THREE.Vector3(-.0227, -.003, -.11), width: .12, height: .024 },
+    decal: { position: new THREE.Vector3(-.0226, -.008, -.11), width: .12, height: .02 },
     charm: new THREE.Vector3(-.026, -.012, -.15),
     // The pistol sits higher and closer than the long guns so both gloves stay in frame.
     hipOffset: new THREE.Vector3(-.065, .125, .08),
@@ -977,13 +1033,39 @@ export function createArsenalView({ showHands = true } = {}) {
     return decalShapes.get(spec);
   };
   makeSkinnable(carbine.shell);
+  for (const [role, material] of Object.entries(carbine.materials)) makeWeathered(material, role);
   const carbinePolymer = carbine.shell.map;
+  // Swaps in the modelled bodies: the procedural meshes hide, slot parts and mounts stay.
+  let modelled = false;
+  const useModels = models => {
+    if (modelled || !models.size) return;
+    modelled = true;
+    const carbineModel = models.get('carbine');
+    if (carbineModel) {
+      const bodyNode = modelledNode(carbineModel, 'body', carbine.materials, 'carbine');
+      if (bodyNode) carbine.replaceBody(bodyNode, modelledNode(carbineModel, 'bolt', carbine.materials, 'carbine'));
+    }
+    for (const [kind, body] of Object.entries(bodies)) {
+      const scene = models.get(kind);
+      const bodyNode = scene && modelledNode(scene, 'body', body.kit, kind);
+      if (!bodyNode) continue;
+      for (const part of body.root.children) if (part.isMesh) part.visible = false;
+      body.root.add(bodyNode);
+      const boltNode = modelledNode(scene, 'bolt', body.kit, kind);
+      if (boltNode && body.bolt) {
+        for (const part of body.bolt.children) part.visible = false;
+        body.bolt.add(boltNode);
+      }
+    }
+    // A loadout applied before the swap re-shows the carbine body; apply it again.
+    setLoadout(current);
+  };
   const { pivot: charmPivot, charms } = createCharms();
   model.add(charmPivot);
   const charmSwing = { x: 0, z: 0, vx: 0, vz: 0 };
   // Carbine decor positions, matching its receiver and grip.
   const carbineDecor = {
-    sticker: { position: new THREE.Vector3(-.0785, .002, -.42), size: .042 },
+    sticker: { position: new THREE.Vector3(-.0776, -.02, -.42), size: .036 },
     decal: { position: new THREE.Vector3(-.0812, .026, .115), width: .23, height: .05 },
     charm: new THREE.Vector3(-.08, -.02, -.25),
   };
@@ -1062,6 +1144,10 @@ export function createArsenalView({ showHands = true } = {}) {
     // The launcher shows the loaded rocket only while it has one.
     if (active === 'launcher') bodies.launcher.magazine.visible = ammo > 0;
   }
+
+  ensureWeathering(model);
+  if (weaponModels.size) useModels(weaponModels);
+  else weaponModelsReady.then(useModels);
 
   return {
     model,

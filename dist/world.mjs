@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { createArsenalView } from './arsenal-models.mjs';
+import { createArsenalView, weaponModelsReady } from './arsenal-models.mjs';
 import { ExplosionFX } from './explosions.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve, createValveColony } from './heart-valve.mjs';
@@ -1525,7 +1525,7 @@ export class World {
     };
 
     onProgress(0, total);
-    await Promise.all([this.textureReady, this.enemyModelsReady]);
+    await Promise.all([this.textureReady, this.enemyModelsReady, weaponModelsReady]);
     onProgress(1, total);
     // Prime GPU programs and texture uploads on the actual renderer using a small frame.
     this.renderer.setPixelRatio(1);
