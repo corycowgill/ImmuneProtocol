@@ -844,30 +844,18 @@ export function createOrganEnvironment(area, { membraneMaps, floorHeight, glow, 
   };
 }
 
-export function createOrganEnemies(membraneMaps, lobe) {
-  const guard = new THREE.Group();
-  const guardMaps = membraneMaps(57183, [218, 182, 161]);
-  const muscle = new THREE.MeshPhysicalMaterial({
-    ...guardMaps, color: 0xa44750, roughness: .47, clearcoat: .54,
-    emissive: 0xb32f32, emissiveIntensity: .25,
-  });
+// The Shellback's armoured front: the tell for which side blocks shots. The scanned
+// capsid model wears it (world.mjs).
+export function createGuardCarapace(membraneMaps) {
   const carapace = new THREE.MeshPhysicalMaterial({
-    ...guardMaps, color: 0xe1bc98, roughness: .55, clearcoat: .43, sheen: .20, sheenColor: 0xecaa7d,
+    ...membraneMaps(57183, [218, 182, 161]), color: 0xe1bc98, roughness: .55, clearcoat: .43, sheen: .20,
+    sheenColor: 0xecaa7d, side: THREE.DoubleSide,
   });
-  const scar = new THREE.MeshPhysicalMaterial({
-    ...guardMaps, color: 0xe06657, roughness: .29, clearcoat: .94,
-    emissive: 0xb93325, emissiveIntensity: .49,
-  });
-  const body = place(guard, lobe, muscle, 0, -.06, -.13);
-  body.name = 'attack-membrane';
-  body.scale.set(.8, .73, .82);
   const plating = new THREE.Group();
   plating.name = 'guard-carapace';
-  guard.add(plating);
   const plate = new THREE.SphereGeometry(1.01, 28, 18, 0, Math.PI, .36, 2.49);
   plate.scale(.86, 1.02, .53);
   place(plating, plate, carapace, 0, .14, .48);
-  carapace.side = THREE.DoubleSide;
   for (let i = -2; i <= 2; i++) {
     const y = i * .265 + .12;
     const width = .84 * Math.sqrt(1 - (y - .12) ** 2);
@@ -875,44 +863,5 @@ export function createOrganEnemies(membraneMaps, lobe) {
       [width * .68, y + .04, .82], [width, y - .12, .52]];
     place(plating, tube(ridge, i === 0 ? .105 : .074, 23, 8), carapace, 0, 0, 0);
   }
-  const core = place(guard, lobe, scar, 0, .08, -.78);
-  core.scale.set(.48, .49, .35);
-  for (let i = 0; i < 7; i++) {
-    const t = (i - 3) / 3;
-    place(guard, tube([[t * .51, -.36, -.38], [t * .87, -.58, -.22 - Math.abs(t) * .25],
-      [t * .98, -.77, .45 - Math.abs(t) * .74]], .059 + (1 - Math.abs(t)) * .023, 13, 7), muscle, 0, 0, 0);
-  }
-
-  const splitter = new THREE.Group();
-  const splitterMaps = membraneMaps(43121, [208, 192, 226]);
-  const splitSkin = new THREE.MeshPhysicalMaterial({
-    ...splitterMaps, color: 0xb887b2, roughness: .32, clearcoat: .80,
-    emissive: 0x73298d, emissiveIntensity: .24,
-  });
-  const ringSkin = new THREE.MeshPhysicalMaterial({
-    ...splitterMaps, color: 0x936cac, roughness: .45, clearcoat: .61, metalness: .05,
-    emissive: 0x4d3070, emissiveIntensity: .20,
-  });
-  const seamSkin = new THREE.MeshPhysicalMaterial({
-    ...splitterMaps, color: 0xcb9cc3, emissive: 0x923d77, emissiveIntensity: .41, roughness: .37, clearcoat: .81,
-  });
-  const bridge = place(splitter, lobe, seamSkin, 0, -.03, .1);
-  bridge.name = 'attack-membrane';
-  bridge.scale.set(.48, .61, .63);
-  for (const side of [-1, 1]) {
-    const sac = place(splitter, lobe, splitSkin, .43 * side, .065, 0);
-    sac.name = 'splitter-sac';
-    sac.scale.set(.54, .66, .78);
-    sac.rotation.z = -.21 * side;
-    const fringe = new THREE.Group();
-    fringe.position.x = side * .38;
-    splitter.add(fringe);
-    for (let i = 0; i < 9; i++) {
-      const angle = i * TAU / 9;
-      const x = Math.cos(angle), y = Math.sin(angle);
-      place(fringe, tube([[x * .36, y * .41, .17], [x * .58, y * .54, -.14],
-        [x * .65 + side * .03, y * .60, -.65 - (i % 3) * .12]], .039, 12, 6), ringSkin, 0, 0, 0);
-    }
-  }
-  return { guard, splitter };
+  return plating;
 }

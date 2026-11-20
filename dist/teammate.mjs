@@ -11,22 +11,20 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
   root.visible = false;
   const body = new THREE.Group();
   root.add(body);
+  body.visible = false;
   const ball = new THREE.SphereGeometry(1, 16, 12);
   const cube = new THREE.BoxGeometry(1, 1, 1);
   const hull = new THREE.MeshStandardMaterial({ color: 0xa2afb2, metalness: .43, roughness: .48 });
   const frame = new THREE.MeshStandardMaterial({ color: 0x28353c, metalness: .57, roughness: .45 });
   const fabric = new THREE.MeshStandardMaterial({ color: 0x191f24, roughness: .88 });
-  const bolts = new THREE.MeshStandardMaterial({ color: 0x636e74, metalness: .8, roughness: .38 });
-  const optic = new THREE.MeshStandardMaterial({ color: 0x10252c, metalness: .72, roughness: .21 });
   const signal = new THREE.MeshStandardMaterial({ color: 0x77daea, emissive: 0x34bfd9, emissiveIntensity: .82, roughness: .38 });
-  const rifleShell = hull.clone();
-  const rifleLight = signal.clone();
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
     color: 0x160a0d, map: softMask, transparent: true, opacity: .48, depthWrite: false, polygonOffset: true,
     polygonOffsetFactor: -1, polygonOffsetUnits: -1,
   }));
   shadow.rotation.x = -Math.PI / 2;
   root.add(shadow);
+  shadow.visible = false;
 
   function mesh(parent, geometry, material, x, y, z, sx = 1, sy = 1, sz = 1) {
     const part = new THREE.Mesh(geometry, material);
@@ -43,86 +41,22 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     return group;
   }
 
-  function armor(parent, profile, depth, material, x, y, z) {
-    const shape = new THREE.Shape();
-    shape.moveTo(...profile[0]);
-    for (const point of profile.slice(1)) shape.lineTo(...point);
-    shape.closePath();
-    const geometry = new THREE.ExtrudeGeometry(shape, { depth, bevelSegments: 2, bevelSize: .013, bevelThickness: .012 });
-    geometry.translate(0, 0, -depth / 2);
-    return mesh(parent, geometry, material, x, y, z);
-  }
-
+  // The rig's joints. Scanned suit parts attach to them; the arm segments are stretched
+  // between shoulder, elbow and wrist every frame.
   const upper = joint(body, 0, 1.09);
-  mesh(upper, ball, fabric, 0, .19, .008, .238, .303, .154);
-  const chest = [[-.214, .14], [-.14, .215], [.14, .215], [.214, .14], [.179, -.126], [.103, -.184], [-.103, -.184], [-.179, -.126]];
-  armor(upper, chest, .118, hull, 0, .219, -.10);
-  mesh(upper, cube, frame, 0, .24, -.17, .132, .194, .029);
-  mesh(upper, cube, signal, 0, .274, -.188, .025, .085, .012);
-  for (const side of [-1, 1]) {
-    mesh(upper, cube, frame, side * .118, .14, -.164, .086, .068, .032).rotation.z = side * .16;
-    mesh(upper, ball, bolts, side * .154, .309, -.159, .017, .017, .01);
-    mesh(upper, ball, frame, side * .246, .334, .011, .11, .114, .112);
-    mesh(upper, ball, hull, side * .255, .379, .006, .108, .073, .108);
-  }
-
-  const pack = [[-.147, .128], [-.09, .184], [.09, .184], [.147, .128], [.126, -.15], [-.126, -.15]];
-  armor(upper, pack, .124, frame, 0, .20, .148);
-  mesh(upper, cube, hull, 0, .209, .217, .182, .222, .026);
-  for (const x of [-.041, .041]) mesh(upper, cube, signal, x, .28, .234, .026, .074, .012);
-  for (let index = 0; index < 3; index++) mesh(upper, cube, frame, 0, .169 - index * .034, .235, .126, .013, .01);
-
   const head = joint(upper, 0, .561, -.003);
-  mesh(head, ball, fabric, 0, -.134, .015, .087, .074, .088);
-  mesh(head, ball, hull, 0, 0, .012, .144, .169, .135);
-  const mask = [[-.106, .056], [.106, .056], [.113, .005], [.073, -.080], [-.073, -.080], [-.113, .005]];
-  armor(head, mask, .053, frame, 0, -.016, -.098);
-  const visor = [[-.106, .024], [.106, .024], [.093, -.019], [.040, -.035], [-.040, -.035], [-.093, -.019]];
-  armor(head, visor, .017, optic, 0, .015, -.135);
-  mesh(head, cube, signal, 0, .040, -.150, .147, .011, .01);
-  for (const side of [-1, 1]) {
-    mesh(head, ball, frame, side * .125, -.024, .026, .040, .066, .067);
-    mesh(head, cube, signal, side * .158, -.021, .015, .008, .032, .034);
-  }
-  mesh(head, cube, bolts, 0, .122, .104, .039, .024, .050);
-
   const hips = joint(body, 0, .918);
-  mesh(hips, ball, fabric, 0, .031, .006, .217, .132, .130);
-  mesh(hips, cube, frame, 0, .103, -.019, .404, .070, .236);
-  mesh(hips, cube, bolts, 0, .104, -.148, .081, .056, .026);
-  const thighPlate = [[-.073, .094], [-.046, .136], [.044, .136], [.080, .070], [.056, -.106], [.026, -.135], [-.048, -.123], [-.073, -.066]];
-  const shinPlate = [[-.053, .123], [.047, .122], [.058, .079], [.037, -.100], [.010, -.124], [-.035, -.105], [-.055, .070]];
   const legs = [-1, 1].map(side => {
     const thigh = joint(hips, side * .112);
-    mesh(thigh, ball, fabric, 0, -.196, .006, .093, .225, .097);
-    armor(thigh, thighPlate, .041, hull, side * .004, -.172, -.088);
     const shin = joint(thigh, 0, -.403);
-    mesh(shin, ball, frame, 0, -.012, -.032, .101, .103, .090);
-    mesh(shin, ball, bolts, 0, -.028, -.108, .067, .067, .030);
-    mesh(shin, ball, fabric, 0, -.177, .006, .078, .166, .077);
-    armor(shin, shinPlate, .036, hull, 0, -.184, -.068);
     const boot = joint(shin, 0, -.348, -.030);
-    mesh(boot, ball, frame, 0, -.015, -.024, .086, .084, .134);
-    mesh(boot, cube, fabric, 0, -.070, -.029, .166, .033, .244);
-    mesh(boot, ball, hull, 0, -.028, -.107, .077, .050, .058);
     return { thigh, shin, boot };
   });
+  const arms = [-1, 1].map(side => ({
+    side, shoulder: new THREE.Vector3(side * .238, .332, .008),
+    bicep: joint(upper), forearm: joint(upper), glove: joint(upper),
+  }));
 
-  const arms = [-1, 1].map(side => {
-    const bicep = joint(upper);
-    mesh(bicep, ball, fabric, 0, -.5, 0, .074, .53, .075);
-    mesh(bicep, ball, hull, side * .030, -.39, -.004, .066, .39, .066);
-    const forearm = joint(upper);
-    mesh(forearm, ball, frame, 0, -.52, 0, .063, .53, .059);
-    mesh(forearm, ball, hull, side * .025, -.57, -.011, .052, .345, .050);
-    const glove = joint(upper);
-    mesh(glove, ball, fabric, 0, 0, 0, .062, .073, .057);
-    return { side, shoulder: new THREE.Vector3(side * .238, .332, .008), bicep, forearm, glove };
-  });
-
-  // Procedural "stock" suit meshes, hidden while a Blender suit model is worn.
-  const stock = [];
-  body.traverse(part => { if (part.isMesh) stock.push(part); });
   const suitJoints = { upper, head, hips };
   for (const [index, side] of ['L', 'R'].entries()) {
     suitJoints['thigh_' + side] = legs[index].thigh;
@@ -157,15 +91,14 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
   }
 
   function wearSuit(id) {
-    // Re-dress when a textured model finishes streaming in over the primitive one.
-    if (id === suitId && (!id || (suitWorn && wornVersion === suitModelVersion()))) return;
+    // Dress once the suit's model has loaded; until then the teammate is not drawn.
+    if (id === suitId && suitWorn && wornVersion === suitModelVersion()) return;
     const parts = id ? suitParts(id) : null;
-    if (id && !parts) return; // Models still loading; keep the stock suit for now.
     suitId = id;
     suitWorn = !!parts;
     wornVersion = suitModelVersion();
+    body.visible = shadow.visible = suitWorn;
     for (const part of worn.splice(0)) part.removeFromParent();
-    for (const part of stock) part.visible = !parts;
     fitRig(parts?.rig);
     if (!parts) return;
     for (const [name, template] of parts) {
@@ -180,27 +113,12 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
 
   const holding = joint(upper, .12, .265, -.218);
   const rifle = joint(holding);
-  mesh(rifle, cube, frame, 0, .019, -.111, .095, .111, .41);
-  mesh(rifle, cube, rifleShell, 0, .049, -.135, .106, .052, .288);
-  mesh(rifle, cube, frame, 0, .017, .137, .076, .085, .137);
-  mesh(rifle, cube, fabric, 0, .01, .219, .104, .115, .041);
-  mesh(rifle, cube, fabric, 0, -.056, .026, .068, .137, .067).rotation.x = -.29;
-  mesh(rifle, cube, rifleLight, .054, .051, -.145, .008, .012, .139);
-  mesh(rifle, cube, rifleLight, -.054, .051, -.145, .008, .012, .139);
-  const magazine = mesh(rifle, cube, frame, 0, -.085, -.109, .071, .118, .102);
-  magazine.rotation.x = -.18;
-  const barrel = mesh(rifle, new THREE.CylinderGeometry(1, 1, 1, 12), bolts, 0, .034, -.396, .020, .177, .020);
-  barrel.rotation.x = Math.PI / 2;
-  const tip = mesh(rifle, cube, frame, 0, .034, -.487, .061, .061, .081);
-  const sight = mesh(rifle, cube, frame, 0, .091, -.087, .049, .043, .056);
-  mesh(rifle, cube, optic, 0, .107, -.088, .038, .025, .041);
   const muzzle = joint(rifle, 0, .034, -.533);
   const flashMaterial = new THREE.MeshBasicMaterial({ color: 0xf9df92, transparent: true, opacity: .85, toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending });
   const flash = mesh(muzzle, new THREE.ConeGeometry(.038, .15, 6), flashMaterial, 0, 0, -.072);
   flash.rotation.x = -Math.PI / 2;
   // The teammate holds the same weapon model, parts, stickers and charm as their first-person view,
-  // scaled down to the rig. The primitive stand-in above only keeps the muzzle joint.
-  for (const part of rifle.children) if (part !== muzzle) part.visible = false;
+  // scaled down to the rig.
   const arsenal = createArsenalView({ showHands: false });
   const ARSENAL_SCALE = .68;
   arsenal.model.scale.setScalar(ARSENAL_SCALE);

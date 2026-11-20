@@ -2,9 +2,9 @@ import * as THREE from './vendor/three.module.js';
 import { createArsenalView, weaponModelsReady } from './arsenal-models.mjs';
 import { ExplosionFX } from './explosions.mjs';
 import { createRepairTool } from './repair-tool.mjs';
-import { createHeartValve, createValveColony } from './heart-valve.mjs';
+import { createHeartValve } from './heart-valve.mjs';
 import { createTurret } from './turret.mjs';
-import { createOrganEnemies, createOrganEnvironment, organProfile } from './organ-world.mjs';
+import { createGuardCarapace, createOrganEnvironment, organProfile } from './organ-world.mjs';
 import { createMegaVirus } from './mega-virus.mjs';
 import { bioSurface, createLevelProps } from './level-props.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
@@ -258,14 +258,6 @@ function sprite(texture, color, scale, opacity, blend = THREE.AdditiveBlending) 
   return object;
 }
 
-function addMesh(group, geometry, material, position, scale) {
-  const mesh = new THREE.Mesh(geometry, material);
-  if (position) mesh.position.copy(position);
-  if (scale) mesh.scale.set(...scale);
-  group.add(mesh);
-  return mesh;
-}
-
 function instanceMesh(group, geometry, material, count) {
   const mesh = new THREE.InstancedMesh(geometry, material, count);
   group.add(mesh);
@@ -277,6 +269,14 @@ function setInstance(mesh, index, transform, position, scale) {
   transform.scale.set(...scale);
   transform.updateMatrix();
   mesh.setMatrixAt(index, transform.matrix);
+}
+
+function addMesh(group, geometry, material, position, scale) {
+  const mesh = new THREE.Mesh(geometry, material);
+  if (position) mesh.position.copy(position);
+  if (scale) mesh.scale.set(...scale);
+  group.add(mesh);
+  return mesh;
 }
 
 function addVessel(group, material, coordinates, radius, tip = .3) {
@@ -1046,201 +1046,6 @@ function biologicalMaterial(color, normal, options = {}) {
   });
 }
 
-function virusModel(normal) {
-  const organism = new THREE.Group();
-  const random = randomSource(14833);
-  const maps = membraneMaps(9841, [240, 197, 163]);
-  const body = texturedLobe(.56, 44, 30, .28);
-  colorGeometry(body, (color, x, y, z) => {
-    const bands = Math.sin(x * 13 + y * 4 + Math.cos(z * 14) * 2.6) * Math.cos(y * 15 - z * 8);
-    const blotch = Math.sin(x * 8 - y * 9 + z * 11) * .09;
-    color.setRGB(.75 + bands * .22 + blotch, .58 + bands * .20 + blotch, .51 + bands * .18 + blotch);
-  });
-  const coat = biologicalMaterial(0xc26b47, normal, {
-    ...maps, vertexColors: true, roughness: .66, clearcoat: .56,
-    clearcoatRoughness: .29, normalScale: new THREE.Vector2(.94, .94),
-    emissive: 0x341009, emissiveIntensity: .38, sheen: .38, sheenColor: 0xe99c79,
-  });
-  const thorn = biologicalMaterial(0xa35036, normal, {
-    roughness: .48, clearcoat: .79, clearcoatRoughness: .25,
-    emissive: 0x2d1008, emissiveIntensity: .32, normalScale: new THREE.Vector2(.67, .67),
-  });
-  const tip = biologicalMaterial(0xd8885f, normal, {
-    ...maps, roughness: .56, clearcoat: .74, clearcoatRoughness: .26,
-    emissive: 0xa52e12, emissiveIntensity: .22, normalScale: new THREE.Vector2(.63, .63),
-    sheen: .42, sheenColor: 0xe7b985,
-  });
-  const nodule = biologicalMaterial(0xa75439, normal, {
-    ...maps, roughness: .67, clearcoat: .61, clearcoatRoughness: .29,
-    normalScale: new THREE.Vector2(.71, .71),
-  });
-  addMesh(organism, body, coat).name = 'attack-membrane';
-
-  const spikes = new THREE.Group();
-  spikes.name = 'virus-spikes';
-  organism.add(spikes);
-  const cap = texturedLobe(1, 12, 8, .38);
-  const heads = instanceMesh(spikes, cap, tip, 28);
-  const nodules = instanceMesh(organism, texturedLobe(1, 8, 6, .31), nodule, 51);
-  const transform = new THREE.Object3D();
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  const strands = [];
-  const direction = (i, count) => {
-    const y = 1 - (i + .5) / count * 2;
-    const spread = Math.sqrt(1 - y * y);
-    const angle = i * goldenAngle + (random() - .5) * .42;
-    return new THREE.Vector3(Math.cos(angle) * spread, y, Math.sin(angle) * spread);
-  };
-
-  for (let i = 0; i < heads.count; i++) {
-    const axis = direction(i, heads.count);
-    const cross = new THREE.Vector3(axis.z, .3 - random() * .6, -axis.x).normalize();
-    const reach = .66 + random() ** .62 * .186;
-    const skew = (random() - .42) * .19;
-    const neck = axis.clone().multiplyScalar((reach + .5) * .5).addScaledVector(cross, -skew * .4);
-    const end = axis.clone().multiplyScalar(reach).addScaledVector(cross, skew);
-    strands.push(tubeGeometry([
-      axis.clone().multiplyScalar(.43),
-      axis.clone().multiplyScalar(.53).addScaledVector(cross, skew * .2),
-      neck,
-      end,
-    ], .05 + random() * .039, .24 + random() * .22, 10, 7));
-    if (i % 3 === 0) {
-      strands.push(tubeGeometry([
-        neck.clone().addScaledVector(axis, -.035),
-        neck.clone().addScaledVector(axis, .055).addScaledVector(cross, -.079),
-        end.clone().addScaledVector(axis, -.024).addScaledVector(cross, -.098),
-      ], .027 + random() * .013, .13, 7, 6));
-    }
-    const width = .031 + random() * .026;
-    const tangent = end.clone().sub(neck).normalize();
-    transform.quaternion.setFromUnitVectors(UP, tangent);
-    transform.rotateY(i * .74);
-    setInstance(heads, i, transform, end, [width * (1.1 + random() * .36), width * (1.07 + random() * .52), width * .69]);
-    heads.setColorAt(i, new THREE.Color().setRGB(.73 + random() * .26, .5 + random() * .42, .42 + random() * .44));
-  }
-  addMesh(spikes, joinTubes(strands), thorn);
-
-  for (let i = 0; i < nodules.count; i++) {
-    const axis = direction(i + 2, nodules.count + 4);
-    const size = .03 + random() ** 1.36 * .093;
-    const surface = .522 + (Math.sin(axis.x * 7.2 + axis.y * 3) * Math.sin(axis.z * 7 + axis.y * 1.3)) * .065;
-    transform.quaternion.setFromUnitVectors(UP, axis);
-    transform.rotateY(random() * TAU);
-    setInstance(nodules, i, transform, axis.multiplyScalar(surface), [size, size * (.37 + random() * .41), size * .81]);
-    nodules.setColorAt(i, new THREE.Color().setRGB(.63 + random() * .37, .42 + random() * .48, .38 + random() * .44));
-  }
-  return organism;
-}
-
-function bacillusModel(normal) {
-  const organism = new THREE.Group();
-  const random = randomSource(7886);
-  const geometry = new THREE.CapsuleGeometry(.38, 1.12, 10, 24);
-  const positions = geometry.attributes.position;
-  for (let i = 0; i < positions.count; i++) {
-    const x = positions.getX(i);
-    const y = positions.getY(i);
-    const z = positions.getZ(i);
-    const wrinkled = 1 + Math.sin(y * 31 + z * 11) * .056 + Math.cos(y * 14 - x * 9) * .074;
-    positions.setXYZ(i, x * wrinkled + (y * y - .27) * .38, y, z * wrinkled);
-  }
-  geometry.computeVertexNormals();
-  colorGeometry(geometry, (color, x, y, z) => {
-    const pigment = Math.cos(y * 19 + Math.sin(x * 14 + z * 8) * 2.1) * .5 + .5;
-    color.setRGB(.55 + pigment * .45, .5 + pigment * .35, .24 + pigment * .19);
-  });
-  const skin = biologicalMaterial(0xaba45a, normal, {
-    vertexColors: true, emissive: 0x584117, emissiveIntensity: .51, sheen: .54, sheenColor: 0xcbe75a,
-  });
-  const fiber = biologicalMaterial(0xc4ad67, normal, { emissive: 0x785c27, emissiveIntensity: .45 });
-  const pulse = biologicalMaterial(0xf3c552, normal, { emissive: 0xff8c1b, emissiveIntensity: .76 });
-  const body = new THREE.Group();
-  body.rotation.set(.2, .15, 1.18);
-  organism.add(body);
-  addMesh(body, geometry, skin);
-
-  const strands = [];
-  for (let index = 0; index < 26; index++) {
-    const a = index * 2.399963;
-    const x = Math.cos(a);
-    const z = Math.sin(a);
-    const y = (random() - .5) * 1.56;
-    const length = .12 + random() * .36;
-    strands.push(tubeGeometry([
-      new THREE.Vector3(x * .29 + y * y * .3, y, z * .29),
-      new THREE.Vector3(x * (.36 + length * .4) + y * y * .32, y + .07, z * (.36 + length * .43)),
-      new THREE.Vector3(x * (.4 + length) + y * y * .34 + z * .12, y + .2, z * (.4 + length) - x * .12),
-    ], .015 + random() * .011, .12, 8, 5));
-  }
-  for (let index = 0; index < 4; index++) {
-    const spin = index / 4 * TAU;
-    strands.push(tubeGeometry([
-      new THREE.Vector3(.16 + Math.cos(spin) * .14, -.77, Math.sin(spin) * .15),
-      new THREE.Vector3(.29 + Math.cos(spin) * .23, -.98, Math.sin(spin) * .2),
-      new THREE.Vector3(.16 + Math.cos(spin + 1) * .33, -1.14, Math.sin(spin + 1) * .33),
-      new THREE.Vector3(.15 + Math.cos(spin + 2.4) * .32, -1.35, Math.sin(spin + 2.4) * .33),
-    ], .021, .1, 12, 5));
-  }
-  addMesh(body, joinTubes(strands), fiber);
-
-  const bacteriaPearls = instanceMesh(body, texturedLobe(1, 12, 8, .24), pulse, 15);
-  bacteriaPearls.name = 'attack-membrane';
-  const transform = new THREE.Object3D();
-  for (let i = 0; i < bacteriaPearls.count; i++) {
-    const angle = i * 2.4;
-    const y = (random() - .5) * 1.45;
-    setInstance(bacteriaPearls, i, transform,
-      new THREE.Vector3(Math.cos(angle) * .36 + (y * y - .27) * .38, y, Math.sin(angle) * .36), [.055, .082, .049]);
-  }
-  return organism;
-}
-
-function sporeModel(normal) {
-  const organism = new THREE.Group();
-  const random = randomSource(59651);
-  const bell = texturedLobe(.52, 36, 25, .16);
-  const maps = membraneMaps(3188, [207, 185, 203]);
-  colorGeometry(bell, (color, x, y, z) => {
-    const hue = .61 + Math.sin(x * 18 - y * 16 + z * 14) * .25;
-    color.setRGB(hue * .7, hue * .54, hue + .12);
-  });
-  const membrane = biologicalMaterial(0x846489, normal, {
-    ...maps, vertexColors: true, emissive: 0x48274e, emissiveIntensity: .32,
-    roughness: .78, clearcoat: .36, clearcoatRoughness: .34, sheen: .26, sheenColor: 0xb286ac,
-  });
-  const tendril = biologicalMaterial(0x925371, normal, {
-    emissive: 0x702644, emissiveIntensity: .18, roughness: .59, clearcoat: .43, clearcoatRoughness: .35,
-  });
-  const sac = biologicalMaterial(0x884761, normal, {
-    ...maps, emissive: 0x9e3b68, emissiveIntensity: .29, roughness: .72, clearcoat: .41, clearcoatRoughness: .36,
-  });
-  addMesh(organism, bell, membrane, new THREE.Vector3(0, .16, 0), [1.12, .75, 1.12]);
-
-  const roots = [];
-  for (let i = 0; i < 16; i++) {
-    const a = i / 16 * TAU;
-    const x = Math.cos(a);
-    const z = Math.sin(a);
-    const length = .21 + random() * .23;
-    roots.push(tubeGeometry([
-      new THREE.Vector3(x * .42, .13, z * .42),
-      new THREE.Vector3(x * .52 + z * .07, -.1, z * .52 - x * .07),
-      new THREE.Vector3(x * .48 + z * .16, -length, z * .48 - x * .16),
-      new THREE.Vector3(x * .43 + z * .25, -length - .19, z * .43 - x * .25),
-    ], .04 + random() * .014, .17, 13, 6));
-  }
-  addMesh(organism, joinTubes(roots), tendril).name = 'spore-fringe';
-
-  const lobe = texturedLobe(.23, 20, 14, .23);
-  addMesh(organism, lobe, sac, new THREE.Vector3(0, -.14, 0), [1.32, .81, 1.32]).name = 'attack-membrane';
-  for (let i = 0; i < 6; i++) {
-    const a = i * TAU / 6;
-    addMesh(organism, lobe, sac, new THREE.Vector3(Math.cos(a) * .35, .18, Math.sin(a) * .35), [.62, .66, .62]);
-  }
-  return organism;
-}
-
 function reflectionTexture() {
   const texture = canvasTexture(256, (context, size) => {
     context.fillStyle = '#251a23';
@@ -1415,12 +1220,7 @@ export class World {
     this.tetherStart = new THREE.Vector3();
     this.tetherEnd = new THREE.Vector3();
     this.tetherDirection = new THREE.Vector3();
-    this.templates = {
-      virus: virusModel(normal),
-      bacillus: bacillusModel(normal),
-      spore: sporeModel(normal),
-    };
-    // Photoreal scanned models replace these procedural organisms once they load.
+    // Every pathogen is a scanned model; arenas are prepared once they have loaded.
     this.enemyModels = new Map();
     this.enemyModelsReady = loadEnemyModels().then(models => {
       this.enemyModels = models;
@@ -1439,7 +1239,6 @@ export class World {
     this.projectileDirection = new THREE.Vector3();
     this.makeHeart = () => {
       const maps = membraneMaps(26701, [238, 181, 170]);
-      this.templates.colony = createValveColony(maps, texturedLobe(1, 26, 17, .27), randomSource(8209));
       return createHeartValve(this.scene, maps, redCellGeometry(), randomSource(9468));
     };
     this.textureReady = new THREE.TextureLoader().loadAsync(new URL('./assets/tissue.webp', import.meta.url).href).then(asset => {
@@ -1718,7 +1517,6 @@ export class World {
     this.organEnvironment?.root.removeFromParent();
     this.organEnvironment = this.organEnvironments.get(this.area);
     if (this.organEnvironment) this.scene.add(this.organEnvironment.root);
-    if (profile && !this.templates.guard) Object.assign(this.templates, createOrganEnemies(membraneMaps, texturedLobe(1, 25, 16, .16)));
     [floor.material, wall.material, canopy.material] = this.organEnvironment?.shell ?? this.baseShellMaterials;
     canopy.scale.y = heart ? .54 : junction ? .63 : profile ? .85 : 1;
     this.scene.background.setHex(profile?.background ?? (heart ? 0x26181f : junction ? 0x1d1115 : 0x230f11));
@@ -1904,10 +1702,18 @@ export class World {
     }
   }
 
-  // The scanned model when it has loaded, else the procedural organism, else the
-  // procedural organism of the species' behavior family.
+  // The species' scanned model. If one failed to download, a plain membrane sphere keeps the
+  // pathogen visible and shootable.
   enemyTemplate(type) {
-    return this.enemyModels.get(type) ?? this.templates[type] ?? this.templates[SPECIES[type]?.behavior];
+    if (this.enemyModels.has(type)) return this.enemyModels.get(type);
+    this.missingPathogen ??= (() => {
+      const placeholder = new THREE.Mesh(new THREE.IcosahedronGeometry(.85, 3), new THREE.MeshStandardMaterial({
+        color: 0x9a5a52, roughness: .5, emissive: 0x2a0d0a, emissiveIntensity: .5,
+      }));
+      placeholder.name = 'attack-membrane';
+      return placeholder;
+    })();
+    return this.missingPathogen;
   }
 
   // The Shellback's armored front is a gameplay tell, so the scanned capsid wears
@@ -1915,8 +1721,7 @@ export class World {
   dressGuardModel() {
     const model = this.enemyModels.get('guard');
     if (!model) return;
-    if (!this.templates.guard) Object.assign(this.templates, createOrganEnemies(membraneMaps, texturedLobe(1, 25, 16, .16)));
-    const carapace = this.templates.guard.getObjectByName('guard-carapace').clone();
+    const carapace = createGuardCarapace(membraneMaps);
     carapace.traverse(part => {
       if (!part.material) return;
       part.material = part.material.clone();

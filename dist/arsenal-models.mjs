@@ -1,7 +1,7 @@
-// First-person and armory models for every weapon. The carbine comes from carbine.mjs; the Lancet
-// sniper rifle, Burst Scattergun, Phage rocket launcher and Sting pistol are built here, each with
-// three variants of every part slot, plus skins, side decals, receiver stickers and hanging charms
-// for all five.
+// First-person and armory models for every weapon. Each weapon's body is a Blender model
+// (dist/assets/weapons); this file mounts the three variants of every part slot on it, plus
+// skins, side decals, receiver stickers and hanging charms. The carbine's slot parts and the
+// gloves come from carbine.mjs.
 import * as THREE from './vendor/three.module.js';
 import { ACCENT_COLORS, FINISH_COLORS, createCarbine, finishTexture } from './carbine.mjs';
 import {
@@ -13,11 +13,10 @@ import {
   decalTexture, dressShell, ensureWeathering, makeSkinnable, makeWeathered, setWeatheringAtlas,
 } from './weapon-skins.mjs';
 
-// Blender-modelled bodies (tools/weapons/build_weapons.py) replace the procedural ones once
-// loaded. Each GLB has a `body` node and a `bolt` node for the moving part, with materials
-// named after the kit roles below, and a second UV layer into the weapon's baked
-// occlusion and edge-wear atlas. The procedural weapon stands in until then, or if a
-// model fails to load.
+// Weapon bodies are Blender models (tools/weapons/build_weapons.py), added once loaded; the
+// game waits for them before it shows a weapon. Each GLB has a `body` node and a `bolt` node
+// for the moving part, with materials named after the kit roles below, and a second UV layer
+// into the weapon's baked occlusion and edge-wear atlas.
 const MODELLED = ['carbine', 'sniper', 'shotgun', 'launcher', 'pistol'];
 let weaponModels = new Map();
 export const weaponModelsReady = typeof document === 'undefined' ? Promise.resolve(weaponModels)
@@ -36,7 +35,7 @@ export const weaponModelsReady = typeof document === 'undefined' ? Promise.resol
       gltf.scene.userData.weatheringAtlas = atlas;
       return [kind, gltf.scene];
     }, error => {
-      console.warn('Could not load the ' + kind + ' model; keeping the procedural weapon', error);
+      console.warn('Could not load the ' + kind + ' model; showing its parts only', error);
       return [kind, null];
     })))
     .then(entries => (weaponModels = new Map(entries.filter(([, scene]) => scene))));
@@ -327,58 +326,11 @@ function addSlotParts(root, kit, spec) {
   };
 }
 
-function pistolGrip(kit, root, { y = -.088, z = .047, height = .132, angle = -.32, width = .082 } = {}) {
-  const { panel } = builder(root);
-  panel(width, height, .092, .013, kit.dark, 0, y, z, root).rotation.x = angle;
-  // Textured rubber grip panels on both sides.
-  for (const side of [-1, 1]) {
-    panel(.003, height * .72, .066, .001, kit.rubber, side * (width / 2 + .0008), y - .004, z + .004, root).rotation.x = angle;
-  }
-  panel(.034, .016, .114, .004, kit.steel, 0, -.123, -.057, root);
-  panel(.034, .047, .015, .004, kit.steel, 0, -.106, -.112, root);
-  const trigger = panel(.015, .046, .012, .003, kit.steel, 0, -.082, -.02, root);
-  trigger.rotation.x = .3;
-}
-
 function buildSniper(kit) {
   const root = new THREE.Group();
   const { panel, tube, lathe, mesh, group } = builder(root);
-  panel(.11, .1, .36, .012, kit.dark, 0, 0, -.12);
-  panel(.12, .06, .25, .012, kit.shell, 0, .02, .03);
-  panel(.118, .088, .34, .014, kit.shell, 0, .0, -.46);
-  for (let i = 0; i < 6; i++) panel(.122, .012, .02, .004, kit.dark, 0, -.02, -.36 - i * .045);
-  panel(.08, .018, .5, .004, kit.dark, 0, .058, -.24);
-  for (let i = 0; i < 18; i++) panel(.086, .01, .012, .002, kit.steel, 0, .07, -.47 + i * .026);
-  // Skeleton stock with cheek riser and butt pad.
-  panel(.07, .03, .3, .008, kit.shell, 0, .035, .27);
-  panel(.06, .03, .26, .008, kit.shell, 0, -.07, .29).rotation.x = -.16;
-  panel(.06, .14, .03, .008, kit.dark, 0, -.02, .42);
-  panel(.075, .16, .025, .01, kit.rubber, 0, -.02, .445);
-  panel(.077, .162, .004, .001, kit.edge, 0, -.02, .4325);
-  panel(.05, .03, .12, .008, kit.accent, 0, .062, .26);
-  // Bolt shroud and cocking piece behind the action, and a flared magazine well.
-  tube(.02, .045, kit.steel, 0, .02, .082);
-  tube(.008, .016, kit.dark, 0, .02, .11);
-  panel(.072, .022, .105, .004, kit.dark, 0, -.052, -.17);
-  // Cheek riser knobs, QD sling cups and M-LOK slots along the handguard.
-  const crossbolt = (radius, length, material, x, y, z) => {
-    mesh(new THREE.CylinderGeometry(radius, radius, length, 16), material, x, y, z).rotation.z = Math.PI / 2;
-  };
-  for (const z of [.2, .34]) crossbolt(.007, .008, kit.edge, -.038, .035, z);
-  crossbolt(.009, .004, kit.edge, -.0605, -.025, -.6);
-  crossbolt(.009, .004, kit.edge, -.032, -.075, .37);
-  for (let i = 0; i < 5; i++) panel(.002, .007, .026, .001, kit.dark, -.0595, -.034, -.36 - i * .05);
-  pistolGrip(kit, root);
-  // Folded bipod under the handguard.
-  for (const side of [-1, 1]) {
-    const leg = tube(.006, .26, kit.steel, side * .03, -.06, -.5, root, 10);
-    leg.rotation.z = side * .05;
-    mesh(new THREE.SphereGeometry(.009, 10, 8), kit.rubber, side * .03, -.06, -.37);
-  }
+  // The body and the bolt are the Blender model, swapped in once loaded.
   const bolt = group();
-  const handle = tube(.006, .085, kit.steel, .085, .02, -.02, bolt, 10);
-  handle.rotation.set(0, 0, Math.PI / 2);
-  mesh(new THREE.SphereGeometry(.014, 14, 10), kit.dark, .13, .02, -.02, bolt);
   const slots = addSlotParts(root, kit, {
     barrel: { start: -.29, length: .62, radius: .017, y: .02, fluted: true, muzzleScale: 1.1 },
     optic: { y: .075, z: -.15, width: .07, length: .2, scale: 1.25, scopeLift: .072, reflexLift: .045 },
@@ -414,32 +366,8 @@ function buildSniper(kit) {
 function buildShotgun(kit) {
   const root = new THREE.Group();
   const { panel, tube, mesh, group } = builder(root);
-  panel(.125, .115, .31, .013, kit.dark, 0, 0, -.1);
-  panel(.13, .05, .2, .012, kit.shell, 0, .035, -.05);
-  // Side saddle with spare shells.
-  for (let i = 0; i < 5; i++) {
-    tube(.011, .045, kit.shellCasing, -.07, -.005, -.17 + i * .026, root, 12).rotation.set(Math.PI / 2, 0, 0);
-    tube(.0115, .01, kit.brass, -.07, -.03, -.17 + i * .026, root, 12).rotation.set(Math.PI / 2, 0, 0);
-  }
-  panel(.012, .03, .15, .003, kit.steel, -.064, -.005, -.12);
-  tube(.018, .38, kit.steel, 0, -.038, -.45);
-  tube(.02, .012, kit.edge, 0, -.038, -.64);
+  // The body and the bolt are the Blender model, swapped in once loaded.
   const bolt = group();
-  panel(.086, .072, .21, .016, kit.shell, 0, -.04, -.42, bolt);
-  for (let i = 0; i < 6; i++) panel(.09, .012, .012, .004, kit.rubber, 0, -.04, -.5 + i * .032, bolt);
-  // Action bars run from the pump back into the receiver.
-  for (const side of [-1, 1]) tube(.0032, .09, kit.steel, side * .032, -.02, -.29, bolt, 10);
-  panel(.05, .07, .02, .006, kit.dark, 0, -.008, -.6);
-  panel(.08, .14, .26, .02, kit.shell, 0, -.04, .22);
-  panel(.085, .15, .025, .012, kit.rubber, 0, -.04, .36);
-  panel(.082, .146, .004, .001, kit.edge, 0, -.04, .349);
-  // Milled flats along the receiver, a cross-bolt safety and a stock sling swivel.
-  for (const y of [.02, -.04]) panel(.003, .006, .27, .001, kit.edge, -.0626, y, -.1);
-  mesh(new THREE.CylinderGeometry(.005, .005, .09, 14), kit.shellCasing, 0, -.07, .005).rotation.z = Math.PI / 2;
-  mesh(new THREE.CylinderGeometry(.004, .004, .012, 10), kit.steel, 0, -.114, .3);
-  mesh(new THREE.TorusGeometry(.009, .0022, 8, 18), kit.steel, 0, -.126, .3).rotation.y = Math.PI / 2;
-  panel(.04, .012, .2, .003, kit.accent, 0, .04, .2);
-  pistolGrip(kit, root);
   const slots = addSlotParts(root, kit, {
     barrel: { start: -.25, length: .48, radius: .024, y: .022, muzzleScale: 1 },
     optic: { y: .058, z: -.12, width: .08, length: .18, scale: 1, scopeLift: .05, reflexLift: .03 },
@@ -466,41 +394,8 @@ function buildLauncher(kit) {
   const root = new THREE.Group();
   const { panel, tube, cone, mesh, group } = builder(root);
   const y = .045;
-  tube(.066, .82, kit.shell, 0, y, -.18);
-  tube(.07, .05, kit.dark, 0, y, .21);
-  cone(.07, .095, .13, kit.dark, 0, y, .3);
-  for (const z of [-.5, -.02, .12]) tube(.071, .018, kit.dark, 0, y, z);
-  for (let i = 0; i < 6; i++) panel(.02, .006, .05, .002, i % 2 ? kit.rubber : kit.accent, -.066, y + .03, -.42 + i * .05);
-  // Warning stripes along the top and a heat shield on the right.
-  for (let i = 0; i < 5; i++) {
-    const stripe = panel(.04, .004, .02, .001, i % 2 ? kit.rubber : kit.shellCasing, 0, y + .068, -.32 + i * .03);
-    stripe.rotation.y = .5;
-  }
-  panel(.02, .1, .3, .006, kit.dark, .07, y, -.25);
-  for (let i = 0; i < 6; i++) panel(.008, .09, .01, .002, kit.steel, .082, y, -.37 + i * .045);
-  // Carry handle, shoulder rest, sling loop and bolted tube bands.
-  const handle = mesh(new THREE.TorusGeometry(.04, .0065, 10, 24, Math.PI), kit.dark, 0, y + .066, .03);
-  handle.rotation.y = Math.PI / 2;
-  for (const dz of [-.04, .04]) panel(.02, .012, .016, .003, kit.dark, 0, y + .068, .03 + dz);
-  panel(.06, .03, .1, .01, kit.rubber, 0, y - .08, .17);
-  mesh(new THREE.TorusGeometry(.01, .0024, 8, 18), kit.steel, 0, y - .078, -.45).rotation.y = Math.PI / 2;
-  for (const z of [-.5, -.02, .12]) {
-    for (const angle of [.5, -.5]) {
-      const screw = mesh(new THREE.CylinderGeometry(.004, .004, .004, 10), kit.edge,
-        -Math.cos(angle) * .072, y + Math.sin(angle) * .072, z);
-      screw.rotation.z = Math.PI / 2 - angle;
-    }
-  }
-  // The venturi's inner ring and a dark throat, so the tube doesn't look hollow.
-  mesh(new THREE.TorusGeometry(.088, .005, 8, 36), kit.dark, 0, y, .362);
-  mesh(new THREE.CircleGeometry(.07, 28), kit.rubber, 0, y, .32);
-  // Front vertical grip and rear pistol grip.
-  panel(.04, .11, .045, .01, kit.dark, 0, -.06, -.33).rotation.x = .15;
-  panel(.045, .02, .06, .005, kit.steel, 0, -.015, -.33);
-  pistolGrip(kit, root);
-  panel(.05, .05, .12, .01, kit.dark, 0, -.02, -.02);
+  // The body and the bolt are the Blender model, swapped in once loaded.
   const bolt = group();
-  panel(.03, .02, .05, .004, kit.edge, .055, y + .05, .1, bolt);
   const slots = addSlotParts(root, kit, {
     barrel: { start: -.59, length: .14, radius: .068, y, muzzleScale: .8 },
     optic: { y: y + .062, z: -.16, width: .06, length: .14, scale: 1.1, scopeLift: .05, reflexLift: .032 },
@@ -535,37 +430,8 @@ function buildLauncher(kit) {
 function buildPistol(kit) {
   const root = new THREE.Group();
   const { panel, tube, group } = builder(root);
+  // The body and the bolt are the Blender model, swapped in once loaded.
   const bolt = group();
-  panel(.05, .046, .25, .008, kit.shell, 0, .035, -.07, bolt);
-  // Rear and forward slide serrations.
-  for (let i = 0; i < 9; i++) panel(.0515, .028, .0024, .0008, kit.dark, 0, .034, .016 + i * .0042, bolt);
-  for (let i = 0; i < 5; i++) panel(.0515, .022, .0024, .0008, kit.dark, 0, .031, -.172 + i * .0042, bolt);
-  panel(.04, .008, .1, .002, kit.accent, 0, .059, -.1, bolt);
-  // Ejection port with the barrel hood showing through, and three-dot sights.
-  panel(.03, .003, .042, .001, kit.dark, 0, .0585, -.026, bolt);
-  panel(.021, .003, .034, .001, kit.steel, 0, .0595, -.026, bolt);
-  panel(.005, .009, .008, .0015, kit.dark, 0, .0625, -.186, bolt);
-  for (const side of [-1, 1]) panel(.011, .009, .008, .0015, kit.dark, side * .0115, .0625, .049, bolt);
-  panel(.044, .036, .22, .008, kit.dark, 0, -.002, -.06);
-  // Slide stop, takedown lever and magazine release on the left of the frame.
-  panel(.003, .006, .034, .001, kit.steel, -.0233, .013, -.074);
-  panel(.003, .007, .012, .001, kit.steel, -.0233, .006, -.116);
-  panel(.004, .01, .01, .002, kit.steel, -.0234, -.011, -.004);
-  // Accessory rail under the dust cover, beavertail and recoil spring plug.
-  panel(.03, .006, .08, .002, kit.dark, 0, -.022, -.13);
-  for (let i = 0; i < 3; i++) panel(.032, .003, .006, .001, kit.steel, 0, -.0245, -.155 + i * .022);
-  panel(.04, .01, .03, .004, kit.dark, 0, .007, .062).rotation.x = .5;
-  tube(.007, .008, kit.steel, 0, .007, -.172);
-  for (const side of [-1, 1]) {
-    panel(.003, .09, .052, .001, kit.rubber, side * .0235, -.08, .047).rotation.x = -.24;
-  }
-  panel(.046, .13, .075, .012, kit.dark, 0, -.078, .045).rotation.x = -.24;
-  for (let i = 0; i < 5; i++) panel(.048, .006, .06, .002, kit.rubber, 0, -.05 - i * .022, .046 + i * .005).rotation.x = -.24;
-  panel(.03, .012, .07, .003, kit.steel, 0, -.035, -.045);
-  panel(.03, .03, .01, .003, kit.steel, 0, -.03, -.08);
-  const trigger = panel(.012, .03, .01, .003, kit.steel, 0, -.03, -.03);
-  trigger.rotation.x = .3;
-  tube(.014, .02, kit.steel, 0, .028, -.2);
   const slots = addSlotParts(root, kit, {
     barrel: { start: -.18, length: .03, radius: .012, y: .028, muzzleScale: 1 },
     optic: { y: .058, z: -.02, width: .045, length: .08, scale: .62, scopeLift: .028, reflexLift: .018 },
@@ -1035,7 +901,7 @@ export function createArsenalView({ showHands = true } = {}) {
   makeSkinnable(carbine.shell);
   for (const [role, material] of Object.entries(carbine.materials)) makeWeathered(material, role);
   const carbinePolymer = carbine.shell.map;
-  // Swaps in the modelled bodies: the procedural meshes hide, slot parts and mounts stay.
+  // Adds the modelled bodies around the slot parts and mounts.
   let modelled = false;
   const useModels = models => {
     if (modelled || !models.size) return;

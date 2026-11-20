@@ -151,15 +151,6 @@ export function createCarbine({ showHands = true } = {}) {
     return part;
   }
 
-  panel(.143,.107,.52,.013,dark,0,0,-.17);
-  panel(.155,.11,.29,.012,metal,0,.02,-.045);
-  panel(.141,.078,.24,.013,dark,0,-.035,.207);
-  panel(.149,.117,.047,.016,rubber,0,-.059,.326).rotation.x = -.12;
-  panel(.16,.066,.29,.013,ivory,0,.023,.115);
-  panel(.113,.027,.18,.008,dark,0,.058,.16);
-  panel(.094,.015,.144,.005,rubber,0,.071,.169);
-  for (let i = 0; i < 6; i++) panel(.088,.003,.004,.001,metal,0,.078,.111 + i * .022);
-  panel(.104,.077,.266,.011,dark,0,-.012,-.399);
   const slotParts = { barrel: {}, muzzle: {}, optic: {}, receiver: {}, magazine: {} };
   const barrelSockets = { standard: -.707, 'heavy-barrel': -.797, 'short-barrel': -.612 };
   const muzzleTips = { standard: -.080, compensator: -.076, 'flash-hider': -.089 };
@@ -188,43 +179,18 @@ export function createCarbine({ showHands = true } = {}) {
   aperture.scale.z = .6;
   for (let i = 0; i < 4; i++) tube(.032,.004,dark,0,.025,-.020+i*.009,factoryMuzzle);
 
-  const ventCutouts = [];
-  for (let i = 0; i < 5; i++) {
-    const z = -.516 + i * .043;
-    ventCutouts.push([[z,.016],[z+.025,.016],[z+.030,.038],[z+.006,.038]]);
-  }
+  // The body and the moving bolt are the Blender model (dist/assets/weapons/carbine.glb),
+  // swapped in by arsenal-models.mjs; this file builds the slot parts, mounts and gloves.
   const bolt = new THREE.Group();
   model.add(bolt);
-  panel(.119,.036,.12,.004,dark,.015,.055,-.052,bolt);
-  panel(.079,.016,.087,.003,metal,.009,.075,-.048,bolt);
-  panel(.020,.016,.041,.004,edge,-.065,.057,-.069,bolt);
-  panel(.013,.019,.019,.003,dark,-.080,.056,-.069,bolt);
 
   const screw = new THREE.CylinderGeometry(.010,.010,.009,12);
   const factoryReceiver = attachment('receiver', 'standard');
   for (const sign of [-1,1]) {
     sidePlate([[-.097, -.011], [-.047, -.027], [.098, -.027], [.142, -.006], [.124, .04], [-.077, .046]],
       .01, ivory, sign < 0 ? -.078 : .088, [], factoryReceiver);
-    sidePlate([[-.557,-.043],[-.541,.044],[-.511,.058],[-.298,.055],[-.26,.026],[-.284,-.045]],
-      .012,metal,sign < 0 ? -.065 : .077,ventCutouts);
-    sidePlate([[-.536,-.042],[-.5,-.062],[-.329,-.06],[-.303,-.04]],
-      .009,ivory,sign < 0 ? -.069 : .078);
-    panel(.014,.045,.19,.005,dark,.073*sign,-.009,-.226);
-    tube(.011,.144,cellGlass,.091*sign,-.002,-.222);
-    tube(.006,.138,green,.091*sign,-.002,-.222);
-    for (const z of [-.288,-.263,-.178,-.154]) tube(.014,.009,metal,.091*sign,-.002,z);
-    for(const z of [-.32,-.145,.102]) {
-      const fastener=mesh(screw,edge,.094*sign,.032,z);
-      fastener.rotation.z = Math.PI / 2;
-      panel(.002,.002,.011,.0004,dark,.100 * sign,.032,z);
-    }
-    for (let i = 0; i < 3; i++) panel(.006,.004,.014,.001,green,.093*sign,.035,.032+i*.019);
-    panel(.012,.012,.073,.002,dark,.093*sign,.019,.06);
-    panel(.014,.011,.022,.002,metal,.1*sign,.021,.084);
   }
 
-  panel(.079,.020,.48,.004,dark,0,.073,-.254);
-  for (let i = 0; i < 15; i++) panel(.086,.012,.014,.0028,metal,0,.086,-.504+i*.024);
   const factorySight = attachment('optic', 'standard');
   panel(.104,.024,.112,.006,dark,0,.102,-.115,factorySight);
   const optic = contour(new THREE.Shape(), [
@@ -399,13 +365,8 @@ export function createCarbine({ showHands = true } = {}) {
   }
   const magazineGrip = magazineGrips.standard.clone();
 
-  panel(.082,.132,.092,.013,dark,0,-.088,.047).rotation.x=-.32;
-  panel(.034,.016,.114,.004,metal,0,-.123,-.057);
-  panel(.034,.047,.015,.004,metal,0,-.106,-.112);
-  const trigger = panel(.015,.046,.012,.003,metal,0,-.082,-.02);
-  trigger.rotation.x = .3;
 
-  // Everything added so far is the carbine itself; the gloves, sleeves and muzzle follow.
+  // Everything added so far belongs to the carbine; the gloves, sleeves and muzzle follow.
   const bodyParts = [...model.children];
 
   const gloveGeometry = new THREE.SphereGeometry(1,22,16);
@@ -490,7 +451,6 @@ export function createCarbine({ showHands = true } = {}) {
 
   function poseHands(reach, recoil) {
     for (const gloveFinger of supportingFingers) gloveFinger.rotation.z = -.22 * Math.sin(reach * Math.PI);
-    trigger.rotation.x = .3 + recoil * .19;
     indexFinger.rotation.x = -recoil * .11;
     updateSupportSleeve();
   }
@@ -546,7 +506,7 @@ export function createCarbine({ showHands = true } = {}) {
     for (const part of bodyParts) part.visible = visible && !part.userData.replaced && (!part.name || slotVisible(part));
   }
 
-  // Swaps the procedural body and bolt for modelled ones; slot parts, sights and gloves stay.
+  // Adds the modelled body and bolt around the slot parts, sights and gloves.
   function replaceBody(modelled, modelledBolt) {
     for (const part of bodyParts) {
       if (!part.isMesh) continue;

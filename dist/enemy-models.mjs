@@ -8,7 +8,7 @@ import { MeshoptDecoder } from './vendor/meshopt_decoder.mjs';
 // renderer's attack glow lights the whole organism through its emissive map.
 // Its Idle clip loops the Breathe and SwayA-C morph targets; the renderer
 // drives the Clench target from each attack windup. Until a model arrives, or
-// if it fails to load, the procedural organism in world.mjs stands in.
+// if it fails to load, world.mjs shows a plain placeholder.
 export const ENEMY_MODELS = Object.freeze({
   virus: { size: .9, glow: 0x4a160c },
   spore: { size: .82, glow: 0x3c1240 },
@@ -61,7 +61,7 @@ export function loadEnemyModel(type) {
     loads.set(type, new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(url)
       .then(gltf => prepare(type, gltf))
       .catch(error => {
-        console.warn('Could not load the ' + type + ' model; showing the procedural stand-in', error);
+        console.warn('Could not load the ' + type + ' model; showing a placeholder', error);
         return null;
       }));
   }
