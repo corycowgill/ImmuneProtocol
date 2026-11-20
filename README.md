@@ -46,8 +46,10 @@ Every weapon spreads its shots in a cone. Aiming down sights (hold right click o
 The **Armory** shows both carried weapons at the top. Pick which one to customize, then mix its barrel, muzzle, optic, receiver, and magazine. Each slot has three options with their own 3D parts on every weapon. Parts change damage, fire rate, spread, zoom, capacity, and reload speed, scaled to each weapon. The armory compares each option against the equipped build and shows the weapon in 3D. Each weapon also has its own cosmetics:
 
 - **Body finish** and **accent color**.
-- **Stickers** printed on the receiver: Biohazard, Happy virus, Voltage, Big heart, Pathogen skull, Gold star, or the Hallucinated crest.
-- **Charms** that dangle and swing from the weapon and buff it while it's in your hands:
+- **Skins** that wrap the polymer furniture in a pattern: Tiger, Zebra, Winter camo, Woodland camo, Urban digital, Carbon fiber, and the glowing Cyberpunk and Molten core. The body finish still colors the metal.
+- **Decals** printed along the side: Racing stripes, Hot rod flames, Kill tally, Hazard chevrons, Circuit traces, Barcode, Unit 07, or Paint splatter. On the Phage Launcher they wrap around the tube.
+- **Stickers** printed on the receiver: Biohazard, Happy virus, Voltage, Big heart, Pathogen skull, Gold star, Hallucinated crest, Double helix, Antibody, Hot shot, Snowflake, Tiger paw, Crosshair, Lab cat, Pizza slice, Rainbow, or Peace.
+- **Charms** that dangle and swing beside your support hand and buff the weapon while it's in your hands:
 
 | Charm | Buff | Effect |
 | --- | --- | --- |
@@ -57,6 +59,14 @@ The **Armory** shows both carried weapons at the top. Pick which one to customiz
 | Flagellum feather | Movement speed | +8% move speed |
 | Steady eye | Accuracy | 30% tighter spread |
 | Ration capsule | Capacity | 25% larger magazines |
+| Gambler's die | Fortune | Critical hit zones 18% larger, +4% damage |
+| Antibody | Precision | +6% damage, 10% tighter spread |
+| Frost crystal | Composure | Reloads 10% faster, 12% tighter spread |
+| Heart locket | Agility | +5% move speed, swaps 20% faster |
+| Tiger claw | Ferocity | +7% damage, critical zones 10% larger |
+| Berserker skull | Fury | +15% damage, but 12% wider spread |
+| Spare cell | Endurance | 15% larger magazines, reloads 8% faster |
+| Shooting star | All-rounder | +3% damage, 5% faster reloads, +3% move speed, 5% tighter spread |
 
 Builds for all five weapons are saved in the browser and work alongside your field upgrade. Older saved carbine builds carry over. Every weapon has unlimited reserve ammunition. The armory reopens between waves, and changes there keep the weapon you have in hand. Missions start with the primary. First-time Arterial Junction training uses the stock carbine until the guided breach is sealed. In online co-op each player brings their own two weapons; teammates see your shots, rockets, and explosions.
 
