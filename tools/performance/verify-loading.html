@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Immune Protocol loading verification</title></head><body style="background:#171018;color:#daf5bd;font:15px monospace"><h1>Loading and rendering verification</h1><p id="status">Preparing all arenasâ€¦</p><pre id="report"></pre><canvas id="world" style="width:800px;height:450px"></canvas><script type="module">
+import { World } from './world.mjs';
+import { Simulation, SPECIES } from './simulation.mjs';
+import { CAMPAIGN_AREAS } from './coop-protocol.mjs';
+import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, loadoutWithWeapon } from './weapon-mods.mjs';
+const status = document.querySelector('#status'), report = document.querySelector('#report');
+const rows = [];
+const output = value => { rows.push(value); report.textContent = rows.join('\n'); };
+const paint = () => new Promise(requestAnimationFrame);
+try {
+  const world = new World(document.querySelector('#world'));
+  const start = performance.now();
+  await world.prepareAll(CAMPAIGN_AREAS, (done,total,label) => status.textContent = `${done}/${total}: ${label}`);
+  const loaded = performance.now();
+  output(`All-arena preparation: ${Math.round(loaded-start)} ms`);
+  const resourceMark = performance.getEntriesByType('resource').length;
+  for (const [index, area] of CAMPAIGN_AREAS.entries()) {
+    const weapon = WEAPON_ORDER[index % WEAPON_ORDER.length];
+    let loadout = loadoutWithWeapon(DEFAULT_WEAPON_LOADOUT, 'primary', weapon);
+    loadout = { ...loadout, skin: 'cyberpunk', decal: 'hazard', sticker: 'biohazard', charm: 'skull' };
+    const sim = new Simulation(area, { weaponLoadout: loadout, bossPractice: area === 'brain' });
+    const begin = performance.now();
+    await world.prepareMission(sim, (_value,label) => status.textContent = area + ': ' + label);
+    if (sim.clock !== 0) throw new Error('Preparation advanced the live simulation');
+    sim.start();
+    const p = sim.player;
+    for (const [offset, type] of Object.keys(SPECIES).filter(type => type !== 'colony').entries()) {
+      sim.enemies.push(sim.createEnemy(type, p.x - 8 + offset * 1.5, p.z - 10));
+    }
+    const before = performance.now();
+    const times=[];
+    for (let frame=0; frame<90; frame++) {
+      await paint();
+      if (frame % 15 === 0) world.explosions.explode(p.x,1,p.z-6,5);
+      const at=performance.now();
+      world.render(sim,1/60,{ moveX:0,moveZ:0,lookX:0,lookY:0,aim:frame>45 },false);
+      times.push(performance.now()-at);
+    }
+    times.sort((a,b)=>a-b);
+    const fps=90*1000/(performance.now()-before);
+    const metrics=world.renderer.info;
+    output(`${area}: gate ${Math.round(before-begin)}ms; render CPU p95 ${times[85].toFixed(1)}ms; observed ${fps.toFixed(0)}fps; GPU resources ${metrics.memory.geometries} geometries / ${metrics.memory.textures} textures; ${metrics.programs.length} programs`);
+  }
+  const late = performance.getEntriesByType('resource').slice(resourceMark).filter(entry => /\/assets\//.test(entry.name));
+  output('Asset requests after upfront renderer preparation: ' + late.length);
+  if (late.length) throw new Error('Unexpected later downloads: '+late.map(e=>e.name).join(', '));
+  status.textContent='PASS: all ten arenas, all weapons, boss encounter, no late asset requests';
+} catch(error) { status.textContent = 'FAIL: '+error.message; console.error(error); }
+</script></body></html>

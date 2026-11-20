@@ -19,11 +19,6 @@ export function attachLobby(client) {
   const stockRoster = document.getElementById('coop-roster');
   if (!lobby || !dialog || !stockRoster) return;
 
-  const style = document.createElement('link');
-  style.rel = 'stylesheet';
-  style.href = new URL('./coop-suits.css', import.meta.url).href;
-  document.head.append(style);
-
   const bayFrame = element('div', 'coop-bay');
   const canvas = element('canvas');
   canvas.setAttribute('aria-hidden', 'true');
@@ -81,7 +76,7 @@ export function attachLobby(client) {
     if (!ensureBay()) return;
     if (!modelsRequested) {
       modelsRequested = true;
-      // Redraw the cards once the textured Blender models have streamed in.
+      // Startup has already decoded every suit; reuse those models for portraits.
       loadSuitModels().then(drawPortraits);
     }
     if (portraitVersion === suitModelVersion()) return;
@@ -154,4 +149,13 @@ export function attachLobby(client) {
   const watcher = new MutationObserver(sync);
   watcher.observe(lobby, { attributes: true, attributeFilter: ['hidden'] });
   watcher.observe(dialog, { attributes: true, attributeFilter: ['open'] });
+  return {
+    async prepare() {
+      await loadSuitModels();
+      if (!ensureBay()) throw new Error('Could not prepare the miniaturization lab renderer');
+      await bay.prepare();
+      drawPortraits();
+      await Promise.all(buttons.map(button => button.querySelector('img').decode()));
+    },
+  };
 }

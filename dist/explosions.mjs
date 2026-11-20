@@ -59,6 +59,28 @@ export class ExplosionFX {
       this.lights.push(light);
     }
     this.rocketGeometry = this.createRocketGeometry();
+    // Fixed pools retain GPU resources between effects. A saturated pool drops only
+    // decorative visuals; combat and damage remain authoritative in the simulation.
+    this.spritePool = Array.from({ length: 224 }, () => {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.smoke, transparent: true, depthWrite: false }));
+      sprite.visible = false;
+      scene.add(sprite);
+      return { sprite };
+    });
+    const ringGeometry = new THREE.PlaneGeometry(1, 1);
+    this.ringPool = Array.from({ length: 16 }, () => {
+      const ring = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({ map: this.ringTexture, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+      ring.rotation.x = -Math.PI / 2;
+      ring.visible = false;
+      scene.add(ring);
+      return { ring };
+    });
+    this.rocketPool = Array.from({ length: 12 }, () => {
+      const model = this.rocketGeometry.clone();
+      model.visible = false;
+      scene.add(model);
+      return { model, start: new THREE.Vector3(), end: new THREE.Vector3() };
+    });
   }
 
   createRocketGeometry() {
@@ -88,27 +110,36 @@ export class ExplosionFX {
   }
 
   sprite(map, { x, y, z }, options) {
-    const material = new THREE.SpriteMaterial({
-      map, color: options.color ?? 0xffffff, transparent: true, depthWrite: false,
-      blending: options.additive ? THREE.AdditiveBlending : THREE.NormalBlending, opacity: options.opacity ?? 1,
-      rotation: Math.random() * Math.PI * 2,
-    });
-    const sprite = new THREE.Sprite(material);
+    const item = this.spritePool.pop();
+    if (!item) return null;
+    const { sprite } = item;
+    const material = sprite.material;
+    material.map = map;
+    material.color.set(options.color ?? 0xffffff);
+    material.blending = options.additive ? THREE.AdditiveBlending : THREE.NormalBlending;
+    material.opacity = options.opacity ?? 1;
+    material.rotation = Math.random() * Math.PI * 2;
+    sprite.visible = true;
     sprite.position.set(x, y, z);
     sprite.scale.setScalar(options.size);
-    this.scene.add(sprite);
-    this.sprites.push({ sprite, life: options.life, remaining: options.life, ...options });
+    Object.assign(item, { delay: 0, fadeIn: 0, cool: false, vx: undefined, vy: 0, vz: 0, additive: false, opacity: 1, grow: 0 }, options, { life: options.life, remaining: options.life });
+    this.sprites.push(item);
     return sprite;
   }
 
   // A rocket that flies from `start` to `end` over `travel` seconds, trailing smoke.
   launch(start, end, travel, reduceMotion) {
-    const model = this.rocketGeometry.clone();
+    const item = this.rocketPool.pop();
+    if (!item) return;
+    const { model } = item;
+    model.visible = true;
     model.position.copy(start);
     model.lookAt(end);
     model.rotateY(Math.PI);
-    this.scene.add(model);
-    this.rockets.push({ model, start: start.clone(), end: end.clone(), travel: Math.max(.03, travel), elapsed: 0, puff: 0, reduceMotion });
+    item.start.copy(start);
+    item.end.copy(end);
+    Object.assign(item, { travel: Math.max(.03, travel), elapsed: 0, puff: 0, reduceMotion });
+    this.rockets.push(item);
   }
 
   explode(x, y, z, radius = 5, reduceMotion = false) {
@@ -135,13 +166,15 @@ export class ExplosionFX {
         vx: Math.cos(angle) * .9, vy: 1.1 + Math.random() * 1.3, vz: Math.sin(angle) * .9,
       });
     }
-    const ring = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
-      map: this.ringTexture, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    }));
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.set(x, this.floorHeight(x, z) + .06, z);
-    this.scene.add(ring);
-    this.rings.push({ ring, life: .45, remaining: .45, size: radius * 2.8 });
+    const item = this.ringPool.pop();
+    if (item) {
+      item.ring.position.set(x, this.floorHeight(x, z) + .06, z);
+      item.ring.scale.setScalar(.5);
+      item.ring.material.opacity = 1;
+      item.ring.visible = true;
+      Object.assign(item, { life: .45, remaining: .45, size: radius * 2.8 });
+      this.rings.push(item);
+    }
     const light = this.lights.reduce((low, item) => (item.userData.remaining < low.userData.remaining ? item : low));
     light.position.set(x, y + .6, z);
     light.userData.remaining = light.userData.life = .55;
@@ -168,7 +201,8 @@ export class ExplosionFX {
         this.sprite(this.glow, rocket.model.position, { size: .5, grow: -.6, life: .12, additive: true, color: 0xffb060 });
       }
       if (t >= 1) {
-        this.scene.remove(rocket.model);
+        rocket.model.visible = false;
+        this.rocketPool.push(rocket);
         continue;
       }
       this.rockets[count++] = rocket;
@@ -185,8 +219,8 @@ export class ExplosionFX {
       }
       item.remaining -= dt;
       if (item.remaining <= 0) {
-        this.scene.remove(item.sprite);
-        item.sprite.material.dispose();
+        item.sprite.visible = false;
+        this.spritePool.push(item);
         continue;
       }
       const age = 1 - item.remaining / item.life;
@@ -212,9 +246,8 @@ export class ExplosionFX {
     for (const item of this.rings) {
       item.remaining -= dt;
       if (item.remaining <= 0) {
-        this.scene.remove(item.ring);
-        item.ring.geometry.dispose();
-        item.ring.material.dispose();
+        item.ring.visible = false;
+        this.ringPool.push(item);
         continue;
       }
       const age = 1 - item.remaining / item.life;
@@ -240,9 +273,10 @@ export class ExplosionFX {
   }
 
   clear() {
-    for (const item of this.sprites) this.scene.remove(item.sprite);
-    for (const item of this.rings) this.scene.remove(item.ring);
-    for (const rocket of this.rockets) this.scene.remove(rocket.model);
+    for (const item of this.sprites) { item.sprite.visible = false; this.spritePool.push(item); }
+    for (const item of this.rings) { item.ring.visible = false; this.ringPool.push(item); }
+    for (const rocket of this.rockets) { rocket.model.visible = false; this.rocketPool.push(rocket); }
+    for (const light of this.lights) { light.intensity = 0; light.userData.remaining = 0; }
     this.sprites.length = this.rings.length = this.rockets.length = 0;
     this.shake = 0;
   }

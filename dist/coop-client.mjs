@@ -88,7 +88,7 @@ export class CoopClient extends EventTarget {
     this.retryUntil = 0;
     this.retryDelay = 450;
     this.resetState();
-    attachLobby(this);
+    this.lobby = attachLobby(this);
   }
 
   resetState() {

@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.js';
-import { createArsenalView, weaponModelsReady } from './arsenal-models.mjs';
+import { createArsenalView, weaponModelsReady, prepareWeaponCosmetics } from './arsenal-models.mjs';
+import { COOP_SUITS, loadSuitModels } from './suits.mjs';
 import { ExplosionFX } from './explosions.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve } from './heart-valve.mjs';
@@ -12,7 +13,7 @@ import { RENDERED_PREVIEWS } from './level-hud.mjs';
 import { createTeammate } from './teammate.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, SPECIES, TISSUE_NODES } from './simulation.mjs';
-import { animatePathogen, loadEnemyModels, pathogenMotion } from './enemy-models.mjs';
+import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion } from './enemy-models.mjs';
 
 const TAU = Math.PI * 2;
 const PRELOAD_INPUT = Object.freeze({ moveX: 0, moveZ: 0, lookX: 0, lookY: 0 });
@@ -1119,6 +1120,7 @@ export class World {
     this.palette = new THREE.Color();
     this.glow = glowTexture();
     this.enemyViews = new Map();
+    this.enemyPool = new Map();
     this.projectileViews = new Map();
     this.teammateView = createTeammate(this.glow);
     this.teammateMuzzle = new THREE.Vector3();
@@ -1284,6 +1286,15 @@ export class World {
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
+    this.tracerPool = Array.from({ length: 96 }, () => {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3).setUsage(THREE.DynamicDrawUsage));
+      const line = new THREE.Line(geometry, this.shotMaterial);
+      line.frustumCulled = false;
+      line.visible = false;
+      this.scene.add(line);
+      return { line, remaining: 0 };
+    });
     this.teammateShotMaterial = this.shotMaterial.clone();
     this.teammateShotMaterial.color.setHex(0xbcefff);
     this.turretShotMaterial = this.shotMaterial.clone();
@@ -1323,15 +1334,23 @@ export class World {
       });
     };
 
-    onProgress(0, total);
-    await Promise.all([this.textureReady, this.enemyModelsReady, weaponModelsReady]);
-    onProgress(1, total);
+    onProgress(0, total, 'Downloading and decoding weapons, pathogens, suits and sound');
+    this.warmTextures = warmTextures;
+    const [, , weapons, suits] = await Promise.all([this.textureReady, this.enemyModelsReady, weaponModelsReady, loadSuitModels()]);
+    if (weapons.size !== WEAPON_ORDER.length || this.enemyModels.size !== Object.keys(ENEMY_MODELS).length || suits.some(suit => !suit)) {
+      throw new Error('Required weapon, pathogen or suit models are missing');
+    }
+    prepareWeaponCosmetics(this.renderer);
+    onProgress(1, total, 'Uploading textures and preparing weapon shaders');
     // Prime GPU programs and texture uploads on the actual renderer using a small frame.
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(160, 90, false);
     this.renderer.initTexture(this.scene.environment);
-    this.prewarmingEnemies = true;
     try {
+      for (const shot of this.tracerPool) shot.line.visible = true;
+      await this.renderer.compileAsync(this.scene, this.camera);
+      this.renderer.render(this.scene, this.camera);
+      for (const shot of this.tracerPool) shot.line.visible = false;
       warmTextures(this.weaponScene);
       const armory = new Simulation('artery');
       armory.start();
@@ -1345,7 +1364,7 @@ export class World {
         ...Object.fromEntries(slotVariants.map(([slot, options]) => [slot, options[index] ?? 'standard'])),
       })));
       this.carbine.flash.visible = true;
-      // The world has no shadow casters. Only the weapon needs both quality variants.
+      // Prime both weapon shadow variants before preparing the arena scenes.
       for (const enabled of [!shadows, shadows]) {
         this.renderer.shadowMap.enabled = enabled;
         this.weaponKey.castShadow = enabled;
@@ -1356,7 +1375,7 @@ export class World {
         }
       }
       this.carbine.flash.visible = false;
-      onProgress(2, total);
+      onProgress(2, total, 'Building the arenas and combat effects');
       for (let index = 0; index < areas.length; index++) {
         await nextTask();
         const area = areas[index];
@@ -1372,14 +1391,13 @@ export class World {
           finale.boss.openness = 1;
           await this.prepareArea(finale, warmTextures);
         }
-        onProgress(index + 3, total);
+        onProgress(index + 3, total, 'Arena ready: ' + area.replaceAll('-', ' '));
       }
     } finally {
       this.renderer.shadowMap.enabled = this.weaponKey.castShadow = shadows;
       this.carbine.flash.visible = false;
       this.setWeaponLoadout(DEFAULT_WEAPON_LOADOUT);
       this.setArea(startArea);
-      this.prewarmingEnemies = false;
       this.resize(true);
     }
   }
@@ -1435,7 +1453,9 @@ export class World {
       impact: { x: start.x - 2, y: 1, z: start.z - 13 } };
     start.id = 'warmup-local';
     sim.players = [start, { ...start, id: 'warmup-teammate', name: 'Teammate', x: start.x - 2.2, z: start.z - 9 }];
-    sim.events = [shot, fire, { ...shot, playerId: 'warmup-teammate' }];
+    sim.events = [shot, fire, { ...shot, playerId: 'warmup-teammate' },
+      { ...shot, rocket: true, travel: .8 },
+      { type: 'explosion', x: start.x, y: 1, z: start.z - 7, radius: 5 }];
     this.render(sim, .02, PRELOAD_INPUT, false, false);
     // Keep both the healthy tissue's and recovery objective's lighting variants compiled.
     if (sim.area === 'lungs') {
@@ -1455,8 +1475,64 @@ export class World {
     sim.repairTarget = sim.nodes[0];
     sim.players[1].repairing = true;
     this.render(sim, .24, PRELOAD_INPUT, false, false);
-    warmTextures(this.scene);
+    for (const suit of COOP_SUITS) {
+      sim.players[1].suit = suit;
+      this.teammateView.update(sim.players[1], 0, 0, false);
+      warmTextures(this.scene);
+      await this.renderer.compileAsync(this.scene, this.camera);
+      this.renderer.render(this.scene, this.camera);
+    }
+    this.explosions.clear();
+  }
+
+  async prepareMission(sim, onProgress = () => {}) {
+    const nextTask = () => new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+    onProgress(5, 'Setting up the insertion site');
+    await nextTask();
+    this.setArea(sim.area);
+    // Exercise mission-specific hazards and effects without advancing the live simulation.
+    const fixture = new Simulation(sim.area, { weaponLoadout: sim.weaponLoadout, bossPractice: !!sim.boss });
+    fixture.start();
+    this.renderer.setPixelRatio(1);
+    this.renderer.setSize(160, 90, false);
+    try {
+      onProgress(20, 'Preparing pathogens, props, hazards and explosions');
+      await nextTask();
+      await this.prepareArea(fixture, this.warmTextures);
+      onProgress(65, 'Checking primary and secondary weapons');
+      for (const slot of ['primary', 'secondary']) {
+        this.setWeaponLoadout({ ...sim.weaponLoadout, slot });
+        this.carbine.flash.visible = true;
+        this.warmTextures(this.weaponScene);
+        await this.renderer.compileAsync(this.weaponScene, this.weaponCamera);
+        this.renderer.render(this.weaponScene, this.weaponCamera);
+        await nextTask();
+      }
+      onProgress(90, 'Preparing the first frame at your display resolution');
+    } finally {
+      this.carbine.flash.visible = false;
+      this.setArea(sim.area);
+      this.resize(true);
+    }
+    this.render(sim, 0, PRELOAD_INPUT, false);
     await this.renderer.compileAsync(this.scene, this.camera);
+    await this.renderer.compileAsync(this.weaponScene, this.weaponCamera);
+    // Wait for the pre-rendered frame and uploads to actually finish on the GPU.
+    const gl = this.renderer.getContext();
+    const fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (!fence) throw new Error('The graphics context could not finish preparation');
+    gl.flush();
+    try {
+      let result;
+      do {
+        await nextTask();
+        result = gl.clientWaitSync(fence, 0, 0);
+        if (result === gl.WAIT_FAILED || gl.isContextLost()) throw new Error('Graphics preparation was interrupted');
+      } while (result === gl.TIMEOUT_EXPIRED);
+    } finally {
+      gl.deleteSync(fence);
+    }
+    onProgress(100, 'Insertion site ready');
   }
 
   setWeaponLoadout(loadout) {
@@ -1541,8 +1617,8 @@ export class World {
     this.updateEnemies([], 0);
     this.updateProjectiles([], false);
     for (const shot of this.shots) {
-      this.scene.remove(shot.line);
-      shot.line.geometry.dispose();
+      shot.line.visible = false;
+      this.tracerPool.push(shot);
     }
     this.shots.length = 0;
     this.particles.length = 0;
@@ -1737,17 +1813,26 @@ export class World {
     for (const enemy of enemies) {
       let view = this.enemyViews.get(enemy.id);
       if (!view) {
+        view = this.enemyPool.get(enemy.type)?.pop();
+        if (view) {
+          view.model.visible = view.shadow.visible = true;
+          view.hit = view.strike = view.clench = 0;
+          view.phase = this.random() * TAU;
+          view.motion?.mixer?.setTime(0);
+          this.enemyViews.set(enemy.id, view);
+        }
+      }
+      if (!view) {
         const model = this.enemyTemplate(enemy.type).clone();
         const membrane = model.getObjectByName('attack-membrane');
-        // Keep the shader on the template when removing the warmup enemies.
-        const clonedMembrane = membrane && !this.prewarmingEnemies ? membrane.material.clone() : null;
+        const clonedMembrane = membrane ? membrane.material.clone() : null;
         if (clonedMembrane) membrane.material = clonedMembrane;
         this.scene.add(model);
         const shadow = new THREE.Mesh(this.shadowGeometry, this.shadowMaterial);
         shadow.rotation.x = -Math.PI / 2;
         this.scene.add(shadow);
         view = {
-          model, shadow, present: true, hit: 0, strike: 0, phase: this.random() * TAU,
+          model, shadow, type: enemy.type, present: true, hit: 0, strike: 0, phase: this.random() * TAU,
           attackMembrane: membrane?.material,
           clonedMembrane,
           membraneGlow: membrane?.material.emissive.clone(),
@@ -1762,6 +1847,8 @@ export class World {
         this.enemyViews.set(enemy.id, view);
       }
       view.present = true;
+      view.shadow.visible = true;
+      if (view.tethers) for (const tether of view.tethers) tether.visible = !!enemy.latched;
       view.model.position.set(enemy.x, enemy.y, enemy.z);
       if (enemy.type === 'colony') {
         view.hit = Math.max(0, view.hit - dt * 7);
@@ -1805,9 +1892,18 @@ export class World {
     }
     for (const [id, view] of this.enemyViews) {
       if (!view.present) {
-        this.scene.remove(view.model, view.shadow);
-        if (view.tethers) this.scene.remove(...view.tethers);
-        view.clonedMembrane?.dispose();
+        let pool = this.enemyPool.get(view.type);
+        if (!pool) this.enemyPool.set(view.type, pool = []);
+        if (pool.length < 12) {
+          view.model.visible = view.shadow.visible = false;
+          if (view.tethers) for (const tether of view.tethers) tether.visible = false;
+          pool.push(view);
+        } else {
+          this.scene.remove(view.model, view.shadow);
+          if (view.tethers) this.scene.remove(...view.tethers);
+          view.clonedMembrane?.dispose();
+          view.motion?.mixer?.uncacheRoot(view.model);
+        }
         this.enemyViews.delete(id);
       }
     }
@@ -2123,9 +2219,16 @@ export class World {
   }
 
   addTracer(start, end, material, remaining) {
-    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([start, end]), material);
-    this.scene.add(line);
-    this.shots.push({ line, remaining });
+    const shot = this.tracerPool.pop();
+    if (!shot) return;
+    const position = shot.line.geometry.attributes.position;
+    position.setXYZ(0, start.x, start.y, start.z);
+    position.setXYZ(1, end.x, end.y, end.z);
+    position.needsUpdate = true;
+    shot.line.material = material;
+    shot.line.visible = true;
+    shot.remaining = remaining;
+    this.shots.push(shot);
   }
 
   addTeammateShot(event, reduceMotion) {
@@ -2197,8 +2300,8 @@ export class World {
     for (const shot of this.shots) {
       shot.remaining -= dt;
       if (shot.remaining <= 0) {
-        this.scene.remove(shot.line);
-        shot.line.geometry.dispose();
+        shot.line.visible = false;
+        this.tracerPool.push(shot);
       } else {
         this.shots[count++] = shot;
       }

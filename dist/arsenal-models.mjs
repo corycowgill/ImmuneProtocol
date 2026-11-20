@@ -5,12 +5,12 @@
 import * as THREE from './vendor/three.module.js';
 import { ACCENT_COLORS, FINISH_COLORS, createCarbine, finishTexture } from './carbine.mjs';
 import {
-  DEFAULT_WEAPON_LOADOUT, WEAPON_CHARMS, WEAPON_DECALS, WEAPON_STICKERS, normalizeWeaponLoadout,
+  DEFAULT_WEAPON_LOADOUT, WEAPON_CHARMS, WEAPON_DECALS, WEAPON_STICKERS, WEAPON_SKINS, normalizeWeaponLoadout,
 } from './weapon-mods.mjs';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.mjs';
 import {
-  decalTexture, dressShell, ensureWeathering, makeSkinnable, makeWeathered, setWeatheringAtlas,
+  skinTexture, decalTexture, dressShell, ensureWeathering, makeSkinnable, makeWeathered, setWeatheringAtlas,
 } from './weapon-skins.mjs';
 
 // Weapon bodies are Blender models (tools/weapons/build_weapons.py), added once loaded; the
@@ -24,8 +24,7 @@ export const weaponModelsReady = typeof document === 'undefined' ? Promise.resol
     .loadAsync(new URL('./assets/weapons/' + kind + '.glb', import.meta.url).href)
     .then(async gltf => {
       const atlas = await new THREE.TextureLoader()
-        .loadAsync(new URL('./assets/weapons/' + kind + '-weathering.webp', import.meta.url).href)
-        .catch(() => null);
+        .loadAsync(new URL('./assets/weapons/' + kind + '-weathering.webp', import.meta.url).href);
       if (atlas) {
         // Blender's atlas is stored bottom-up; glTF UVs already count from the top.
         atlas.flipY = false;
@@ -39,6 +38,12 @@ export const weaponModelsReady = typeof document === 'undefined' ? Promise.resol
       return [kind, null];
     })))
     .then(entries => (weaponModels = new Map(entries.filter(([, scene]) => scene))));
+
+export function prepareWeaponCosmetics(renderer) {
+  for (const id of Object.keys(WEAPON_SKINS)) renderer.initTexture(skinTexture(id));
+  for (const id of Object.keys(WEAPON_DECALS)) renderer.initTexture(decalTexture(id));
+  for (const id of Object.keys(WEAPON_STICKERS)) renderer.initTexture(stickerTexture(id));
+}
 
 // A copy of one node of a weapon model, drawn with the given kit materials.
 function modelledNode(scene, name, materials, kind) {

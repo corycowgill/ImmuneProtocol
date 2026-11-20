@@ -8,9 +8,12 @@
   <title>Immune Protocol</title>
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="preload" as="image" href="assets/hero.webp">
+  <link rel="preload" as="image" href="assets/loading-patrol.webp">
   <link rel="modulepreload" href="world.mjs">
+  <link rel="stylesheet" href="loading.css">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="interface.css">
+  <link rel="stylesheet" href="coop-suits.css">
   <link rel="stylesheet" href="intro/intro.css" data-hg-fonts>
   <style>a.brand{color:inherit;text-decoration:none}a.brand:hover>span,a.brand:focus-visible>span{color:var(--green);text-decoration:underline;text-underline-offset:3px}</style>
   <script src="intro/hallucinated-intro.js"></script>
@@ -38,7 +41,25 @@
     <symbol id="settings-icon" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M10 3.5v5M15 9.5v5M9 15.5v5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
   </svg>
 
-  <main id="app">
+  <section id="startup-load" class="loading-screen" aria-labelledby="loading-title" aria-busy="true">
+    <div class="loading-art" aria-hidden="true"></div>
+    <header class="loading-header"><span>HG / NANO DEFENSE DIVISION</span><span id="loading-mode">SYSTEM INITIALIZATION</span></header>
+    <div class="loading-copy">
+      <p class="loading-eyebrow"><span></span> A very small operation</p>
+      <h1 id="loading-title">Small soldier.<br><em>Big problems.</em></h1>
+      <p id="loading-detail">Preparing your microscopic arsenal and the world inside the host.</p>
+    </div>
+    <div class="loading-console">
+      <div class="loading-quote"><span>DISPATCH FROM THE LAB</span><p id="loading-quote">Please keep all arms and legs inside the bloodstream.</p></div>
+      <div class="loading-readout"><span id="startup-status" role="status">Connecting to the lab</span><strong id="startup-percent" aria-hidden="true">0%</strong></div>
+      <progress id="startup-progress" aria-label="Game loading progress" value="0" max="100"></progress>
+      <ol class="loading-stages" aria-label="Preparation stages"><li>Assets</li><li>Arenas</li><li>Arsenal</li><li>Insertion</li></ol>
+      <button id="startup-retry" class="button outline" type="button" hidden>Retry loading</button>
+      <p class="loading-note">A little time in the lab. A smoother trip through the host.</p>
+    </div>
+  </section>
+  <noscript><p>Immune Protocol needs JavaScript enabled to prepare the game.</p></noscript>
+  <main id="app" inert>
     <section id="menu" class="menu" aria-label="Main menu">
       <div class="menu-art" aria-hidden="true"></div>
       <div class="menu-shade" aria-hidden="true"></div>
@@ -97,12 +118,6 @@
               <svg class="title-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
             </button>
           </nav>
-          <div id="startup-load" class="startup-load">
-            <span id="startup-status" role="status">Preparing game assets</span>
-            <span id="startup-percent" aria-hidden="true">0%</span>
-            <progress id="startup-progress" aria-label="Game loading progress" value="0" max="100"></progress>
-            <button id="startup-retry" class="button outline" type="button" hidden>Retry loading</button>
-          </div>
           <p id="menu-error" class="menu-error" role="alert" hidden></p>
           <p id="controller-menu-hint" class="controller-menu-hint" hidden><kbd>D-pad</kbd> Navigate <kbd>A</kbd> Select <kbd>B</kbd> Back</p>
           <p id="controller-audio-hint" class="controller-menu-hint" hidden>Click or press a key once to enable browser audio.</p>
@@ -756,6 +771,6 @@
       <div class="dialog-buttons"><button id="replay" class="button primary" type="button"><span id="replay-label">Redeploy</span> <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button id="return-menu" class="button outline" type="button">Main menu</button></div>
     </dialog>
   </main>
-  <script type="module" src="game.mjs"></script>
+  <script type="module" src="boot.mjs"></script>
 </body>
 </html>

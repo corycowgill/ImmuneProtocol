@@ -61,7 +61,7 @@ export function drawIntel(list, threats, area, bossPractice) {
         portrait.src = new URL('./assets/enemies/portraits/' + type + '.webp', import.meta.url).href;
         portrait.alt = '';
         portrait.decoding = 'async';
-        portrait.loading = 'lazy';
+        portrait.loading = 'eager';
         item.append(portrait);
       } else {
         item.dataset.boss = '';

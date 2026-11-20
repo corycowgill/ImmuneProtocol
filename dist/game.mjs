@@ -7,6 +7,9 @@ import {
 } from './weapon-mods.mjs';
 import { FIELD_UPGRADE_ART, prepareArmoryArt } from './armory-art.mjs';
 import { World } from './world.mjs';
+import { loadingScreen, paintLoading } from './loading-screen.mjs';
+import { loadLab } from './coop-lobby-bay.mjs';
+import { ENEMY_MODELS } from './enemy-models.mjs';
 import { GameAudio } from './audio.mjs';
 import { CoopClient, PUBLIC_COOP_ORIGIN, savedCoopSession, verifyCoopHost } from './coop-client.mjs';
 import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from './coop-protocol.mjs';
@@ -28,11 +31,6 @@ const deploy = byId('deploy');
 const newCampaignButton = byId('new-campaign');
 const newCampaignDialog = byId('new-campaign-dialog');
 const newCampaignDetail = byId('new-campaign-detail');
-const startupLoad = byId('startup-load');
-const startupStatus = byId('startup-status');
-const startupProgress = byId('startup-progress');
-const startupPercent = byId('startup-percent');
-const startupRetry = byId('startup-retry');
 const coopOpen = byId('coop-open');
 const coopDialog = byId('coop-dialog');
 const coopStatus = byId('coop-status');
@@ -663,43 +661,51 @@ function equipWeaponLoadout(loadout) {
   drawArmory();
 }
 
-function setStartupProgress(value) {
-  startupProgress.value = value;
-  setText(startupPercent, value + '%');
-}
-
 async function prepareGame() {
-  startupRetry.hidden = true;
-  startupProgress.hidden = startupPercent.hidden = false;
-  setStartupProgress(0);
-  setText(startupStatus, 'Preparing game assets');
-  await new Promise(requestAnimationFrame);
+  await paintLoading();
   try {
     if (!world) world = new World(canvas);
     world.setQuality(graphicsQuality);
     const upgradeArt = new Image();
     upgradeArt.src = FIELD_UPGRADE_ART;
+    const titleArt = new Image();
+    titleArt.src = './assets/hero.webp';
     await Promise.all([
-      world.prepareAll(campaignAreas, (done, total) => {
-        setStartupProgress(Math.round(85 * done / total));
-        setText(startupStatus, 'Preparing arenas and effects');
+      world.prepareAll(campaignAreas, (done, total, label) => {
+        loadingScreen.progress(4 + 76 * done / total, label || 'Preparing arenas and effects');
       }),
       audio.prepare(),
-      upgradeArt.decode(),
+      ...Object.keys(ENEMY_MODELS).map(type => {
+        const portrait = new Image();
+        portrait.src = new URL('./assets/enemies/portraits/' + type + '.webp', import.meta.url).href;
+        return portrait.decode();
+      }),
+      loadLab().then(lab => { if (!lab) throw new Error('The miniaturization lab could not load'); }),
+      upgradeArt.decode(), titleArt.decode(),
       ...missionThumbnails.map(image => image.decode().catch(() => { image.hidden = true; })),
       document.fonts.ready,
     ]);
     applyRenderedPreviews(document, world.previews);
-    setStartupProgress(90);
-    setText(startupStatus, 'Preparing carbine previews');
+    loadingScreen.progress(81, 'Photographing the arsenal');
+    await paintLoading();
     armoryArt = await prepareArmoryArt(world.renderer);
+    // Build and decode all weapon cards now, including weapons not yet equipped.
+    for (const [i, weapon] of Object.keys(WEAPON_TYPES).entries()) {
+      const cards = armoryArt.thumbnailsFor(weapon);
+      await Promise.all(Object.values(cards).flatMap(options => Object.values(options)).map(image => image.decode()));
+      loadingScreen.progress(84 + 2 * i, 'Preparing ' + weaponName(weapon) + ' part cards');
+      await paintLoading();
+    }
     setupArmory();
-    setStartupProgress(100);
-    startupLoad.hidden = true;
+    loadingScreen.progress(95, 'Preparing the miniaturization lab and suit portraits');
+    await paintLoading();
+    await getCoopClient().lobby.prepare();
+    loadingScreen.progress(97, 'Checking your carried weapons');
+    await world.prepareMission(new Simulation('artery', { weaponLoadout }), () => {});
     ready = true;
     displayMissionAccess();
+    await loadingScreen.finish();
     if (new URL(location.href).searchParams.has('debug')) {
-      // Test hook for automated screenshots: launch any arena and inspect the running simulation.
       window.__immune = { launch: area => { if (running) mainMenu(); return launch(area, null, { upgrade: null }); }, sim: () => sim, world, resume };
     }
     if (roomCode(new URL(location.href).searchParams.get('room'))) {
@@ -709,9 +715,7 @@ async function prepareGame() {
     }
   } catch (error) {
     console.error('Could not prepare Immune Protocol', error);
-    setText(startupStatus, 'Could not prepare game assets. Check WebGL 2 and retry.');
-    startupProgress.hidden = startupPercent.hidden = true;
-    startupRetry.hidden = false;
+    loadingScreen.fail('The lab could not finish preparation. Check your connection and WebGL 2, then retry.');
   }
 }
 
@@ -993,6 +997,9 @@ async function launch(area, run = null, drill = null, onlineState = null) {
       bossPractice: !!drill?.bossPractice,
       weaponLoadout: { ...weaponLoadout, slot: 'primary' },
     });
+    loadingScreen.begin(missionName(area), 'Preparing the arena, your loadout and combat effects before insertion.', 'MISSION ' + String(index + 1).padStart(2, '0') + ' / ' + campaignAreas.length);
+    await paintLoading();
+    await world.prepareMission(nextSim, (value, label) => loadingScreen.progress(value, label));
     if (!onlineState) nextSim.start();
     sim = nextSim;
     onlineRun = Boolean(onlineState);
@@ -1043,11 +1050,14 @@ async function launch(area, run = null, drill = null, onlineState = null) {
       alertBox.replaceChildren();
     }
     drawHud();
+    await loadingScreen.finish();
+    canvas.focus({ preventScroll: true });
     if (run) saveCheckpoint(run);
     cancelAnimationFrame(animation);
     animation = requestAnimationFrame(frame);
     if (onlineRun) syncCoopRoom();
   } catch (error) {
+    await loadingScreen.finish();
     console.error('Could not start Immune Protocol', error);
     running = false;
     onlineRun = false;
@@ -2353,7 +2363,6 @@ byId('manual').addEventListener('click', () => {
   manual.scrollTop = 0;
   byId('manual-title').focus({ preventScroll: true });
 });
-startupRetry.addEventListener('click', prepareGame);
 armoryOpen.addEventListener('click', () => openArmory());
 armoryDone.addEventListener('click', closeArmory);
 armoryDialog.addEventListener('cancel', event => {

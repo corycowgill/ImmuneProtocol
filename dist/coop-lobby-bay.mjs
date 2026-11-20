@@ -3,6 +3,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.mjs';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { createTeammate } from './teammate.mjs';
+import { COOP_SUITS } from './suits.mjs';
 
 // Live 3D co-op lobby: the squad stands on the twin reduction pads of the miniaturization
 // machine in a hospital lab, wearing their chosen suits. The lab is modelled in Blender with
@@ -57,7 +58,7 @@ function screenFrame(c, w, h, title) {
 // The baked lab: one node per atlas, each drawn with its baked lighting and no lights of its own.
 const LAB_GROUPS = ['shell', 'machine', 'emitter'];
 let labLoad = null;
-function loadLab() {
+export function loadLab() {
   labLoad ??= (async () => {
     const asset = path => new URL('./assets/lobby/' + path, import.meta.url).href;
     const [gltf, ...atlases] = await Promise.all([
@@ -274,7 +275,7 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
   });
 
   // Swap in the baked lab, and let the suits reflect it.
-  loadLab().then(nodes => {
+  const labReady = loadLab().then(nodes => {
     if (!nodes) return;
     lab.add(nodes.shell.clone(), nodes.machine.clone());
     emitter.add(nodes.emitter.clone());
@@ -422,6 +423,24 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
   return {
     setPlayers,
     portrait,
+    async prepare() {
+      await labReady;
+      renderer.setSize(160, 90, false);
+      for (const suit of COOP_SUITS) {
+        for (const bay of bays) {
+          bay.actor.suit = suit;
+          bay.rig.update(bay.actor, 0, 0, true);
+          bay.turntable.visible = bay.beam.visible = true;
+        }
+        await renderer.compileAsync(scene, camera);
+        renderer.render(scene, camera);
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      for (const bay of bays) {
+        bay.rig.hide();
+        bay.turntable.visible = bay.beam.visible = false;
+      }
+    },
     start() {
       if (!frame) {
         last = 0;

@@ -77,7 +77,7 @@ function glbParts(id, gltf) {
   return parts.size === RIG_JOINTS.length ? parts : null;
 }
 
-// Streams the textured Blender model for a suit. Resolves to the part map, or
+// Loads the textured Blender model for a suit during startup. Resolves to the part map, or
 // null if the file is unavailable.
 export function loadSuitModel(id) {
   if (!COOP_SUITS.includes(id)) return Promise.resolve(null);
@@ -104,6 +104,5 @@ export const loadSuitModels = () => Promise.all(COOP_SUITS.map(loadSuitModel));
 export function suitParts(id) {
   if (!COOP_SUITS.includes(id)) return null;
   if (glbModels.has(id)) return glbModels.get(id);
-  loadSuitModel(id);
   return null;
 }
