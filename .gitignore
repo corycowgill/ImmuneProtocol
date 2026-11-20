@@ -14,3 +14,4 @@ tools/trellis/renders/*/*.png
 # Enemy source scans (180 MB) stay local; see tools/enemies/originals/manifest.json
 tools/enemies/originals/*.glb
 tools/enemies/work/
+tools/weapons/work/
