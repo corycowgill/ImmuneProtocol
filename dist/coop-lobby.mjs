@@ -1,8 +1,9 @@
 import { COOP_SUITS, SUITS, loadSuitModels, normalizeSuit, saveSuit, savedSuit, suitModelVersion } from './suits.mjs';
 import { createLobbyBay } from './coop-lobby-bay.mjs';
 
-// Co-op lobby suit selection: a live deployment bay that shows both players'
-// suits, and a picker to choose your own. Attached to the CoopClient.
+// Co-op lobby: once in a room the dialog becomes a full-screen miniaturization lab where both
+// players stand in the shrinking machine in their chosen suits, with a picker to choose your
+// own. Attached to the CoopClient.
 const PICK_PHASES = ['lobby', 'finished'];
 
 function element(tag, className, text) {
@@ -54,6 +55,10 @@ export function attachLobby(client) {
   stockRoster.before(bayFrame, picker);
   stockRoster.classList.add('coop-roster-replaced');
 
+  const heading = document.getElementById('coop-title');
+  const intro = document.getElementById('coop-intro');
+  const stockText = [heading.textContent, intro.textContent];
+  const labText = ['Miniaturization lab', 'Pick your suit and ready up. When the squad is locked in, the machine shrinks you for injection.'];
   let bay = null;
   let portraitVersion = -1;
   let modelsRequested = false;
@@ -130,6 +135,8 @@ export function attachLobby(client) {
     const room = client.room;
     const localId = client.session?.id;
     const visible = dialog.open && !lobby.hidden && !!room && !!localId;
+    dialog.classList.toggle('coop-in-lab', visible && bay !== false);
+    [heading.textContent, intro.textContent] = visible ? labText : stockText;
     if (!visible) {
       if (bay) bay.stop();
       return;

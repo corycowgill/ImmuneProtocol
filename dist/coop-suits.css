@@ -1,28 +1,59 @@
-/* Co-op lobby suit bay and suit picker (dist/coop-lobby.mjs). */
-.coop-panel:has(#coop-lobby:not([hidden])){width:min(780px,calc(100vw - 28px))}
+/* Co-op lobby: the miniaturization lab and suit picker (dist/coop-lobby.mjs). Joining a
+   room turns the co-op dialog into a full-screen lab; the room controls float over it. */
 .coop-roster.coop-roster-replaced{display:none}
-.coop-bay{margin:10px 0 0;border:1px solid var(--line);background:radial-gradient(ellipse at 50% 70%,#3b1d1d,#140f10 70%)}
+.coop-bay{position:relative;margin:10px 0 0;border:1px solid var(--line);background:#0b1a20}
 .coop-bay canvas{display:block;width:100%;height:clamp(230px,36vw,320px)}
 .coop-bay.coop-bay-flat canvas{display:none}
-.coop-bay-roster{display:grid;grid-template-columns:1fr 1fr;gap:8px;list-style:none;margin:0;padding:8px;border-top:1px solid var(--line);background:#140e0f}
-.coop-bay-roster li{display:grid;gap:2px;min-width:0;padding:6px 9px;border:1px solid var(--line);border-left:3px solid var(--suit,var(--line));background:#1c1515}
-.coop-bay-roster strong{overflow-wrap:anywhere}
+.coop-bay-roster{display:grid;grid-template-columns:1fr 1fr;gap:8px;list-style:none;margin:0;padding:8px}
+.coop-bay-roster li{display:grid;gap:2px;min-width:0;padding:8px 11px;border:1px solid #9ff7ff33;border-top:3px solid var(--suit,var(--line));background:#06141acc;backdrop-filter:blur(6px)}
+.coop-bay-roster strong{font:800 20px/1 var(--display);text-transform:uppercase;letter-spacing:.02em;overflow-wrap:anywhere}
 .coop-bay-roster em{color:var(--suit);font:500 10px/1.3 var(--mono);font-style:normal;letter-spacing:.06em;text-transform:uppercase}
-.coop-bay-roster span{color:var(--muted);font:500 11px/1.35 var(--mono)}
+.coop-bay-roster span{color:#ffc06a;font:500 11px/1.35 var(--mono);letter-spacing:.08em;text-transform:uppercase}
 .coop-bay-roster [data-ready="true"]{color:var(--green)}
-.coop-bay-roster .coop-bay-empty{place-content:center;color:var(--muted);font:500 12px/1.35 var(--mono);border-left-color:var(--line)}
+.coop-bay-roster .coop-bay-empty{place-content:center;color:#b9d9dc;font:500 12px/1.35 var(--mono);border-top-color:#9ff7ff33;border-style:dashed}
 .coop-suits{border:0;padding:0;margin:10px 0 12px;min-width:0}
-.coop-suits legend{padding:0;margin-bottom:7px;font:500 11px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.coop-suits legend{padding:0;margin-bottom:7px;font:500 11px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.12em;color:#b9d9dc}
 .coop-suit-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
-.coop-suit{--suit:var(--green);display:grid;justify-items:center;gap:2px;padding:6px 6px 9px;border:1px solid var(--line);background:#1c1515;color:var(--paper);text-align:center;cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
+.coop-suit{--suit:var(--green);display:grid;justify-items:center;gap:2px;padding:6px 6px 9px;border:1px solid #9ff7ff2e;background:#06141acc;color:var(--paper);text-align:center;cursor:pointer;backdrop-filter:blur(6px);transition:border-color .15s,background .15s,transform .15s}
 .coop-suit img{width:100%;max-width:120px;height:auto;aspect-ratio:3/4;object-fit:contain;filter:drop-shadow(0 6px 8px #0009)}
 .coop-suit strong{font:800 19px/1 var(--display);text-transform:uppercase;letter-spacing:.03em}
-.coop-suit small{color:var(--muted);font:500 10px/1.3 var(--mono)}
+.coop-suit small{color:#b9d9dc;font:500 10px/1.3 var(--mono)}
 .coop-suit:hover:not(:disabled){border-color:color-mix(in srgb,var(--suit) 60%,transparent);transform:translateY(-2px)}
-.coop-suit[aria-pressed="true"]{border-color:var(--suit);background:linear-gradient(180deg,color-mix(in srgb,var(--suit) 18%,#1c1515),#1c1515 70%);box-shadow:inset 0 -3px 0 var(--suit)}
+.coop-suit[aria-pressed="true"]{border-color:var(--suit);background:linear-gradient(180deg,color-mix(in srgb,var(--suit) 22%,#06141a),#06141acc 70%);box-shadow:inset 0 -3px 0 var(--suit)}
 .coop-suit[aria-pressed="true"] strong{color:var(--suit)}
 .coop-suit:disabled{cursor:default;opacity:.55}
+
+/* Full-screen lab once in a room. */
+dialog.coop-panel.coop-in-lab{width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;inset:0;padding:0;border:0;overflow:hidden;background:#0b1a20;box-shadow:none}
+dialog.coop-panel.coop-in-lab[open]{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto minmax(0,1fr) auto auto;grid-template-areas:"head invite" "status status" "stage stage" "suits actions" "suits actions";column-gap:24px}
+dialog.coop-panel.coop-in-lab::backdrop{background:#000}
+.coop-in-lab #coop-lobby{display:contents}
+.coop-in-lab .coop-bay{position:absolute;inset:0;z-index:0;margin:0;border:0}
+.coop-in-lab .coop-bay::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,#06121799 0%,transparent 22%,transparent 58%,#061217e6 88%)}
+.coop-in-lab .coop-bay canvas{width:100%;height:100%}
+.coop-in-lab>*:not(.coop-bay),.coop-in-lab #coop-lobby>*:not(.coop-bay){position:relative;z-index:1}
+.coop-in-lab .coop-heading{grid-area:head;padding:22px 0 0 28px}
+.coop-in-lab .coop-heading h2{font-size:clamp(34px,4vw,56px);text-shadow:0 4px 30px #000}
+.coop-in-lab #coop-intro{max-width:52ch;color:#d7eef0}
+.coop-in-lab .close-dialog{position:absolute;z-index:2;top:20px;right:24px}
+.coop-in-lab #coop-status{grid-area:status;justify-self:start;margin:6px 28px 0}
+.coop-in-lab .coop-invite{grid-area:invite;align-self:start;margin:24px 84px 0 0;padding:12px 14px;border:1px solid #9ff7ff33;background:#06141acc;backdrop-filter:blur(6px)}
+.coop-in-lab .coop-invite label{color:#b9d9dc}
+.coop-in-lab .coop-invite #coop-room-code{color:var(--green);font:800 22px/1 var(--display);letter-spacing:.12em}
+.coop-in-lab .coop-bay-roster{position:absolute;z-index:1;left:50%;bottom:clamp(170px,24svh,220px);width:min(620px,calc(100vw - 32px));padding:0;transform:translateX(-50%)}
+.coop-in-lab .coop-suits{grid-area:suits;align-self:end;margin:0 0 22px 28px;max-width:640px}
+.coop-in-lab .coop-suit img{max-width:84px}
+.coop-in-lab .coop-actions{grid-area:actions;align-self:end;display:flex;flex-direction:column;gap:8px;margin:0 28px 22px 0;padding:0;border:0;background:none;min-width:240px}
+.coop-in-lab .coop-actions .button{width:100%}
+.coop-in-lab #coop-ready{order:-1;min-height:62px;font:800 24px/1 var(--display);letter-spacing:.04em;--chamfer:14px}
+@media(max-width:820px),(max-height:620px){
+  dialog.coop-panel.coop-in-lab[open]{overflow:auto;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto minmax(46svh,1fr) auto auto auto;grid-template-areas:"head" "invite" "status" "stage" "roster" "suits" "actions"}
+  .coop-in-lab .coop-bay{position:absolute;inset:0 0 auto;height:100svh}
+  .coop-in-lab .coop-heading{padding:16px 64px 0 16px}
+  .coop-in-lab .coop-invite{margin:10px 16px 0}
+  .coop-in-lab .coop-suits{margin:0 16px 12px}
+  .coop-in-lab .coop-actions{margin:0 16px 18px}
+}
 @media(max-width:510px){
   .coop-suit-options{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .coop-suit img{max-width:84px}
 }

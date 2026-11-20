@@ -558,7 +558,7 @@ function drawArmory() {
   setText(armoryReset, 'Reset ' + WEAPON_TYPES[edited.weapon].short.toLowerCase());
   armoryTitle.previousElementSibling.lastChild.textContent = ' ' + (editingSlot === 'primary' ? 'PRIMARY' : 'SECONDARY') +
     ' · ' + WEAPON_TYPES[edited.weapon].name.toUpperCase();
-  const preview = armoryArt.render(edited);
+  const preview = armoryArt.render(edited, armoryView);
   preview.setAttribute('role', 'img');
   preview.setAttribute('aria-label', WEAPON_TYPES[edited.weapon].name + ' in ' + WEAPON_FINISHES[edited.finish].name +
     ' with ' + WEAPON_ACCENTS[edited.accent].name + ' accents');
@@ -1128,10 +1128,46 @@ function openArmory(round = 0) {
   coopArmoryStatus.hidden = !onlineRun || !round;
   drawArmory();
   armoryDialog.showModal();
+  if (!armorySpin) armorySpin = requestAnimationFrame(spinArmory);
   armoryDialog.scrollTop = 0;
   armoryTitle.focus({ preventScroll: true });
   if (onlineRun) syncCoopIndicators();
 }
+
+// The armory preview turns slowly on its own; drag it to turn the weapon by hand.
+const armoryView = { yaw: 0, pitch: 0 };
+let armorySpin = 0;
+let armorySpinAt = 0;
+let armoryDrag = null;
+
+function spinArmory(now) {
+  if (!armoryDialog.open) {
+    armorySpin = 0;
+    armorySpinAt = 0;
+    return;
+  }
+  armorySpin = requestAnimationFrame(spinArmory);
+  // About 25 frames a second keeps the full-size preview's readback cheap.
+  if (now - armorySpinAt < 40) return;
+  const dt = armorySpinAt ? Math.min(.1, (now - armorySpinAt) / 1000) : 0;
+  armorySpinAt = now;
+  if (armoryDrag || reducedMotion || !dt) return;
+  armoryView.yaw += dt * .22;
+  armoryArt.render(editedLoadout(), armoryView);
+}
+
+armoryPreview.addEventListener('pointerdown', event => {
+  armoryDrag = { x: event.clientX, y: event.clientY };
+  armoryPreview.setPointerCapture(event.pointerId);
+});
+armoryPreview.addEventListener('pointermove', event => {
+  if (!armoryDrag) return;
+  armoryView.yaw -= (event.clientX - armoryDrag.x) * .01;
+  armoryView.pitch = clamp(armoryView.pitch + (event.clientY - armoryDrag.y) * .006, -.45, .6);
+  armoryDrag = { x: event.clientX, y: event.clientY };
+  armoryArt.render(editedLoadout(), armoryView);
+});
+for (const type of ['pointerup', 'pointercancel']) armoryPreview.addEventListener(type, () => { armoryDrag = null; });
 
 function closeArmory() {
   const inRound = armoryRound > 0;

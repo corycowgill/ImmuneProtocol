@@ -3,7 +3,9 @@ import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { createArsenalView, weaponModelsReady } from './arsenal-models.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 
-export const ARMORY_ART_SIZE = { width: 450, height: 260 };
+// The armory's large preview, and the smaller part and cosmetic card pictures.
+export const ARMORY_ART_SIZE = { width: 1280, height: 680 };
+const CARD_SIZE = { width: 225, height: 130 };
 export const FIELD_UPGRADE_ART = './assets/field-upgrades.webp';
 
 const CARD_VIEWS = {
@@ -80,8 +82,9 @@ export async function prepareArmoryArt(renderer) {
   camera.position.set(-1.31, .42, -.89);
   camera.lookAt(0, -.015, -.245);
   const preview = createCapture(renderer, width, height);
-  const cards = createCapture(renderer, width / 2, height / 2);
+  const cards = createCapture(renderer, CARD_SIZE.width, CARD_SIZE.height);
   const cardCamera = camera.clone();
+  cardCamera.aspect = CARD_SIZE.width / CARD_SIZE.height;
   const thumbnails = {};
 
   // The complete preview and every thumbnail share one prebuilt weapon model.
@@ -117,10 +120,18 @@ export async function prepareArmoryArt(renderer) {
 
   // Other weapons get their part cards the first time the armory shows them.
   const weaponThumbnails = { carbine: thumbnails };
-  const cardCapture = createCapture(renderer, width / 2, height / 2);
+  const cardCapture = createCapture(renderer, CARD_SIZE.width, CARD_SIZE.height);
   const previewCamera = camera.clone();
+  const orbitCamera = camera.clone();
+  const carbineFocus = new THREE.Vector3(0, -.015, -.245);
+  const focus = new THREE.Vector3();
+  const up = new THREE.Vector3(0, 1, 0);
+  const side = new THREE.Vector3();
   function frame(view, loadout) {
-    if (loadout.weapon === 'carbine') return camera;
+    if (loadout.weapon === 'carbine') {
+      focus.copy(carbineFocus);
+      return camera;
+    }
     // Fit the whole weapon: launchers and rifles are longer than the carbine, pistols much shorter.
     const bounds = new THREE.Box3();
     view.model.updateMatrixWorld(true);
@@ -131,7 +142,20 @@ export async function prepareArmoryArt(renderer) {
     const size = bounds.getSize(new THREE.Vector3()).length();
     previewCamera.position.set(center.x - size * .95, center.y + size * .3, center.z - size * .6);
     previewCamera.lookAt(center);
+    focus.copy(center);
     return previewCamera;
+  }
+  // Turns the framed camera around the weapon: yaw about the vertical, pitch over the top.
+  function orbit(base, { yaw = 0, pitch = 0 } = {}) {
+    // A little closer than the framing camera: the preview stage is large.
+    const offset = base.position.clone().sub(focus).applyAxisAngle(up, yaw).multiplyScalar(.8);
+    side.crossVectors(offset, up).normalize();
+    offset.applyAxisAngle(side, pitch);
+    orbitCamera.position.copy(focus).add(offset);
+    orbitCamera.fov = base.fov;
+    orbitCamera.updateProjectionMatrix();
+    orbitCamera.lookAt(focus);
+    return orbitCamera;
   }
   return {
     thumbnails,
@@ -157,9 +181,10 @@ export async function prepareArmoryArt(renderer) {
       }
       return (weaponThumbnails[weapon] = cards);
     },
-    render(loadout) {
+    // `view` turns the camera around the weapon ({ yaw, pitch } in radians).
+    render(loadout, view) {
       carbine.setLoadout(loadout);
-      return preview.draw(photography, frame(carbine, loadout));
+      return preview.draw(photography, orbit(frame(carbine, loadout), view));
     },
   };
 }
