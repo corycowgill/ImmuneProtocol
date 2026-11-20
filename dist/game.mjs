@@ -12,10 +12,11 @@ import { CoopClient, PUBLIC_COOP_ORIGIN, savedCoopSession, verifyCoopHost } from
 import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from './coop-protocol.mjs';
 import { GamepadInput } from './gamepad.mjs';
 import { GamepadMenu } from './gamepad-menu.mjs';
-import { applyRenderedPreviews, installLevelHud } from './level-hud.mjs';
+import { applyRenderedPreviews, currentDifficulty, installLevelHud } from './level-hud.mjs';
 import { DIFFICULTIES } from './difficulty.mjs';
 import { COSMETIC_SLOTS, cosmeticArt, createLoadoutPicker, drawWeaponHud, installArsenalUi, weaponName } from './arsenal-ui.mjs';
 import { createDiseaseGuide } from './disease-guide.mjs';
+import { createUpgradeCards, drawIntel, drawLoadout, drawOperatorCard } from './deployment.mjs';
 
 installLevelHud(document);
 installArsenalUi(document);
@@ -72,6 +73,15 @@ const missionEntries = [...missionList.querySelectorAll('[data-deploy-area]')].m
   area: button.dataset.deployArea, button, bossPractice: false,
 }));
 missionEntries.push({ area: 'brain', button: megaVirusDeploy, bossPractice: true });
+for (const entry of missionEntries) {
+  const index = document.createElement('span');
+  index.className = 'mission-index';
+  index.setAttribute('aria-hidden', 'true');
+  index.textContent = entry.bossPractice ? '✦' : String(CAMPAIGN_AREAS.indexOf(entry.area) + 1).padStart(2, '0');
+  entry.status = document.createElement('span');
+  entry.status.className = 'mission-status';
+  entry.button.append(index, entry.status);
+}
 let selectedPracticeMission = missionEntries[0];
 const continueButton = byId('continue-mission');
 const continueLabel = byId('continue-mission-label');
@@ -347,6 +357,14 @@ let megaVirusReached = readSetting(megaVirusKey) === 'true';
 let trainingComplete = readSetting(tutorialKey) === 'true';
 let sensitivity = clamp(Number.parseFloat(readSetting(sensitivityKey)) || 1, 0.5, 2.5);
 let graphicsQuality = readSetting(qualityKey) === 'low' ? 'low' : 'high';
+const musicVolumeKey = 'immune-protocol.music-volume';
+const effectsVolumeKey = 'immune-protocol.effects-volume';
+const savedLevel = key => {
+  const value = Number.parseFloat(readSetting(key));
+  return Number.isFinite(value) ? clamp(value, 0, 1) : 1;
+};
+let musicVolume = savedLevel(musicVolumeKey);
+let effectsVolume = savedLevel(effectsVolumeKey);
 let weaponLoadout = readWeaponLoadout();
 
 function readSetting(key) {
@@ -426,8 +444,9 @@ function displayBest() {
 
 function displayMissionAccess() {
   const unavailable = loading || !ready;
-  for (const { button, bossPractice } of missionEntries) {
-    button.disabled = unavailable || (bossPractice && !megaVirusReached);
+  const routeArea = deployment.mode === 'campaign' ? campaignArea() : null;
+  for (const { button, bossPractice, area } of missionEntries) {
+    button.disabled = unavailable || (bossPractice && !megaVirusReached) || (routeArea && (bossPractice || area !== routeArea));
   }
   deploy.disabled = missionSelect.disabled = armoryOpen.disabled = unavailable;
   coopOpen.disabled = unavailable;
@@ -444,17 +463,33 @@ function displayMissionAccess() {
     const next = checkpoint.results.length;
     setText(resumeCampaignLabel, 'Mission ' + (next + 1) + ' of ' + campaignAreas.length + ' · ' + missionName(campaignAreas[next]));
   }
+  drawOperator();
+}
+
+function drawOperator() {
+  drawOperatorCard({
+    secured: checkpoint ? checkpoint.results.length : Math.min(unlockedMission, campaignAreas.length),
+    areas: campaignAreas, missionName, best: bestScore,
+    difficulty: DIFFICULTIES[currentDifficulty()]?.name ?? 'Medium',
+    loadout: weaponLoadout,
+  });
 }
 
 function updatePracticeLoadout() {
   const id = practiceLoadout.value;
   const upgrade = FIELD_UPGRADES[id];
   setText(practiceLoadoutDetail, upgrade?.description ?? 'Standard equipment without a field upgrade.');
+  upgradeCards?.sync();
+}
+
+function savedPracticeLoadout() {
+  const saved = readSetting(practiceLoadoutKey);
+  return Object.hasOwn(FIELD_UPGRADES, saved) ? saved : 'standard';
 }
 
 function setupLoadouts() {
-  const saved = readSetting(practiceLoadoutKey);
-  practiceLoadout.value = Object.hasOwn(FIELD_UPGRADES, saved) ? saved : 'standard';
+  practiceLoadout.value = savedPracticeLoadout();
+  upgradeCards = createUpgradeCards(byId('deploy-upgrades'), practiceLoadout);
   for (const button of upgradeButtons) {
     const { name, description } = FIELD_UPGRADES[button.dataset.upgrade];
     setText(button.querySelector('strong'), name);
@@ -1058,6 +1093,13 @@ function pause() {
   if (!running || paused || sim.extractionPending) return;
   suspendCombat();
   setText(byId('pause-mission'), missionName(sim.area) + difficultyTag());
+  setText(byId('pause-wave'), Math.min(sim.wave, sim.waves) + ' / ' + sim.waves);
+  setText(byId('pause-score'), sim.score.toLocaleString());
+  setText(byId('pause-tissue'), Math.round(sim.tissue) + '%');
+  setText(byId('pause-objective'), practice?.bossPractice
+    ? 'Follow the pulse to the core about to open and shoot the exposed tissue.' : missions[sim.area].briefing);
+  byId('restart-mission').hidden = onlineRun;
+  disarmQuit();
   setText(byId('pause-detail'), onlineRun ? 'The online match continues while this menu is open.' : usingGamepad
     ? 'Press Menu to resume the mission.' : isTouch
     ? 'Combat and wave timers are on hold.'
@@ -1177,10 +1219,45 @@ function mainMenu(keepRoom = false) {
   (checkpoint ? resumeCampaignButton : deploy).focus();
 }
 
-function openFreeMode() {
+// One deployment briefing serves Free Mode and the campaign. On the campaign route the
+// secured missions and the next one show their status, and only the next one deploys.
+let deployment = { mode: 'free', run: null };
+let upgradeCards = null;
+
+function campaignArea() {
+  return deployment.run ? campaignAreas[deployment.run.results.length] : null;
+}
+
+function openDeployment(mode, run = null) {
+  deployment = { mode, run };
+  missionDialog.dataset.mode = mode;
   missionError.hidden = true;
+  const next = run?.results.length ?? 0;
+  setText(byId('deploy-mode'), mode === 'campaign'
+    ? 'Campaign · Mission ' + (next + 1) + ' of ' + campaignAreas.length : 'Free Mode');
+  setText(byId('mission-intro'), mode === 'free' ? 'Replay any mission. Campaign saves and records stay separate.'
+    : next ? 'Your checkpoint is saved. Review the briefing and your kit, then continue.'
+      : 'Ten missions from the bloodstream to the brain. Review the briefing and your kit, then begin.');
+  setText(byId('deploy-go-label'), mode === 'free' ? 'Deploy' : next ? 'Continue campaign' : 'Begin campaign');
+  practiceLoadout.value = mode === 'campaign' ? run.upgrade ?? 'standard' : savedPracticeLoadout();
+  updatePracticeLoadout();
+  for (const entry of missionEntries) {
+    const index = campaignAreas.indexOf(entry.area);
+    const status = mode !== 'campaign' || entry.bossPractice ? ''
+      : index < next ? 'Secured' : index === next ? 'Next' : 'Locked';
+    entry.button.dataset.status = status.toLowerCase();
+    setText(entry.status, status);
+  }
+  drawLoadout(byId('deploy-loadout'), weaponLoadout);
+  displayMissionAccess();
   missionDialog.showModal();
-  selectPracticeMission(selectedPracticeMission);
+  selectPracticeMission(mode === 'campaign'
+    ? missionEntries.find(entry => !entry.bossPractice && entry.area === campaignArea())
+    : selectedPracticeMission.button.disabled ? missionEntries[0] : selectedPracticeMission);
+}
+
+function openFreeMode() {
+  openDeployment('free');
 }
 
 function selectPracticeMission(entry) {
@@ -1195,6 +1272,11 @@ function selectPracticeMission(entry) {
     : missions[entry.area];
   setText(missionPreviewTitle, name);
   setText(missionPreviewDetail, briefing);
+  const art = entry.button.querySelector('img');
+  if (art?.src) byId('deploy-hero-art').src = art.src;
+  setText(byId('deploy-hero-kicker'), entry.bossPractice ? 'Boss practice · Neural Cortex'
+    : 'Mission ' + String(campaignAreas.indexOf(entry.area) + 1).padStart(2, '0') + ' of ' + campaignAreas.length);
+  drawIntel(byId('deploy-intel'), byId('deploy-threats'), entry.area, entry.bossPractice);
   practiceDeploy.setAttribute('aria-label', 'Deploy to ' + name);
   missionError.hidden = true;
   entry.button.focus();
@@ -1210,7 +1292,7 @@ function returnFromResult() {
 }
 
 function startCampaign() {
-  launch('artery', { results: [], upgrade: null });
+  openDeployment('campaign', { results: [], upgrade: null });
 }
 
 function missionResult() {
@@ -2295,6 +2377,23 @@ sensitivityControl.addEventListener('input', () => {
   sensitivityValue.value = sensitivity.toFixed(2) + '×';
   writeSetting(sensitivityKey, sensitivity);
 });
+function syncMix() {
+  setText(byId('music-volume-value'), Math.round(musicVolume * 100) + '%');
+  setText(byId('effects-volume-value'), Math.round(effectsVolume * 100) + '%');
+  audio.setMix(musicVolume, effectsVolume);
+}
+for (const [id, key] of [['music-volume', musicVolumeKey], ['effects-volume', effectsVolumeKey]]) {
+  const control = byId(id);
+  control.value = id === 'music-volume' ? musicVolume : effectsVolume;
+  control.addEventListener('input', () => {
+    const value = clamp(control.valueAsNumber, 0, 1);
+    if (id === 'music-volume') musicVolume = value;
+    else effectsVolume = value;
+    writeSetting(key, value);
+    syncMix();
+  });
+}
+syncMix();
 qualityControl.addEventListener('change', () => {
   graphicsQuality = qualityControl.value;
   writeSetting(qualityKey, graphicsQuality);
@@ -2363,13 +2462,19 @@ byId('confirm-new-campaign').addEventListener('click', () => {
   startCampaign();
 });
 resumeCampaignButton.addEventListener('click', () => {
-  if (checkpoint) launch(campaignAreas[checkpoint.results.length], checkpoint);
+  if (checkpoint) openDeployment('campaign', checkpoint);
 });
 missionSelect.addEventListener('click', openFreeMode);
 practiceLoadout.addEventListener('change', () => {
-  writeSetting(practiceLoadoutKey, practiceLoadout.value);
+  if (deployment.mode === 'free') writeSetting(practiceLoadoutKey, practiceLoadout.value);
   updatePracticeLoadout();
 });
+byId('deploy-armory').addEventListener('click', () => openArmory());
+armoryDialog.addEventListener('close', () => {
+  drawLoadout(byId('deploy-loadout'), weaponLoadout);
+  drawOperator();
+});
+missionDialog.addEventListener('close', drawOperator);
 for (const entry of missionEntries) {
   entry.button.addEventListener('click', () => selectPracticeMission(entry));
 }
@@ -2394,7 +2499,12 @@ missionGallery.addEventListener('keydown', event => {
 });
 practiceDeploy.addEventListener('click', () => {
   const { area, bossPractice } = selectedPracticeMission;
-  launch(area, null, { upgrade: practiceLoadout.value, bossPractice });
+  if (deployment.mode === 'campaign') {
+    const upgrade = practiceLoadout.value === 'standard' ? null : practiceLoadout.value;
+    launch(area, { ...deployment.run, upgrade });
+  } else {
+    launch(area, null, { upgrade: practiceLoadout.value, bossPractice });
+  }
 });
 continueButton.addEventListener('click', continueMission);
 for (const button of upgradeButtons) {
@@ -2407,11 +2517,39 @@ for (const button of upgradeButtons) {
 replay.addEventListener('click', () => {
   if (onlineRun) {
     readyAtCoopCheckpoint();
-  } else if (campaign && sim.area === campaignAreas.at(-1) && sim.phase === 'won') startCampaign();
+  } else if (campaign && sim.area === campaignAreas.at(-1) && sim.phase === 'won') launch('artery', { results: [], upgrade: null });
   else launch(sim.area, campaign, practice);
 });
 returnMenu.addEventListener('click', returnFromResult);
-byId('quit').addEventListener('click', () => mainMenu());
+// Quitting ends the run, so the first press asks for a second.
+const quitButton = byId('quit');
+let quitArmed = 0;
+function disarmQuit() {
+  clearTimeout(quitArmed);
+  quitArmed = 0;
+  quitButton.classList.remove('is-armed');
+  setText(quitButton, 'Quit to main menu');
+}
+quitButton.addEventListener('click', () => {
+  if (quitArmed) {
+    disarmQuit();
+    mainMenu();
+    return;
+  }
+  quitButton.classList.add('is-armed');
+  setText(quitButton, 'Press again to quit');
+  quitArmed = setTimeout(disarmQuit, 4000);
+});
+pauseDialog.addEventListener('close', disarmQuit);
+byId('restart-mission').addEventListener('click', () => {
+  if (!running || onlineRun) return;
+  const area = sim.area;
+  const run = campaign;
+  const drill = practice;
+  mainMenu();
+  launch(area, run, drill);
+});
+byId('pause-manual').addEventListener('click', () => byId('manual').click());
 byId('pause').addEventListener('click', pause);
 byId('resume').addEventListener('click', resume);
 extractNow.addEventListener('click', () => chooseExtraction('extract'));

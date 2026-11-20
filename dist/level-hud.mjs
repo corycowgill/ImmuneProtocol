@@ -1,6 +1,6 @@
 // HUD and menu pieces for the expanded campaign: the third tissue-node readout and marker, the
 // wave-clear countdown banner, Free Mode cards for the Colonic Reservoir and Lymph Node, and the
-// difficulty picker on the main menu.
+// difficulty picker on the deployment screen.
 import { Simulation } from './simulation.mjs';
 import { DIFFICULTIES, applyDifficulty, normalizeDifficulty } from './difficulty.mjs';
 
@@ -76,11 +76,11 @@ Simulation.prototype.start = function start() {
   return startMission.call(this);
 };
 
-// A compact Easy/Medium/Hard switch under the campaign button. Hovering, focusing or choosing an
+// A compact Easy/Medium/Hard switch on the deployment screen. Hovering, focusing or choosing an
 // option opens a card that lists exactly what that difficulty changes.
 function installDifficultyPicker(document) {
-  const navigation = document.querySelector('.menu-navigation');
-  if (!navigation || document.getElementById('difficulty-picker')) return;
+  const mount = document.getElementById('deploy-difficulty') ?? document.querySelector('.menu-navigation');
+  if (!mount || document.getElementById('difficulty-picker')) return;
   const picker = document.createElement('div');
   picker.id = 'difficulty-picker';
   picker.className = 'difficulty-picker';
@@ -159,9 +159,7 @@ function installDifficultyPicker(document) {
   });
   options.append(...buttons);
   picker.append(label, options, detail);
-  const anchor = document.getElementById('deploy');
-  if (anchor?.parentElement === navigation) anchor.after(picker);
-  else navigation.prepend(picker);
+  mount.append(picker);
   select(selected);
 }
 

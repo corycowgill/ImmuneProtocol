@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#120b0b">
-  <meta name="description" content="Deploy as a nano-soldier and defend tissue from infection in an eight-mission campaign through a living host.">
+  <meta name="description" content="Deploy as a nano-soldier and defend tissue from infection in a ten-mission campaign through a living host.">
   <title>Immune Protocol</title>
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="preload" as="image" href="assets/hero.webp">
   <link rel="modulepreload" href="world.mjs">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="interface.css">
   <link rel="stylesheet" href="intro/intro.css" data-hg-fonts>
   <style>a.brand{color:inherit;text-decoration:none}a.brand:hover>span,a.brand:focus-visible>span{color:var(--green);text-decoration:underline;text-underline-offset:3px}</style>
   <script src="intro/hallucinated-intro.js"></script>
@@ -59,37 +60,42 @@
 
       <div class="menu-main">
         <div class="briefing">
+          <p class="title-kicker"><span></span> Nano-defense tactical shooter</p>
           <h1>Immune <span>Protocol</span></h1>
-          <p class="summary">Fight infection and repair living tissue across eight missions inside the host.</p>
-          <nav class="menu-navigation" aria-label="Game modes">
-            <button id="resume-campaign" class="menu-option menu-campaign" type="button" disabled hidden>
+          <p class="summary">Fight infection and repair living tissue across ten missions inside the host.</p>
+          <nav class="menu-navigation title-menu" aria-label="Main menu">
+            <button id="resume-campaign" class="title-option is-primary" type="button" disabled hidden>
               <span class="menu-option-label"><strong>Continue campaign</strong><span id="resume-campaign-label"></span></span>
-              <svg aria-hidden="true"><use href="#arrow"></use></svg>
+              <svg class="title-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
             </button>
-            <button id="deploy" class="menu-option menu-campaign" type="button" disabled>
-              <span class="menu-option-label"><strong>Start campaign</strong><span>Begin in Arterial Junction</span></span>
-              <svg aria-hidden="true"><use href="#arrow"></use></svg>
+            <button id="deploy" class="title-option is-primary" type="button" disabled>
+              <span class="menu-option-label"><strong>Start campaign</strong><span>Ten missions, from the bloodstream to the brain</span></span>
+              <svg class="title-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
             </button>
-            <div class="menu-secondary">
-              <button id="mission-select" class="menu-option" type="button" disabled>
-                <svg aria-hidden="true"><use href="#target"></use></svg>
-                <span class="menu-option-label"><strong>Free Mode</strong><span>Select any mission</span></span>
-              </button>
-              <button id="armory-open" class="menu-option" type="button" disabled>
-                <svg aria-hidden="true"><use href="#carbine-icon"></use></svg>
-                <span class="menu-option-label"><strong>Armory</strong><span>Customize carbine</span></span>
-              </button>
-            </div>
-            <button id="coop-open" class="menu-option menu-coop" type="button" disabled>
-              <svg aria-hidden="true"><use href="#shield"></use></svg>
-              <span class="menu-option-label"><strong>Online co-op</strong><span>Play the full campaign with a friend</span></span>
-              <svg class="coop-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
+            <button id="new-campaign" class="title-option" type="button" hidden disabled>
+              <span class="menu-option-label"><strong>New campaign</strong><span>Start over from Arterial Junction</span></span>
+              <svg class="title-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
             </button>
-            <div class="menu-utilities">
-              <button id="manual" class="menu-tool" type="button"><svg aria-hidden="true"><use href="#book"></use></svg> Field manual</button>
-              <button id="guide" class="menu-tool" type="button"><svg aria-hidden="true"><use href="#microbe"></use></svg> Disease guide</button>
-              <button id="new-campaign" class="menu-tool" type="button" hidden disabled>Start new campaign</button>
-            </div>
+            <button id="mission-select" class="title-option" type="button" disabled>
+              <span class="menu-option-label"><strong>Free Mode</strong><span>Any mission, any difficulty, any loadout</span></span>
+              <svg class="title-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
+            </button>
+            <button id="coop-open" class="title-option" type="button" disabled>
+              <span class="menu-option-label"><strong>Online co-op</strong><span>The full campaign with a friend</span></span>
+              <svg class="title-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
+            </button>
+            <button id="armory-open" class="title-option" type="button" disabled>
+              <span class="menu-option-label"><strong>Armory</strong><span>Weapons, parts, skins, decals and charms</span></span>
+              <svg class="title-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
+            </button>
+            <button id="guide" class="title-option" type="button">
+              <span class="menu-option-label"><strong>Disease guide</strong><span>Every pathogen you will face</span></span>
+              <svg class="title-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
+            </button>
+            <button id="manual" class="title-option" type="button">
+              <span class="menu-option-label"><strong>Field manual</strong><span>Controls, objectives and tactics</span></span>
+              <svg class="title-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
+            </button>
           </nav>
           <div id="startup-load" class="startup-load">
             <span id="startup-status" role="status">Preparing game assets</span>
@@ -102,7 +108,29 @@
           <p id="controller-audio-hint" class="controller-menu-hint" hidden>Click or press a key once to enable browser audio.</p>
           <p id="high-score" class="high-score" hidden>Best score <strong id="high-score-value"></strong></p>
         </div>
+        <aside id="operator-card" class="operator-card" aria-labelledby="operator-title">
+          <p id="operator-title" class="eyebrow"><span></span> Operator status</p>
+          <div class="operator-progress">
+            <strong id="operator-progress-value">0<small>/10</small></strong>
+            <span id="operator-progress-label">Missions secured</span>
+          </div>
+          <ol id="operator-route" class="operator-route" aria-label="Campaign route"></ol>
+          <dl class="operator-stats">
+            <div><dt>Best score</dt><dd id="operator-best">—</dd></div>
+            <div><dt>Difficulty</dt><dd id="operator-difficulty">Medium</dd></div>
+          </dl>
+          <div class="operator-loadout">
+            <span>Loadout</span>
+            <strong id="operator-primary">Needle Carbine</strong>
+            <strong id="operator-secondary">Sting Pistol</strong>
+          </div>
+        </aside>
       </div>
+      <footer class="title-footer">
+        <p class="input-hints input-hints-keyboard"><kbd>↑</kbd><kbd>↓</kbd> Navigate <kbd>Enter</kbd> Select <kbd>Esc</kbd> Back</p>
+        <p class="input-hints input-hints-gamepad"><kbd>D-pad</kbd> Navigate <kbd>A</kbd> Select <kbd>B</kbd> Back</p>
+        <p class="title-legal">Hallucinated Games</p>
+      </footer>
     </section>
 
     <dialog id="new-campaign-dialog" class="panel" aria-labelledby="new-campaign-title" aria-describedby="new-campaign-detail">
@@ -118,7 +146,7 @@
       <header class="coop-heading">
         <button id="coop-close" class="icon-button close-dialog" type="button" aria-label="Close online co-op"><svg aria-hidden="true"><use href="#close"></use></svg></button>
         <h2 id="coop-title" tabindex="-1">Online co-op</h2>
-        <p id="coop-intro">Team up for all eight missions, from Arterial Junction to the Mega Virus fight in Neural Cortex.</p>
+        <p id="coop-intro">Team up for all ten missions, from Arterial Junction to the Mega Virus fight in Neural Cortex.</p>
       </header>
       <p id="coop-status" class="coop-status" role="status" hidden></p>
       <div id="coop-entry" class="coop-entry" hidden>
@@ -364,12 +392,16 @@
       </footer>
     </dialog>
 
-    <dialog id="mission-dialog" class="panel mission-panel" aria-labelledby="mission-title" aria-describedby="mission-intro">
-      <header class="mission-heading">
-        <button class="icon-button close-dialog" data-close="mission-dialog" type="button" aria-label="Close Free Mode"><svg aria-hidden="true"><use href="#close"></use></svg></button>
-        <h2 id="mission-title">Free Mode</h2>
-        <p id="mission-intro">Select a mission. Campaign saves and records stay separate.</p>
+    <dialog id="mission-dialog" class="panel mission-panel deployment" aria-labelledby="mission-title" aria-describedby="mission-intro">
+      <header class="deploy-header">
+        <button class="deploy-back" data-close="mission-dialog" type="button"><svg aria-hidden="true"><use href="#arrow"></use></svg><span>Main menu</span></button>
+        <div class="deploy-heading">
+          <p class="eyebrow"><span></span> <b id="deploy-mode">Free Mode</b></p>
+          <h2 id="mission-title">Deployment</h2>
+        </div>
+        <p id="mission-intro">Pick a mission, set your difficulty and loadout, then deploy.</p>
       </header>
+      <div class="deploy-body">
       <div class="mission-gallery" id="mission-gallery" role="radiogroup" aria-label="Select a mission">
         <ol id="mission-list" class="mission-list">
           <li>
@@ -431,25 +463,44 @@
           </button>
         </div>
       </div>
-      <footer class="mission-footer">
-        <p id="mission-error" class="menu-error" role="alert" hidden></p>
-        <div class="mission-selection" aria-live="polite" aria-atomic="true">
-          <h3 id="mission-preview-title">Arterial Junction</h3>
-          <p id="mission-preview-detail">Defend the core and lateral branch through five waves.</p>
+      <section class="deploy-brief mission-selection" aria-live="polite" aria-atomic="true">
+        <div class="deploy-hero">
+          <img id="deploy-hero-art" src="assets/missions/artery.webp" width="480" height="270" alt="" decoding="async">
+          <div class="deploy-hero-text">
+            <p class="eyebrow"><span></span> <b id="deploy-hero-kicker">Mission 01</b></p>
+            <h3 id="mission-preview-title">Arterial Junction</h3>
+            <p id="mission-preview-detail">Defend the core and lateral branch through five waves.</p>
+          </div>
         </div>
-        <div class="practice-loadout">
-          <label for="practice-loadout">Field upgrade</label>
-          <select id="practice-loadout" aria-describedby="practice-loadout-detail">
+        <dl id="deploy-intel" class="deploy-intel"></dl>
+        <div class="deploy-threats">
+          <h4>Expected pathogens</h4>
+          <ul id="deploy-threats"></ul>
+        </div>
+      </section>
+      <aside class="deploy-config" aria-label="Deployment settings">
+        <section id="deploy-difficulty" class="deploy-section" aria-label="Difficulty"></section>
+        <section class="deploy-section practice-loadout">
+          <h4 id="deploy-upgrade-title">Field upgrade</h4>
+          <div id="deploy-upgrades" class="upgrade-cards" role="radiogroup" aria-labelledby="deploy-upgrade-title"></div>
+          <select id="practice-loadout" aria-describedby="practice-loadout-detail" hidden>
             <option value="standard">Standard</option>
             <option value="fast-sealer">Fast Sealer</option>
             <option value="deep-magazine">Deep Magazine</option>
             <option value="insulated-suit">Insulated Suit</option>
             <option value="turret-stabilizer">Turret Stabilizer</option>
           </select>
-          <p id="practice-loadout-detail" role="status">Standard equipment without a field upgrade.</p>
-        </div>
-        <button id="deploy-practice" class="button primary" type="button" disabled>Deploy <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-      </footer>
+          <p id="practice-loadout-detail" class="deploy-note" role="status">Standard equipment without a field upgrade.</p>
+        </section>
+        <section class="deploy-section deploy-loadout">
+          <h4>Loadout</h4>
+          <dl id="deploy-loadout"></dl>
+          <button id="deploy-armory" class="button outline" type="button">Armory</button>
+        </section>
+        <p id="mission-error" class="menu-error" role="alert" hidden></p>
+        <button id="deploy-practice" class="button primary deploy-go" type="button" disabled><span id="deploy-go-label">Deploy</span> <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+      </aside>
+      </div>
     </dialog>
 
     <dialog id="guide-dialog" class="panel guide-panel" aria-labelledby="guide-title">
@@ -569,25 +620,40 @@
     </dialog>
 
     <dialog id="pause-dialog" class="panel pause-panel" aria-labelledby="pause-title" aria-describedby="pause-detail">
-      <p id="pause-mission" class="eyebrow"></p>
-      <h2 id="pause-title">Mission paused</h2>
-      <p id="pause-detail">Resume when you’re ready to return to the mission.</p>
+      <div class="pause-info">
+        <p id="pause-mission" class="eyebrow"></p>
+        <h2 id="pause-title">Mission paused</h2>
+        <p id="pause-detail">Resume when you’re ready to return to the mission.</p>
+        <dl class="pause-intel">
+          <div><dt>Wave</dt><dd id="pause-wave">—</dd></div>
+          <div><dt>Score</dt><dd id="pause-score">0</dd></div>
+          <div><dt>Tissue</dt><dd id="pause-tissue">100%</dd></div>
+        </dl>
+        <div class="pause-objective">
+          <h3>Objective</h3>
+          <p id="pause-objective"></p>
+        </div>
+      </div>
       <div class="pause-actions">
         <button id="resume" class="button primary" type="button" autofocus>Resume mission <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+        <button id="restart-mission" class="button outline" type="button">Restart mission</button>
         <button class="button outline" type="button" data-settings>Settings</button>
-        <button id="quit" class="button outline" type="button" aria-describedby="quit-detail">Main menu</button>
+        <button id="pause-manual" class="button outline" type="button">Field manual</button>
+        <button id="quit" class="button outline pause-quit" type="button" aria-describedby="quit-detail">Quit to main menu</button>
+        <p id="quit-detail" class="pause-note">Quitting ends this run. Your campaign checkpoint is kept.</p>
       </div>
-      <p id="quit-detail" class="pause-note">Returning to the main menu ends this run.</p>
     </dialog>
 
     <dialog id="settings-dialog" class="panel settings-panel" aria-labelledby="settings-title">
       <h2 id="settings-title">Settings</h2>
       <div class="settings-list">
+        <h3 class="settings-group">Controls</h3>
         <div class="setting-row">
           <label for="look-sensitivity">Look sensitivity</label>
           <output id="look-sensitivity-value" for="look-sensitivity" aria-hidden="true">1.00×</output>
           <input id="look-sensitivity" type="range" min="0.5" max="2.5" step="0.05" value="1">
         </div>
+        <h3 class="settings-group">Video</h3>
         <div class="setting-row">
           <label for="graphics-quality">Graphics quality</label>
           <select id="graphics-quality" aria-describedby="graphics-quality-detail">
@@ -596,8 +662,19 @@
           </select>
           <small id="graphics-quality-detail">Use Low for smoother rendering on slower devices.</small>
         </div>
+        <h3 class="settings-group">Audio</h3>
         <div class="setting-row">
-          <span>Game audio</span>
+          <label for="music-volume">Music volume</label>
+          <output id="music-volume-value" for="music-volume" aria-hidden="true">100%</output>
+          <input id="music-volume" type="range" min="0" max="1" step="0.05" value="1">
+        </div>
+        <div class="setting-row">
+          <label for="effects-volume">Effects volume</label>
+          <output id="effects-volume-value" for="effects-volume" aria-hidden="true">100%</output>
+          <input id="effects-volume" type="range" min="0" max="1" step="0.05" value="1">
+        </div>
+        <div class="setting-row">
+          <span>All game audio</span>
           <button class="button outline setting-toggle" type="button" data-mute aria-label="Mute audio" aria-pressed="false">
             <svg aria-hidden="true"><use href="#sound"></use></svg>
             <span id="audio-setting-state" aria-hidden="true">Sound on</span>

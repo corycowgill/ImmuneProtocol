@@ -109,6 +109,9 @@ export class GameAudio {
     this.repairVoice = null;
     this.musicMode = 'drift';
     this.musicTracks = null;
+    // Player mix from Settings, 0 to 1.
+    this.musicLevel = 1;
+    this.effectsLevel = 1;
     this.damageAt = { player: -Infinity, tissue: -Infinity };
     this.branchAt = { left: -Infinity, right: -Infinity };
     this.valveBlockedAt = -Infinity;
@@ -199,6 +202,13 @@ export class GameAudio {
     this.fadeMusic();
   }
 
+  setMix(music, effects) {
+    this.musicLevel = music;
+    this.effectsLevel = effects;
+    this.fadeMusic();
+    this.setActive(this.active);
+  }
+
   setMusic(mode) {
     if (this.musicMode === mode) return;
     this.musicMode = mode;
@@ -209,7 +219,7 @@ export class GameAudio {
     if (!this.musicTracks) return;
     const now = this.context.currentTime;
     for (const { mode, volume, gain } of this.musicTracks) {
-      gain.gain.setTargetAtTime(mode === this.musicMode ? volume : 0, now, 0.23);
+      gain.gain.setTargetAtTime(mode === this.musicMode ? volume * this.musicLevel : 0, now, 0.23);
     }
   }
 
@@ -217,7 +227,7 @@ export class GameAudio {
     this.active = active;
     if (!this.context) return;
     const now = this.context.currentTime;
-    this.effectsBus.gain.setTargetAtTime(active ? 1 : 0, now, 0.045);
+    this.effectsBus.gain.setTargetAtTime(active ? this.effectsLevel : 0, now, 0.045);
     if (!active) this.stopRepair();
     this.syncRoom();
   }
