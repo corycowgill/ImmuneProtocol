@@ -1,4 +1,4 @@
-# Loading and rendering review â€” 2026-11-20
+# Loading and rendering review — 2026-11-20
 
 The previous startup already prepared arena geometry and some shaders. The remaining gaps were suit models loaded from first-use accessors, on-demand weapon part cards, cosmetic textures generated on selection, briefing/guide portraits loaded when their UI opened, and rocket/explosion render paths missing from warmup. Per-shot tracer buffers and per-puff materials were also allocated and disposed repeatedly. Explosion `clear()` detached objects without disposing or retaining their resources.
 
@@ -15,7 +15,7 @@ The new loader covers downloads, decoding, procedural construction, texture uplo
 | Music | 2 | 1.47 |
 | Sound effects | 33 | 1.97 |
 
-GLB index accessor counts show about 14,000â€“24,000 triangles per ordinary pathogen, 109,942 for the colony, about 49,000 per suit, 88,970 for the carbine and 70,954 for the sniper. Compression reduces downloads, not the triangle count sent to the GPU. All-arena preparation trades startup time and retained memory for fewer first-use stalls. Dense waves, blended smoke and high resolution can still be expensive; these changes do not claim to eliminate every frame drop.
+GLB index accessor counts show about 14,000–24,000 triangles per ordinary pathogen, 109,942 for the colony, about 49,000 per suit, 88,970 for the carbine and 70,954 for the sniper. Compression reduces downloads, not the triangle count sent to the GPU. All-arena preparation trades startup time and retained memory for fewer first-use stalls. Dense waves, blended smoke and high resolution can still be expensive; these changes do not claim to eliminate every frame drop.
 
 ## Verification
 
