@@ -1,11 +1,13 @@
 // First-person and armory models for every weapon. The carbine comes from carbine.mjs; the Lancet
 // sniper rifle, Burst Scattergun, Phage rocket launcher and Sting pistol are built here, each with
-// three variants of every part slot, plus receiver stickers and hanging charms for all five.
+// three variants of every part slot, plus skins, side decals, receiver stickers and hanging charms
+// for all five.
 import * as THREE from './vendor/three.module.js';
 import { ACCENT_COLORS, FINISH_COLORS, createCarbine, finishTexture } from './carbine.mjs';
 import {
-  DEFAULT_WEAPON_LOADOUT, WEAPON_CHARMS, WEAPON_STICKERS, normalizeWeaponLoadout,
+  DEFAULT_WEAPON_LOADOUT, WEAPON_CHARMS, WEAPON_DECALS, WEAPON_STICKERS, normalizeWeaponLoadout,
 } from './weapon-mods.mjs';
+import { decalTexture, dressShell, makeSkinnable } from './weapon-skins.mjs';
 
 const textures = {};
 const texture = kind => (textures[kind] ??= finishTexture(kind));
@@ -14,9 +16,9 @@ function createKit() {
   const brushed = texture('steel');
   const molded = texture('polymer');
   return {
-    shell: new THREE.MeshStandardMaterial({
+    shell: makeSkinnable(new THREE.MeshStandardMaterial({
       color: 0xbeb6a3, metalness: .18, roughness: .52, map: molded, roughnessMap: molded, bumpMap: molded, bumpScale: .0027,
-    }),
+    })),
     steel: new THREE.MeshPhysicalMaterial({
       color: 0x7d8588, metalness: .79, roughness: .45, map: brushed, roughnessMap: brushed,
       bumpMap: brushed, bumpScale: .0016, clearcoat: .09, clearcoatRoughness: .5,
@@ -40,7 +42,7 @@ function createKit() {
 
 function paint(kit, build) {
   const palette = FINISH_COLORS[build.finish];
-  kit.shell.color.setHex(palette.shell);
+  dressShell(kit.shell, build.skin, palette.shell, texture('polymer'));
   kit.steel.color.setHex(palette.steel);
   kit.dark.color.setHex(palette.receiver);
   kit.edge.color.setHex(palette.trim);
@@ -272,6 +274,10 @@ function addSlotParts(root, kit, spec) {
 function pistolGrip(kit, root, { y = -.088, z = .047, height = .132, angle = -.32, width = .082 } = {}) {
   const { panel } = builder(root);
   panel(width, height, .092, .013, kit.dark, 0, y, z, root).rotation.x = angle;
+  // Textured rubber grip panels on both sides.
+  for (const side of [-1, 1]) {
+    panel(.003, height * .72, .066, .001, kit.rubber, side * (width / 2 + .0008), y - .004, z + .004, root).rotation.x = angle;
+  }
   panel(.034, .016, .114, .004, kit.steel, 0, -.123, -.057, root);
   panel(.034, .047, .015, .004, kit.steel, 0, -.106, -.112, root);
   const trigger = panel(.015, .046, .012, .003, kit.steel, 0, -.082, -.02, root);
@@ -292,7 +298,20 @@ function buildSniper(kit) {
   panel(.06, .03, .26, .008, kit.shell, 0, -.07, .29).rotation.x = -.16;
   panel(.06, .14, .03, .008, kit.dark, 0, -.02, .42);
   panel(.075, .16, .025, .01, kit.rubber, 0, -.02, .445);
+  panel(.077, .162, .004, .001, kit.edge, 0, -.02, .4325);
   panel(.05, .03, .12, .008, kit.accent, 0, .062, .26);
+  // Bolt shroud and cocking piece behind the action, and a flared magazine well.
+  tube(.02, .045, kit.steel, 0, .02, .082);
+  tube(.008, .016, kit.dark, 0, .02, .11);
+  panel(.072, .022, .105, .004, kit.dark, 0, -.052, -.17);
+  // Cheek riser knobs, QD sling cups and M-LOK slots along the handguard.
+  const crossbolt = (radius, length, material, x, y, z) => {
+    mesh(new THREE.CylinderGeometry(radius, radius, length, 16), material, x, y, z).rotation.z = Math.PI / 2;
+  };
+  for (const z of [.2, .34]) crossbolt(.007, .008, kit.edge, -.038, .035, z);
+  crossbolt(.009, .004, kit.edge, -.0605, -.025, -.6);
+  crossbolt(.009, .004, kit.edge, -.032, -.075, .37);
+  for (let i = 0; i < 5; i++) panel(.002, .007, .026, .001, kit.dark, -.0595, -.034, -.36 - i * .05);
   pistolGrip(kit, root);
   // Folded bipod under the handguard.
   for (const side of [-1, 1]) {
@@ -331,7 +350,8 @@ function buildSniper(kit) {
     root, bolt, ...slots,
     supportRest: new THREE.Vector3(-.075, -.074, -.44),
     sticker: { position: new THREE.Vector3(-.0565, .005, -.1), size: .05 },
-    charm: new THREE.Vector3(-.062, -.048, -.56),
+    decal: { position: new THREE.Vector3(-.0602, .024, -.46), width: .3, height: .034 },
+    charm: new THREE.Vector3(-.066, .012, -.24),
   };
 }
 
@@ -351,8 +371,17 @@ function buildShotgun(kit) {
   const bolt = group();
   panel(.086, .072, .21, .016, kit.shell, 0, -.04, -.42, bolt);
   for (let i = 0; i < 6; i++) panel(.09, .012, .012, .004, kit.rubber, 0, -.04, -.5 + i * .032, bolt);
+  // Action bars run from the pump back into the receiver.
+  for (const side of [-1, 1]) tube(.0032, .09, kit.steel, side * .032, -.02, -.29, bolt, 10);
+  panel(.05, .07, .02, .006, kit.dark, 0, -.008, -.6);
   panel(.08, .14, .26, .02, kit.shell, 0, -.04, .22);
   panel(.085, .15, .025, .012, kit.rubber, 0, -.04, .36);
+  panel(.082, .146, .004, .001, kit.edge, 0, -.04, .349);
+  // Milled flats along the receiver, a cross-bolt safety and a stock sling swivel.
+  for (const y of [.02, -.04]) panel(.003, .006, .27, .001, kit.edge, -.0626, y, -.1);
+  mesh(new THREE.CylinderGeometry(.005, .005, .09, 14), kit.shellCasing, 0, -.07, .005).rotation.z = Math.PI / 2;
+  mesh(new THREE.CylinderGeometry(.004, .004, .012, 10), kit.steel, 0, -.114, .3);
+  mesh(new THREE.TorusGeometry(.009, .0022, 8, 18), kit.steel, 0, -.126, .3).rotation.y = Math.PI / 2;
   panel(.04, .012, .2, .003, kit.accent, 0, .04, .2);
   pistolGrip(kit, root);
   const slots = addSlotParts(root, kit, {
@@ -372,7 +401,8 @@ function buildShotgun(kit) {
     root, bolt, ...slots,
     supportRest: new THREE.Vector3(-.075, -.085, -.42),
     sticker: { position: new THREE.Vector3(-.0635, .03, -.03), size: .046 },
-    charm: new THREE.Vector3(-.016, -.058, -.67),
+    decal: { position: new THREE.Vector3(-.0406, -.035, .21), width: .22, height: .07 },
+    charm: new THREE.Vector3(-.074, 0, -.215),
   };
 }
 
@@ -392,6 +422,22 @@ function buildLauncher(kit) {
   }
   panel(.02, .1, .3, .006, kit.dark, .07, y, -.25);
   for (let i = 0; i < 6; i++) panel(.008, .09, .01, .002, kit.steel, .082, y, -.37 + i * .045);
+  // Carry handle, shoulder rest, sling loop and bolted tube bands.
+  const handle = mesh(new THREE.TorusGeometry(.04, .0065, 10, 24, Math.PI), kit.dark, 0, y + .066, .03);
+  handle.rotation.y = Math.PI / 2;
+  for (const dz of [-.04, .04]) panel(.02, .012, .016, .003, kit.dark, 0, y + .068, .03 + dz);
+  panel(.06, .03, .1, .01, kit.rubber, 0, y - .08, .17);
+  mesh(new THREE.TorusGeometry(.01, .0024, 8, 18), kit.steel, 0, y - .078, -.45).rotation.y = Math.PI / 2;
+  for (const z of [-.5, -.02, .12]) {
+    for (const angle of [.5, -.5]) {
+      const screw = mesh(new THREE.CylinderGeometry(.004, .004, .004, 10), kit.edge,
+        -Math.cos(angle) * .072, y + Math.sin(angle) * .072, z);
+      screw.rotation.z = Math.PI / 2 - angle;
+    }
+  }
+  // The venturi's inner ring and a dark throat, so the tube doesn't look hollow.
+  mesh(new THREE.TorusGeometry(.088, .005, 8, 36), kit.dark, 0, y, .362);
+  mesh(new THREE.CircleGeometry(.07, 28), kit.rubber, 0, y, .32);
   // Front vertical grip and rear pistol grip.
   panel(.04, .11, .045, .01, kit.dark, 0, -.06, -.33).rotation.x = .15;
   panel(.045, .02, .06, .005, kit.steel, 0, -.015, -.33);
@@ -423,8 +469,9 @@ function buildLauncher(kit) {
       return point;
     },
     supportRest: new THREE.Vector3(-.06, -.07, -.36),
-    sticker: { position: new THREE.Vector3(-.067, y - .015, -.08), size: .055, curve: .066 },
-    charm: new THREE.Vector3(-.07, -.005, -.47),
+    sticker: { position: new THREE.Vector3(-.067, y - .015, -.08), size: .055 },
+    decal: { position: new THREE.Vector3(0, y, -.28), width: .3, height: .05, curve: .0668, angle: -.42 },
+    charm: new THREE.Vector3(-.075, .035, -.12),
     hipOffset: new THREE.Vector3(0, .015, 0),
   };
 }
@@ -434,9 +481,28 @@ function buildPistol(kit) {
   const { panel, tube, group } = builder(root);
   const bolt = group();
   panel(.05, .046, .25, .008, kit.shell, 0, .035, -.07, bolt);
-  for (let i = 0; i < 6; i++) panel(.052, .03, .006, .002, kit.dark, 0, .035, .02 + i * .01, bolt);
+  // Rear and forward slide serrations.
+  for (let i = 0; i < 9; i++) panel(.0515, .028, .0024, .0008, kit.dark, 0, .034, .016 + i * .0042, bolt);
+  for (let i = 0; i < 5; i++) panel(.0515, .022, .0024, .0008, kit.dark, 0, .031, -.172 + i * .0042, bolt);
   panel(.04, .008, .1, .002, kit.accent, 0, .059, -.1, bolt);
+  // Ejection port with the barrel hood showing through, and three-dot sights.
+  panel(.03, .003, .042, .001, kit.dark, 0, .0585, -.026, bolt);
+  panel(.021, .003, .034, .001, kit.steel, 0, .0595, -.026, bolt);
+  panel(.005, .009, .008, .0015, kit.dark, 0, .0625, -.186, bolt);
+  for (const side of [-1, 1]) panel(.011, .009, .008, .0015, kit.dark, side * .0115, .0625, .049, bolt);
   panel(.044, .036, .22, .008, kit.dark, 0, -.002, -.06);
+  // Slide stop, takedown lever and magazine release on the left of the frame.
+  panel(.003, .006, .034, .001, kit.steel, -.0233, .013, -.074);
+  panel(.003, .007, .012, .001, kit.steel, -.0233, .006, -.116);
+  panel(.004, .01, .01, .002, kit.steel, -.0234, -.011, -.004);
+  // Accessory rail under the dust cover, beavertail and recoil spring plug.
+  panel(.03, .006, .08, .002, kit.dark, 0, -.022, -.13);
+  for (let i = 0; i < 3; i++) panel(.032, .003, .006, .001, kit.steel, 0, -.0245, -.155 + i * .022);
+  panel(.04, .01, .03, .004, kit.dark, 0, .007, .062).rotation.x = .5;
+  tube(.007, .008, kit.steel, 0, .007, -.172);
+  for (const side of [-1, 1]) {
+    panel(.003, .09, .052, .001, kit.rubber, side * .0235, -.08, .047).rotation.x = -.24;
+  }
   panel(.046, .13, .075, .012, kit.dark, 0, -.078, .045).rotation.x = -.24;
   for (let i = 0; i < 5; i++) panel(.048, .006, .06, .002, kit.rubber, 0, -.05 - i * .022, .046 + i * .005).rotation.x = -.24;
   panel(.03, .012, .07, .003, kit.steel, 0, -.035, -.045);
@@ -459,7 +525,8 @@ function buildPistol(kit) {
     root, bolt, ...slots,
     supportRest: new THREE.Vector3(-.05, -.115, .035),
     sticker: { position: new THREE.Vector3(-.0255, .035, -.09), size: .03 },
-    charm: new THREE.Vector3(-.022, -.022, -.15),
+    decal: { position: new THREE.Vector3(-.0227, -.003, -.11), width: .12, height: .024 },
+    charm: new THREE.Vector3(-.026, -.012, -.15),
     // The pistol sits higher and closer than the long guns so both gloves stay in frame.
     hipOffset: new THREE.Vector3(-.065, .125, .08),
   };
@@ -584,6 +651,170 @@ export function drawSticker(context, size, id) {
     context.stroke();
     context.fillRect(c - 3 * s, c - 18 * s, 6 * s, 36 * s);
     context.fillRect(c - 18 * s, c - 3 * s, 36 * s, 6 * s);
+  } else if (id === 'dna') {
+    context.lineWidth = 5 * s;
+    for (const phase of [0, Math.PI]) {
+      context.beginPath();
+      for (let i = 0; i <= 40; i++) {
+        const y = c - 40 * s + i * 2 * s;
+        context[i ? 'lineTo' : 'moveTo'](c + Math.sin(i * .22 + phase) * 22 * s, y);
+      }
+      context.stroke();
+    }
+    context.lineWidth = 3 * s;
+    for (let i = 3; i < 40; i += 5) {
+      const y = c - 40 * s + i * 2 * s;
+      context.beginPath();
+      context.moveTo(c + Math.sin(i * .22) * 22 * s, y);
+      context.lineTo(c + Math.sin(i * .22 + Math.PI) * 22 * s, y);
+      context.stroke();
+    }
+  } else if (id === 'antibody') {
+    context.lineWidth = 11 * s;
+    context.beginPath();
+    context.moveTo(c, c + 38 * s);
+    context.lineTo(c, c + 2 * s);
+    context.lineTo(c - 26 * s, c - 30 * s);
+    context.moveTo(c, c + 2 * s);
+    context.lineTo(c + 26 * s, c - 30 * s);
+    context.stroke();
+    for (const dx of [-1, 1]) {
+      context.beginPath();
+      context.arc(c + dx * 30 * s, c - 35 * s, 8 * s, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (id === 'flame') {
+    context.beginPath();
+    context.moveTo(c, c - 42 * s);
+    context.bezierCurveTo(c + 10 * s, c - 18 * s, c + 36 * s, c - 8 * s, c + 28 * s, c + 18 * s);
+    context.bezierCurveTo(c + 22 * s, c + 40 * s, c - 22 * s, c + 42 * s, c - 28 * s, c + 18 * s);
+    context.bezierCurveTo(c - 34 * s, c - 4 * s, c - 14 * s, c - 6 * s, c - 12 * s, c - 22 * s);
+    context.bezierCurveTo(c - 4 * s, c - 14 * s, c - 4 * s, c - 30 * s, c, c - 42 * s);
+    context.fill();
+    context.fillStyle = '#ffe07a';
+    context.beginPath();
+    context.ellipse(c, c + 18 * s, 12 * s, 18 * s, 0, 0, Math.PI * 2);
+    context.fill();
+  } else if (id === 'snowflake') {
+    context.lineWidth = 6 * s;
+    for (let i = 0; i < 6; i++) {
+      const angle = i * Math.PI / 3;
+      const point = (r, turn = 0) => [c + Math.cos(angle + turn) * r * s, c + Math.sin(angle + turn) * r * s];
+      context.beginPath();
+      context.moveTo(c, c);
+      context.lineTo(...point(40));
+      context.moveTo(...point(24));
+      context.lineTo(...point(33, .3));
+      context.moveTo(...point(24));
+      context.lineTo(...point(33, -.3));
+      context.stroke();
+    }
+  } else if (id === 'paw') {
+    context.beginPath();
+    context.ellipse(c, c + 14 * s, 22 * s, 19 * s, 0, 0, Math.PI * 2);
+    context.fill();
+    for (const [dx, dy, r] of [[-28, -10, 9], [-11, -28, 10], [11, -28, 10], [28, -10, 9]]) {
+      context.beginPath();
+      context.ellipse(c + dx * s, c + dy * s, r * s * .8, r * s, dx * .02, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (id === 'crosshair') {
+    context.lineWidth = 5 * s;
+    for (const r of [34, 18]) {
+      context.beginPath();
+      context.arc(c, c, r * s, 0, Math.PI * 2);
+      context.stroke();
+    }
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      context.beginPath();
+      context.moveTo(c + dx * 10 * s, c + dy * 10 * s);
+      context.lineTo(c + dx * 44 * s, c + dy * 44 * s);
+      context.stroke();
+    }
+    context.beginPath();
+    context.arc(c, c, 4 * s, 0, Math.PI * 2);
+    context.fill();
+  } else if (id === 'cat') {
+    context.beginPath();
+    context.moveTo(c - 34 * s, c - 38 * s);
+    context.lineTo(c - 16 * s, c - 20 * s);
+    context.lineTo(c + 16 * s, c - 20 * s);
+    context.lineTo(c + 34 * s, c - 38 * s);
+    context.lineTo(c + 36 * s, c + 6 * s);
+    context.quadraticCurveTo(c + 34 * s, c + 36 * s, c, c + 38 * s);
+    context.quadraticCurveTo(c - 34 * s, c + 36 * s, c - 36 * s, c + 6 * s);
+    context.closePath();
+    context.fill();
+    context.fillStyle = sticker.paper;
+    context.strokeStyle = sticker.paper;
+    context.lineWidth = 3.5 * s;
+    for (const dx of [-14, 14]) {
+      context.beginPath();
+      context.moveTo(c + dx * s - 8 * s, c + 1 * s);
+      context.quadraticCurveTo(c + dx * s, c - 6 * s, c + dx * s + 8 * s, c + 1 * s);
+      context.stroke();
+    }
+    context.beginPath();
+    context.moveTo(c - 4 * s, c + 12 * s);
+    context.lineTo(c + 4 * s, c + 12 * s);
+    context.lineTo(c, c + 17 * s);
+    context.fill();
+    for (const dx of [-1, 1]) {
+      for (const dy of [-4, 4]) {
+        context.beginPath();
+        context.moveTo(c + dx * 16 * s, c + (16 + dy * .5) * s);
+        context.lineTo(c + dx * 32 * s, c + (16 + dy * 1.5) * s);
+        context.stroke();
+      }
+    }
+  } else if (id === 'pizza') {
+    context.fillStyle = '#d98b3a';
+    context.beginPath();
+    context.moveTo(c - 34 * s, c - 30 * s);
+    context.quadraticCurveTo(c, c - 46 * s, c + 34 * s, c - 30 * s);
+    context.lineTo(c, c + 42 * s);
+    context.closePath();
+    context.fill();
+    context.fillStyle = '#ffe28a';
+    context.beginPath();
+    context.moveTo(c - 28 * s, c - 22 * s);
+    context.quadraticCurveTo(c, c - 34 * s, c + 28 * s, c - 22 * s);
+    context.lineTo(c, c + 34 * s);
+    context.closePath();
+    context.fill();
+    context.fillStyle = sticker.ink;
+    for (const [dx, dy] of [[-10, -12], [10, -8], [0, 10], [-3, -24]]) {
+      context.beginPath();
+      context.arc(c + dx * s, c + dy * s, 6 * s, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (id === 'rainbow') {
+    const bands = ['#e8413c', '#f39a2b', '#f6d23c', '#4cc35a', '#3a8fe0', '#5b4cc8', '#9a4fc7'];
+    context.lineWidth = 6 * s;
+    bands.forEach((color, index) => {
+      context.strokeStyle = color;
+      context.beginPath();
+      context.arc(c, c + 20 * s, (42 - index * 6) * s, Math.PI, 0);
+      context.stroke();
+    });
+    context.fillStyle = sticker.ink;
+    for (const dx of [-30, 30]) {
+      context.beginPath();
+      context.arc(c + dx * s, c + 24 * s, 10 * s, 0, Math.PI * 2);
+      context.arc(c + dx * s + 9 * s, c + 22 * s, 8 * s, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (id === 'peace') {
+    context.lineWidth = 8 * s;
+    context.beginPath();
+    context.arc(c, c, 34 * s, 0, Math.PI * 2);
+    context.moveTo(c, c - 34 * s);
+    context.lineTo(c, c + 34 * s);
+    context.moveTo(c, c);
+    context.lineTo(c - 24 * s, c + 24 * s);
+    context.moveTo(c, c);
+    context.lineTo(c + 24 * s, c + 24 * s);
+    context.stroke();
   }
   context.restore();
 }
@@ -602,6 +833,7 @@ function stickerTexture(id) {
 // One mesh per charm, hung from a three-link chain that swings with the weapon.
 function createCharms() {
   const pivot = new THREE.Group();
+  pivot.name = 'weapon-charm';
   const { mesh, group } = builder(pivot);
   const chainMaterial = new THREE.MeshStandardMaterial({ color: 0xc9c2b4, metalness: .9, roughness: .3 });
   for (let i = 0; i < 3; i++) {
@@ -641,7 +873,77 @@ function createCharms() {
   top.scale.y = .62;
   const bottom = mesh(new THREE.CapsuleGeometry(.0055, .009, 6, 12), new THREE.MeshStandardMaterial({ color: 0xf2efe8, roughness: .3 }), 0, at - .006, 0, capsule);
   bottom.scale.y = .62;
+  const gold = new THREE.MeshStandardMaterial({ color: 0xe6b84a, metalness: .85, roughness: .28, emissive: 0x6b4a10, emissiveIntensity: .15 });
+  const ink = new THREE.MeshStandardMaterial({ color: 0x15130f, roughness: .6 });
+  const dice = charms.dice = group();
+  const cube = mesh(new THREE.BoxGeometry(.014, .014, .014), tint('dice'), 0, at, 0, dice);
+  cube.rotation.set(.35, .6, .2);
+  for (const [x, y, z] of [[-.0071, 0, 0], [0, .0071, -.004], [0, .0071, .004], [0, 0, -.0071], [-.004, -.004, -.0071], [.004, .004, -.0071]]) {
+    mesh(new THREE.SphereGeometry(.0016, 8, 6), ink, x, y, z, cube);
+  }
+  const antibody = charms.antibody = group();
+  const arm = new THREE.CapsuleGeometry(.0022, .011, 4, 8);
+  mesh(arm, tint('antibody'), 0, at - .007, 0, antibody);
+  for (const side of [-1, 1]) {
+    mesh(arm, tint('antibody'), side * .005, at + .006, 0, antibody).rotation.z = -side * .6;
+    mesh(new THREE.SphereGeometry(.0032, 10, 8), tint('antibody'), side * .0095, at + .0125, 0, antibody);
+  }
+  const snowflake = charms.snowflake = group();
+  for (let i = 0; i < 3; i++) {
+    const spoke = mesh(new THREE.BoxGeometry(.0026, .028, .0016), tint('snowflake'), 0, at - .002, 0, snowflake);
+    spoke.rotation.z = i * Math.PI / 3;
+  }
+  mesh(new THREE.OctahedronGeometry(.0045), tint('snowflake'), 0, at - .002, 0, snowflake);
+  const heart = new THREE.Shape();
+  heart.moveTo(0, -.009);
+  heart.bezierCurveTo(-.014, .001, -.006, .011, 0, .004);
+  heart.bezierCurveTo(.006, .011, .014, .001, 0, -.009);
+  const locket = charms.locket = group();
+  const shape = new THREE.ExtrudeGeometry(heart, { depth: .004, bevelEnabled: true, bevelThickness: .0012, bevelSize: .001, bevelSegments: 2 });
+  shape.translate(0, 0, -.002);
+  mesh(shape, gold, 0, at - .002, 0, locket).rotation.y = Math.PI / 2;
+  const claw = charms.claw = group();
+  mesh(new THREE.CylinderGeometry(.0018, .0018, .02, 8), chainMaterial, 0, at + .007, 0, claw).rotation.x = Math.PI / 2;
+  for (const dz of [-.007, 0, .007]) {
+    const talon = mesh(new THREE.ConeGeometry(.0028, .02, 10), tint('claw'), 0, at - .004, dz, claw);
+    talon.rotation.set(dz * 18, 0, Math.PI + .35);
+  }
+  const skull = charms.skull = group();
+  mesh(new THREE.SphereGeometry(.0085, 16, 12), tint('skull'), 0, at + .002, 0, skull);
+  const jaw = mesh(new THREE.BoxGeometry(.009, .006, .009), tint('skull'), 0, at - .006, 0, skull);
+  jaw.position.x = -.001;
+  for (const dz of [-.0035, .0035]) mesh(new THREE.SphereGeometry(.0024, 8, 6), ink, -.0072, at + .002, dz, skull);
+  const battery = charms.battery = group();
+  mesh(new THREE.CylinderGeometry(.0055, .0055, .022, 16), new THREE.MeshStandardMaterial({ color: 0x24262a, metalness: .5, roughness: .35 }), 0, at - .002, 0, battery);
+  mesh(new THREE.CylinderGeometry(.0057, .0057, .008, 16), tint('battery'), 0, at + .004, 0, battery);
+  mesh(new THREE.CylinderGeometry(.0022, .0022, .003, 10), chainMaterial, 0, at + .0105, 0, battery);
+  const starShape = new THREE.Shape();
+  for (let i = 0; i < 10; i++) {
+    const radius = i % 2 ? .0055 : .013;
+    const angle = Math.PI / 2 + i * Math.PI / 5;
+    starShape[i ? 'lineTo' : 'moveTo'](Math.cos(angle) * radius, Math.sin(angle) * radius);
+  }
+  const star = charms.star = group();
+  const starGeometry = new THREE.ExtrudeGeometry(starShape, { depth: .003, bevelEnabled: true, bevelThickness: .001, bevelSize: .0008, bevelSegments: 1 });
+  starGeometry.translate(0, 0, -.0015);
+  mesh(starGeometry, gold, 0, at - .006, 0, star).rotation.y = Math.PI / 2;
+  // Charms read at a glance from the first-person view.
+  pivot.scale.setScalar(1.6);
   return { pivot, charms };
+}
+
+// A decal bent around a tube of radius `curve`, centred `angle` radians up from the tube's left side.
+// Like the flat decals, the print runs from the muzzle end to the stock end.
+function wrappedDecal({ width, height, curve, angle = 0 }) {
+  const geometry = new THREE.PlaneGeometry(width, height, 1, 16);
+  const position = geometry.attributes.position;
+  for (let i = 0; i < position.count; i++) {
+    const along = position.getX(i);
+    const around = position.getY(i) / curve + angle;
+    position.setXYZ(i, -Math.cos(around) * curve, Math.sin(around) * curve, along);
+  }
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
 // The first-person view: the carbine (with gloves) plus every other weapon, swapped by loadout.
@@ -663,13 +965,27 @@ export function createArsenalView({ showHands = true } = {}) {
   }));
   sticker.rotation.y = -Math.PI / 2;
   model.add(sticker);
+  // Side decal: a flat print, or one wrapped around the launcher's tube.
+  const decal = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial({
+    transparent: true, alphaTest: .25, roughness: .5, metalness: .05, side: THREE.DoubleSide,
+    polygonOffset: true, polygonOffsetFactor: -2,
+  }));
+  model.add(decal);
+  const decalShapes = new Map();
+  const decalGeometry = spec => {
+    if (!decalShapes.has(spec)) decalShapes.set(spec, spec.curve ? wrappedDecal(spec) : new THREE.PlaneGeometry(spec.width, spec.height));
+    return decalShapes.get(spec);
+  };
+  makeSkinnable(carbine.shell);
+  const carbinePolymer = carbine.shell.map;
   const { pivot: charmPivot, charms } = createCharms();
   model.add(charmPivot);
   const charmSwing = { x: 0, z: 0, vx: 0, vz: 0 };
   // Carbine decor positions, matching its receiver and grip.
   const carbineDecor = {
     sticker: { position: new THREE.Vector3(-.0785, .002, -.42), size: .042 },
-    charm: new THREE.Vector3(-.052, -.062, -.5),
+    decal: { position: new THREE.Vector3(-.0812, .026, .115), width: .23, height: .05 },
+    charm: new THREE.Vector3(-.08, -.02, -.25),
   };
   const carbineSight = carbine.sight.position.clone();
   const carbineMuzzle = carbine.muzzle.position.clone();
@@ -709,6 +1025,15 @@ export function createArsenalView({ showHands = true } = {}) {
       carbine.muzzle.position.copy(carbineMuzzle);
       carbine.setLoadout({ ...next, barrel: next.barrel === 'standard' ? 'short-barrel' : 'standard' });
       carbine.setLoadout(next);
+    }
+    if (active === 'carbine') dressShell(carbine.shell, next.skin, FINISH_COLORS[next.finish].shell, carbinePolymer);
+    decal.visible = Boolean(WEAPON_DECALS[next.decal].ink);
+    if (decal.visible) {
+      decal.geometry = decalGeometry(decor.decal);
+      decal.material.map = decalTexture(next.decal);
+      decal.material.needsUpdate = true;
+      decal.position.copy(decor.decal.position);
+      decal.rotation.set(0, decor.decal.curve ? 0 : -Math.PI / 2, 0);
     }
     const design = WEAPON_STICKERS[next.sticker];
     sticker.visible = Boolean(design.paper);

@@ -584,7 +584,7 @@ function setupArmory() {
       card.dataset.option = id;
       const label = document.createElement('strong');
       label.textContent = option.name;
-      if (slot === 'sticker' || slot === 'charm') {
+      if (Object.hasOwn(COSMETIC_SLOTS, slot)) {
         const picture = new Image(225, 130);
         picture.className = 'armory-art';
         picture.alt = '';

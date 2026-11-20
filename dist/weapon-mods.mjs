@@ -103,6 +103,42 @@ export const WEAPON_STICKERS = {
   skull: { name: 'Pathogen skull', detail: 'Bone-white skull on black.', ink: '#efe8dc', paper: '#18171a' },
   star: { name: 'Gold star', detail: 'Top marks from the immune system.', ink: '#5a3a06', paper: '#f7cf55' },
   studio: { name: 'Hallucinated', detail: 'The studio crest in jade.', ink: '#75f1b4', paper: '#14211b' },
+  dna: { name: 'Double helix', detail: 'A twisting DNA ladder on teal.', ink: '#f4fbff', paper: '#1d7f8c' },
+  antibody: { name: 'Antibody', detail: 'The Y-shaped hero of the immune system.', ink: '#ffffff', paper: '#6f4ae0' },
+  flame: { name: 'Hot shot', detail: 'A flame on charcoal.', ink: '#ff8a1f', paper: '#231b1b' },
+  snowflake: { name: 'Snowflake', detail: 'Six crisp arms on winter blue.', ink: '#ffffff', paper: '#3e8fd8' },
+  paw: { name: 'Tiger paw', detail: 'A big cat print on orange.', ink: '#1a1410', paper: '#f08a24' },
+  crosshair: { name: 'Crosshair', detail: 'Red reticle on bone white.', ink: '#d6262c', paper: '#f1ece2' },
+  cat: { name: 'Lab cat', detail: 'The lab mascot, looking smug.', ink: '#24191f', paper: '#ffd6a1' },
+  pizza: { name: 'Pizza slice', detail: 'Rations of the elite.', ink: '#b8281f', paper: '#ffd062' },
+  rainbow: { name: 'Rainbow', detail: 'Seven bands of good vibes.', ink: '#ffffff', paper: '#8fd3ff' },
+  peace: { name: 'Peace', detail: 'Ironic, given the circumstances.', ink: '#ffffff', paper: '#2fa36b' },
+};
+
+// Patterned wraps over the weapon's polymer furniture. The body finish still colors the metal.
+export const WEAPON_SKINS = {
+  none: { name: 'Finish only', detail: 'Plain polymer in the body finish.' },
+  tiger: { name: 'Tiger', detail: 'Black stripes on burnt orange.' },
+  zebra: { name: 'Zebra', detail: 'Bold black and white bands.' },
+  winter: { name: 'Winter camo', detail: 'Snow, ice and slate blotches.' },
+  camo: { name: 'Woodland camo', detail: 'Leaf green, bark and loam.' },
+  digital: { name: 'Urban digital', detail: 'Pixelated concrete grays.' },
+  cyberpunk: { name: 'Cyberpunk', detail: 'Neon circuitry that glows in the dark.', glow: true },
+  carbon: { name: 'Carbon fiber', detail: 'Woven twill under clear lacquer.' },
+  molten: { name: 'Molten core', detail: 'Black rock split by glowing magma.', glow: true },
+};
+
+// Wide prints along the side of the stock or body.
+export const WEAPON_DECALS = {
+  none: { name: 'No decal', detail: 'Clean sides.' },
+  racing: { name: 'Racing stripes', detail: 'Twin stripes for going fast.', ink: '#f4f0e8', accent: '#e23b3b' },
+  flames: { name: 'Hot rod flames', detail: 'Classic licks of fire.', ink: '#ffb02e', accent: '#e8401c' },
+  tally: { name: 'Kill tally', detail: 'Count every pathogen you clear.', ink: '#f4f0e8', accent: '#f4f0e8' },
+  chevrons: { name: 'Hazard chevrons', detail: 'Yellow and black warning bands.', ink: '#f2c84b', accent: '#151412' },
+  circuit: { name: 'Circuit traces', detail: 'Glowing jade circuitry.', ink: '#75f1b4', accent: '#2f8f6c' },
+  barcode: { name: 'Barcode', detail: 'Property of the immune system.', ink: '#f4f0e8', accent: '#f4f0e8' },
+  number: { name: 'Unit 07', detail: 'Stenciled squad number.', ink: '#f4f0e8', accent: '#ffb54c' },
+  splatter: { name: 'Paint splatter', detail: 'Pink, cyan and lime splashes.', ink: '#ff5fa2', accent: '#3ad6e8' },
 };
 
 // Charms hang from the weapon and give a buff while that weapon is in your hands.
@@ -131,6 +167,38 @@ export const WEAPON_CHARMS = {
   capsule: {
     name: 'Ration capsule', buff: 'Capacity', detail: 'Magazines hold 25% more.',
     color: '#ff6f6f', buffs: { magazineScale: .25 },
+  },
+  dice: {
+    name: "Gambler's die", buff: 'Fortune', detail: 'Critical hit zones 18% larger and 4% more damage.',
+    color: '#f4f0e8', buffs: { critScale: .18, damageScale: .04 },
+  },
+  antibody: {
+    name: 'Antibody', buff: 'Precision', detail: '6% more damage and 10% tighter spread.',
+    color: '#8f6cff', buffs: { damageScale: .06, spreadScale: -.1 },
+  },
+  snowflake: {
+    name: 'Frost crystal', buff: 'Composure', detail: 'Reloads 10% faster and spread is 12% tighter.',
+    color: '#bfe8ff', buffs: { reloadScale: -.1, spreadScale: -.12 },
+  },
+  locket: {
+    name: 'Heart locket', buff: 'Agility', detail: 'Move 5% faster and swap weapons 20% faster.',
+    color: '#f0b53c', buffs: { moveScale: .05, switchScale: -.2 },
+  },
+  claw: {
+    name: 'Tiger claw', buff: 'Ferocity', detail: '7% more damage and critical zones 10% larger.',
+    color: '#f2e2c4', buffs: { damageScale: .07, critScale: .1 },
+  },
+  skull: {
+    name: 'Berserker skull', buff: 'Fury', detail: '15% more damage, but spread is 12% wider.',
+    color: '#e9e2d2', buffs: { damageScale: .15, spreadScale: .12 },
+  },
+  battery: {
+    name: 'Spare cell', buff: 'Endurance', detail: 'Magazines hold 15% more and reloads are 8% faster.',
+    color: '#5ee08a', buffs: { magazineScale: .15, reloadScale: -.08 },
+  },
+  star: {
+    name: 'Shooting star', buff: 'All-rounder', detail: 'A little of everything: damage, reload, speed and accuracy.',
+    color: '#ffd24a', buffs: { damageScale: .03, reloadScale: -.05, moveScale: .03, spreadScale: -.05 },
   },
 };
 
@@ -183,9 +251,12 @@ export const WEAPON_ORDER = Object.freeze(Object.keys(WEAPON_TYPES));
 export const ARSENAL_SLOTS = Object.freeze(['primary', 'secondary']);
 const BUILD_DEFAULTS = Object.freeze({
   barrel: 'standard', muzzle: 'standard', optic: 'standard', receiver: 'standard', magazine: 'standard',
-  finish: 'factory', accent: 'factory', sticker: 'none', charm: 'none',
+  finish: 'factory', accent: 'factory', skin: 'none', decal: 'none', sticker: 'none', charm: 'none',
 });
-const COSMETICS = { finish: WEAPON_FINISHES, accent: WEAPON_ACCENTS, sticker: WEAPON_STICKERS, charm: WEAPON_CHARMS };
+const COSMETICS = {
+  finish: WEAPON_FINISHES, accent: WEAPON_ACCENTS, skin: WEAPON_SKINS, decal: WEAPON_DECALS,
+  sticker: WEAPON_STICKERS, charm: WEAPON_CHARMS,
+};
 const slotEntries = Object.entries(WEAPON_SLOTS);
 const legacySlots = new Map([
   ['heavy-barrel', 'barrel'], ['compensator', 'muzzle'],

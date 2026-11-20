@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { createArsenalView } from './arsenal-models.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 
@@ -56,9 +57,14 @@ export async function prepareArmoryArt(renderer) {
   const { width, height } = ARMORY_ART_SIZE;
   const photography = new THREE.Scene();
   photography.background = new THREE.Color(0x201917);
+  // A studio environment gives the metal and lacquer real reflections.
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  photography.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
+  photography.environmentIntensity = 1.05;
+  pmrem.dispose();
   const carbine = createArsenalView({ showHands: false });
   photography.add(carbine.model);
-  photography.add(new THREE.HemisphereLight(0xf0eee9, 0xa6917f, 2.1));
+  photography.add(new THREE.HemisphereLight(0xf0eee9, 0xa6917f, 1.15));
   const key = new THREE.DirectionalLight(0xfff1d6, 3.5);
   key.position.set(-2, 3, 1);
   photography.add(key);

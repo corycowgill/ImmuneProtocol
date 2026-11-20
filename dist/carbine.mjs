@@ -551,5 +551,8 @@ export function createCarbine({ showHands = true } = {}) {
     return !Object.hasOwn(slotParts, slot) || currentLoadout[slot] === id;
   }
 
-  return { model, muzzle, flash, sight, magazine, magazineGrip, supportHand, gripHand, bolt, poseHands, setLoadout, setBodyVisible };
+  return {
+    model, muzzle, flash, sight, magazine, magazineGrip, supportHand, gripHand, bolt, poseHands, setLoadout, setBodyVisible,
+    shell: ivory,
+  };
 }

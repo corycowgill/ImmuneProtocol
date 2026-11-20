@@ -1,7 +1,10 @@
 // HUD and menu pieces for carrying two weapons: the weapon strip, dynamic crosshair, sniper scope
 // overlay, touch swap button, armory loadout picker, sticker and charm cards, and manual entries.
 import { drawSticker } from './arsenal-models.mjs';
-import { WEAPON_CHARMS, WEAPON_STICKERS, WEAPON_TYPES, WEAPON_ORDER, otherSlot } from './weapon-mods.mjs';
+import {
+  WEAPON_CHARMS, WEAPON_DECALS, WEAPON_SKINS, WEAPON_STICKERS, WEAPON_TYPES, WEAPON_ORDER, otherSlot,
+} from './weapon-mods.mjs';
+import { drawDecal, drawSkin } from './weapon-skins.mjs';
 
 const STYLE = `
 .weapon-strip{display:flex;justify-content:flex-end;gap:5px;margin:2px 0 6px;font:500 9px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase}
@@ -34,9 +37,9 @@ const STYLE = `
 .armory-weapon[aria-checked="true"]{border-color:var(--green);background:#273022}
 .armory-weapon[aria-checked="true"] strong{color:var(--green)}
 .armory-weapon:disabled{opacity:.42;cursor:not-allowed}
-.armory-slots{grid-template-columns:repeat(9,minmax(0,1fr))}
+.armory-slots{grid-template-columns:repeat(6,minmax(0,1fr))}
 .armory-card .armory-art{display:block;width:100%;aspect-ratio:225/130;max-height:132px;background:#201917;object-fit:contain}
-@media(max-width:760px){.armory-slots{grid-template-columns:repeat(5,minmax(0,1fr))}.armory-loadout-row{grid-template-columns:repeat(5,minmax(0,1fr))}.armory-loadout-row>strong{grid-column:1/-1}}
+@media(max-width:760px){.armory-slots{grid-template-columns:repeat(4,minmax(0,1fr))}.armory-loadout-row{grid-template-columns:repeat(5,minmax(0,1fr))}.armory-loadout-row>strong{grid-column:1/-1}}
 @keyframes weapon-draw{from{transform:translateY(5px);opacity:.3}to{transform:none;opacity:1}}
 `;
 
@@ -223,12 +226,87 @@ export function drawCharm(context, size, id) {
     context.roundRect(c - 13 * s, y, 26 * s, 30 * s, [0, 0, 13 * s, 13 * s]);
     context.fill();
     context.stroke();
+  } else if (id === 'dice') {
+    context.roundRect(c - 24 * s, y - 24 * s, 48 * s, 48 * s, 9 * s);
+    shape();
+    context.fillStyle = '#15130f';
+    for (const [dx, dy] of [[-12, -12], [12, -12], [0, 0], [-12, 12], [12, 12]]) {
+      context.beginPath();
+      context.arc(c + dx * s, y + dy * s, 4.5 * s, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (id === 'antibody') {
+    context.lineWidth = 9 * s;
+    context.strokeStyle = charm.color;
+    context.moveTo(c, y + 30 * s);
+    context.lineTo(c, y);
+    context.lineTo(c - 20 * s, y - 24 * s);
+    context.moveTo(c, y);
+    context.lineTo(c + 20 * s, y - 24 * s);
+    context.stroke();
+    for (const dx of [-22, 22]) {
+      context.beginPath();
+      context.arc(c + dx * s, y - 27 * s, 7 * s, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (id === 'snowflake') {
+    context.lineWidth = 7 * s;
+    context.strokeStyle = charm.color;
+    for (let i = 0; i < 3; i++) {
+      const angle = Math.PI / 2 + i * Math.PI / 3;
+      context.moveTo(c - Math.cos(angle) * 28 * s, y - Math.sin(angle) * 28 * s);
+      context.lineTo(c + Math.cos(angle) * 28 * s, y + Math.sin(angle) * 28 * s);
+    }
+    context.stroke();
+  } else if (id === 'locket') {
+    context.moveTo(c, y + 26 * s);
+    context.bezierCurveTo(c - 40 * s, y - 2 * s, c - 18 * s, y - 34 * s, c, y - 12 * s);
+    context.bezierCurveTo(c + 18 * s, y - 34 * s, c + 40 * s, y - 2 * s, c, y + 26 * s);
+    shape();
+  } else if (id === 'claw') {
+    for (const dx of [-16, 0, 16]) {
+      context.beginPath();
+      context.moveTo(c + dx * s - 7 * s, y - 24 * s);
+      context.lineTo(c + dx * s + 6 * s, y - 24 * s);
+      context.quadraticCurveTo(c + dx * s + 12 * s, y + 6 * s, c + dx * s - 3 * s, y + 30 * s);
+      context.quadraticCurveTo(c + dx * s - 2 * s, y - 2 * s, c + dx * s - 7 * s, y - 24 * s);
+      shape();
+    }
+  } else if (id === 'skull') {
+    context.arc(c, y - 6 * s, 24 * s, 0, Math.PI * 2);
+    shape();
+    context.beginPath();
+    context.roundRect(c - 14 * s, y + 10 * s, 28 * s, 16 * s, 4 * s);
+    shape();
+    context.fillStyle = '#15130f';
+    for (const dx of [-10, 10]) {
+      context.beginPath();
+      context.arc(c + dx * s, y - 6 * s, 7 * s, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (id === 'battery') {
+    context.fillStyle = '#24262a';
+    context.roundRect(c - 15 * s, y - 26 * s, 30 * s, 56 * s, 5 * s);
+    shape();
+    context.beginPath();
+    context.fillStyle = charm.color;
+    context.fillRect(c - 15 * s, y - 26 * s, 30 * s, 18 * s);
+    context.fillStyle = '#c9c2b4';
+    context.fillRect(c - 6 * s, y - 32 * s, 12 * s, 6 * s);
+  } else if (id === 'star') {
+    for (let i = 0; i < 10; i++) {
+      const radius = (i % 2 ? 13 : 30) * s;
+      const angle = -Math.PI / 2 + i * Math.PI / 5;
+      context[i ? 'lineTo' : 'moveTo'](c + Math.cos(angle) * radius, y + Math.sin(angle) * radius);
+    }
+    context.closePath();
+    shape();
   }
   context.restore();
 }
 
 const artCache = new Map();
-// A data URL picture for a sticker or charm option card.
+// A data URL picture for a skin, decal, sticker or charm option card.
 export function cosmeticArt(slot, id) {
   const key = slot + ':' + id;
   if (artCache.has(key)) return artCache.get(key);
@@ -238,17 +316,49 @@ export function cosmeticArt(slot, id) {
   const context = canvas.getContext('2d');
   context.fillStyle = '#201917';
   context.fillRect(0, 0, canvas.width, canvas.height);
-  const icon = document.createElement('canvas');
-  icon.width = icon.height = 128;
-  if (slot === 'sticker') drawSticker(icon.getContext('2d'), 128, id);
-  else drawCharm(icon.getContext('2d'), 128, id);
-  context.drawImage(icon, (canvas.width - 112) / 2, 9, 112, 112);
+  if (slot === 'skin') {
+    // The pattern on a rounded weapon-panel swatch.
+    const tile = document.createElement('canvas');
+    tile.width = tile.height = 256;
+    drawSkin(tile.getContext('2d'), 256, id);
+    context.save();
+    context.beginPath();
+    context.roundRect(14, 14, canvas.width - 28, canvas.height - 28, 14);
+    context.clip();
+    context.drawImage(tile, 0, 0, 256, 256, 14, 14 - 50, canvas.width - 28, canvas.width - 28);
+    const shine = context.createLinearGradient(0, 14, 0, canvas.height - 14);
+    shine.addColorStop(0, '#ffffff30');
+    shine.addColorStop(.45, '#ffffff00');
+    shine.addColorStop(1, '#00000055');
+    context.fillStyle = shine;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.restore();
+  } else if (slot === 'decal') {
+    // The print on a strip of dark polymer.
+    context.fillStyle = '#3a3532';
+    context.beginPath();
+    context.roundRect(10, 33, canvas.width - 20, 64, 10);
+    context.fill();
+    const print = document.createElement('canvas');
+    print.width = 512;
+    print.height = 128;
+    drawDecal(print.getContext('2d'), 512, 128, id);
+    context.drawImage(print, 14, 37, canvas.width - 28, 56);
+  } else {
+    const icon = document.createElement('canvas');
+    icon.width = icon.height = 128;
+    if (slot === 'sticker') drawSticker(icon.getContext('2d'), 128, id);
+    else drawCharm(icon.getContext('2d'), 128, id);
+    context.drawImage(icon, (canvas.width - 112) / 2, 9, 112, 112);
+  }
   const url = canvas.toDataURL('image/webp', .9);
   artCache.set(key, url);
   return url;
 }
 
 export const COSMETIC_SLOTS = {
+  skin: { name: 'Skin', options: WEAPON_SKINS },
+  decal: { name: 'Decal', options: WEAPON_DECALS },
   sticker: { name: 'Sticker', options: WEAPON_STICKERS },
   charm: {
     name: 'Charm',
