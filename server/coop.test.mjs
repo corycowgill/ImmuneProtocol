@@ -4,7 +4,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { test } from 'node:test';
 import WebSocket from 'ws';
 import { hitBrainBoss } from '../dist/brain-boss.mjs';
-import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from '../dist/coop-protocol.mjs';
+import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH, COOP_PROTOCOL_VERSION } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
 import { DIFFICULTIES, applyDifficulty } from '../dist/difficulty.mjs';
 import {
@@ -61,7 +61,7 @@ const roomPhase = phase => message => message.type === 'room' && message.phase =
 test('serves the game, health check and demo ranges on the same host', async t => {
   const origin = await localServer(t);
   const health = await fetch(origin + '/healthz');
-  assert.deepEqual(await health.json(), { ok: true, service: 'immune-protocol-coop', protocol: 1 });
+  assert.deepEqual(await health.json(), { ok: true, service: 'immune-protocol-coop', protocol: COOP_PROTOCOL_VERSION });
   const game = await fetch(origin);
   assert.match(game.headers.get('content-type'), /^text\/html/);
   assert.match(await game.text(), /Immune Protocol/);
@@ -102,8 +102,6 @@ test('shares authoritative combat, reload-safe reconnect, and the team intermiss
     ['Alpha', false, true], ['Bravo', false, true],
   ]);
   assert.doesNotMatch(JSON.stringify(lobby), new RegExp(hostSession.token));
-  extra.send({ type: 'join', code: guestSession.code });
-  assert.equal((await extra.take(tagged('error'))).code, 'ROOM_FULL');
   extra.send({ type: 'resume', code: guestSession.code, token: 'invalid' });
   assert.equal((await extra.take(tagged('error'))).code, 'SESSION_EXPIRED');
 

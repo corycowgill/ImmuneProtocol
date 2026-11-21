@@ -1,5 +1,7 @@
 export const COOP_SERVICE = 'immune-protocol-coop';
-export const COOP_PROTOCOL_VERSION = 1;
+export const COOP_PROTOCOL_VERSION = 2;
+export const COOP_MIN_PLAYERS = 2;
+export const COOP_MAX_PLAYERS = 3;
 export const COOP_TICK_RATE = 30;
 export const COOP_RECONNECT_MS = 75_000;
 export const COOP_HEALTH_PATH = '/healthz';

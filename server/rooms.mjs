@@ -1,6 +1,6 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { WebSocket } from 'ws';
-import { CAMPAIGN_AREAS, COOP_SUITS, DEFAULT_COOP_SUIT, COOP_CODE_ALPHABET, COOP_CODE_LENGTH, COOP_NAME_LIMIT, COOP_RECONNECT_MS, COOP_TICK_RATE as TICK_RATE } from '../dist/coop-protocol.mjs';
+import { COOP_MIN_PLAYERS, COOP_MAX_PLAYERS, CAMPAIGN_AREAS, COOP_SUITS, DEFAULT_COOP_SUIT, COOP_CODE_ALPHABET, COOP_CODE_LENGTH, COOP_NAME_LIMIT, COOP_RECONNECT_MS, COOP_TICK_RATE as TICK_RATE } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
 import { normalizeWeaponLoadout } from '../dist/weapon-mods.mjs';
 
@@ -154,8 +154,10 @@ export class CoopRooms {
     const room = this.rooms.get(readCode(message.code));
     if (!room) {
       error(connection.client, 'ROOM_NOT_FOUND', 'Room not found. Check the code or ask your friend for a new invite.');
-    } else if (room.phase !== 'lobby' || room.players.length >= 2) {
-      error(connection.client, 'ROOM_FULL', 'That room already has two players.');
+    } else if (room.phase !== 'lobby') {
+      error(connection.client, 'ROOM_FULL', 'That match has already started. Join a new lobby.');
+    } else if (room.players.length >= COOP_MAX_PLAYERS) {
+      error(connection.client, 'ROOM_FULL', 'That room already has three players.');
     } else {
       this.addPlayer(room, connection, message, now);
       this.publishRoom(room);
@@ -282,7 +284,7 @@ export class CoopRooms {
     }
     room.touchedAt = now;
     player.ready = message.ready;
-    if (room.players.length === 2 && room.players.every(entry => entry.connection && entry.ready)) {
+    if (room.players.length >= COOP_MIN_PLAYERS && room.players.length <= COOP_MAX_PLAYERS && room.players.every(entry => entry.connection && entry.ready)) {
       if (room.phase === 'intermission') this.continueMatch(room);
       else this.startMatch(room);
     } else {

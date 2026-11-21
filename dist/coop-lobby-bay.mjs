@@ -4,8 +4,9 @@ import { MeshoptDecoder } from './vendor/meshopt_decoder.mjs';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { createTeammate } from './teammate.mjs';
 import { COOP_SUITS } from './suits.mjs';
+import { COOP_MIN_PLAYERS } from './coop-protocol.mjs';
 
-// Live 3D co-op lobby: the squad stands on the twin reduction pads of the miniaturization
+// Live 3D co-op lobby: the squad stands on the reduction pads of the miniaturization
 // machine in a hospital lab, wearing their chosen suits. The lab is modelled in Blender with
 // its lighting baked by Cycles (tools/lobby/build_lab.py) and drawn unlit, so it matches the
 // scanned suits. Drawn live on top: the squad (lit in real time, with contact shadows and the
@@ -13,7 +14,7 @@ import { COOP_SUITS } from './suits.mjs';
 // operator screens, the hologram patient and the injection capsule's glass. The machine
 // powers up as players ready, and charges when the whole squad is ready.
 // The camera looks at the suits' fronts, so +x is screen left.
-const SLOTS = [1.0, -1.0];
+const SLOTS = [{ x: 1, z: 0 }, { x: 0, z: -1.4 }, { x: -1, z: 0 }];
 const TEAL = 0x5ff3e0;
 const GREEN = 0x75f1b4;
 const AMBER = 0xffc06a;
@@ -241,9 +242,15 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
   new THREE.PointsMaterial({ color: 0x9ff7ff, size: .02, transparent: true, opacity: .45, depthWrite: false, blending: THREE.AdditiveBlending }));
   scene.add(motes);
 
-  const bays = SLOTS.map((x, index) => {
+  const bays = SLOTS.map(({ x, z }, index) => {
     const pedestal = new THREE.Group();
-    pedestal.position.set(x, PAD_TOP, 0);
+    pedestal.position.set(x, PAD_TOP, z);
+    // The third station is a live extension of the baked machine's two rear pads.
+    if (index === 1) {
+      add(new THREE.CylinderGeometry(.65, .72, .18, 48), new THREE.MeshStandardMaterial({
+        color: 0x263a3e, roughness: .42, metalness: .7,
+      }), [0, -.09, 0], null, pedestal);
+    }
     scene.add(pedestal);
     const ringMaterial = new THREE.MeshBasicMaterial({ color: GREEN, toneMapped: false });
     add(new THREE.TorusGeometry(.53, .016, 8, 64), ringMaterial, [0, .005, 0], [Math.PI / 2, 0, 0], pedestal);
@@ -314,7 +321,7 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
     resize();
     const still = reduceMotion.matches;
     const present = bays.filter(bay => bay.player);
-    const allReady = present.length > 0 && present.every(bay => bay.player.ready && bay.player.connected);
+    const allReady = present.length >= COOP_MIN_PLAYERS && present.every(bay => bay.player.ready && bay.player.connected);
     // The field charges while the squad is ready and drains otherwise.
     scaleState.ready = allReady;
     scaleState.charge = THREE.MathUtils.clamp(scaleState.charge + (allReady ? dt * .35 : -dt * .6), 0, 1);

@@ -10,7 +10,8 @@ import { createMegaVirus } from './mega-virus.mjs';
 import { bioSurface, createLevelProps } from './level-props.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { RENDERED_PREVIEWS } from './level-hud.mjs';
-import { createTeammate } from './teammate.mjs';
+import { createSquadView } from './squad-view.mjs';
+import { COOP_MAX_PLAYERS } from './coop-protocol.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, SPECIES, TISSUE_NODES } from './simulation.mjs';
 import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion } from './enemy-models.mjs';
@@ -1122,7 +1123,7 @@ export class World {
     this.enemyViews = new Map();
     this.enemyPool = new Map();
     this.projectileViews = new Map();
-    this.teammateView = createTeammate(this.glow);
+    this.teammateView = createSquadView(this.glow);
     this.teammateMuzzle = new THREE.Vector3();
     this.scene.add(this.teammateView.root);
     this.particles = [];
@@ -1452,8 +1453,11 @@ export class World {
     const fire = { type: 'turret', stage: 'fire', x: sim.turret.x, y: 1, z: sim.turret.z,
       impact: { x: start.x - 2, y: 1, z: start.z - 13 } };
     start.id = 'warmup-local';
-    sim.players = [start, { ...start, id: 'warmup-teammate', name: 'Teammate', x: start.x - 2.2, z: start.z - 9 }];
-    sim.events = [shot, fire, { ...shot, playerId: 'warmup-teammate' },
+    sim.players = [start, ...Array.from({ length: COOP_MAX_PLAYERS - 1 }, (_, index) => ({
+      ...start, id: 'warmup-teammate-' + index, name: 'Teammate ' + (index + 1),
+      x: start.x + (index ? 2.2 : -2.2), z: start.z - 9,
+    }))];
+    sim.events = [shot, fire, ...sim.players.slice(1).map(player => ({ ...shot, playerId: player.id })),
       { ...shot, rocket: true, travel: .8 },
       { type: 'explosion', x: start.x, y: 1, z: start.z - 7, radius: 5 }];
     this.render(sim, .02, PRELOAD_INPUT, false, false);
@@ -1473,11 +1477,11 @@ export class World {
     }
     sim.repairing = true;
     sim.repairTarget = sim.nodes[0];
-    sim.players[1].repairing = true;
+    for (const teammate of sim.players.slice(1)) teammate.repairing = true;
     this.render(sim, .24, PRELOAD_INPUT, false, false);
     for (const suit of COOP_SUITS) {
-      sim.players[1].suit = suit;
-      this.teammateView.update(sim.players[1], 0, 0, false);
+      for (const teammate of sim.players.slice(1)) teammate.suit = suit;
+      this.teammateView.update(sim.players, start.id, floorHeight, 0, false);
       warmTextures(this.scene);
       await this.renderer.compileAsync(this.scene, this.camera);
       this.renderer.render(this.scene, this.camera);
@@ -2335,8 +2339,7 @@ export class World {
     if (this.area === 'junction') this.updateJunctionField(sim, dt, reduceMotion);
     this.updateEnemies(sim.enemies, dt, reduceMotion);
     this.updateProjectiles(sim.projectiles ?? [], reduceMotion);
-    const teammate = sim.players?.find(other => other.id !== player.id);
-    this.teammateView.update(teammate, teammate ? floorHeight(teammate.x, teammate.z) : 0, dt, reduceMotion);
+    this.teammateView.update(sim.players, player.id, floorHeight, dt, reduceMotion);
     const { turret } = sim;
     this.turretView.update(turret, turret ? floorHeight(turret.x, turret.z) : 0, dt, reduceMotion);
     const { weaponLoadout, tutorial } = sim;

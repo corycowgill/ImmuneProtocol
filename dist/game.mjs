@@ -12,7 +12,7 @@ import { loadLab } from './coop-lobby-bay.mjs';
 import { ENEMY_MODELS } from './enemy-models.mjs';
 import { GameAudio } from './audio.mjs';
 import { CoopClient, PUBLIC_COOP_ORIGIN, savedCoopSession, verifyCoopHost } from './coop-client.mjs';
-import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from './coop-protocol.mjs';
+import { COOP_MIN_PLAYERS, COOP_MAX_PLAYERS, CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from './coop-protocol.mjs';
 import { GamepadInput } from './gamepad.mjs';
 import { GamepadMenu } from './gamepad-menu.mjs';
 import { applyRenderedPreviews, currentDifficulty, installLevelHud } from './level-hud.mjs';
@@ -747,20 +747,23 @@ function setCoopStatus(message = '') {
 function syncCoopIndicators() {
   if (!coopClient?.session) return;
   const { room, localPlayer, connected } = coopClient;
-  const partner = room?.players.find(player => player.id !== localPlayer?.id);
-  const ally = sim?.players?.find(player => player.id !== coopClient.session.id);
+  const partners = room?.players.filter(player => player.id !== localPlayer?.id) ?? [];
+  const allies = sim?.players?.filter(player => player.id !== coopClient.session.id) ?? [];
   const reconnectTime = room?.reconnectDeadline ? Math.max(0, Math.ceil((room.reconnectDeadline - Date.now()) / 1000)) : 0;
   const down = sim?.player?.downed;
-  setText(byId('coop-ally'), partner ? partner.name + (ally?.downed ? ' · Down' : '') : 'Online co-op');
+  setText(byId('coop-ally'), partners.length ? partners.map(partner => {
+    const ally = allies.find(player => player.id === partner.id);
+    return partner.name + (ally?.downed ? ' · Down' : '');
+  }).join(' / ') : 'Online co-op');
   setText(byId('coop-match-status'), !connected ? 'Reconnecting…'
     : room?.reconnectDeadline ? 'Waiting for teammate · ' + reconnectTime + 's'
       : down ? (sim.wave < sim.waves ? 'Suit down · Rejoin next wave' : 'Suit down · Teammate still active')
-        : ally ? 'Suit integrity ' + Math.ceil(ally.health) + '%' : 'Connected');
+        : allies.length ? allies.map(ally => (ally.name || 'Teammate') + ': ' + (ally.downed ? 'Down' : Math.ceil(ally.health) + '%')).join(' / ') : 'Connected');
   if (armoryDialog.open && armoryRound && onlineRun) {
     const seconds = Math.max(0, Math.ceil(((room?.deadline ?? Date.now()) - Date.now()) / 1000));
     const count = room?.players.filter(player => player.ready).length ?? 0;
     setText(coopArmoryStatus, !connected ? 'Reconnecting…' : room?.reconnectDeadline
-      ? 'Waiting for teammate · ' + reconnectTime + 's' : count + ' of 2 ready · Ready-up closes in ' + seconds + 's');
+      ? 'Waiting for teammate · ' + reconnectTime + 's' : count + ' of ' + room.players.length + ' ready · Ready-up closes in ' + seconds + 's');
     setText(armoryDone.firstChild, localPlayer?.ready ? 'Cancel ready ' : 'Ready for next wave ');
     armoryDone.disabled = !connected || !!room?.reconnectDeadline;
   }
@@ -793,9 +796,9 @@ function syncCoopRoom() {
     row.append(name, status);
     return row;
   });
-  if (roster.length < 2) {
+  while (roster.length < COOP_MAX_PLAYERS) {
     const row = document.createElement('li');
-    row.textContent = 'Waiting for a teammate';
+    row.textContent = roster.length < COOP_MIN_PLAYERS ? 'Waiting for a teammate' : 'Optional third player';
     roster.push(row);
   }
   coopRoster.replaceChildren(...roster);
@@ -805,7 +808,9 @@ function syncCoopRoom() {
   byId('coop-close').setAttribute('aria-label', 'Leave room and close online co-op');
   if (coopDialog.open) {
     setCoopStatus(!coopClient.connected ? 'Reconnecting to the room…' : room.phase === 'finished' ? 'Ready up at the mission checkpoint.'
-      : room.players.length < 2 ? 'Share the invite link with your friend.' : 'Both players must ready up to deploy.');
+      : room.players.length < COOP_MIN_PLAYERS ? 'Invite one or two friends to join.'
+        : room.players.length < COOP_MAX_PLAYERS ? 'Ready up to deploy as a pair, or invite a third player before everyone is ready.'
+          : 'All three players must ready up to deploy.');
   }
   if (onlineRun && resultDialog.open) syncCoopCheckpoint();
   if (onlineRun && running && room.phase === 'intermission' && !paused) {
@@ -1371,7 +1376,7 @@ function syncCoopCheckpoint() {
   const label = waiting ? 'Waiting for reconnection' : coopClient.localPlayer?.ready ? 'Ready · Cancel' : action;
   continueButton.disabled = replay.disabled = Boolean(waiting || room?.phase !== 'finished');
   setText(next ? continueLabel : replayLabel, label);
-  setText(byId('coop-checkpoint-status'), (room?.players.filter(player => player.ready && player.connected).length ?? 0) + ' of 2 ready');
+  setText(byId('coop-checkpoint-status'), (room?.players.filter(player => player.ready && player.connected).length ?? 0) + ' of ' + (room?.players.length ?? COOP_MIN_PLAYERS) + ' ready');
 }
 
 function updateUpgradeChoice() {
@@ -1531,7 +1536,7 @@ function controllerFrame(now) {
     setGamepadMode(false);
     if (running && !paused && !sim.extractionPending) {
       pause();
-      setText(byId('pause-detail'), onlineRun ? 'Controller disconnected. Your teammate can keep playing.'
+      setText(byId('pause-detail'), onlineRun ? 'Controller disconnected. Your teammates can keep playing.'
         : 'Controller disconnected. Reconnect it or resume with your other controls.');
       return;
     }

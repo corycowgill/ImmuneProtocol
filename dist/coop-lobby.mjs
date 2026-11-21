@@ -1,5 +1,6 @@
 import { COOP_SUITS, SUITS, loadSuitModels, normalizeSuit, saveSuit, savedSuit, suitModelVersion } from './suits.mjs';
 import { createLobbyBay } from './coop-lobby-bay.mjs';
+import { COOP_MAX_PLAYERS, COOP_MIN_PLAYERS } from './coop-protocol.mjs';
 
 // Co-op lobby: once in a room the dialog becomes a full-screen miniaturization lab where both
 // players stand in the shrinking machine in their chosen suits, with a picker to choose your
@@ -122,7 +123,9 @@ export function attachLobby(client) {
       );
       return row;
     });
-    if (rows.length < 2) rows.push(element('li', 'coop-bay-empty', 'Waiting for a teammate'));
+    while (rows.length < COOP_MAX_PLAYERS) rows.push(element('li', 'coop-bay-empty',
+      rows.length < COOP_MIN_PLAYERS ? 'Waiting for a teammate' : 'Optional third player'));
+    roster.style.setProperty('--squad-slots', COOP_MAX_PLAYERS);
     roster.replaceChildren(...rows);
   }
 

@@ -4,7 +4,7 @@
 .coop-bay{position:relative;margin:10px 0 0;border:1px solid var(--line);background:#0b1a20}
 .coop-bay canvas{display:block;width:100%;height:clamp(230px,36vw,320px)}
 .coop-bay.coop-bay-flat canvas{display:none}
-.coop-bay-roster{display:grid;grid-template-columns:1fr 1fr;gap:8px;list-style:none;margin:0;padding:8px}
+.coop-bay-roster{display:grid;grid-template-columns:repeat(var(--squad-slots,3),minmax(0,1fr));gap:8px;list-style:none;margin:0;padding:8px}
 .coop-bay-roster li{display:grid;gap:2px;min-width:0;padding:8px 11px;border:1px solid #9ff7ff33;border-top:3px solid var(--suit,var(--line));background:#06141acc;backdrop-filter:blur(6px)}
 .coop-bay-roster strong{font:800 20px/1 var(--display);text-transform:uppercase;letter-spacing:.02em;overflow-wrap:anywhere}
 .coop-bay-roster em{color:var(--suit);font:500 10px/1.3 var(--mono);font-style:normal;letter-spacing:.06em;text-transform:uppercase}
@@ -40,7 +40,7 @@ dialog.coop-panel.coop-in-lab::backdrop{background:#000}
 .coop-in-lab .coop-invite{grid-area:invite;align-self:start;margin:24px 84px 0 0;padding:12px 14px;border:1px solid #9ff7ff33;background:#06141acc;backdrop-filter:blur(6px)}
 .coop-in-lab .coop-invite label{color:#b9d9dc}
 .coop-in-lab .coop-invite #coop-room-code{color:var(--green);font:800 22px/1 var(--display);letter-spacing:.12em}
-.coop-in-lab .coop-bay-roster{position:absolute;z-index:1;left:50%;bottom:clamp(170px,24svh,220px);width:min(620px,calc(100vw - 32px));padding:0;transform:translateX(-50%)}
+.coop-in-lab .coop-bay-roster{position:absolute;z-index:1;left:50%;bottom:clamp(210px,28svh,260px);width:min(820px,calc(100vw - 32px));padding:0;transform:translateX(-50%)}
 .coop-in-lab .coop-suits{grid-area:suits;align-self:end;margin:0 0 22px 28px;max-width:640px}
 .coop-in-lab .coop-suit img{max-width:84px}
 .coop-in-lab .coop-actions{grid-area:actions;align-self:end;display:flex;flex-direction:column;gap:8px;margin:0 28px 22px 0;padding:0;border:0;background:none;min-width:240px}

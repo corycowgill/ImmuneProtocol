@@ -1,6 +1,6 @@
 import { RULES, Simulation } from './simulation.mjs';
 import { magazineCapacity, normalizeWeaponLoadout, weaponStats } from './weapon-mods.mjs';
-import { COOP_SUITS, DEFAULT_COOP_SUIT } from './coop-protocol.mjs';
+import { COOP_MIN_PLAYERS, COOP_MAX_PLAYERS, COOP_SUITS, DEFAULT_COOP_SUIT } from './coop-protocol.mjs';
 
 const normalizeSuit = suit => COOP_SUITS.includes(suit) ? suit : DEFAULT_COOP_SUIT;
 
@@ -63,8 +63,10 @@ class CoopSuit {
 export class CoopSimulation extends Simulation {
   constructor(profiles, area = 'artery') {
     super(area);
-    if (profiles.length !== 2 || profiles[0].id === profiles[1].id) {
-      throw new Error('Co-op requires two distinct players');
+    if (profiles.length < COOP_MIN_PLAYERS || profiles.length > COOP_MAX_PLAYERS ||
+        profiles.some(profile => typeof profile.id !== 'string' || !profile.id) ||
+        new Set(profiles.map(profile => profile.id)).size !== profiles.length) {
+      throw new Error('Co-op requires two or three distinct players');
     }
     // Keep authored organ routes and timed attacks intact.
     if (area === 'artery') {
@@ -80,7 +82,8 @@ export class CoopSimulation extends Simulation {
 
   createSquad(profiles) {
     this.suits = profiles.map((profile, index) => new CoopSuit(
-      profile, { x: this.player.x + (index === 0 ? -2.2 : 2.2), y: this.player.y, z: this.player.z }, this.repairAmount,
+      profile, { x: this.player.x + (index === 0 ? -2.2 : index === 1 ? 2.2 : 0),
+        y: this.player.y, z: this.player.z + (index === 2 ? 2.2 : 0) }, this.repairAmount,
     ));
     this.suitsById = new Map(this.suits.map(suit => [suit.player.id, suit]));
     this.players = this.suits.map(suit => suit.player);
