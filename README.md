@@ -37,6 +37,10 @@ Pathogens no longer file straight in. Lungers and spitters swing wide on the app
 
 Every arena is a third larger in each direction than it was first laid out: the playable floor is 110 × 154 m, with tissue nodes 40–60 m apart. Suits move about 20% faster to match. The artery floor is broken up by ten clots that block movement and line of sight for you and force pathogens to flow around them, and each organ arena has more of its own obstacles. The Heart Valve keeps its original chamber. `npm run profile`, then `/__overview`, draws a top-down plan of every arena with its nodes, inlets, obstacles and hazard zone.
 
+## Checkpoints
+
+Each wave is a checkpoint. If a mission fails after the first wave, the report offers **Retry from wave N**: the mission resumes at the start of the wave you lost, with the score, kills, tissue node integrity, turret and junction support exactly as they were when that wave began, and the field cleared. Suits come back with at least half their integrity. **Restart mission** starts over from wave 1. The pause menu also has **Restart from wave N**. In the Bronchial Fork the final airway objective is its own checkpoint, and in Capillary Junction so is Overtime. In co-op, readying up after a loss retries the squad from the checkpoint, with every suit's score and integrity restored.
+
 ## Bosses
 
 Every mission ends with a boss. Once the final wave has sent its last pathogen the boss arrives, a health bar replaces the wave counter, and the wave cannot clear until it is dead. Killing one scores 2,500 for the suit that lands the last shot. Bosses have more health against a larger co-op squad.
@@ -280,11 +284,19 @@ flowchart LR
 | File | Responsibility |
 | --- | --- |
 | [`dist/index.html`](dist/index.html), [`dist/styles.css`](dist/styles.css) | Menus, HUD, canvas, and touch controls. |
-| [`dist/game.mjs`](dist/game.mjs) | Input, mouse capture, frame timing, and screen transitions. Browser storage remembers campaign checkpoints, mission unlocks, best score, training completion, and player settings. |
+| [`dist/game.mjs`](dist/game.mjs) | The game loop and screen flow: startup, deploying and retrying missions, pause, the mission report, the campaign, Free Mode, settings and the co-op lobby. |
+| [`dist/session.mjs`](dist/session.mjs) | The live state the modules below share (the world, the running mission, pause and co-op flags, HUD feedback timers). An imported variable is read-only, so anything one module changes and another reads lives here. |
+| [`dist/hud.mjs`](dist/hud.mjs), [`dist/field-events.mjs`](dist/field-events.mjs) | Drawing the in-mission HUD and the markers projected from the 3D world; and reacting to what happened each step with sounds, announcements and hit feedback. |
+| [`dist/controls.mjs`](dist/controls.mjs) | Keyboard, mouse with pointer lock, touch controls and gamepads. Listeners record held and tapped input in `controls` for the game loop. |
+| [`dist/armory-menu.mjs`](dist/armory-menu.mjs), [`dist/armory-screen.mjs`](dist/armory-screen.mjs) | Opening the armory, the turning weapon on the bench, and its Weapons, Gunsmith and Customize tabs. |
+| [`dist/dom.mjs`](dist/dom.mjs), [`dist/settings-store.mjs`](dist/settings-store.mjs), [`dist/mission-text.mjs`](dist/mission-text.mjs) | DOM helpers; settings and progress saved in the browser (campaign checkpoint, unlocks, best score, training, settings); mission names and campaign order. |
 | [`dist/simulation.mjs`](dist/simulation.mjs) | Movement, shooting, lane and node targeting, turret behavior, wave progression, scoring, and repair. It runs independently of the DOM and Three.js. |
 | [`dist/coop-simulation.mjs`](dist/coop-simulation.mjs) | Per-suit state and shared wave rules for two or three players. |
 | [`server/rooms.mjs`](server/rooms.mjs), [`dist/coop-client.mjs`](dist/coop-client.mjs) | Match rooms, WebSocket transport, reconnects, and client-side prediction. |
-| [`dist/world.mjs`](dist/world.mjs) | Arena geometry, lighting, atmosphere, enemies, and effects. The missions share the renderer and switch anatomy and lighting when the area changes. |
+| [`dist/world.mjs`](dist/world.mjs) | The renderer and scene: switching arenas and lighting, quality, and drawing each frame. The missions share one renderer. |
+| [`dist/arena-scene.mjs`](dist/arena-scene.mjs), [`dist/arena-textures.mjs`](dist/arena-textures.mjs) | The shared arena (floor, walls, vessels, atmosphere, the junction and heart chambers, tissue nodes and wounds) and its procedural textures. |
+| [`dist/world-preparation.mjs`](dist/world-preparation.mjs) | Startup and per-deployment preparation: downloads, texture uploads, shader compiles and rehearsed frames, so nothing stalls once a mission starts. |
+| [`dist/pathogen-views.mjs`](dist/pathogen-views.mjs), [`dist/weapon-view.mjs`](dist/weapon-view.mjs) | Posing every pathogen, nest and boss from the simulation; and the first-person weapon, repair tool, shots and tracers. |
 | [`dist/organs.mjs`](dist/organs.mjs) | Mission data for the seven organ missions, including node coordinates, spawn inlets, solid obstacles, wave compositions, and hazard timings. |
 | [`dist/organ-world.mjs`](dist/organ-world.mjs) | Procedural anatomy, organ-specific materials, and animated hazard geometry. |
 | [`dist/level-props.mjs`](dist/level-props.mjs) | Set dressing and ambient VFX: red-blood-cell rivers and a pumping valve gate, neutrophil patrols that engulf bacteria, the villus forest, the colon microbiome, the lymph-node macrophage, the firing neural web, obstacle props, and light shafts. |

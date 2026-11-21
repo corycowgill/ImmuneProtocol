@@ -89,11 +89,16 @@ export class CoopSimulation extends Simulation {
     this.players = this.suits.map(suit => suit.player);
   }
 
-  start() {
-    super.start();
+  start(checkpoint = null) {
+    super.start(checkpoint);
     this.createSquad(this.suits.map(({ player, weaponLoadout }) => ({
       id: player.id, name: player.name, suit: player.suit, weaponLoadout,
     })));
+    // The squad is rebuilt after the shared state is restored; bring each suit back too.
+    if (checkpoint) {
+      this.restoreSuits(checkpoint.suits);
+      this.checkpoint = { ...this.checkpoint, suits: this.captureCheckpoint().suits };
+    }
     this.eventSequence = 0;
     this.sequenceEvents();
   }
@@ -210,6 +215,7 @@ export class CoopSimulation extends Simulation {
       area: this.area,
       phase: this.phase, clock: this.clock, wave: this.wave, waves: this.waves, remaining: this.remaining,
       intermission: this.intermission, score: this.score, kills: this.kills, tissue: this.tissue,
+      checkpoint: this.checkpoint ? { stage: this.checkpoint.stage, wave: this.checkpoint.wave } : null,
       localPlayerId: id,
       player: { ...player },
       players: this.suits.map(member => ({

@@ -9,8 +9,7 @@ import {
   otherSlot, weaponStats,
 } from './weapon-mods.mjs';
 import {
-  GASTRIC_REPAIR_RADIUS, advanceGastric, createGastric, gastricValve, pendingGastricEnemies,
-  repairGastricValve, shapeGastricHazard, startGastric,
+  GASTRIC_REPAIR_RADIUS, advanceGastric, createGastric, gastricValve, pendingGastricEnemies, repairGastricValve, shapeGastricHazard, startGastric,
 } from './gastric.mjs';
 
 export const OBJECTIVE = Object.freeze({ x: 0, y: 1.25, z: -8 });
@@ -461,6 +460,7 @@ export class Simulation {
     this.nextPickupId = 1;
     this.bossArrived = false;
     this.bossTrail = null;
+    this.checkpoint = null;
     this.remaining = 0;
     this.repairProgress = 0;
     this.repairing = false;
@@ -508,8 +508,14 @@ export class Simulation {
     this.organ = this.organMission ? this.createOrganPhase('recovery') : null;
   }
 
-  start() {
+  // checkpoint: resume at the start of a wave recorded by an earlier run of this mission
+  // (see captureCheckpoint) instead of from the beginning.
+  start(checkpoint = null) {
     this.reset();
+    if (checkpoint) {
+      this.restoreCheckpoint(checkpoint);
+      return;
+    }
     if (this.bossPractice) this.wave = this.missions.findIndex(mission => mission.boss);
     this.beginWave();
     if (this.valve) {
@@ -530,6 +536,7 @@ export class Simulation {
   }
 
   beginWave() {
+    this.checkpoint = this.captureCheckpoint();
     this.wave += 1;
     this.phase = 'combat';
     this.intermission = 0;
@@ -597,6 +604,71 @@ export class Simulation {
     this.intermission = junction ? JUNCTION_BREAK_TIME : INTERMISSION_TIME;
     this.restoreSuitHealthAfterWave(junction ? 12 : 18);
     if (this.gastric) startGastric(this);
+  }
+
+  // Everything a retry needs to resume at the start of the wave about to begin (or of the
+  // lungs' final airway objective): what carries from wave to wave. Pathogens, shots and the
+  // suits' positions start fresh. Plain data, so the co-op server can keep it between matches.
+  captureCheckpoint(stage = 'wave') {
+    return {
+      stage,
+      wave: stage === 'airway' ? this.wave : this.wave + 1,
+      clock: this.clock,
+      score: this.score,
+      kills: this.kills,
+      nodes: Object.fromEntries(this.nodes.map(node => [node.id, node.health])),
+      suits: this.activeSuits().map(({ player }) => ({
+        id: player.id ?? null, health: player.health, score: player.score ?? 0, kills: player.kills ?? 0,
+      })),
+      turretCharges: this.turretCharges,
+      turret: this.turret ? { x: this.turret.x, y: this.turret.y, z: this.turret.z, yaw: this.turret.yaw, pitch: this.turret.pitch } : null,
+      junctionSupply: this.junctionSupply,
+      junctionSupplyLocked: this.junctionSupplyLocked,
+      overtime: this.overtime,
+      hazard: !!this.organ,
+      gastric: this.gastric ? structuredClone(this.gastric) : null,
+    };
+  }
+
+  restoreCheckpoint(checkpoint) {
+    this.clock = checkpoint.clock;
+    this.score = checkpoint.score;
+    this.kills = checkpoint.kills;
+    for (const node of this.nodes) node.health = checkpoint.nodes[node.id] ?? node.health;
+    this.turretCharges = checkpoint.turretCharges;
+    this.turret = checkpoint.turret ? { ...checkpoint.turret, cooldown: .6, targetId: null } : null;
+    this.junctionSupply = checkpoint.junctionSupply;
+    this.junctionSupplyLocked = checkpoint.junctionSupplyLocked;
+    if (checkpoint.overtime) {
+      this.overtime = true;
+      this.missions = [...JUNCTION_MISSIONS, JUNCTION_OVERTIME];
+      this.waves = this.missions.length;
+    }
+    if (checkpoint.gastric) this.gastric = structuredClone(checkpoint.gastric);
+    if (!checkpoint.hazard) this.organ = null;
+    this.restoreSuits(checkpoint.suits);
+    if (checkpoint.stage === 'airway') {
+      this.wave = this.waves;
+      this.phase = 'combat';
+      this.startAirwayObjective();
+    } else {
+      this.wave = checkpoint.wave - 1;
+      this.beginWave();
+    }
+    if (this.gastric) shapeGastricHazard(this);
+    this.events.push({ type: 'checkpoint', stage: 'restored', wave: checkpoint.wave, airway: checkpoint.stage === 'airway' });
+  }
+
+  // A suit brought back at a checkpoint has at least half its integrity, so a retry is not lost
+  // before it starts. Score and kills are as they were.
+  restoreSuits(saved = []) {
+    this.activeSuits().forEach(({ player }, index) => {
+      const record = saved.find(entry => entry.id !== null && entry.id === (player.id ?? null)) ?? (player.id == null ? saved[index] : null);
+      if (!record) return;
+      player.health = Math.max(RULES.health / 2, record.health);
+      player.score = record.score;
+      player.kills = record.kills;
+    });
   }
 
   // Holds the wave open for a short countdown after the last pathogen dies, then runs finish().
@@ -769,6 +841,7 @@ export class Simulation {
   startAirwayObjective() {
     const { recovery, warning, active } = this.organMission.hazard;
     const duration = recovery + warning + active;
+    this.checkpoint = this.captureCheckpoint('airway');
     this.airway = {
       state: 'reopen', duration, remaining: duration, sealPoints: AIRWAY_SEAL_POINTS,
       minimumIntegrity: AIRWAY_MINIMUM_INTEGRITY, exhaled: false, incoming: null,

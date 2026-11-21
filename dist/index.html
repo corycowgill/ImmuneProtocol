@@ -669,6 +669,7 @@
       </div>
       <div class="pause-actions">
         <button id="resume" class="button primary" type="button" autofocus>Resume mission <svg aria-hidden="true"><use href="#arrow"></use></svg></button>
+        <button id="restart-wave" class="button outline" type="button" hidden>Restart wave</button>
         <button id="restart-mission" class="button outline" type="button">Restart mission</button>
         <button class="button outline" type="button" data-settings>Settings</button>
         <button id="pause-manual" class="button outline" type="button">Field manual</button>
@@ -792,7 +793,7 @@
       </section>
       <p id="result-launch-error" role="alert" hidden></p>
       <button id="continue-mission" class="button primary full-button result-next" type="button" hidden><span id="continue-mission-label">Continue campaign</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-      <div class="dialog-buttons"><button id="replay" class="button primary" type="button"><span id="replay-label">Redeploy</span> <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button id="result-armory" class="button outline" type="button">Armory</button><button id="return-menu" class="button outline" type="button">Main menu</button></div>
+      <div class="dialog-buttons"><button id="replay" class="button primary" type="button"><span id="replay-label">Redeploy</span> <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button id="restart-from-start" class="button outline" type="button" hidden>Restart mission</button><button id="result-armory" class="button outline" type="button">Armory</button><button id="return-menu" class="button outline" type="button">Main menu</button></div>
     </dialog>
   </main>
   <script type="module" src="boot.mjs"></script>

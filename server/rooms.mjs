@@ -282,13 +282,16 @@ export class CoopRooms {
   }
 
   startMatch(room) {
+    // After a loss the squad retries from the start of the wave it lost, not the whole mission.
+    const lost = room.phase === 'finished' && room.simulation?.phase === 'lost' ? room.simulation.checkpoint : null;
+    const checkpoint = lost && (lost.wave > 1 || lost.stage === 'airway') ? lost : null;
     if (room.phase === 'finished' && room.simulation.phase === 'won') {
       room.missionIndex = (room.missionIndex + 1) % CAMPAIGN_AREAS.length;
       if (room.missionIndex === 0) room.results = [];
     }
     const participants = room.players.map(({ id, name, weaponLoadout, suit }) => ({ id, name, weaponLoadout, suit }));
     room.simulation = this.createSimulation(participants, CAMPAIGN_AREAS[room.missionIndex]);
-    room.simulation.start();
+    room.simulation.start(checkpoint);
     room.tick = 0;
     room.events = [...room.simulation.events];
     this.continueMatch(room);

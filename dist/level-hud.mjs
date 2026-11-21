@@ -71,9 +71,9 @@ export function currentDifficulty() {
 
 // Solo missions pick up the menu's difficulty when they start. Co-op suits are driven by the server.
 const startMission = Simulation.prototype.start;
-Simulation.prototype.start = function start() {
+Simulation.prototype.start = function start(...args) {
   if (!this.difficulty && !this.players) applyDifficulty(this, currentDifficulty());
-  return startMission.call(this);
+  return startMission.apply(this, args);
 };
 
 // A compact Easy/Medium/Hard switch on the deployment screen. Hovering, focusing or choosing an
