@@ -414,7 +414,7 @@ const BEHAVIOURS = {
         for (const node of sim.nodes) {
           if (distance(node, boss) > 9) continue;
           setNode(boss, node);
-          sim.damageTarget(boss, 'tissue', 34);
+          sim.damageTarget(boss, 'tissue', 22);
         }
         if (boss.eruptions % 3 === 0) {
           for (const side of [-1, 1]) minion(sim, 'flagellate', boss.x + side * 3, boss.z, weakestNode(sim));

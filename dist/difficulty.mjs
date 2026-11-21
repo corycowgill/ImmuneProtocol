@@ -49,7 +49,9 @@ export const MISSION_TUNING = Object.freeze({
   }),
   hard: Object.freeze({
     // The drained basin already sends six flankers and two counterattacks into the final wave.
-    stomach: Object.freeze({ extra: 0 }),
+    stomach: Object.freeze({ extra: 0, tissueDamage: 1, cadence: 1.05 }),
+    // The Rogue Macrophage punishes a suit that is caught; Hard's extra suit damage made it a one-mistake fight.
+    lymph: Object.freeze({ suitDamage: 1 }),
     // Three nodes more than fifty metres apart and a squeeze that sweeps the whole chamber.
     colon: Object.freeze({ extra: 0, cadence: 1.1, suitDamage: 1 }),
   }),

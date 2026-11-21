@@ -27,7 +27,9 @@ dialog.armory-panel[open]{display:grid;grid-template-columns:minmax(0,1fr) clamp
 .armory-panel #armory-context{max-width:36ch;margin:0 0 14px;color:var(--muted);font:500 11px/1.45 var(--mono);text-align:right}
 
 /* Stage. */
-.gs-stage{grid-area:stage;position:relative;min-width:0;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;background:#201917}
+.gs-stage{grid-area:stage;position:relative;min-width:0;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;
+  /* The bench carries on, darkened, behind the letterboxed preview so the stage has no hard-edged bands. */
+  background:linear-gradient(#0b0f11c7,#0b0f11c7),url('./assets/armory/bench.webp') center 38%/cover,#0e1416}
 .gs-stage::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 62% 58% at 50% 42%,transparent 40%,#0b0708d9 100%)}
 .gs-stage>:is(.gs-leaders,.gs-callouts,.armory-hint,.gs-plate,.gs-build){z-index:1}
 .gs-stage::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
@@ -35,7 +37,8 @@ dialog.armory-panel[open]{display:grid;grid-template-columns:minmax(0,1fr) clamp
   mask-image:radial-gradient(ellipse 60% 55% at 50% 45%,#000,transparent 78%)}
 .armory-panel .armory-image{position:relative;min-height:0;display:grid;place-items:center;cursor:grab;touch-action:none;background:none}
 .armory-panel .armory-image:active{cursor:grabbing}
-.armory-panel .armory-image canvas{display:block;width:100%;height:100%;max-height:none;object-fit:contain}
+.armory-panel .armory-image canvas{display:block;width:100%;height:100%;max-height:none;object-fit:contain;
+  mask-image:linear-gradient(180deg,transparent 0,#000 9%,#000 91%,transparent 100%)}
 .gs-leaders{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
 .gs-leader{stroke:#d7c5ab70;stroke-width:1}
 .gs-leader-dot{fill:#140d0e;stroke:#d7c5abb0;stroke-width:1.5}
