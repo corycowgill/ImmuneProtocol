@@ -149,6 +149,11 @@ export async function prepareArmoryArt(renderer) {
   const up = new THREE.Vector3(0, 1, 0);
   const side = new THREE.Vector3();
   const projected = new THREE.Vector3();
+  // Every weapon is seen from the angle the carbine's camera uses.
+  const viewDirection = carbineFocus.clone().sub(camera.position).normalize();
+  const viewRight = new THREE.Vector3().crossVectors(viewDirection, up).normalize();
+  const viewUp = new THREE.Vector3().crossVectors(viewRight, viewDirection);
+  const corner = new THREE.Vector3();
   const spin = new THREE.Quaternion();
   let shown = 'carbine';
   function frame(view, loadout) {
@@ -156,20 +161,30 @@ export async function prepareArmoryArt(renderer) {
     turntable.position.set(0, 0, 0);
     turntable.rotation.set(0, 0, 0);
     carbine.model.position.set(0, 0, 0);
-    if (loadout.weapon === 'carbine') {
-      focus.copy(carbineFocus);
-      return camera;
-    }
-    // Fit the whole weapon: launchers and rifles are longer than the carbine, pistols much shorter.
+    // Fit the whole weapon as it is built right now: launchers and rifles are longer than the
+    // carbine, pistols much shorter, and a long barrel or a scope changes the outline.
     const bounds = new THREE.Box3();
     // From the pivot down: the model's world position must reflect the reset above.
     turntable.updateMatrixWorld(true);
     view.model.traverse(part => {
-      if (part.isMesh && part.userData.weapon === loadout.weapon && part.visible) bounds.expandByObject(part);
+      if (!part.isMesh) return;
+      // Every weapon and every part option lives in this one model; only the drawn ones count.
+      for (let node = part; node && node !== turntable; node = node.parent) if (!node.visible) return;
+      bounds.expandByObject(part);
     });
     const center = bounds.getCenter(new THREE.Vector3());
-    const size = bounds.getSize(new THREE.Vector3()).length();
-    previewCamera.position.set(center.x - size * .95, center.y + size * .3, center.z - size * .6);
+    // Stand back just far enough that every corner of its outline is inside the picture, with
+    // room left over for the callouts beside it and the name and stat bars above and below.
+    const vertical = Math.tan(THREE.MathUtils.degToRad(previewCamera.fov / 2));
+    const horizontal = vertical * previewCamera.aspect;
+    let distance = 0;
+    for (let index = 0; index < 8; index++) {
+      corner.set(index & 1 ? bounds.max.x : bounds.min.x, index & 2 ? bounds.max.y : bounds.min.y, index & 4 ? bounds.max.z : bounds.min.z).sub(center);
+      const depth = corner.dot(viewDirection);
+      distance = Math.max(distance, Math.abs(corner.dot(viewRight)) / (horizontal * .96) - depth, Math.abs(corner.dot(viewUp)) / (vertical * .74) - depth);
+    }
+    // orbit() brings the camera in to four fifths of this.
+    previewCamera.position.copy(center).addScaledVector(viewDirection, -distance / .8);
     previewCamera.lookAt(center);
     focus.copy(center);
     return previewCamera;

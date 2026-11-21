@@ -77,3 +77,7 @@ Draw calls stayed between 170 and 290. The drifting red cells near the player an
 A browser trace of the artery training showed 60 fps script frames interrupted by seven GPU-process stalls of 0.5–5.4 s. three.js compiles each material for an exact light count. During training two tissue nodes are hidden and their lights left the scene with them, so play began with 9 point lights after the loading screen had prepared 11, and every material recompiled as it first came into view.
 
 `World.syncLights` now draws each point light through a stand-in that stays in the scene and goes dark when its owner is hidden, so the count is fixed per arena (9–13, unchanged). `/__hitches` (same server as `/__profile`) plays a scripted opening of a mission and lists shader programs linked after the loading screen; `?area=heart`, `?tutorial` and `?frames=300` change the run. Artery training linked 17 before the fix and 0 after; artery, junction, heart, lungs, stomach and brain without training all link 0.
+
+## Armory check
+
+`/__armory` (same server as `/__profile`) renders every weapon with every part option on the armory bench and draws a contact sheet per weapon. It reports any build where the weapon does not appear (nothing in the picture moves when it is turned), an attachment point falls outside the picture, or a part card is blank. `?weapons=sniper,pistol` narrows it. All 80 builds pass.

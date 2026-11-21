@@ -8,7 +8,7 @@ const port = Number(process.env.PORT || 8027);
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, 'http://127.0.0.1');
-    const page = { '/__loading-qa': './verify-loading.html', '/__profile': './profile.html', '/__hitches': './hitches.html', '/__overview': './overview.html' }[url.pathname];
+    const page = { '/__loading-qa': './verify-loading.html', '/__profile': './profile.html', '/__hitches': './hitches.html', '/__overview': './overview.html', '/__armory': './armory-check.html' }[url.pathname];
     if (page) {
       const html = await readFile(new URL(page, import.meta.url));
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }).end(html);
