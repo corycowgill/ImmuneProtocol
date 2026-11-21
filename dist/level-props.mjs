@@ -96,10 +96,12 @@ function fingerGeometry(rows = 20, radial = 20) {
   return new THREE.LatheGeometry(profile, radial);
 }
 
+// The rivers carry hundreds of cells overhead and beyond the walls, each a few pixels wide, so
+// the biconcave disc keeps its silhouette with a coarse profile.
 function redCellGeometry() {
-  const profile = [[0, -.085], [.2, -.09], [.4, -.125], [.58, -.18], [.74, -.215], [.87, -.19], [.97, -.11], [1, 0],
-    [.97, .11], [.87, .19], [.74, .215], [.58, .18], [.4, .125], [.2, .09], [0, .085]];
-  return new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 28);
+  const profile = [[0, -.085], [.4, -.125], [.74, -.215], [.97, -.11], [1, 0],
+    [.97, .11], [.74, .215], [.4, .125], [0, .085]];
+  return new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 14);
 }
 
 function mergeGeometries(parts) {
@@ -462,7 +464,7 @@ function placeOnRing(patrol, ring, angle, random) {
 // ---------------------------------------------------------------- small intestine
 
 function villusForest(root, time, random, nodes, obstacles) {
-  const geometry = fingerGeometry();
+  const geometry = fingerGeometry(16, 14);
   const tall = addSway(bioMaterial('mucosa', [2, 7], {
     color: 0xffd9d0, roughness: .46, clearcoat: .55, sheen: .7, sheenColor: 0xffc2b8, emissive: 0x3a0a10, emissiveIntensity: .18,
   }), time, .022, .8, 'villus-tall');
@@ -494,7 +496,7 @@ function villusForest(root, time, random, nodes, obstacles) {
   forest.frustumCulled = false;
   root.add(forest);
   const grassCount = 2600;
-  const meadow = new THREE.InstancedMesh(fingerGeometry(8, 10), grass, grassCount);
+  const meadow = new THREE.InstancedMesh(fingerGeometry(6, 7), grass, grassCount);
   for (let i = 0; i < grassCount; i++) {
     let x, z;
     do {
@@ -572,7 +574,7 @@ function microbiome(root, time, random, nodes, obstacles, glow) {
     blob.position.set(x, size * .05, z);
     root.add(blob);
   }
-  const rods = new THREE.CapsuleGeometry(.16, .62, 2, 7);
+  const rods = new THREE.CapsuleGeometry(.16, .62, 1, 6);
   rods.translate(0, .47, 0);
   const rodMaterial = addSway(bioMaterial('biofilm', [1, 1], { color: 0xffffff, roughness: .32, clearcoat: 1,
     clearcoatRoughness: .12, sheen: .6, sheenColor: 0xfff4d8, normalScale: new THREE.Vector2(.4, .4) }), time, .5, 4.2, 'rods');

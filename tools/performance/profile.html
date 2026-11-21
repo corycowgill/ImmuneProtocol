@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Immune Protocol frame profile</title></head><body style="background:#171018;color:#daf5bd;font:14px monospace"><h1>Frame profile</h1><p id="status">Preparing…</p><pre id="report"></pre><canvas id="world" style="width:1280px;height:720px"></canvas><script type="module">
+import { World } from './world.mjs';
+import { Simulation, SPECIES } from './simulation.mjs';
+import { CAMPAIGN_AREAS } from './coop-protocol.mjs';
+import { DEFAULT_WEAPON_LOADOUT } from './weapon-mods.mjs';
+// Renders a crowded wave in each arena and reports where the frame goes: scene update on the
+// CPU, draw submission, and the draw calls and triangles behind it. ?areas=artery,brain narrows
+// the run; ?quality=low, ?enemies=30 and ?frames=90 change the load.
+const query = new URLSearchParams(location.search);
+const status = document.querySelector('#status'), report = document.querySelector('#report');
+const paint = () => new Promise(requestAnimationFrame);
+const areas = query.get('areas')?.split(',') ?? CAMPAIGN_AREAS;
+const crowd = Number(query.get('enemies') ?? 24), frames = Number(query.get('frames') ?? 60);
+const results = [];
+const size = query.get('size')?.split('x');
+if (size) Object.assign(document.querySelector('#world').style, { width: size[0] + 'px', height: size[1] + 'px' });
+try {
+  const world = window.profileWorld = new World(document.querySelector('#world'));
+  await world.prepareAll(areas, (done, total, label) => status.textContent = `${done}/${total}: ${label}`);
+  world.renderScale.enabled = false; // Compare like with like: fixed resolution.
+  world.setQuality(query.get('quality') ?? 'high');
+  const info = world.renderer.info;
+  info.autoReset = false;
+  let drawTime = 0;
+  const draw = world.renderer.render.bind(world.renderer);
+  world.renderer.render = (scene, camera) => { const at = performance.now(); draw(scene, camera); drawTime += performance.now() - at; };
+  const gl = world.renderer.getContext();
+  const types = Object.keys(SPECIES).filter(type => type !== 'colony');
+  for (const area of areas) {
+    const sim = new Simulation(area, { weaponLoadout: DEFAULT_WEAPON_LOADOUT, bossPractice: area === 'brain' });
+    await world.prepareMission(sim, (_value, label) => status.textContent = area + ': ' + label);
+    sim.start();
+    const p = sim.player;
+    for (let i = 0; i < crowd; i++) {
+      sim.enemies.push(sim.createEnemy(types[i % types.length], p.x - 9 + (i % 8) * 2.6, p.z - 7 - Math.floor(i / 8) * 3.5));
+    }
+    const input = { moveX: 0, moveZ: 0, lookX: 0, lookY: 0, aim: false };
+    for (let i = 0; i < 10; i++) { await paint(); world.render(sim, 1 / 60, input, false); }
+    gl.finish();
+    let update = 0, submit = 0, calls = 0, triangles = 0, simTime = 0;
+    const begin = performance.now();
+    for (let frame = 0; frame < frames; frame++) {
+      await paint();
+      if (frame % 20 === 5) world.explosions.explode(p.x, 1, p.z - 6, 5);
+      let at = performance.now();
+      if (query.has('step')) { sim.step(1 / 60, input); for (const e of sim.enemies) e.health = 1e6; }
+      simTime += performance.now() - at;
+      info.reset(); drawTime = 0;
+      at = performance.now();
+      world.render(sim, 1 / 60, input, false);
+      const whole = performance.now() - at;
+      update += whole - drawTime; submit += drawTime;
+      calls += info.render.calls; triangles += info.render.triangles;
+    }
+    gl.finish();
+    const wall = (performance.now() - begin) / frames;
+    let lights = 0, meshes = 0;
+    world.scene.traverseVisible(o => { if (o.isLight) lights++; if (o.isMesh || o.isPoints || o.isLine) meshes++; });
+    const row = { area, wallMs: +wall.toFixed(1), simMs: +(simTime / frames).toFixed(2), updateMs: +(update / frames).toFixed(2), submitMs: +(submit / frames).toFixed(2),
+      calls: Math.round(calls / frames), triangles: Math.round(triangles / frames), lights, visibleObjects: meshes,
+      programs: info.programs.length, geometries: info.memory.geometries, textures: info.memory.textures,
+      pixels: world.renderer.domElement.width + 'x' + world.renderer.domElement.height };
+    results.push(row);
+    window.afterArea?.(area, world);
+    report.textContent += JSON.stringify(row) + '\n';
+  }
+  status.textContent = 'DONE';
+} catch (error) { status.textContent = 'FAIL: ' + error.message; console.error(error); }
+window.profileResults = results;
+</script></body></html>

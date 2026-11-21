@@ -107,8 +107,8 @@ function tubes(group, parts, material) {
   return place(group, merged, material, 0, 0, 0);
 }
 
-function tissueLobe() {
-  const geometry = new THREE.SphereGeometry(1, 18, 12);
+function tissueLobe(width = 18, height = 12) {
+  const geometry = new THREE.SphereGeometry(1, width, height);
   const p = geometry.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
@@ -588,7 +588,7 @@ function makeLymph(root, skin, lobe, random, glow) {
     const angle = i / 8 * TAU + .3;
     follicles.push([Math.cos(angle) * 26, 2 + random() * 4, Math.sin(angle) * 36, 3.4 + random() * 1.6]);
   }
-  const lymphocytes = instances(root, lobe, skin(0xf4eef4, { roughness: .4, clearcoat: .8, sheen: .8, sheenColor: 0xe0ecff,
+  const lymphocytes = instances(root, lobe.small, skin(0xf4eef4, { roughness: .4, clearcoat: .8, sheen: .8, sheenColor: 0xe0ecff,
     emissive: 0x4a5878, emissiveIntensity: .35 }),
     follicles.length * 70, index => {
       const [x, y, z, radius] = follicles[Math.floor(index / 70)];
@@ -659,7 +659,7 @@ function makeEar(root, skin, lobe, random, glow) {
     }
   }
   tubes(root, canalArches, skin(0xae93ad));
-  const cilia = instances(root, lobe, skin(0xd2b4ae), 420, index => {
+  const cilia = instances(root, lobe.small, skin(0xd2b4ae), 420, index => {
     const side = index % 2 ? -1 : 1;
     const lane = Math.floor(index / 56);
     const z = -34 + random() * 51;
@@ -828,6 +828,8 @@ export function createOrganEnvironment(area, { membraneMaps, floorHeight, glow, 
     normalScale: new THREE.Vector2(.9, .9), ...overrides,
   });
   const lobe = tissueLobe();
+  // Hundreds of fist-sized cells and hair-thin cilia use a coarser copy of the same lump.
+  lobe.small = tissueLobe(12, 8);
   const anatomy = new THREE.Group();
   anatomy.scale.set(...ANATOMY_SCALE);
   root.add(anatomy);

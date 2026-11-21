@@ -34,3 +34,25 @@ Final prompt: "Use case: stylized-concept. Asset type: widescreen video game loa
 ## Local browser result
 
 The final renderer fixture passed all ten arenas with zero asset requests after renderer preparation and no browser warnings/errors. At an 800 × 450 CSS canvas it observed about 60 FPS in each short sample. All-arena renderer preparation took 5.94 s; mission gates took 141–278 ms; render CPU p95 ranged from 9.6 to 14.9 ms. These measurements are specific to this machine and this synthetic fixture. The actual UI was also checked at desktop and 390 × 844 mobile sizes, through the co-op lab and through Neural Cortex deployment. The mission overlay was visible at 90% before gameplay, and the game canvas received focus after preparation. An earlier run of the same fixture observed 147–581 ms gates, illustrating run-to-run variation.
+
+# Frame rate review — 2026-11-21
+
+`npm run profile`, then open `/__profile` on the printed address. The page renders a crowded wave in each arena at a fixed resolution and reports CPU time for scene update and draw submission, draw calls, triangles and lights. `?areas=artery,colon`, `?enemies=30`, `?frames=90`, `?quality=low` and `?size=1280x720` change the run.
+
+Findings from the first run (24 pathogens, 1280 × 720): scene update about 1 ms and draw submission 3–6 ms of CPU, and the simulation step under 0.05 ms with 40 pathogens. The frame is GPU-bound. A crowded artery frame drew 2.05 million triangles, 1.6 million of them static decor, and almost every surface is a clearcoat physical material lit by 9–13 point lights.
+
+Changes:
+
+- **Light loop.** The stock three.js shader evaluates the full reflectance model for every point light on every pixel, including lights that are switched off (muzzle flash, explosion pool, indicators) or out of range. `world.mjs` patches the shared shader chunk to skip lights whose contribution is exactly zero. No pixel changes.
+- **Dynamic resolution** (`dist/render-scale.mjs`). Below 50 fps the canvas is drawn at a lower scale, down to 60% per axis, and restored after several seconds at 57 fps or more. If fewer pixels do not raise the frame rate (a 30 Hz display, a CPU limit) the scale is restored and adaptation backs off. Covered by `server/render-scale.test.mjs`.
+- **Decor geometry.** Small or distant instanced decor uses coarser meshes: blood river cells 784 → 196 triangles, drifting cells 672 → 448, villus grass 180 → 84, tall villi 840 → 448, colon rods 126 → 60, lymphocytes and ear cilia 396 → 176.
+
+| Arena (no pathogens) | Triangles before | After |
+| --- | ---: | ---: |
+| Artery | 1,618,000 | about 1,120,000 |
+| Small intestine | 1,218,000 | 867,000 |
+| Colon | 1,098,000 | 887,000 |
+| Lymph node | 785,000 | 657,000 |
+| Inner ear | 597,000 | 501,000 |
+
+These runs used a software rasterizer, so triangle and CPU numbers are real but GPU time was not measured. The light-loop and dynamic-resolution gains need a check on real hardware. Not done: lower-detail pathogen models at distance (16,000–24,000 morph-animated triangles each) and fewer arena lights, both of which would change assets or lighting.

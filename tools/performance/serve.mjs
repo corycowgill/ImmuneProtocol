@@ -8,8 +8,9 @@ const port = Number(process.env.PORT || 8027);
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, 'http://127.0.0.1');
-    if (url.pathname === '/__loading-qa') {
-      const html = await readFile(new URL('./verify-loading.html', import.meta.url));
+    const page = { '/__loading-qa': './verify-loading.html', '/__profile': './profile.html' }[url.pathname];
+    if (page) {
+      const html = await readFile(new URL(page, import.meta.url));
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }).end(html);
     } else await serveStatic(request, response, root, url);
   } catch (error) {

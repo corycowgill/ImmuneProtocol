@@ -15,6 +15,15 @@ import { COOP_MAX_PLAYERS } from './coop-protocol.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, SPECIES, TISSUE_NODES } from './simulation.mjs';
 import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion } from './enemy-models.mjs';
+import { RenderScale } from './render-scale.mjs';
+
+// Every lit pixel walks all of the arena's point lights, and most of them are out of range of
+// it or switched off (muzzle flash, explosion pool, indicators). Their contribution is exactly
+// zero, so skipping the reflectance maths for them changes no pixel and saves most of the loop.
+if (!THREE.ShaderChunk.lights_fragment_begin.includes('directLight.visible ) RE_Direct')) {
+  THREE.ShaderChunk.lights_fragment_begin = THREE.ShaderChunk.lights_fragment_begin
+    .replaceAll('RE_Direct( directLight,', 'if ( directLight.visible ) RE_Direct( directLight,');
+}
 
 const TAU = Math.PI * 2;
 const PRELOAD_INPUT = Object.freeze({ moveX: 0, moveZ: 0, lookX: 0, lookY: 0 });
@@ -238,7 +247,7 @@ function redCellGeometry() {
   const profile = [[0, -.089], [.19, -.091], [.38, -.12], [.55, -.17],
     [.72, -.21], [.85, -.185], [.96, -.119], [1, 0],
     [.96, .119], [.85, .185], [.72, .21], [.55, .17], [.38, .12], [.19, .091], [0, .089]];
-  const geometry = new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 24);
+  const geometry = new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 16);
   colorGeometry(geometry, (color, x, y, z) => {
     const ring = Math.hypot(x, z);
     const tone = .64 + ring * .3 + Math.sin(x * 13 + z * 7) * .055;
@@ -1301,6 +1310,8 @@ export class World {
     this.turretShotMaterial = this.shotMaterial.clone();
     this.turretShotMaterial.color.setHex(0xffbd78);
     this.width = this.height = 0;
+    this.renderScale = new RenderScale();
+    this.lastRender = 0;
     this.setArea(area);
     this.setQuality('high');
   }
@@ -1683,7 +1694,7 @@ export class World {
     this.height = height;
     const low = this.quality === 'low';
     const pixelRatio = Math.min(window.devicePixelRatio || 1, low ? .87 : 1.45,
-      Math.sqrt((low ? 950000 : 2300000) / (width * height)));
+      Math.sqrt((low ? 950000 : 2300000) / (width * height))) * this.renderScale.scale;
     this.renderer.setPixelRatio(pixelRatio);
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
@@ -2315,7 +2326,10 @@ export class World {
   }
 
   render(sim, dt, input, reduceMotion, resizeViewport = true) {
-    if (resizeViewport) this.resize();
+    const now = performance.now();
+    const rescaled = resizeViewport && this.renderScale.sample((now - this.lastRender) / 1000);
+    this.lastRender = now;
+    if (resizeViewport) this.resize(rescaled);
     const { player } = sim;
     this.camera.position.set(player.x, player.y, player.z);
     this.camera.rotation.set(player.pitch, player.yaw, 0);
