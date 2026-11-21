@@ -1,5 +1,7 @@
+import { grow, growPoint } from './arena-scale.mjs';
+
 function node(id, name, x, z) {
-  return { id, name, x, y: 1.25, z };
+  return { id, name, x: grow(x), y: 1.25, z: grow(z) };
 }
 
 const CADENCE_STRETCH = 1.25;
@@ -31,7 +33,7 @@ export const ORGAN_MISSIONS = {
     nodes: [node('lungs-left', 'Left Alveoli', -17, -12), node('lungs-right', 'Right Alveoli', 17, -12)],
     entry: [0, 26],
     inlets: [[[-26, -40], [-37, -16], [-30, 30]], [[26, -40], [37, -16], [30, 30]]],
-    obstacles: [[-30, 8, 3.2], [30, 8, 3.2], [-9, -34, 2.6], [9, -34, 2.6]],
+    obstacles: [[-30, 8, 3.2], [30, 8, 3.2], [-9, -34, 2.6], [9, -34, 2.6], [-22, -30, 2.6], [22, -30, 2.6], [-18, 24, 2.8], [18, 24, 2.8]],
     hazard: {
       name: 'Exhale', instruction: 'Leave the center airway', effect: 'Airflow pushes you back',
       x: 0, z: -4, width: 14, depth: 74, recovery: 4.2, warning: 3.4, active: 3.4, push: 9,
@@ -48,7 +50,7 @@ export const ORGAN_MISSIONS = {
     nodes: [node('stomach-wall', 'Gastric Wall', -21, -14), node('stomach-lining', 'Pyloric Lining', 19, 8)],
     entry: [5, 27],
     inlets: [[[-28, -37], [-39, 4], [-14, -51]], [[36, -20], [30, 34], [22, -46]]],
-    obstacles: [[-6, 18, 2.8], [10, -28, 3]],
+    obstacles: [[-6, 18, 2.8], [10, -28, 3], [-30, -26, 2.8], [30, 26, 2.8], [-10, -38, 2.6], [-28, 24, 2.6]],
     hazard: {
       name: 'Acid rise', instruction: 'Climb out of the basin', effect: 'Acid damages your suit',
       x: 0, z: -6, radius: 11, recovery: 5.8, warning: 3.6, active: 4.6, damage: 9,
@@ -100,7 +102,7 @@ export const ORGAN_MISSIONS = {
       [[35, -22], [27, -39], [36, 22]],
       [[-30, 36], [10, 53], [-36, 20]],
     ],
-    obstacles: [[-12, -2, 3.2], [12, 16, 3], [4, -30, 3.5], [-30, 8, 3], [26, 34, 3]],
+    obstacles: [[-12, -2, 3.2], [12, 16, 3], [4, -30, 3.5], [-30, 8, 3], [26, 34, 3], [30, -32, 3], [-19, -37, 3], [-18, 44, 2.8]],
     hazard: {
       name: 'Haustral squeeze', instruction: 'Watch the wall band and step aside', effect: 'Pressure crushes your suit',
       x: -40, endX: 40, z: 0, width: 9, depth: 120, recovery: 6.4, warning: 3.6, active: 5.2, damage: 10, pushX: 5,
@@ -126,7 +128,7 @@ export const ORGAN_MISSIONS = {
       [[31, -31], [39, -4], [13, -51]],
       [[-23, 44], [23, 44], [0, 54]],
     ],
-    obstacles: [[-10, -4, 2.2], [10, -4, 2.2], [-31, 22, 2.6], [31, 22, 2.6], [0, -40, 3]],
+    obstacles: [[-10, -4, 2.2], [10, -4, 2.2], [-31, 22, 2.6], [31, 22, 2.6], [0, -40, 3], [-24, -36, 2.6], [24, -36, 2.6], [-12, 42, 2.4], [12, 42, 2.4]],
     hazard: {
       name: 'Macrophage sweep', instruction: 'Lure pathogens into its path', effect: 'Engulfs pathogens and crushes suits',
       radius: 7.5, recovery: 5.4, warning: 3.4, active: 4.8, damage: 12, engulf: 70,
@@ -153,7 +155,7 @@ export const ORGAN_MISSIONS = {
       [[32, 30], [37, -17], [25, -42]],
       [[-33, 29], [-17, 48], [8, 52]],
     ],
-    obstacles: [[0, -8, 3], [-30, 10, 2.6], [24, 24, 2.6]],
+    obstacles: [[0, -8, 3], [-30, 10, 2.6], [24, 24, 2.6], [22, -26, 2.6], [-30, -32, 2.6], [8, 40, 2.8], [-2, 14, 2.4]],
     hazard: {
       name: 'Resonance', instruction: 'Keep your turret outside the ring', effect: 'Slows suit movement and jams turrets',
       radius: 9, alternateNodes: true, recovery: 5.2, warning: 3.5, active: 4, slow: .58,
@@ -170,7 +172,7 @@ export const ORGAN_MISSIONS = {
     nodes: [node('brain-motor', 'Motor Cortex', -18, -6), node('brain-sensory', 'Sensory Cortex', 18, -6)],
     entry: [0, 26],
     inlets: [[[-28, -37], [-39, -8], [-30, 34]], [[28, -37], [39, -8], [30, 34]]],
-    obstacles: [[-30, 18, 2.8], [30, 18, 2.8], [0, 10, 2.4]],
+    obstacles: [[-30, 18, 2.8], [30, 18, 2.8], [0, 10, 2.4], [-16, -30, 2.6], [16, -30, 2.6], [-16, 38, 2.6], [16, 38, 2.6]],
     hazard: {
       name: 'Neural overload', instruction: 'Prioritize the vulnerable node', effect: 'Takes extra damage. Repairs blocked',
       radius: 6.5, alternateNodes: true, recovery: 5.1, warning: 3.5, active: 4.1,
@@ -183,3 +185,22 @@ export const ORGAN_MISSIONS = {
     ],
   },
 };
+
+// The tables above are written at the authored size; everything positional grows with the arena.
+// Obstacles keep their own size, and so do hazards that follow a node or a patrol rather than
+// sitting in the anatomy.
+for (const mission of Object.values(ORGAN_MISSIONS)) {
+  mission.entry = growPoint(mission.entry);
+  mission.inlets = mission.inlets.map(route => route.map(growPoint));
+  mission.obstacles = mission.obstacles.map(growPoint);
+  const { hazard } = mission;
+  // A sweeping band reaches further but is no thicker than it was.
+  const thin = hazard.endX !== undefined ? 'width' : hazard.endZ !== undefined ? 'depth' : null;
+  for (const key of ['x', 'z', 'endX', 'endZ', 'width', 'depth']) {
+    if (hazard[key] !== undefined && key !== thin) hazard[key] = grow(hazard[key]);
+  }
+  if (hazard.radius !== undefined && hazard.x !== undefined) hazard.radius = grow(hazard.radius);
+  if (hazard.patrol) hazard.patrol = hazard.patrol.map(growPoint);
+  // A sweeping band has further to travel, so it takes proportionally longer and moves no faster.
+  if (hazard.endX !== undefined || hazard.endZ !== undefined) hazard.active = grow(hazard.active);
+}

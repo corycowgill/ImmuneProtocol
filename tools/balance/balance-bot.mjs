@@ -29,11 +29,28 @@ function parse(argv) {
   return options;
 }
 
+// Solid scenery in the current arena; the bot walks around it instead of pushing into it.
+let obstacles = [];
+
 function steer(player, x, z, input, sprint) {
-  const dx = x - player.x;
-  const dz = z - player.z;
+  let dx = x - player.x;
+  let dz = z - player.z;
   const distance = Math.hypot(dx, dz);
   if (distance < .3) return;
+  for (const [ox, oz, size] of obstacles) {
+    const tx = ox - player.x;
+    const tz = oz - player.z;
+    const gap = Math.hypot(tx, tz);
+    // Heading into an obstacle it is touching: turn along its surface, on the shorter side.
+    if (gap > size + 1.4 || tx * dx + tz * dz <= 0 || Math.hypot(x - ox, z - oz) < size) continue;
+    const side = tx * dz - tz * dx > 0 ? 1 : -1;
+    dx = -tz * side + tx * -.25;
+    dz = tx * side + tz * -.25;
+    const length = Math.hypot(dx, dz);
+    dx *= distance / length;
+    dz *= distance / length;
+    break;
+  }
   const sin = Math.sin(player.yaw);
   const cos = Math.cos(player.yaw);
   input.moveX = dx / distance * cos - dz / distance * sin;
@@ -53,6 +70,7 @@ const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 function play(area, difficulty, rover) {
   const sim = applyDifficulty(new Simulation(area), difficulty);
   sim.start();
+  obstacles = sim.obstacles;
   const memory = { misses: 0, blocked: new Map() };
   let clock = 0;
   let deployed = false;

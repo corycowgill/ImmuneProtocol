@@ -13,9 +13,10 @@ import { RENDERED_PREVIEWS } from './level-hud.mjs';
 import { createSquadView } from './squad-view.mjs';
 import { COOP_MAX_PLAYERS } from './coop-protocol.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
-import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, SPECIES, TISSUE_NODES } from './simulation.mjs';
+import { Simulation, arenaObstacles, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, SPECIES, TISSUE_NODES } from './simulation.mjs';
 import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion } from './enemy-models.mjs';
 import { RenderScale } from './render-scale.mjs';
+import { ARENA_GROWTH } from './arena-scale.mjs';
 import { NEST } from './field-objectives.mjs';
 import { chunkInstances, cullDecor } from './decor-chunks.mjs';
 
@@ -30,10 +31,10 @@ if (!THREE.ShaderChunk.lights_fragment_begin.includes('directLight.visible ) RE_
 const TAU = Math.PI * 2;
 const PRELOAD_INPUT = Object.freeze({ moveX: 0, moveZ: 0, lookX: 0, lookY: 0 });
 // The tissue shell sits a little outside the playable ellipse (ARENA in simulation.mjs).
-const CHAMBER_WIDTH = 51;
-const CHAMBER_DEPTH = 71;
+const CHAMBER_WIDTH = Math.round(51 * ARENA_GROWTH);
+const CHAMBER_DEPTH = Math.round(71 * ARENA_GROWTH);
 // Horizontal stretch applied to anatomy that was laid out for the original, smaller arenas.
-const LAYOUT_SCALE = 1.45;
+const LAYOUT_SCALE = 1.45 * ARENA_GROWTH;
 const WALL_HEIGHT = 22;
 const UP = new THREE.Vector3(0, 1, 0);
 const FORWARD = new THREE.Vector3(0, 0, 1);
@@ -1124,7 +1125,7 @@ export class World {
     this.scene.environment = reflectionTexture();
     this.scene.environmentIntensity = .51;
 
-    this.camera = new THREE.PerspectiveCamera(61, 1, .063, 175);
+    this.camera = new THREE.PerspectiveCamera(61, 1, .063, 240);
     this.camera.rotation.order = 'YXZ';
     this.camera.position.set(0, 1.7, 18);
     this.clock = 0;
@@ -1609,7 +1610,7 @@ export class World {
     }
     if (!this.levelProps.has(this.area)) {
       const props = createLevelProps(this.area, {
-        glow: this.glow, floorHeight, nodes: TISSUE_NODES[this.area], obstacles: ORGAN_MISSIONS[this.area]?.obstacles ?? [],
+        glow: this.glow, floorHeight, nodes: TISSUE_NODES[this.area], obstacles: arenaObstacles(this.area),
       });
       props.setQuality(this.quality !== 'low');
       this.levelProps.set(this.area, props);

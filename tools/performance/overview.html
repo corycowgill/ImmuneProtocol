@@ -1,0 +1,73 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Immune Protocol level overview</title></head><body style="margin:0;background:#171018;color:#daf5bd;font:13px monospace"><p id="status" style="margin:4px 8px">…</p><!-- Top-down plan of each arena (?areas=artery,colon): the scenery below head height, with the
+playable boundary, tissue nodes, pathogen inlets, obstacles, hazard zone and insertion point drawn over it. --><div id="plans" style="display:flex;flex-wrap:wrap;gap:8px;padding:8px"></div><canvas id="world" style="width:560px;height:780px;position:absolute;left:-9999px"></canvas><script type="module">
+import * as THREE from './vendor/three.module.js';
+import { World } from './world.mjs';
+import { ARENA, ENTRANCES, Simulation } from './simulation.mjs';
+import { CAMPAIGN_AREAS } from './coop-protocol.mjs';
+import { DEFAULT_WEAPON_LOADOUT } from './weapon-mods.mjs';
+const query = new URLSearchParams(location.search);
+const status = document.querySelector('#status');
+const areas = query.get('areas')?.split(',') ?? CAMPAIGN_AREAS;
+const HALF_X = 84, HALF_Z = 117, WIDTH = 560, HEIGHT = 780;
+try {
+  const world = new World(document.querySelector('#world'));
+  await world.prepareAll(areas, (done, total, label) => status.textContent = `${done}/${total}: ${label}`);
+  world.renderScale.enabled = false;
+  const camera = new THREE.OrthographicCamera(-HALF_X, HALF_X, HALF_Z, -HALF_Z, 92, 104);
+  camera.position.set(0, 100, 0);
+  camera.up.set(0, 0, -1);
+  camera.lookAt(0, 0, 0);
+  for (const area of areas) {
+    const sim = new Simulation(area, { weaponLoadout: DEFAULT_WEAPON_LOADOUT });
+    await world.prepareMission(sim, (_value, label) => status.textContent = area + ': ' + label);
+    sim.start();
+    world.render(sim, 1 / 60, { moveX: 0, moveZ: 0, lookX: 0, lookY: 0 }, false);
+    world.renderer.setPixelRatio(1);
+    world.renderer.setSize(WIDTH, HEIGHT, false);
+    const density = world.scene.fog.density;
+    world.scene.fog.density = 0;
+    world.scene.updateMatrixWorld();
+    world.syncLights();
+    world.renderer.render(world.scene, camera);
+    world.scene.fog.density = density;
+    const plan = document.createElement('canvas');
+    plan.width = WIDTH; plan.height = HEIGHT;
+    const c = plan.getContext('2d');
+    c.drawImage(world.renderer.domElement, 0, 0);
+    const X = x => (x + HALF_X) / (2 * HALF_X) * WIDTH, Z = z => (z + HALF_Z) / (2 * HALF_Z) * HEIGHT, S = WIDTH / (2 * HALF_X);
+    c.lineWidth = 2; c.font = 'bold 12px monospace'; c.textAlign = 'center';
+    c.strokeStyle = '#ffffffb0'; c.setLineDash([6, 5]);
+    c.beginPath(); c.ellipse(X(0), Z(0), ARENA.x * S, ARENA.z * S, 0, 0, 7); c.stroke(); c.setLineDash([]);
+    const mission = sim.organMission;
+    const hazard = mission?.hazard;
+    if (hazard) {
+      c.fillStyle = '#4fc3ff38'; c.strokeStyle = '#4fc3ff';
+      c.beginPath();
+      if (hazard.radius) c.arc(X(hazard.x), Z(hazard.z), hazard.radius * S, 0, 7);
+      else c.rect(X(hazard.x - hazard.width / 2), Z(hazard.z - hazard.depth / 2), hazard.width * S, (hazard.endZ !== undefined ? hazard.endZ - hazard.z + hazard.depth : hazard.depth) * S);
+      c.fill(); c.stroke();
+    }
+    for (const [x, z, size] of sim.obstacles ?? mission?.obstacles ?? []) { c.strokeStyle = '#fff'; c.beginPath(); c.arc(X(x), Z(z), size * S, 0, 7); c.stroke(); }
+    const inlets = area === 'heart' || area === 'junction' ? [] : mission?.inlets ?? ENTRANCES;
+    inlets.forEach((route, lane) => route.forEach(([x, z]) => {
+      c.fillStyle = ['#ffb347', '#ff7ad9', '#b6ff6a'][lane % 3];
+      c.beginPath(); c.moveTo(X(x), Z(z) - 7); c.lineTo(X(x) + 6, Z(z) + 5); c.lineTo(X(x) - 6, Z(z) + 5); c.fill();
+    }));
+    sim.nodes.forEach((node, lane) => {
+      c.strokeStyle = c.fillStyle = ['#ffb347', '#ff7ad9', '#b6ff6a'][lane % 3];
+      c.beginPath(); c.arc(X(node.x), Z(node.z), 5.4 * S, 0, 7); c.stroke();
+      c.fillText(node.name, X(node.x), Z(node.z) - 5.4 * S - 4);
+    });
+    c.fillStyle = '#5ff'; c.beginPath(); c.arc(X(sim.player.x), Z(sim.player.z), 5, 0, 7); c.fill();
+    c.fillText('insertion', X(sim.player.x), Z(sim.player.z) + 18);
+    c.fillStyle = '#fff'; c.textAlign = 'left';
+    c.fillText(area + ' · playable ' + ARENA.x * 2 + ' × ' + ARENA.z * 2 + ' m', 8, 16);
+    c.fillRect(8, HEIGHT - 14, 20 * S, 3); c.fillText('20 m', 8, HEIGHT - 20);
+    const spread = sim.nodes.map((a, i) => sim.nodes.slice(i + 1).map(b => Math.hypot(a.x - b.x, a.z - b.z))).flat();
+    c.fillText('nodes ' + spread.map(d => Math.round(d)).join(' / ') + ' m apart', 8, 32);
+    document.querySelector('#plans').append(plan);
+    world.resize(true);
+  }
+  status.textContent = 'DONE';
+} catch (error) { status.textContent = 'FAIL: ' + error.message; console.error(error); }
+</script></body></html>

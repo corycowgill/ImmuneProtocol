@@ -46,6 +46,8 @@ export const MISSION_TUNING = Object.freeze({
   hard: Object.freeze({
     // The drained basin already sends six flankers and two counterattacks into the final wave.
     stomach: Object.freeze({ extra: 0 }),
+    // Three nodes more than fifty metres apart and a squeeze that sweeps the whole chamber.
+    colon: Object.freeze({ extra: 0, cadence: 1 }),
   }),
 });
 

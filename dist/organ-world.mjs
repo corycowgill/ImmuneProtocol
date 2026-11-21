@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { chunkInstances } from './decor-chunks.mjs';
+import { ARENA_GROWTH } from './arena-scale.mjs';
 import { GASTRIC_PASSAGE, GASTRIC_VALVES } from './gastric.mjs';
 
 const TAU = 2 * Math.PI;
@@ -739,7 +740,7 @@ const BUILDERS = {
   ear: makeEar, brain: makeBrain,
 };
 // Anatomy was authored for the original 29 x 41 m arenas; stretch it to the enlarged chambers.
-const ANATOMY_SCALE = [1.45, 1.22, 1.45];
+const ANATOMY_SCALE = [1.45 * ARENA_GROWTH, 1.22 * (1 + (ARENA_GROWTH - 1) / 2), 1.45 * ARENA_GROWTH];
 
 function hazardSurface(area, root, profile, floorHeight) {
   const circle = area === 'stomach' || area === 'ear' || area === 'brain' || area === 'lymph';

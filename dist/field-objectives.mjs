@@ -35,7 +35,7 @@ function farSite(sim, arena, salt, taken) {
     const nodeGap = Math.min(...sim.nodes.map(node => Math.hypot(node.x - x, node.z - z)));
     const suitGap = Math.min(...sim.activeSuits().map(({ player }) => Math.hypot(player.x - x, player.z - z)));
     const siteGap = Math.min(Infinity, ...taken.map(site => Math.hypot(site.x - x, site.z - z)));
-    const blocked = (sim.organMission?.obstacles ?? []).some(([ox, oz, size]) => Math.hypot(ox - x, oz - z) < size + 3) ||
+    const blocked = sim.obstacles.some(([ox, oz, size]) => Math.hypot(ox - x, oz - z) < size + 3) ||
       inHazard(sim.organMission?.hazard, x, z);
     if (!blocked && siteGap >= SITE_SPACING && nodeGap > fallbackGap) {
       fallback = { x, z };

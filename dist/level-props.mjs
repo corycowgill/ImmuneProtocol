@@ -1,5 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { chunkInstances, flowPatches } from './decor-chunks.mjs';
+import { ARENA_GROWTH } from './arena-scale.mjs';
+
+// Half-extents of the playable floor, for scenery scattered across or around it.
+const FLOOR_X = 42 * ARENA_GROWTH;
+const FLOOR_Z = 59 * ARENA_GROWTH;
 import { bioTexture } from './bio-textures.mjs';
 
 // Large-scale set dressing and ambient VFX for every arena: blood-cell rivers and a pumping valve
@@ -286,6 +291,9 @@ function pathLength(path) {
   return length;
 }
 
+// River courses are written at the authored arena size.
+const spread = points => points.map(([x, y, z]) => [x * ARENA_GROWTH, y, z * ARENA_GROWTH]);
+
 function river(points, radius, speed, cell, share, closed = false) {
   const path = sampledPath(points, closed);
   return { path, radius, speed, cell, share, length: pathLength(path) };
@@ -471,8 +479,8 @@ function immunePatrol(root, glow, time, count, random, ring) {
 function placeOnRing(patrol, ring, angle, random) {
   patrol.angle = angle;
   const scale = ring[0] + random() * (ring[1] - ring[0]);
-  patrol.preyX = Math.cos(angle) * 42 * scale;
-  patrol.preyZ = Math.sin(angle) * 59 * scale;
+  patrol.preyX = Math.cos(angle) * FLOOR_X * scale;
+  patrol.preyZ = Math.sin(angle) * FLOOR_Z * scale;
   patrol.preyAngle = angle + Math.PI / 2;
 }
 
@@ -498,7 +506,7 @@ function villusForest(root, time, random, nodes, obstacles) {
   for (let i = 0; i < 300; i++) {
     const angle = random() * TAU;
     const scale = 1.0 + random() * .16;
-    placements.push([Math.cos(angle) * 42 * scale, Math.sin(angle) * 59 * scale, .8 + random() * .7, 7 + random() * 11]);
+    placements.push([Math.cos(angle) * FLOOR_X * scale, Math.sin(angle) * FLOOR_Z * scale, .8 + random() * .7, 7 + random() * 11]);
   }
   const forest = new THREE.InstancedMesh(geometry, tall, placements.length);
   placements.forEach(([x, z, width, height], index) => {
@@ -517,8 +525,8 @@ function villusForest(root, time, random, nodes, obstacles) {
     do {
       const angle = random() * TAU;
       const r = Math.sqrt(random()) * .98;
-      x = Math.cos(angle) * 42 * r;
-      z = Math.sin(angle) * 59 * r;
+      x = Math.cos(angle) * FLOOR_X * r;
+      z = Math.sin(angle) * FLOOR_Z * r;
     } while (nodes.some(node => Math.hypot(node.x - x, node.z - z) < 4.2));
     const height = .35 + random() ** 2 * 1.2;
     const width = .16 + random() * .16;
@@ -544,7 +552,7 @@ function nutrientDrift(root, glow, count, random, color) {
   points.frustumCulled = false;
   root.add(points);
   const motes = Array.from({ length: count }, () => ({
-    x: (random() - .5) * 84, y: random() * 16, z: (random() - .5) * 118, vy: -.3 - random() * .6, phase: random() * TAU,
+    x: (random() - .5) * 2 * FLOOR_X, y: random() * 16, z: (random() - .5) * 2 * FLOOR_Z, vy: -.3 - random() * .6, phase: random() * TAU,
   }));
   return (dt, timeValue, pull = 0) => {
     for (let i = 0; i < count; i++) {
@@ -552,10 +560,10 @@ function nutrientDrift(root, glow, count, random, color) {
       mote.y += mote.vy * dt;
       mote.x += Math.sin(timeValue * .6 + mote.phase) * dt * .5 + Math.sign(mote.x) * pull * dt;
       mote.z += Math.cos(timeValue * .5 + mote.phase) * dt * .5;
-      if (mote.y < 0 || Math.abs(mote.x) > 48) {
+      if (mote.y < 0 || Math.abs(mote.x) > FLOOR_X + 6) {
         mote.y = 12 + Math.random() * 6;
-        mote.x = (Math.random() - .5) * 84;
-        mote.z = (Math.random() - .5) * 118;
+        mote.x = (Math.random() - .5) * 2 * FLOOR_X;
+        mote.z = (Math.random() - .5) * 2 * FLOOR_Z;
       }
       positions[i * 3] = mote.x;
       positions[i * 3 + 1] = mote.y;
@@ -574,8 +582,8 @@ function microbiome(root, time, random, nodes, obstacles, glow) {
   while (colonies.length < 26) {
     const angle = random() * TAU;
     const r = .25 + random() * .75;
-    const x = Math.cos(angle) * 40 * r;
-    const z = Math.sin(angle) * 57 * r;
+    const x = Math.cos(angle) * (FLOOR_X - 2) * r;
+    const z = Math.sin(angle) * (FLOOR_Z - 2) * r;
     if (nodes.some(node => Math.hypot(node.x - x, node.z - z) < 7)) continue;
     colonies.push([x, z, 1.4 + random() * 2.2, false]);
   }
@@ -616,8 +624,8 @@ function microbiome(root, time, random, nodes, obstacles, glow) {
   const cocci = new THREE.InstancedMesh(new THREE.SphereGeometry(.13, 9, 6), bioMaterial('leukocyte', [1, 1], {
     color: 0xd9c4e8, roughness: .3, clearcoat: 1, sheen: .5, sheenColor: 0xffffff }), 640);
   for (let chain = 0; chain < 40; chain++) {
-    let x = (random() - .5) * 76;
-    let z = (random() - .5) * 104;
+    let x = (random() - .5) * 1.8 * FLOOR_X;
+    let z = (random() - .5) * 1.76 * FLOOR_Z;
     let heading = random() * TAU;
     for (let link = 0; link < 16; link++) {
       heading += (random() - .5) * .7;
@@ -641,7 +649,7 @@ function microbiome(root, time, random, nodes, obstacles, glow) {
       points.push([Math.cos(t * TAU * 3) * .35, (t - .5) * 4, Math.sin(t * TAU * 3) * .35]);
     }
     const spiral = new THREE.Mesh(tube(points, .09, 80, 6), spiralSkin);
-    spiral.position.set((random() - .5) * 74, 3 + random() * 9, (random() - .5) * 100);
+    spiral.position.set((random() - .5) * 1.76 * FLOOR_X, 3 + random() * 9, (random() - .5) * 1.7 * FLOOR_Z);
     spiral.rotation.set(random() * TAU, random() * TAU, 0);
     root.add(spiral);
     spirals.push({ spiral, speed: 2 + random() * 3, drift: random() * TAU });
@@ -649,7 +657,7 @@ function microbiome(root, time, random, nodes, obstacles, glow) {
   // Undigested fibre: tangled cellulose strands.
   const fibres = [];
   for (let i = 0; i < 30; i++) {
-    const start = [(random() - .5) * 80, .2 + random() * .5, (random() - .5) * 110];
+    const start = [(random() - .5) * 1.9 * FLOOR_X, .2 + random() * .5, (random() - .5) * 1.86 * FLOOR_Z];
     if (nodes.some(node => Math.hypot(node.x - start[0], node.z - start[2]) < 6)) continue;
     const points = [start];
     for (let k = 0; k < 5; k++) {
@@ -700,9 +708,9 @@ function microbiome(root, time, random, nodes, obstacles, glow) {
       const drop = droplets[i];
       drop.r += dt * (.05 + pressure * .12);
       if (drop.r > 1.12) drop.r = Math.random() * .3;
-      waterPositions[i * 3] = Math.cos(drop.a) * 46 * drop.r;
+      waterPositions[i * 3] = Math.cos(drop.a) * (FLOOR_X + 4) * drop.r;
       waterPositions[i * 3 + 1] = drop.y + Math.sin(timeValue + i) * .2;
-      waterPositions[i * 3 + 2] = Math.sin(drop.a) * 65 * drop.r;
+      waterPositions[i * 3 + 2] = Math.sin(drop.a) * (FLOOR_Z + 6) * drop.r;
     }
     water.attributes.position.needsUpdate = true;
   };
@@ -716,7 +724,7 @@ function neuralWeb(root, glow, time, random, nodes, obstacles) {
     const angle = random() * TAU;
     const high = random() < .55;
     const scale = high ? .6 + random() * .35 : .98 + random() * .06;
-    somas.push(new THREE.Vector3(Math.cos(angle) * 44 * scale, high ? 9 + random() * 10 : 1.5 + random() * 5, Math.sin(angle) * 62 * scale));
+    somas.push(new THREE.Vector3(Math.cos(angle) * (FLOOR_X + 2) * scale, high ? 9 + random() * 10 : 1.5 + random() * 5, Math.sin(angle) * (FLOOR_Z + 3) * scale));
   }
   const somaSkin = bioMaterial('neural', [2, 2], { color: 0xcdb6c9, roughness: .36, clearcoat: .8, sheen: .8,
     sheenColor: 0xead6f4, emissive: 0x3a1a5a, emissiveIntensity: .22 });
@@ -779,7 +787,7 @@ function neuralWeb(root, glow, time, random, nodes, obstacles) {
   const groundParts = [];
   for (let i = 0; i < 26; i++) {
     const angle = random() * TAU;
-    const points = [new THREE.Vector3(Math.cos(angle) * 46, .02, Math.sin(angle) * 64)];
+    const points = [new THREE.Vector3(Math.cos(angle) * (FLOOR_X + 4), .02, Math.sin(angle) * (FLOOR_Z + 5))];
     let heading = angle + Math.PI + (random() - .5) * .8;
     for (let k = 0; k < 6; k++) {
       heading += (random() - .5) * 1.1;
@@ -906,7 +914,50 @@ function macrophage(root, glow, time) {
 
 function organPillars(root, area, obstacles, random) {
   if (!obstacles.length) return;
-  if (area === 'lungs') {
+  if (area === 'artery') {
+    // Thrombi: dark clots of trapped red cells, bound in pale fibrin strands.
+    const clot = bioMaterial('red-cell', [3, 2], { color: 0x8a1a1c, roughness: .3, clearcoat: 1, clearcoatRoughness: .14,
+      emissive: 0x2a0406, emissiveIntensity: .3 });
+    const cell = bioMaterial('red-cell', [1, 1], { color: 0xc23a36, roughness: .34, clearcoat: .7, sheen: .6, sheenColor: 0xff9c8a,
+      emissive: 0x3a0306, emissiveIntensity: .3 });
+    const fibrin = bioMaterial('neural', [1, 5], { color: 0xf0d2c0, roughness: .45, clearcoat: .5 });
+    const disc = redCellGeometry();
+    for (const [x, z, size] of obstacles) {
+      const mound = new THREE.Mesh(lumpySphere(4, .24, Math.round(x * 5 + z * 3)), clot);
+      mound.scale.set(size * .96, size * (.95 + random() * .5), size * .96);
+      mound.position.set(x, -.3, z);
+      mound.rotation.y = random() * TAU;
+      root.add(mound);
+      const height = mound.scale.y;
+      const cells = [];
+      for (let i = 0; i < 22; i++) {
+        const angle = random() * TAU;
+        const lift = random() ** .7;
+        const ring = Math.sqrt(Math.max(0, 1 - lift * lift)) * size * .97;
+        const piece = disc.clone();
+        const scale = size * (.2 + random() * .14);
+        tempE.set(random() * TAU, random() * TAU, random() * TAU);
+        tempM.compose(tempA.set(x + Math.cos(angle) * ring, lift * height * .92 - .15, z + Math.sin(angle) * ring),
+          tempQ.setFromEuler(tempE), tempS.set(scale, scale, scale));
+        piece.applyMatrix4(tempM);
+        cells.push(piece);
+      }
+      root.add(new THREE.Mesh(mergeGeometries(cells), cell));
+      const strands = [];
+      for (let i = 0; i < 8; i++) {
+        const tilt = i / 8 * Math.PI + random() * .3;
+        const points = [];
+        for (let k = 0; k <= 10; k++) {
+          const a = k / 10 * Math.PI;
+          const along = Math.cos(a) * size * 1.12;
+          points.push([x + along * Math.cos(tilt) + Math.sin(k * 2.1 + i) * .2, Math.sin(a) * height * 1.04 - .1,
+            z + along * Math.sin(tilt) + Math.cos(k * 1.7 + i) * .2]);
+        }
+        strands.push(tube(points, .05 + random() * .04, 30, 5));
+      }
+      root.add(new THREE.Mesh(mergeGeometries(strands), fibrin));
+    }
+  } else if (area === 'lungs') {
     const skin = bioMaterial('leukocyte', [2, 2], { color: 0xffb8c2, roughness: .38, clearcoat: .85, sheen: .9, sheenColor: 0xffe6ec,
       emissive: 0x5a1a2a, emissiveIntensity: .25 });
     for (const [x, z, size] of obstacles) {
@@ -1001,7 +1052,7 @@ function lightShafts(root, color, count, random) {
     const shaft = new THREE.Mesh(geometry, material);
     const angle = random() * TAU;
     const r = .2 + random() * .65;
-    shaft.position.set(Math.cos(angle) * 40 * r, 23, Math.sin(angle) * 56 * r);
+    shaft.position.set(Math.cos(angle) * (FLOOR_X - 2) * r, 23, Math.sin(angle) * (FLOOR_Z - 3) * r);
     shaft.rotation.set((random() - .5) * .3, 0, (random() - .5) * .3);
     shaft.scale.set(.8 + random() * .8, 1, .8 + random() * .8);
     root.add(shaft);
@@ -1032,20 +1083,20 @@ export function createLevelProps(area, { glow, floorHeight, nodes = [], obstacle
   if (area === 'artery' || area === 'junction' || area === 'heart') {
     const rivers = [];
     if (area === 'artery') {
-      rivers.push(river([[0, 9, -57], [0, 10.5, -44], [-14, 12.5, -22], [-8, 13.5, 4], [12, 12.5, 28], [30, 9.5, 52], [36, 8, 66]], 3.6, 15, .55, 3));
+      rivers.push(river(spread([[0, 9, -57], [0, 10.5, -44], [-14, 12.5, -22], [-8, 13.5, 4], [12, 12.5, 28], [30, 9.5, 52], [36, 8, 66]]), 3.6, 15, .55, 3));
     } else if (area === 'junction') {
-      rivers.push(river([[-48, 9, -40], [-24, 12, -30], [0, 13, -36], [24, 12, -30], [48, 9, -40]], 3.2, 13, .5, 2));
+      rivers.push(river(spread([[-48, 9, -40], [-24, 12, -30], [0, 13, -36], [24, 12, -30], [48, 9, -40]]), 3.2, 13, .5, 2));
     } else {
-      rivers.push(river([[-40, 12, 40], [-18, 15, 20], [0, 16, 0], [18, 15, -20], [40, 12, -40]], 3, 16, .5, 2));
+      rivers.push(river(spread([[-40, 12, 40], [-18, 15, 20], [0, 16, 0], [18, 15, -20], [40, 12, -40]]), 3, 16, .5, 2));
     }
     // Ground-level torrents race along both walls just outside the playable floor.
-    rivers.push(river([[-46, 2, -62], [-49, 2.4, -30], [-50, 2.6, 0], [-49, 2.4, 30], [-44, 2, 62]], 2.6, 18, .45, 2.2));
-    rivers.push(river([[44, 2, 62], [49, 2.4, 30], [50, 2.6, 0], [49, 2.4, -30], [46, 2, -62]], 2.6, 18, .45, 2.2));
+    rivers.push(river(spread([[-46, 2, -62], [-49, 2.4, -30], [-50, 2.6, 0], [-49, 2.4, 30], [-44, 2, 62]]), 2.6, 18, .45, 2.2));
+    rivers.push(river(spread([[44, 2, 62], [49, 2.4, 30], [50, 2.6, 0], [49, 2.4, -30], [46, 2, -62]]), 2.6, 18, .45, 2.2));
     for (const flow of rivers) vesselSheath(root, flow, 0xffc2bc);
     const total = 820;
     const cells = bloodRiver(root, rivers, total, time, random);
     const plasma = rivers.map(flow => plasmaHaze(root, flow, glow, 0xff9a8a, 90, random));
-    const gate = area === 'artery' ? valveGate(root, glow, [0, 9, -57], 8.5, 0) : null;
+    const gate = area === 'artery' ? valveGate(root, glow, spread([[0, 9, -57]])[0], 8.5, 0) : null;
     updates.push((dt, sim, reduced) => {
       const beat = reduced ? .3 : heartbeat();
       gate?.(beat);
@@ -1055,6 +1106,7 @@ export function createLevelProps(area, { glow, floorHeight, nodes = [], obstacle
     });
     const patrol = immunePatrol(root, glow, time, area === 'artery' ? 2 : 1, random, [.82, .96]);
     updates.push(dt => patrol(dt, floorHeight));
+    if (area === 'artery') organPillars(root, area, obstacles, random);
   }
 
   if (area === 'intestines') {

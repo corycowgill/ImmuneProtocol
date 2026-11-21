@@ -1,8 +1,10 @@
+import { grow } from './arena-scale.mjs';
+
 export const GASTRIC_VALVES = Object.freeze([
-  Object.freeze({ id: 'gastric-intake', name: 'Intake valve', x: -26, y: 1.25, z: 0 }),
-  Object.freeze({ id: 'gastric-drain', name: 'Drain valve', x: 25, y: 1.25, z: -14 }),
+  Object.freeze({ id: 'gastric-intake', name: 'Intake valve', x: grow(-26), y: 1.25, z: 0 }),
+  Object.freeze({ id: 'gastric-drain', name: 'Drain valve', x: grow(25), y: 1.25, z: grow(-14) }),
 ]);
-export const GASTRIC_PASSAGE = Object.freeze({ x: 0, y: 1.5, z: 36 });
+export const GASTRIC_PASSAGE = Object.freeze({ x: 0, y: 1.5, z: grow(36) });
 export const GASTRIC_REPAIR_RADIUS = 2.7;
 
 const DRAIN_TIME = 2.4;

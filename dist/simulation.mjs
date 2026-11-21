@@ -1,4 +1,5 @@
 import { ORGAN_MISSIONS } from './organs.mjs';
+import { grow, growPoint } from './arena-scale.mjs';
 import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-objectives.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
@@ -13,16 +14,16 @@ import {
 
 export const OBJECTIVE = Object.freeze({ x: 0, y: 1.25, z: -8 });
 // Every arena is an ellipse this many metres wide (x) and deep (z) from its centre.
-export const ARENA = Object.freeze({ x: 42, z: 59 });
+export const ARENA = Object.freeze({ x: 55, z: 77 });
 export const TISSUE_NODES = Object.freeze({
   artery: Object.freeze([
-    Object.freeze({ id: 'artery-core', name: 'Arterial Core', x: 0, y: 1.25, z: -16 }),
-    Object.freeze({ id: 'artery-flank', name: 'Lateral Branch', x: 21, y: 1.25, z: 9 }),
-    Object.freeze({ id: 'artery-venous', name: 'Venous Wall', x: -20, y: 1.25, z: 12 }),
+    Object.freeze({ id: 'artery-core', name: 'Arterial Core', x: 0, y: 1.25, z: grow(-16) }),
+    Object.freeze({ id: 'artery-flank', name: 'Lateral Branch', x: grow(21), y: 1.25, z: grow(9) }),
+    Object.freeze({ id: 'artery-venous', name: 'Venous Wall', x: grow(-20), y: 1.25, z: grow(12) }),
   ]),
   junction: Object.freeze([
-    Object.freeze({ id: 'junction-amber', name: 'Amber Node', x: -15, y: 1.25, z: -9 }),
-    Object.freeze({ id: 'junction-teal', name: 'Teal Node', x: 15, y: 1.25, z: -9 }),
+    Object.freeze({ id: 'junction-amber', name: 'Amber Node', x: grow(-15), y: 1.25, z: grow(-9) }),
+    Object.freeze({ id: 'junction-teal', name: 'Teal Node', x: grow(15), y: 1.25, z: grow(-9) }),
   ]),
   heart: Object.freeze([
     Object.freeze({ id: 'heart-valve', name: 'Valve Wound', ...OBJECTIVE }),
@@ -32,13 +33,26 @@ export const TISSUE_NODES = Object.freeze({
     [area, Object.freeze(mission.nodes.map(node => Object.freeze(node)))],
   )),
 });
+// Clots that break up the open artery floor: cover between the nodes, a splitter in front of the
+// main inlet, and blockers on the long flanks. [x, z, radius], authored like the organ obstacles.
+const ARTERY_OBSTACLES = [
+  [-11, -4, 3.4], [11, -5, 3], [0, 10, 3.6], [-27, -11, 3.2], [28, -13, 3.2],
+  [-9, 33, 3], [15, 35, 3.2], [0, -37, 3.4], [-30, 20, 2.8], [33, 20, 2.8],
+].map(growPoint);
+
+// Solid scenery a suit cannot walk through, for any arena.
+export function arenaObstacles(area) {
+  return ORGAN_MISSIONS[area]?.obstacles ?? (area === 'artery' ? ARTERY_OBSTACLES : []);
+}
+
 export const JUNCTION_INLETS = Object.freeze({
-  left: Object.freeze({ x: -29, y: 1.42, z: -33 }),
-  right: Object.freeze({ x: 29, y: 1.42, z: -33 }),
+  left: Object.freeze({ x: grow(-29), y: 1.42, z: grow(-33) }),
+  right: Object.freeze({ x: grow(29), y: 1.42, z: grow(-33) }),
 });
 export const JUNCTION_GASH_SITES = Object.freeze({
-  left: Object.freeze({ x: -18.4, y: 0.95, z: -13.6 }),
-  right: Object.freeze({ x: 18.4, y: 0.95, z: -13.6 }),
+  // Each gash opens on the inlet side of its node, at a fixed offset from it.
+  left: Object.freeze({ x: grow(-15) - 3.4, y: 0.95, z: grow(-9) - 4.6 }),
+  right: Object.freeze({ x: grow(15) + 3.4, y: 0.95, z: grow(-9) - 4.6 }),
 });
 export const HEART_VALVE = Object.freeze({ x: 0, y: 2, z: -10.7, radius: 3.65 });
 
@@ -164,11 +178,11 @@ const AIRWAY_ATTACKS = [
 ];
 
 // Spawn routes per tissue node, kept 20 m or more from the node they attack.
-const ENTRANCES = [
+export const ENTRANCES = [
   [[-6, -54], [9, -53], [-20, -48], [20, -47]],
   [[38, -15], [40, -4], [30, 36], [36, 24]],
   [[-38, -14], [-40, -6], [-27, 40], [-34, 28]],
-];
+].map(route => route.map(growPoint));
 
 const TURN_SENSITIVITY = 0.00225;
 const RIFLE_RANGE = 68;
@@ -184,7 +198,7 @@ export const WAVE_OUTRO_TIME = 4;
 // less. Pathogens also arrive a little further apart so the longer waves do not pile up faster than they can be shot.
 const WAVE_CADENCE = 1.35;
 const WAVE_SUIT_DAMAGE = .4;
-const WAVE_TISSUE_DAMAGE = .35;
+const WAVE_TISSUE_DAMAGE = .25;
 const THREE_NODE_TISSUE_DAMAGE = .5;
 const ORGAN_TISSUE_DAMAGE = .72;
 const JUNCTION_BREAK_TIME = 8;
@@ -274,6 +288,7 @@ export class Simulation {
   } = {}) {
     this.organMission = Object.hasOwn(ORGAN_MISSIONS, area) ? ORGAN_MISSIONS[area] : null;
     this.area = this.organMission || area === 'heart' || area === 'junction' ? area : 'artery';
+    this.obstacles = arenaObstacles(this.area);
     this.missions = this.organMission?.waves ?? (this.area === 'heart' ? HEART_MISSIONS : this.area === 'junction' ? JUNCTION_MISSIONS : MISSIONS);
     this.hasTutorial = tutorial && this.area === 'artery';
     this.bossPractice = bossPractice && this.area === 'brain';
@@ -362,7 +377,7 @@ export class Simulation {
     if (this.valve && (Math.abs(point.x) > HEART_MAX_PLAYER_X - .65 ||
       point.z < HEART_MIN_PLAYER_Z + .65 || point.z > HEART_MAX_PLAYER_Z - .65)) return null;
     if (chamberRadius(point.x, point.z) > .975) return null;
-    if (this.organMission?.obstacles?.some(([x, z, size]) => Math.hypot(point.x - x, point.z - z) < size)) return null;
+    if (this.obstacles.some(([x, z, size]) => Math.hypot(point.x - x, point.z - z) < size)) return null;
     if (this.nodes.some(node => Math.hypot(point.x - node.x, point.z - node.z) < 1.9)) return null;
     if (this.gash && Math.hypot(point.x - this.gash.x, point.z - this.gash.z) < 1.6) return null;
     return point;
@@ -428,7 +443,7 @@ export class Simulation {
     this.phase = 'ready';
     this.tutorial = null;
     this.player = {
-      x: 0, y: 1.7, z: this.valve ? 4 : this.area === 'junction' ? 20 : 26, yaw: 0, pitch: 0,
+      x: 0, y: 1.7, z: this.valve ? 4 : grow(this.area === 'junction' ? 20 : 26), yaw: 0, pitch: 0,
       health: RULES.health, ammo: this.magazineSize, score: 0, kills: 0,
     };
     if (this.organMission) [this.player.x, this.player.z] = this.organMission.entry;
@@ -984,7 +999,8 @@ export class Simulation {
     const strafe = input.moveX || 0;
     const forward = input.moveZ || 0;
     const diagonal = Math.max(1, Math.hypot(strafe, forward));
-    let speed = (input.aim ? 3.3 : input.sprint && !input.fire ? 8.8 : 5.8) * (weapon.moveSpeed ?? 1);
+    // The arenas grew by a third, so suits cover ground a little faster than they used to.
+    let speed = (input.aim ? 3.6 : input.sprint && !input.fire ? 10.8 : 6.9) * (weapon.moveSpeed ?? 1);
     if (this.organ?.phase === 'active' && this.organMission.hazard.slow && withinHazard(player, this.organ)) {
       speed *= this.organMission.hazard.slow;
     }
@@ -1000,7 +1016,7 @@ export class Simulation {
     if (this.valve) {
       actor.x = clamp(actor.x, -HEART_MAX_PLAYER_X, HEART_MAX_PLAYER_X);
       actor.z = clamp(actor.z, HEART_MIN_PLAYER_Z, HEART_MAX_PLAYER_Z);
-    } else confineToChamber(actor, solid ? this.organMission?.obstacles : null);
+    } else confineToChamber(actor, solid ? this.obstacles : null);
   }
 
   updateRepair(dt, held, suit = this) {
@@ -1450,6 +1466,7 @@ export class Simulation {
       if (distance > LATCH_RANGE) {
         enemy.x += dx * travel / distance;
         enemy.z += dz * travel / distance;
+        this.skirtObstacles(enemy);
       }
       if (distance - travel > LATCH_RANGE + 0.001) {
         enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * 0.08;
@@ -1600,6 +1617,7 @@ export class Simulation {
         enemy.x += Math.cos(course) * travel;
         enemy.z += Math.sin(course) * travel;
         this.keepApart(enemy, speedFactor, dt);
+        this.skirtObstacles(enemy);
       } else if (enemy.attackCooldown === 0) {
         this.startEnemyAttack(enemy, target, attacksSuit ? 'player' : 'tissue');
       }
@@ -1653,6 +1671,21 @@ export class Simulation {
     enemy.x += -dz / length * enemy.dodgeSide * speed * speedFactor * dt;
     enemy.z += dx / length * enemy.dodgeSide * speed * speedFactor * dt;
     this.confineToArena(enemy);
+  }
+
+  // Pathogens flow around solid scenery instead of drifting through it.
+  skirtObstacles(enemy) {
+    for (const [x, z, size] of this.obstacles) {
+      const dx = enemy.x - x;
+      const dz = enemy.z - z;
+      const gap = Math.hypot(dx, dz);
+      const reach = size + enemy.radius * .5;
+      if (gap >= reach || gap < 1e-4) continue;
+      // Slide along the surface on the side it was already heading for.
+      const side = dx * Math.cos(enemy.heading) - dz * Math.sin(enemy.heading) >= 0 ? -1 : 1;
+      enemy.x = x + dx / gap * reach + dz / gap * side * .04;
+      enemy.z = z + dz / gap * reach - dx / gap * side * .04;
+    }
   }
 
   // Moving pathogens push off their neighbours so a wave arrives as a spread, not a column.

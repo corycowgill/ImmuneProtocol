@@ -35,6 +35,8 @@ Missions give you reasons to leave your node. From the second wave on (the first
 
 Pathogens no longer file straight in. Lungers and spitters swing wide on the approach and arrive from several sides, keep clear of each other, and dart sideways for a moment when you hold them in your crosshair before they have to recover. A third of them reconsider their target every few seconds and switch to the most damaged node or one no suit is guarding. Spitters sidestep after each shot at a suit.
 
+Every arena is a third larger in each direction than it was first laid out: the playable floor is 110 × 154 m, with tissue nodes 40–60 m apart. Suits move about 20% faster to match. The artery floor is broken up by ten clots that block movement and line of sight for you and force pathogens to flow around them, and each organ arena has more of its own obstacles. The Heart Valve keeps its original chamber. `npm run profile`, then `/__overview`, draws a top-down plan of every arena with its nodes, inlets, obstacles and hazard zone.
+
 ## Weapons
 
 You carry two weapons, a primary and a secondary, from the first mission. Pick any two different weapons in the **Armory**. Switch between them with **1** and **2**, the mouse wheel, **Y** on a controller, or the **Swap** button on touchscreens. Each weapon keeps its own magazine when you switch. Drawing a weapon takes a moment, and you can't fire until it's up.

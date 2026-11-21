@@ -146,3 +146,42 @@ test('pathogens sidestep a crosshair, spread out and hunt the weak, unguarded no
   assert.equal(loyal.node, core);
   assert.ok(flank.health === 100);
 });
+
+test('arenas are a third larger and every obstacle leaves the objectives reachable', async () => {
+  const { CAMPAIGN_AREAS } = await import('../dist/coop-protocol.mjs');
+  const { ENTRANCES, arenaObstacles } = await import('../dist/simulation.mjs');
+  assert.deepEqual({ ...ARENA }, { x: 55, z: 77 });
+  assert.ok(arenaObstacles('artery').length >= 8, 'the artery has cover');
+  assert.deepEqual(arenaObstacles('heart'), []);
+  for (const area of CAMPAIGN_AREAS) {
+    const sim = new Simulation(area);
+    sim.start();
+    for (const node of sim.nodes) assert.ok(Math.hypot(node.x / ARENA.x, node.z / ARENA.z) < .8, area + ' node inside the arena');
+    const inlets = (sim.organMission?.inlets ?? (area === 'artery' ? ENTRANCES : [])).flat();
+    for (const [x, z] of inlets) assert.ok(Math.hypot(x / ARENA.x, z / ARENA.z) <= 1, area + ' inlet inside the arena');
+    for (const [x, z, size] of sim.obstacles) {
+      for (const node of sim.nodes) assert.ok(Math.hypot(node.x - x, node.z - z) >= size + 7, area + ' obstacle crowds ' + node.name);
+      assert.ok(Math.hypot(sim.player.x - x, sim.player.z - z) >= size + 4, area + ' obstacle on the insertion point');
+      for (const [ix, iz] of inlets) assert.ok(Math.hypot(ix - x, iz - z) >= size + 3, area + ' obstacle plugs an inlet');
+    }
+  }
+  // A pathogen dead behind a clot still reaches its node, and a suit cannot walk through one.
+  const sim = new Simulation('artery');
+  sim.start();
+  const [ox, oz, size] = sim.obstacles[2];
+  const node = sim.nodes[0];
+  const away = Math.hypot(ox - node.x, oz - node.z);
+  const enemy = sim.createEnemy('bacillus', ox + (ox - node.x) / away * (size + 5), oz + (oz - node.z) / away * (size + 5), node);
+  sim.enemies = [enemy];
+  Object.assign(sim.player, { x: 50, z: 0 });
+  let closest = Infinity;
+  for (let clock = 0; clock < 40 && !enemy.latched; clock += STEP) {
+    sim.advanceEnemies(STEP);
+    closest = Math.min(closest, Math.hypot(enemy.x - ox, enemy.z - oz));
+  }
+  assert.ok(enemy.latched, 'the bacillus got around the clot');
+  assert.ok(closest >= size, 'and never passed through it');
+  Object.assign(sim.player, { x: ox, z: oz + size + 2, yaw: 0 });
+  for (let clock = 0; clock < 3; clock += STEP) sim.movePlayer(STEP, { moveZ: 1 });
+  assert.ok(Math.hypot(sim.player.x - ox, sim.player.z - oz) >= size - 1e-6);
+});
