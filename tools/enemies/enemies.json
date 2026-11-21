@@ -288,5 +288,189 @@
       "frequency": 1.7,
       "clench": 0.05
     }
+  },
+  "boss-thrombus": {
+    "builder": "build_bosses",
+    "tris": 26000,
+    "voxel": 0.0085,
+    "material": {
+      "clearcoat": 0.75,
+      "coat_roughness": 0.2,
+      "sheen": 0.3,
+      "sheen_tint": [
+        0.95,
+        0.5,
+        0.45
+      ],
+      "roughness_scale": 0.9,
+      "saturation": 1.06
+    },
+    "motion": {
+      "sway": 0.02,
+      "breathe": 0.035,
+      "frequency": 1.4,
+      "clench": 0.05
+    }
+  },
+  "boss-leech": {
+    "builder": "build_bosses",
+    "tris": 22000,
+    "voxel": 0.0085,
+    "material": {
+      "clearcoat": 0.95,
+      "coat_roughness": 0.12,
+      "sheen": 0.2,
+      "sheen_tint": [
+        0.9,
+        0.7,
+        0.4
+      ],
+      "roughness_scale": 0.9,
+      "saturation": 1.06
+    },
+    "motion": {
+      "sway": 0.03,
+      "breathe": 0.03,
+      "frequency": 1.6,
+      "clench": 0.06
+    }
+  },
+  "boss-bloom": {
+    "builder": "build_bosses",
+    "tris": 28000,
+    "voxel": 0.0085,
+    "material": {
+      "clearcoat": 0.15,
+      "coat_roughness": 0.5,
+      "sheen": 0.6,
+      "sheen_tint": [
+        0.6,
+        0.9,
+        0.8
+      ],
+      "roughness_scale": 0.9,
+      "saturation": 1.06
+    },
+    "motion": {
+      "sway": 0.05,
+      "breathe": 0.02,
+      "frequency": 1.3,
+      "clench": 0.04
+    }
+  },
+  "boss-drill": {
+    "builder": "build_bosses",
+    "tris": 20000,
+    "voxel": 0.0085,
+    "material": {
+      "clearcoat": 0.8,
+      "coat_roughness": 0.16,
+      "sheen": 0.3,
+      "sheen_tint": [
+        0.95,
+        0.7,
+        0.6
+      ],
+      "roughness_scale": 0.9,
+      "saturation": 1.06
+    },
+    "motion": {
+      "sway": 0.06,
+      "breathe": 0.025,
+      "frequency": 1.5,
+      "clench": 0.05
+    }
+  },
+  "boss-tapeworm": {
+    "builder": "build_bosses",
+    "tris": 12000,
+    "voxel": 0.0085,
+    "material": {
+      "clearcoat": 0.85,
+      "coat_roughness": 0.14,
+      "sheen": 0.25,
+      "sheen_tint": [
+        0.95,
+        0.85,
+        0.7
+      ],
+      "roughness_scale": 0.9,
+      "saturation": 1.06
+    },
+    "motion": {
+      "sway": 0.02,
+      "breathe": 0.03,
+      "frequency": 1.6,
+      "clench": 0.05
+    }
+  },
+  "boss-colossus": {
+    "builder": "build_bosses",
+    "tris": 26000,
+    "voxel": 0.0085,
+    "material": {
+      "clearcoat": 1,
+      "coat_roughness": 0.08,
+      "sheen": 0.2,
+      "sheen_tint": [
+        0.8,
+        0.9,
+        0.5
+      ],
+      "roughness_scale": 0.9,
+      "saturation": 1.06
+    },
+    "motion": {
+      "sway": 0.03,
+      "breathe": 0.05,
+      "frequency": 1.1,
+      "clench": 0.06
+    }
+  },
+  "boss-macrophage": {
+    "builder": "build_bosses",
+    "tris": 28000,
+    "voxel": 0.0085,
+    "material": {
+      "clearcoat": 0.9,
+      "coat_roughness": 0.12,
+      "sheen": 0.4,
+      "sheen_tint": [
+        0.9,
+        0.85,
+        1
+      ],
+      "roughness_scale": 0.9,
+      "saturation": 1.06
+    },
+    "motion": {
+      "sway": 0.06,
+      "breathe": 0.045,
+      "frequency": 1.2,
+      "clench": 0.07
+    }
+  },
+  "boss-screamer": {
+    "builder": "build_bosses",
+    "tris": 28000,
+    "voxel": 0.0085,
+    "material": {
+      "clearcoat": 1,
+      "coat_roughness": 0.06,
+      "sheen": 0.2,
+      "sheen_tint": [
+        0.8,
+        0.9,
+        1
+      ],
+      "roughness_scale": 0.9,
+      "saturation": 1.06
+    },
+    "motion": {
+      "sway": 0.03,
+      "breathe": 0.012,
+      "frequency": 1.5,
+      "clench": 0.03
+    }
   }
 }

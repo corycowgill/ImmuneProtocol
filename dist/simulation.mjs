@@ -1,6 +1,7 @@
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { grow, growPoint } from './arena-scale.mjs';
 import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-objectives.mjs';
+import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
 import {
@@ -458,6 +459,8 @@ export class Simulation {
     this.pickups = [];
     this.field = null;
     this.nextPickupId = 1;
+    this.bossArrived = false;
+    this.bossTrail = null;
     this.remaining = 0;
     this.repairProgress = 0;
     this.repairing = false;
@@ -744,6 +747,7 @@ export class Simulation {
       }
       stepFieldObjectives(this, dt, ARENA);
     }
+    if (this.phase === 'combat' && !this.airway) stepBossArrival(this);
     this.advanceEnemies(dt);
     this.advanceProjectiles(dt);
     this.updateSuitStatus();
@@ -1160,7 +1164,7 @@ export class Simulation {
     let target = null;
     let targetScore = -Infinity;
     for (const enemy of this.enemies) {
-      if (enemy.type === 'colony' || enemy.tutorial) continue;
+      if (enemy.type === 'colony' || enemy.tutorial || enemy.hidden) continue;
       const distance = Math.hypot(enemy.x - origin.x, enemy.y - origin.y, enemy.z - origin.z);
       if (distance > TURRET_RANGE) continue;
       const score = TURRET_RANGE - distance + (enemy.latched ? 6 : enemy.attackingTissue ? 3 : 0);
@@ -1180,7 +1184,9 @@ export class Simulation {
 
     turret.cooldown = TURRET_INTERVAL;
     target.slowRemaining = this.turretSlowDuration;
-    if (!target.latched && target.action.endsWith('-windup')) {
+    if (target.boss || target.segmentOf) {
+      // A boss is too big to stagger; the turret only chips at it.
+    } else if (!target.latched && target.action.endsWith('-windup')) {
       this.setEnemyAction(target, 'idle');
       target.attackCooldown = TURRET_SLOW_TIME * .6;
     } else if (target.latched) {
@@ -1223,7 +1229,7 @@ export class Simulation {
     let critical = false;
     let blocked = false;
     for (const enemy of this.enemies) {
-      if (enemy.tutorial && this.tutorial === 'observe') continue;
+      if ((enemy.tutorial && this.tutorial === 'observe') || enemy.hidden) continue;
       const x = enemy.x - player.x;
       const y = enemy.y - player.y;
       const z = enemy.z - player.z;
@@ -1317,7 +1323,7 @@ export class Simulation {
     }
     // Splash ignores Shellback armour; the pathogen it struck takes the direct hit too.
     for (const enemy of [...this.enemies]) {
-      if (!this.enemies.includes(enemy) || (enemy.tutorial && this.tutorial === 'observe')) continue;
+      if (!this.enemies.includes(enemy) || enemy.hidden || (enemy.tutorial && this.tutorial === 'observe')) continue;
       const gap = Math.max(0, Math.hypot(enemy.x - impact.x, enemy.y - impact.y, enemy.z - impact.z) - enemy.radius);
       const direct = enemy === target;
       if (gap > radius && !direct) continue;
@@ -1341,6 +1347,9 @@ export class Simulation {
   }
 
   hitEnemy(target, damage, critical, impact, source, suit = null) {
+    // Bosses shrug off or soak up fire depending on what they are doing.
+    damage *= target.damageScale ?? 1;
+    if (target.boss) target.damageTaken += damage;
     target.health -= damage;
     const lethal = target.health <= 0;
     this.events.push({ type: 'hit', id: target.id, damage, crit: critical, lethal, source, ...impact });
@@ -1354,6 +1363,11 @@ export class Simulation {
     this.events.push({
       type: 'kill', id: target.id, enemyType: target.type, source, x: target.x, y: target.y, z: target.z,
     });
+    if (target.boss) {
+      this.events.push({ type: 'levelBoss', stage: 'defeated', boss: target.boss, name: target.name, id: target.id, x: target.x, y: target.y, z: target.z });
+      // A chain dies with its head.
+      this.enemies = this.enemies.filter(enemy => enemy.segmentOf !== target.id);
+    }
     if (target.nest) this.events.push({ type: 'nest', stage: 'destroyed', id: target.id, x: target.x, y: target.y, z: target.z });
     if (target === this.colony) {
       this.colony = null;
@@ -1557,6 +1571,10 @@ export class Simulation {
         advanceNest(this, enemy, dt, FRAGMENT);
         continue;
       }
+      if (enemy.boss || enemy.segmentOf) {
+        stepLevelBoss(this, enemy, dt);
+        continue;
+      }
       const spec = enemy.fragment ? FRAGMENT : SPECIES[enemy.type];
       const { behavior } = enemy;
       const reinforced = !!this.reinforcement && this.reinforcement.branch === enemy.branch;
@@ -1697,7 +1715,7 @@ export class Simulation {
       const dx = enemy.x - other.x;
       const dz = enemy.z - other.z;
       const gap = Math.hypot(dx, dz);
-      const reach = CROWD_RADIUS + (other.nest ? other.radius : 0);
+      const reach = CROWD_RADIUS + (other.nest || other.boss ? other.radius : 0);
       if (gap >= reach || gap < 1e-4) continue;
       pushX += dx / gap * (1 - gap / reach);
       pushZ += dz / gap * (1 - gap / reach);
@@ -1835,3 +1853,5 @@ export class Simulation {
   }
 }
 
+// Layout the boss code needs without importing this module back.
+Object.assign(Simulation, { arena: ARENA, entrances: ENTRANCES, junctionInlets: JUNCTION_INLETS, fragment: FRAGMENT });

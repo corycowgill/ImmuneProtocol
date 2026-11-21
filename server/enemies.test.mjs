@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { BOSS_MODELS } from '../dist/level-bosses.mjs';
 import { SPECIES, speciesHabitats } from '../dist/simulation.mjs';
 
 const asset = path => readFileSync(new URL('../dist/assets/enemies/' + path, import.meta.url));
 
 test('every species has a scanned model with its animation targets', () => {
-  // The brood nest is a field objective rather than a species, built by tools/enemies/build_nest.py.
-  for (const type of [...Object.keys(SPECIES), 'nest']) {
+  // The brood nest and the level bosses are modelled in Blender rather than scanned.
+  for (const type of [...Object.keys(SPECIES), 'nest', ...BOSS_MODELS]) {
     const file = asset(type + '.glb');
     assert.equal(file.toString('ascii', 0, 4), 'glTF', type + ' is a binary glTF');
     const length = file.readUInt32LE(12);

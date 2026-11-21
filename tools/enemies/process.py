@@ -396,7 +396,9 @@ def build(enemy):
     if cfg.get('builder'):
         # Modelled rather than scanned: a sibling script sculpts the master in this scene.
         sys.path.insert(0, HERE)
-        master = __import__(cfg['builder']).build_master()
+        module = __import__(cfg['builder'])
+        # One script may hold several organisms, keyed by enemy name.
+        master = module.BUILDERS[enemy]() if hasattr(module, 'BUILDERS') else module.build_master()
         source = cfg['builder'] + '.py'
     else:
         source = cfg['source']

@@ -24,6 +24,15 @@ export const ENEMY_MODELS = Object.freeze({
   rogue: { size: 1.15, glow: 0x46120e },
   // The brood nest (field-objectives.mjs) is modelled in Blender by tools/enemies/build_nest.py.
   nest: { size: 1, glow: 0x4a1608 },
+  // Level bosses (level-bosses.mjs), sculpted by tools/enemies/build_bosses.py.
+  'boss-thrombus': { size: 1, glow: 0x4a0c0a },
+  'boss-leech': { size: 1, glow: 0x3a2206 },
+  'boss-bloom': { size: 1, glow: 0x0c3a30 },
+  'boss-drill': { size: 1, glow: 0x4a1a12 },
+  'boss-tapeworm': { size: 1, glow: 0x4a3a18 },
+  'boss-colossus': { size: 1, glow: 0x343a08 },
+  'boss-macrophage': { size: 1, glow: 0x34204a },
+  'boss-screamer': { size: 1, glow: 0x1c2e4a },
 });
 
 // glTF clips keyed by the shared morph geometry, so every clone of a template finds its clip.

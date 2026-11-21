@@ -19,6 +19,7 @@ import { applyRenderedPreviews, currentDifficulty, installLevelHud } from './lev
 import { DIFFICULTIES } from './difficulty.mjs';
 import { COSMETIC_SLOTS, cosmeticArt, drawWeaponHud, installArsenalUi, weaponName } from './arsenal-ui.mjs';
 import { createArmoryScreen } from './armory-screen.mjs';
+import { levelBossStatus } from './level-bosses.mjs';
 import { createDiseaseGuide } from './disease-guide.mjs';
 import { createUpgradeCards, drawIntel, drawLoadout, drawOperatorCard } from './deployment.mjs';
 
@@ -1567,7 +1568,23 @@ function drawOrganHazard() {
 
 function drawBossHud() {
   const boss = sim.boss;
-  bossHud.hidden = !boss;
+  const levelBoss = boss ? null : levelBossStatus(sim);
+  bossHud.hidden = !boss && !levelBoss;
+  setText(byId('boss-name'), levelBoss?.name ?? 'Mega Virus');
+  if (levelBoss) {
+    // The same bar serves every level boss: its name, health, and what it is doing right now.
+    bossHud.dataset.state = levelBoss.warning ? 'warning' : levelBoss.state === 'hidden' ? 'sealed' : levelBoss.state;
+    setText(bossPhase, levelBoss.detail);
+    const percent = Math.ceil(levelBoss.health * 100 / levelBoss.maxHealth);
+    if (bossHealth.getAttribute('aria-valuenow') !== String(percent)) {
+      bossHealth.setAttribute('aria-valuenow', percent);
+      bossHealthFill.style.width = percent + '%';
+    }
+    setText(bossStatus, levelBoss.warning || (levelBoss.state === 'hidden' ? 'Burrowed' : levelBoss.state === 'exposed' ? 'Exposed' : levelBoss.state === 'sealed' ? 'Armoured' : percent + '%'));
+    setText(bossStatusDetail, levelBoss.hint);
+    bossTime.hidden = true;
+    return;
+  }
   if (!boss) return;
   const { state, phase, health, maxHealth, weakPoint } = boss;
   bossHud.dataset.state = state;
@@ -1982,6 +1999,11 @@ function drawFieldMarkers(top, width, height, occupied) {
     if (enemy.nest) targets.push({ key: 'nest' + enemy.id, kind: 'nest', label: 'BROOD NEST', x: enemy.x, y: enemy.y + enemy.radius + .5, z: enemy.z,
       detail: Math.ceil(100 * enemy.health / enemy.maxHealth) + '%' });
   }
+  const boss = sim.enemies.find(enemy => enemy.boss);
+  if (boss) {
+    targets.push({ key: 'boss' + boss.id, kind: 'boss', label: boss.name.toUpperCase(), x: boss.x, y: boss.y + boss.radius + .8, z: boss.z,
+      detail: boss.hidden ? 'burrowed' : Math.ceil(100 * boss.health / boss.maxHealth) + '%' });
+  }
   for (const pickup of sim.pickups ?? []) {
     targets.push({ key: 'cache' + pickup.id, kind: 'cache', label: 'ANTIBODY CACHE', x: pickup.x, y: pickup.y + 1.1, z: pickup.z,
       detail: Math.ceil(pickup.remaining) + 's' });
@@ -2050,8 +2072,8 @@ function drawAttackers() {
   const captions = [];
   for (const enemy of sim.enemies) {
     const telegraph = enemy.type + '-windup';
-    const warning = enemy.tutorial ? '' : enemy.action.endsWith('-windup') ?
-      attackWarnings[telegraph] ?? attackWarnings[enemy.action] : '';
+    const warning = enemy.tutorial ? '' : enemy.warning || (enemy.action.endsWith('-windup') ?
+      attackWarnings[telegraph] ?? attackWarnings[enemy.action] : '');
     if (!enemy.attackingTissue && !warning) continue;
     const point = world.project(enemy.x, enemy.y + enemy.radius + .17, enemy.z);
     if (!point.visible || point.y < worldMarkerTop(105) || point.x < 17 || point.x > window.innerWidth - 17) continue;
@@ -2068,7 +2090,7 @@ function drawAttackers() {
     }
     const node = sim.nodes.find(node => node.id === enemy.nodeId);
     const label = (enemy.latched ? 'LATCHED · ' : 'ATTACKING · ') + (node?.name.toUpperCase() ?? 'TISSUE');
-    const text = warning && enemy.actionTarget === 'player' ? warning + ' · MOVE' : warning || label;
+    const text = enemy.warning || (warning && enemy.actionTarget === 'player' ? warning + ' · MOVE' : warning || label);
     icon.classList.toggle('winding-up', !!warning);
     setText(icon.firstElementChild, text);
     const showCaption = point.x >= 65 && point.x <= window.innerWidth - 65 &&
@@ -2173,6 +2195,25 @@ function applyEvents() {
       if (event.stage === 'draining') announce('DRAIN OPEN', 'WATCH THE LOWER PASSAGE', 2.5);
       if (event.stage === 'flank') announce('FLANK ATTACK', 'DEFEND BOTH TISSUE NODES', 2.5);
       if (event.stage === 'counterattack') announce('PATHOGENS INBOUND', event.name, 2);
+    }
+    if (event.type === 'levelBoss') {
+      if (event.stage === 'arrive') {
+        audio.play({ type: 'boss', stage: 'phase', x: event.x, z: event.z });
+        announce(event.name.toUpperCase(), event.hint, 4.2);
+      }
+      if (event.stage === 'defeated') {
+        audio.play({ type: 'boss', stage: 'defeated', x: event.x, z: event.z });
+        announce(event.name.toUpperCase() + ' DOWN', sim.enemies.length ? 'CLEAR WHAT IS LEFT' : '+2,500 SCORE', 3);
+      }
+      const opening = {
+        stunned: ['STUNNED', 'ITS ARMOUR IS DOWN · UNLOAD'], knocked: ['KNOCKED LOOSE', 'HIT IT BEFORE IT LATCHES AGAIN'],
+        broken: ['PULL BROKEN', 'IT IS REELING · UNLOAD'], exposed: ['HEAD EXPOSED', 'EVERY SEGMENT IS GONE'],
+        split: ['IT SPLIT', 'BROOD INBOUND'], enrage: ['IT IS MOVING', 'PULSES COME FASTER NOW'],
+      }[event.ability];
+      if (event.stage === 'ability' && opening) announce(...opening, 2.2);
+      if (event.stage === 'ability' && ['charge', 'slam', 'pull', 'pulse-warning', 'burrow', 'volley'].includes(event.ability)) {
+        audio.play({ type: 'boss', stage: 'warning', x: event.x, z: event.z });
+      }
     }
     if (event.type === 'nest') {
       if (event.stage === 'spawn') {

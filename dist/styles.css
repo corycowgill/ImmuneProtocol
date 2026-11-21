@@ -658,6 +658,8 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .turret-marker{color:#a8e3ff}
 .field-marker[data-kind="nest"],.field-edge[data-kind="nest"]{color:#ffb347}
 .field-marker[data-kind="cache"],.field-edge[data-kind="cache"]{color:#8dffd9}
+.field-marker[data-kind="boss"],.field-edge[data-kind="boss"]{color:#ff8a73}
+.field-marker[data-kind="boss"] strong{font-size:11px;letter-spacing:.12em}
 .field-edge{border-color:currentColor}
 .field-marker>span{width:8px;height:8px}
 .turret-marker>span{width:7px;height:7px;transform:none;background:#16324ccc}

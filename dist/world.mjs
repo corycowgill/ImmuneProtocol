@@ -18,6 +18,7 @@ import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion } from '
 import { RenderScale } from './render-scale.mjs';
 import { ARENA_GROWTH } from './arena-scale.mjs';
 import { NEST } from './field-objectives.mjs';
+import { BOSS_FLOATS, LEVEL_BOSSES } from './level-bosses.mjs';
 import { chunkInstances, cullDecor } from './decor-chunks.mjs';
 
 // Every lit pixel walks all of the arena's point lights, and most of them are out of range of
@@ -1459,6 +1460,12 @@ export class World {
     sim.nodes[0].health = 66;
     sim.turret = { x: start.x + 2, y: 0, z: start.z - 4, yaw: Math.PI, pitch: 0 };
     sim.projectiles.push({ id: 0, x: start.x, y: 1, z: start.z - 8, vx: .2, vy: 0, vz: 1, radius: .25 });
+    // The arena's boss, so its model, textures and shader are ready before it arrives.
+    const design = LEVEL_BOSSES[sim.area];
+    if (design) {
+      const boss = sim.createEnemy(design.model, start.x + 9, start.z - 16, sim.nodes[0], design);
+      sim.enemies.push(Object.assign(boss, { boss: design.id, behavior: 'boss', scale: design.scale, warning: '', damageScale: 1 }));
+    }
     const nest = sim.createEnemy(NEST.model, start.x - 9, start.z - 14, sim.nodes[0], NEST);
     sim.enemies.push(Object.assign(nest, { nest: true, behavior: 'nest', scale: NEST.scale }));
     sim.pickups = [{ id: 0, kind: 'cache', x: start.x + 3, y: 1.3, z: start.z - 6, remaining: 30 }];
@@ -1927,6 +1934,27 @@ export class World {
         view.shadow.visible = false;
         continue;
       }
+      if (enemy.boss || enemy.segmentOf) {
+        // A boss faces where it is going, towers at its own scale, and glows hotter while it winds
+        // up an attack or lies stunned. Burrowed, it is not drawn at all.
+        view.model.visible = view.shadow.visible = !enemy.hidden;
+        view.hit = Math.max(0, view.hit - dt * 7);
+        const floats = BOSS_FLOATS.includes(enemy.boss);
+        const telegraph = enemy.warning ? 1 : 0;
+        view.clench = THREE.MathUtils.damp(view.clench, telegraph, 6, dt);
+        const pulse = reduceMotion ? 0 : Math.sin(this.clock * (2 + telegraph * 6) + view.phase) * (.018 + telegraph * .03);
+        view.model.position.y = enemy.y + (floats ? 0 : floorHeight(enemy.x, enemy.z));
+        view.model.rotation.set(0, enemy.heading || 0, floats && !reduceMotion ? Math.sin(this.clock * .7 + view.phase) * .06 : 0);
+        view.model.scale.set(1 + pulse + view.hit * .02, 1 - pulse - view.hit * .03, 1 + pulse + view.hit * .02).multiplyScalar(enemy.scale);
+        if (view.attackMembrane) {
+          const exposed = enemy.damageScale > 1 ? .6 + Math.sin(this.clock * 9) * .3 : 0;
+          view.attackMembrane.emissiveIntensity = view.membraneIntensity + view.clench * .9 + exposed + view.hit * .5;
+        }
+        if (!reduceMotion) animatePathogen(view.motion, dt, view.clench);
+        view.shadow.position.set(enemy.x, floorHeight(enemy.x, enemy.z) + .1, enemy.z);
+        view.shadow.scale.setScalar(enemy.radius * (floats ? 1.3 : 1.8));
+        continue;
+      }
       if (enemy.nest) {
         // A brood nest sits rooted to the floor, swollen, and throbs faster as it is shot.
         view.hit = Math.max(0, view.hit - dt * 7);
@@ -2372,6 +2400,16 @@ export class World {
           this.burst(event.x, floorHeight(event.x, event.z) + .11, event.z, 0xb78079, 15, 1.2);
         }
         if (event.type === 'hit' && this.enemyViews.has(event.id)) this.enemyViews.get(event.id).hit = 1;
+        if (event.type === 'levelBoss') {
+          const ground = floorHeight(event.x, event.z) + .2;
+          if (event.stage === 'tremor') this.burst(event.x, ground, event.z, 0xc9a07a, reduceMotion ? 3 : 10, 2.6);
+          if (event.stage === 'arrive') this.burst(event.x, event.y, event.z, 0xffb38a, reduceMotion ? 20 : 70, 6);
+          if (event.stage === 'ability') this.burst(event.x, event.y, event.z, 0xffd9a0, reduceMotion ? 8 : 26, 4);
+          if (event.stage === 'defeated') {
+            this.explosions.explode(event.x, event.y, event.z, 9, reduceMotion);
+            this.burst(event.x, event.y, event.z, 0xffa070, reduceMotion ? 30 : 120, 9);
+          }
+        }
         if (event.type === 'nest' && event.stage === 'destroyed') this.burst(event.x, event.y, event.z, 0xffb347, reduceMotion ? 20 : 90, 7);
         if (event.type === 'nest' && event.stage === 'hatch') this.burst(event.x, event.y + .6, event.z, 0xe07a5a, 14, 2.4);
         if (event.type === 'cache' && event.stage === 'collect') this.burst(event.x, event.y, event.z, 0x8dffd9, 46, 3.6);

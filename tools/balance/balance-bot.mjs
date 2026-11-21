@@ -90,6 +90,7 @@ function play(area, difficulty, rover) {
     }
     lowest = Math.min(lowest, ...sim.nodes.map(node => node.health));
   }
+  if (process.env.BOT_DEBUG && sim.phase !== 'won' && clock >= TIME_LIMIT) console.log('  timeout state', JSON.stringify({ settling: sim.settling, gash: !!sim.gash, extraction: sim.extractionPending, intermission: sim.intermission, enemies: sim.enemies.map(e => e.boss ?? e.type), tissue: sim.tissue, player: [Math.round(sim.player.x), Math.round(sim.player.z)], near: !!sim.nearNode, nodes: sim.nodes.map(n => Math.round(n.health)) }));
   if (process.env.BOT_DEBUG && sim.phase !== 'won') console.log(area, difficulty, sim.phase, 'wave', sim.wave, 'failed', sim.failedNode?.name, 'hp', Math.round(sim.player.health), 't', Math.round(clock));
   return { won: sim.phase === 'won', lowest };
 }
@@ -97,7 +98,7 @@ function play(area, difficulty, rover) {
 function think(sim, rover, memory, clock) {
   const { player } = sim;
   const input = {};
-  const enemies = sim.enemies.filter(enemy => enemy.type !== 'colony' || sim.valve?.exposed);
+  const enemies = sim.enemies.filter(enemy => !enemy.hidden && (enemy.type !== 'colony' || sim.valve?.exposed));
   const pressure = node => enemies.filter(enemy => enemy.node === node && distance(enemy, node) < 14).length *
     (1 + (100 - node.health) / 50);
   const node = [...sim.nodes].sort(rover
@@ -118,9 +119,9 @@ function think(sim, rover, memory, clock) {
       target = enemy;
     }
   }
-  // With nothing closer to deal with, cross the arena to the nearest brood nest.
+  // With nothing closer to deal with, cross the arena to the nearest brood nest or the boss.
   if (!target) {
-    target = enemies.filter(enemy => enemy.nest).sort((a, b) => distance(a, player) - distance(b, player))[0] ?? null;
+    target = enemies.filter(enemy => enemy.nest || enemy.boss || enemy.segmentOf).sort((a, b) => distance(a, player) - distance(b, player))[0] ?? null;
   }
   if (target !== memory.target) memory.misses = 0;
   memory.target = target;
@@ -153,6 +154,16 @@ function think(sim, rover, memory, clock) {
 
   // Objectives wait for a quiet moment.
   const quiet = !target || (distance(target, player) > 16 && !urgent);
+  // An open gash drains its node until someone stands on it and seals it.
+  if (sim.gash && quiet) {
+    delete input.moveX;
+    delete input.moveZ;
+    if (sim.nearGash) {
+      input.repair = true;
+      input.fire = false;
+    } else steer(player, sim.gash.x, sim.gash.z, input, true);
+    return input;
+  }
   const valve = sim.gastric?.stage === 'intake' ? sim.gastric.intake : sim.gastric?.stage === 'drain' ? sim.gastric.drain : null;
   if (valve && quiet) {
     delete input.moveX;

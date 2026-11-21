@@ -37,6 +37,25 @@ Pathogens no longer file straight in. Lungers and spitters swing wide on the app
 
 Every arena is a third larger in each direction than it was first laid out: the playable floor is 110 × 154 m, with tissue nodes 40–60 m apart. Suits move about 20% faster to match. The artery floor is broken up by ten clots that block movement and line of sight for you and force pathogens to flow around them, and each organ arena has more of its own obstacles. The Heart Valve keeps its original chamber. `npm run profile`, then `/__overview`, draws a top-down plan of every arena with its nodes, inlets, obstacles and hazard zone.
 
+## Bosses
+
+Every mission ends with a boss. Once the final wave has sent its last pathogen the boss arrives, a health bar replaces the wave counter, and the wave cannot clear until it is dead. Killing one scores 2,500 for the suit that lands the last shot. Bosses have more health against a larger co-op squad.
+
+| Mission | Boss | How it fights | How to beat it |
+| --- | --- | --- | --- |
+| Arterial Junction | Thrombus Titan | Armoured from every side (shots do 40%). Lines up a suit and charges in a straight line. | Sidestep so the charge carries it into the arena wall. It is stunned for about four seconds and takes 170% damage. |
+| Capillary Junction | Capillary Leech | Latches onto a node, drains it and heals itself. | Deal 13% of its health while it is latched to knock it loose and stagger it; it then heads for the other node. |
+| Heart Valve | The colony | Behind the valve, as before. | Shoot it while the valve is open. |
+| Bronchial Fork | Mold Crown | Circles overhead out of melee reach, firing six-shot spore volleys at suits, lobbing at the weakest node and seeding spitters. | Keep moving under the volleys and shoot upward between them. |
+| Gastric Chamber | Pylori Drill | Burrows where nothing can hit it, trailing a tremor, then erupts under a node or a suit. | Follow the tremor, get clear of the eruption, and punish it during the seven seconds it stays up. |
+| Intestinal Bend | Tapeworm | A head leading seven segments on a circuit of the nodes, biting each as it passes. The head takes 8% damage while any segment survives and speeds up as they die. | Destroy every segment, then the exposed head. |
+| Colonic Reservoir | Biofilm Colossus | Regrows health after five seconds without being hit, sheds brood at 75%, 50% and 25%, and slams suits within nine metres. | Keep someone firing at all times and back off when the slam warning shows. |
+| Lymph Node | Rogue Macrophage | Drags a suit toward itself to engulf it, and eats any pathogen that touches it to heal. | Deal 5% of its health during the pull to break it and stagger it. Keep the swarm away from it. |
+| Inner Ear | Otolith Screamer | Hovers and charges a sonic pulse that hits every suit it has a clear line to. Below half health it relocates and pulses faster. | Be behind an obstacle when the pulse fires. |
+| Neural Cortex | Mega Virus | Three cores, as before. | Shoot the exposed core. |
+
+Each new boss is its own model, sculpted in Blender by `tools/enemies/build_bosses.py` with the helpers in `tools/enemies/sculpt.py` and baked by `blender -b -P tools/enemies/process.py -- boss-thrombus` (and so on) like the brood nest. The logic is in `dist/level-bosses.mjs`.
+
 ## Weapons
 
 You carry two weapons, a primary and a secondary, from the first mission. Pick any two different weapons in the **Armory**. Switch between them with **1** and **2**, the mouse wheel, **Y** on a controller, or the **Swap** button on touchscreens. Each weapon keeps its own magazine when you switch. Drawing a weapon takes a moment, and you can't fire until it's up.

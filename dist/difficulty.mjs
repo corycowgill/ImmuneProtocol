@@ -43,11 +43,15 @@ export const DEFAULT_DIFFICULTY = 'medium';
 // Per-mission exceptions layered on a mode, checked with tools/balance/balance-bot.mjs. Three-node
 // arenas already stretch one suit thin, so applyDifficulty never raises their tissue damage.
 export const MISSION_TUNING = Object.freeze({
+  medium: Object.freeze({
+    // The longest final wave in the campaign, and the Biofilm Colossus arrives at the end of it.
+    colon: Object.freeze({ cadence: 1.2 }),
+  }),
   hard: Object.freeze({
     // The drained basin already sends six flankers and two counterattacks into the final wave.
     stomach: Object.freeze({ extra: 0 }),
     // Three nodes more than fifty metres apart and a squeeze that sweeps the whole chamber.
-    colon: Object.freeze({ extra: 0, cadence: 1 }),
+    colon: Object.freeze({ extra: 0, cadence: 1.1, suitDamage: 1 }),
   }),
 });
 
