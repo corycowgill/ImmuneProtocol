@@ -6,7 +6,7 @@ The armory shows a weapon floating over a maintenance pad on a hospital lab benc
 modelled with the co-op lobby lab's helpers and materials (tools/lobby/build_lab.py), in the
 armory photo scene's own coordinates, and path-traced from the armory camera:
 
-  dist/assets/armory/bench.webp   1920 x 1020, the picture behind the live, lit weapon
+  dist/assets/armory/bench.webp   1920 x 1200, the picture behind the live, lit weapon
 
 The weapon turns on a pivot while the camera stays put, so one picture serves every angle. It is
 rendered with a shallow depth of field focused where the weapon floats, which keeps the bench
@@ -213,7 +213,7 @@ def render(samples, width, height, path, blur=True):
     scene = bpy.context.scene
     cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam'))
     cam.data.sensor_fit = 'VERTICAL'
-    cam.data.angle = math.radians(31)
+    cam.data.angle = math.radians(36)
     # Where the armory's camera sits for the carbine: four fifths of the way out from its focus.
     focus = lab.to_b(0, -.015, -.245)
     cam.location = lab.to_b(-1.31 * .8, -.015 + .435 * .8, -.245 - .645 * .8)
@@ -245,6 +245,6 @@ if __name__ == '__main__':
     lights()
     lab.use_gpu(bpy.context.scene)
     if lab.PREVIEW:
-        render(48, 1280, 680, os.path.join(WORK, 'bench_preview.png'))
+        render(48, 1280, 800, os.path.join(WORK, 'bench_preview.png'))
     else:
-        render(lab.SAMPLES, 1920, 1020, os.path.join(OUT, 'bench.webp'))
+        render(lab.SAMPLES, 1920, 1200, os.path.join(OUT, 'bench.webp'))

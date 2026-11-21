@@ -29,7 +29,7 @@ dialog.armory-panel[open]{display:grid;grid-template-columns:minmax(0,1fr) clamp
 /* Stage. */
 .gs-stage{grid-area:stage;position:relative;min-width:0;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;
   /* The bench carries on, darkened, behind the letterboxed preview so the stage has no hard-edged bands. */
-  background:linear-gradient(#0b0f11c7,#0b0f11c7),url('./assets/armory/bench.webp') center 38%/cover,#0e1416}
+  background:linear-gradient(#0b0f1199,#0b0f1199),url('./assets/armory/bench.webp') center/cover,#0e1416}
 .gs-stage::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 62% 58% at 50% 42%,transparent 40%,#0b0708d9 100%)}
 .gs-stage>:is(.gs-leaders,.gs-callouts,.armory-hint,.gs-plate,.gs-build){z-index:1}
 .gs-stage::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;

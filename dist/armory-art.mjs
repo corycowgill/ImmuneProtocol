@@ -4,7 +4,8 @@ import { createArsenalView, weaponModelsReady } from './arsenal-models.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 
 // The armory's large preview, and the smaller part and cosmetic card pictures.
-export const ARMORY_ART_SIZE = { width: 1280, height: 680 };
+// Close to the shape of the armory stage, so the preview fills it without bands.
+export const ARMORY_ART_SIZE = { width: 1280, height: 800 };
 const CARD_SIZE = { width: 225, height: 130 };
 export const FIELD_UPGRADE_ART = './assets/field-upgrades.webp';
 
@@ -97,7 +98,8 @@ export async function prepareArmoryArt(renderer) {
   fill.position.set(-2, -.35, -.05);
   photography.add(fill);
 
-  const camera = new THREE.PerspectiveCamera(31, width / height, .05, 10);
+  // The taller frame keeps the width it had at 1280 x 680 and a 31 degree lens.
+  const camera = new THREE.PerspectiveCamera(36, width / height, .05, 10);
   camera.position.set(-1.31, .42, -.89);
   camera.lookAt(0, -.015, -.245);
   const preview = createCapture(renderer, width, height);
@@ -160,7 +162,8 @@ export async function prepareArmoryArt(renderer) {
     }
     // Fit the whole weapon: launchers and rifles are longer than the carbine, pistols much shorter.
     const bounds = new THREE.Box3();
-    view.model.updateMatrixWorld(true);
+    // From the pivot down: the model's world position must reflect the reset above.
+    turntable.updateMatrixWorld(true);
     view.model.traverse(part => {
       if (part.isMesh && part.userData.weapon === loadout.weapon && part.visible) bounds.expandByObject(part);
     });
