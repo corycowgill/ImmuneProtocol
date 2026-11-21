@@ -31,6 +31,10 @@ The title screen lists every mode in one menu and an operator card that shows yo
 
 Every wave fields three times the pathogens it was first written with, arriving slightly further apart, and each strike on tissue or on your suit does proportionally less damage. Your score and kills are shown in the top right during a mission.
 
+Missions give you reasons to leave your node. From the second wave on (the first in two-wave missions), a **brood nest** takes root on the far side of the arena and hatches a fast larva every few seconds, up to eight; the last wave roots two. A wave is not clear until every nest is destroyed, and the player who destroys one scores 600. Partway through each wave an **antibody cache** drifts in for 45 seconds: the first suit to reach it gets 40 suit integrity, a full magazine and 250 score. Both are marked on screen, with an arrow at the screen edge when they are out of view. The training breach, Heart Valve, Capillary Junction and the Mega Virus keep their own scripted objectives.
+
+Pathogens no longer file straight in. Lungers and spitters swing wide on the approach and arrive from several sides, keep clear of each other, and dart sideways for a moment when you hold them in your crosshair before they have to recover. A third of them reconsider their target every few seconds and switch to the most damaged node or one no suit is guarding. Spitters sidestep after each shot at a suit.
+
 ## Weapons
 
 You carry two weapons, a primary and a secondary, from the first mission. Pick any two different weapons in the **Armory**. Switch between them with **1** and **2**, the mouse wheel, **Y** on a controller, or the **Swap** button on touchscreens. Each weapon keeps its own magazine when you switch. Drawing a weapon takes a moment, and you can't fire until it's up.

@@ -1457,6 +1457,7 @@ export class World {
     sim.nodes[0].health = 66;
     sim.turret = { x: start.x + 2, y: 0, z: start.z - 4, yaw: Math.PI, pitch: 0 };
     sim.projectiles.push({ id: 0, x: start.x, y: 1, z: start.z - 8, vx: .2, vy: 0, vz: 1, radius: .25 });
+    sim.pickups = [{ id: 0, kind: 'cache', x: start.x + 3, y: 1.3, z: start.z - 6, remaining: 30 }];
     if (sim.organ) sim.organ.phase = 'active';
     if (sim.area === 'junction') {
       sim.gash = { ...JUNCTION_GASH_SITES.left, branch: 'left', sealRemaining: 36, sealRequired: 36 };
@@ -1922,6 +1923,21 @@ export class World {
         view.shadow.visible = false;
         continue;
       }
+      if (enemy.nest) {
+        // A brood nest sits rooted to the floor, swollen, and throbs faster as it is shot.
+        view.hit = Math.max(0, view.hit - dt * 7);
+        const throb = reduceMotion ? 0 : Math.sin(this.clock * 2.4 + view.phase) * .04;
+        view.model.rotation.set(0, view.phase, 0);
+        view.model.scale.set(1 + throb + view.hit * .05, 1 - throb - view.hit * .07, 1 + throb + view.hit * .05).multiplyScalar(enemy.scale);
+        if (view.attackMembrane) {
+          view.attackMembrane.emissive.copy(view.membraneGlow).lerp(ATTACK_GLOW.blister ?? view.membraneGlow, .5);
+          view.attackMembrane.emissiveIntensity = view.membraneIntensity + .5 + throb * 6;
+        }
+        if (!reduceMotion) animatePathogen(view.motion, dt, throb * 8);
+        view.shadow.position.set(enemy.x, floorHeight(enemy.x, enemy.z) + .1, enemy.z);
+        view.shadow.scale.setScalar(enemy.radius * 1.5);
+        continue;
+      }
       const angle = view.phase + this.clock * (enemy.type === 'virus' ? .64 : .9);
       view.model.rotation.set(
         reduceMotion ? 0 : Math.sin(angle * .74) * .24,
@@ -2107,6 +2123,30 @@ export class World {
       this.scene.remove(view.model, view.trail);
       this.projectileViews.delete(id);
     }
+  }
+
+  // Antibody caches: a bright teal mote with a halo, bobbing where a suit can walk into it.
+  updatePickups(pickups, reduceMotion) {
+    this.pickupViews ??= Array.from({ length: 3 }, () => {
+      const group = new THREE.Group();
+      const core = sprite(this.glow, 0x2fe0b0, 1.3, .8);
+      const halo = sprite(this.glow, 0x1c9f84, 4.6, .34);
+      group.add(halo, core);
+      group.visible = false;
+      this.scene.add(group);
+      return { group, core, halo };
+    });
+    this.pickupViews.forEach((view, index) => {
+      const pickup = pickups[index];
+      view.group.visible = !!pickup;
+      if (!pickup) return;
+      const bob = reduceMotion ? 0 : Math.sin(this.clock * 2.3 + index) * .22;
+      // A cache about to drift away flickers.
+      const fading = pickup.remaining < 8 && !reduceMotion ? .55 + .45 * Math.sin(this.clock * 11) : 1;
+      view.group.position.set(pickup.x, floorHeight(pickup.x, pickup.z) + pickup.y + bob, pickup.z);
+      view.core.material.opacity = .8 * fading;
+      view.halo.material.opacity = (.3 + (reduceMotion ? 0 : Math.sin(this.clock * 3.1) * .08)) * fading;
+    });
   }
 
   burst(x, y, z, color, count, spread) {
@@ -2327,6 +2367,9 @@ export class World {
           this.burst(event.x, floorHeight(event.x, event.z) + .11, event.z, 0xb78079, 15, 1.2);
         }
         if (event.type === 'hit' && this.enemyViews.has(event.id)) this.enemyViews.get(event.id).hit = 1;
+        if (event.type === 'nest' && event.stage === 'destroyed') this.burst(event.x, event.y, event.z, 0xffb347, reduceMotion ? 20 : 90, 7);
+        if (event.type === 'nest' && event.stage === 'hatch') this.burst(event.x, event.y + .6, event.z, 0xe07a5a, 14, 2.4);
+        if (event.type === 'cache' && event.stage === 'collect') this.burst(event.x, event.y, event.z, 0x8dffd9, 46, 3.6);
         if (event.type === 'kill') this.burst(event.x, event.y, event.z, SPECIES_COLORS[event.enemyType] || 0xff9c60, 40, 4.9);
         if (event.type === 'repair') {
           this.burst(event.x, event.y + .15, event.z, 0x83ffca, event.complete ? 62 : 38, event.complete ? 4.8 : 3.6);
@@ -2402,6 +2445,7 @@ export class World {
     if (this.area === 'junction') this.updateJunctionField(sim, dt, reduceMotion);
     this.updateEnemies(sim.enemies, dt, reduceMotion);
     this.updateProjectiles(sim.projectiles ?? [], reduceMotion);
+    this.updatePickups(sim.pickups ?? [], reduceMotion);
     this.teammateView.update(sim.players, player.id, floorHeight, dt, reduceMotion);
     const { turret } = sim;
     this.turretView.update(turret, turret ? floorHeight(turret.x, turret.z) : 0, dt, reduceMotion);

@@ -228,6 +228,7 @@ export class CoopSimulation extends Simulation {
       nodes,
       enemies: this.enemies.map(enemy => ({ ...enemy, node: nodeCopy(enemy.node) })),
       projectiles: this.projectiles.map(({ owner, ...projectile }) => ({ ...projectile, ownerId: owner.id })),
+      pickups: this.pickups.map(pickup => ({ ...pickup })),
       events: this.events,
       tutorial: null, settling: this.settling,
       valve: this.valve, boss: this.boss, airway: this.airway, gastric: this.gastric,

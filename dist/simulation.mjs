@@ -1,4 +1,5 @@
 import { ORGAN_MISSIONS } from './organs.mjs';
+import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-objectives.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
 import {
@@ -209,6 +210,20 @@ const SPORE_STANDOFF = 2.4;
 const SPORE_SPEED = 7.3;
 const SPORE_RADIUS = 0.21;
 const SPORE_ARM_TIME = 0.12;
+// Pathogen tactics. Mobile pathogens fan out on the approach instead of filing in, sidestep when
+// a suit holds them in its sights, keep out of each other's way, and some hunt for whichever
+// node is weakest or unguarded. Spitters shift position between shots.
+const FLANK_ARC = .6;
+const DODGE_CONE = .07;
+const DODGE_RANGE = 34;
+const DODGE_TIME = .42;
+const DODGE_REST = 1.7;
+const DODGE_SPEED = { virus: 3.4, spore: 2.1 };
+const CROWD_RADIUS = 2.3;
+const CROWD_PUSH = 1.5;
+const RETHINK_TIME = 4;
+const RELOCATE_TIME = .85;
+const RELOCATE_SPEED = 2.6;
 const TURRET_RANGE = 12.5;
 const TURRET_INTERVAL = 2.6;
 const TURRET_DAMAGE = 20;
@@ -425,6 +440,9 @@ export class Simulation {
     this.clock = 0;
     this.score = 0;
     this.kills = 0;
+    this.pickups = [];
+    this.field = null;
+    this.nextPickupId = 1;
     this.remaining = 0;
     this.repairProgress = 0;
     this.repairing = false;
@@ -509,6 +527,7 @@ export class Simulation {
     const mission = this.missions[this.wave - 1];
     if (mission.boss) createBrainBoss(this);
     this.remaining = mission.boss ? 1 : (mission.arrivals ?? mission.species).length;
+    planFieldObjectives(this);
     this.applyJunctionSupply();
     this.events.push({ type: 'wave', wave: this.wave, stage: 'start' });
   }
@@ -535,6 +554,7 @@ export class Simulation {
 
   clearWave() {
     this.projectiles.length = 0;
+    this.pickups = [];
     this.reinforcement = null;
     this.score += 250 * this.wave;
     this.events.push({ type: 'wave', wave: this.wave, stage: 'clear' });
@@ -707,6 +727,7 @@ export class Simulation {
         this.spawn(mission.species[this.spawnIndex]);
         this.spawnCountdown += mission.cadence * WAVE_CADENCE;
       }
+      stepFieldObjectives(this, dt, ARENA);
     }
     this.advanceEnemies(dt);
     this.advanceProjectiles(dt);
@@ -1311,12 +1332,13 @@ export class Simulation {
 
     this.enemies.splice(this.enemies.indexOf(target), 1);
     this.kills += 1;
-    const score = target.fragment ? FRAGMENT.score : target.tutorial ? SPECIES.virus.score : SPECIES[target.type].score;
+    const score = target.score ?? (target.fragment ? FRAGMENT.score : target.tutorial ? SPECIES.virus.score : SPECIES[target.type].score);
     this.score += score + (critical ? 35 : 0);
     this.creditPlayer(suit, score + (critical ? 35 : 0), true);
     this.events.push({
       type: 'kill', id: target.id, enemyType: target.type, source, x: target.x, y: target.y, z: target.z,
     });
+    if (target.nest) this.events.push({ type: 'nest', stage: 'destroyed', id: target.id, x: target.x, y: target.y, z: target.z });
     if (target === this.colony) {
       this.colony = null;
       this.valve.colonyDefeated = true;
@@ -1514,6 +1536,10 @@ export class Simulation {
   advanceEnemies(dt) {
     for (const enemy of this.enemies) {
       if (enemy.type === 'colony') continue;
+      if (enemy.nest) {
+        advanceNest(this, enemy, dt, FRAGMENT);
+        continue;
+      }
       const spec = enemy.fragment ? FRAGMENT : SPECIES[enemy.type];
       const { behavior } = enemy;
       const reinforced = !!this.reinforcement && this.reinforcement.branch === enemy.branch;
@@ -1534,6 +1560,7 @@ export class Simulation {
         continue;
       }
 
+      this.rethinkTarget(enemy, dt);
       const player = this.chooseAttackPlayer(enemy);
       const distanceToSuit = player ? Math.hypot(player.x - enemy.x, player.z - enemy.z) : Infinity;
       const distanceToTissue = Math.hypot(enemy.node.x - enemy.x, enemy.node.z - enemy.z);
@@ -1554,16 +1581,99 @@ export class Simulation {
         this.confineToArena(enemy);
         if (Math.hypot(player.x - enemy.x, player.z - enemy.z) > distance + retreat * .3) continue;
       }
+      this.evade(enemy, player, distanceToSuit, speedFactor, dt);
+      if (enemy.relocate > 0 && !enemy.tutorial) {
+        // A spitter that has just fired circles its target before lining up the next shot.
+        enemy.relocate -= dt;
+        const side = enemy.id % 2 ? 1 : -1;
+        enemy.x += Math.cos(enemy.heading) * side * RELOCATE_SPEED * speedFactor * dt;
+        enemy.z -= Math.sin(enemy.heading) * side * RELOCATE_SPEED * speedFactor * dt;
+        this.confineToArena(enemy);
+        continue;
+      }
       if (distance > range + 0.04) {
         const heading = Math.atan2(target.z - enemy.z, target.x - enemy.x);
-        const course = heading + Math.sin(this.clock * 2.2 + enemy.id * 2.9) * 0.30 * Math.min(1, distance / 4);
+        // Each pathogen favours one side, swinging wide while far out and straightening up close.
+        const flank = enemy.tutorial ? 0 : ((enemy.id * .618034) % 1 - .5) * 2 * FLANK_ARC * clamp((distance - 6) / 14, 0, 1);
+        const course = heading + flank + Math.sin(this.clock * 2.2 + enemy.id * 2.9) * 0.30 * Math.min(1, distance / 4);
         const travel = Math.min(distance - range, (spec.speed + (this.wave - 1) * 0.13) * speedFactor * dt);
         enemy.x += Math.cos(course) * travel;
         enemy.z += Math.sin(course) * travel;
+        this.keepApart(enemy, speedFactor, dt);
       } else if (enemy.attackCooldown === 0) {
         this.startEnemyAttack(enemy, target, attacksSuit ? 'player' : 'tissue');
       }
     }
+  }
+
+  // Every few seconds a third of the lungers and spitters reconsider which node to hit: the most
+  // damaged one, or one no suit is standing near. Scripted lanes (junction, heart) are left alone.
+  rethinkTarget(enemy, dt) {
+    if (enemy.id % 3 || enemy.fragment || enemy.tutorial || this.valve || this.area === 'junction' || this.nodes.length < 2) return;
+    enemy.rethink = (enemy.rethink ?? RETHINK_TIME * ((enemy.id * .37) % 1)) - dt;
+    if (enemy.rethink > 0) return;
+    enemy.rethink = RETHINK_TIME;
+    // Committed attackers stay on the node they have reached.
+    if (Math.hypot(enemy.node.x - enemy.x, enemy.node.z - enemy.z) < 9) return;
+    const suits = this.activeSuits().filter(({ player }) => player.health > 0);
+    let best = enemy.node;
+    let bestValue = -Infinity;
+    for (const node of this.nodes) {
+      const guarded = suits.some(({ player }) => Math.hypot(player.x - node.x, player.z - node.z) < 13);
+      const value = (RULES.tissue - node.health) * .45 + (guarded ? 0 : 22) -
+        Math.hypot(node.x - enemy.x, node.z - enemy.z) * .55 + (node === enemy.node ? 6 : 0);
+      if (value > bestValue) {
+        best = node;
+        bestValue = value;
+      }
+    }
+    enemy.node = best;
+    enemy.nodeId = best.id;
+  }
+
+  // A pathogen caught in a suit's crosshair darts sideways for a moment, then has to recover
+  // before it can do it again, so steady aim still lands.
+  evade(enemy, player, distance, speedFactor, dt) {
+    const speed = DODGE_SPEED[enemy.behavior];
+    if (!speed || enemy.tutorial || enemy.fragment) return;
+    enemy.dodgeRest = Math.max(0, (enemy.dodgeRest ?? 0) - dt);
+    if (!(enemy.dodge > 0)) {
+      if (enemy.dodgeRest > 0 || !player || distance > DODGE_RANGE || distance < 2) return;
+      const bearing = Math.atan2(-(enemy.x - player.x), -(enemy.z - player.z));
+      const off = Math.abs(Math.atan2(Math.sin(bearing - player.yaw), Math.cos(bearing - player.yaw)));
+      if (off > DODGE_CONE + enemy.radius / distance) return;
+      enemy.dodge = DODGE_TIME;
+      enemy.dodgeSide = Math.sin(this.clock * 1.7 + enemy.id * 4.1) > 0 ? 1 : -1;
+    }
+    enemy.dodge -= dt;
+    if (enemy.dodge <= 0) enemy.dodgeRest = DODGE_REST;
+    const dx = enemy.x - player.x;
+    const dz = enemy.z - player.z;
+    const length = Math.max(.01, Math.hypot(dx, dz));
+    enemy.x += -dz / length * enemy.dodgeSide * speed * speedFactor * dt;
+    enemy.z += dx / length * enemy.dodgeSide * speed * speedFactor * dt;
+    this.confineToArena(enemy);
+  }
+
+  // Moving pathogens push off their neighbours so a wave arrives as a spread, not a column.
+  keepApart(enemy, speedFactor, dt) {
+    let pushX = 0;
+    let pushZ = 0;
+    for (const other of this.enemies) {
+      if (other === enemy || other.latched || other.type === 'colony') continue;
+      const dx = enemy.x - other.x;
+      const dz = enemy.z - other.z;
+      const gap = Math.hypot(dx, dz);
+      const reach = CROWD_RADIUS + (other.nest ? other.radius : 0);
+      if (gap >= reach || gap < 1e-4) continue;
+      pushX += dx / gap * (1 - gap / reach);
+      pushZ += dz / gap * (1 - gap / reach);
+    }
+    const push = Math.hypot(pushX, pushZ);
+    if (push < 1e-4) return;
+    const step = Math.min(1, push) * CROWD_PUSH * speedFactor * dt / push;
+    enemy.x += pushX * step;
+    enemy.z += pushZ * step;
   }
 
   startEnemyAttack(enemy, target, targetName) {
@@ -1625,6 +1735,8 @@ export class Simulation {
       return;
     }
     if (this.advanceAction(enemy, dt, SPORE_RECOVERY)) {
+      // Shots at a suit are followed by a sidestep; a spitter shelling tissue holds its ground.
+      if (enemy.actionTarget === 'player') enemy.relocate = RELOCATE_TIME;
       enemy.attackCooldown = enemy.actionTarget === 'tissue' ? 0.12 : 0.38;
       this.setEnemyAction(enemy, 'idle');
     }

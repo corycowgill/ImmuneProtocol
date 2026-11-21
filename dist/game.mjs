@@ -1908,6 +1908,7 @@ function drawHud() {
         : (sim.settling ? 'EXTRACT IN ' : 'NEXT WAVE IN ') + Math.ceil(intermission) + 's';
     }
     else if (remaining === 0 && sim.projectiles.length) status = 'SPORE SHOTS IN FLIGHT';
+    else if (remaining > 0 && sim.enemies.length === remaining && sim.enemies.every(enemy => enemy.nest)) status = remaining === 1 ? 'DESTROY THE BROOD NEST' : 'DESTROY THE BROOD NESTS';
     else if (sim.outro) status = 'AREA CLEAR';
     setText(threats, status);
   }
@@ -2013,6 +2014,7 @@ function drawMarkers() {
   drawGash(edgePositions);
   drawTurretMarker(top, width, height);
   drawGastricMarker(top, width, height, edgePositions);
+  drawFieldMarkers(top, width, height, edgePositions);
   const weakPoint = sim.boss?.state === 'exposed' ? sim.boss.weakPoint : null;
   bossMarker.hidden = true;
   if (weakPoint) {
@@ -2102,6 +2104,59 @@ function drawGash(edgePositions) {
   if (!gashEdge.hidden) {
     positionEdgeMarker(gashEdge, point, dx, dz, top, width, height, edgePositions);
     setText(gashEdgeLabel, label);
+  }
+}
+
+// Brood nests and antibody caches get a marker in view and an arrow at the screen edge otherwise,
+// so they can be found from across the arena.
+const fieldMarkers = new Map();
+function drawFieldMarkers(top, width, height, occupied) {
+  const targets = [];
+  for (const enemy of sim.enemies) {
+    if (enemy.nest) targets.push({ key: 'nest' + enemy.id, kind: 'nest', label: 'BROOD NEST', x: enemy.x, y: enemy.y + enemy.radius + .5, z: enemy.z,
+      detail: Math.ceil(100 * enemy.health / enemy.maxHealth) + '%' });
+  }
+  for (const pickup of sim.pickups ?? []) {
+    targets.push({ key: 'cache' + pickup.id, kind: 'cache', label: 'ANTIBODY CACHE', x: pickup.x, y: pickup.y + 1.1, z: pickup.z,
+      detail: Math.ceil(pickup.remaining) + 's' });
+  }
+  const live = new Set();
+  for (const target of targets) {
+    live.add(target.key);
+    let view = fieldMarkers.get(target.key);
+    if (!view) {
+      const marker = turretMarker.cloneNode(true);
+      const edge = gashEdge.cloneNode(true);
+      for (const element of [marker, edge, ...marker.querySelectorAll('[id]'), ...edge.querySelectorAll('[id]')]) element.removeAttribute('id');
+      marker.className = 'objective-marker field-marker';
+      edge.className = 'objective-edge field-edge';
+      marker.dataset.kind = edge.dataset.kind = target.kind;
+      view = { marker, edge, label: marker.querySelector('strong'), detail: marker.querySelector('small'), edgeLabel: edge.querySelector('strong') };
+      fieldMarkers.set(target.key, view);
+      byId('field-markers').append(marker, edge);
+    }
+    const dx = target.x - sim.player.x;
+    const dz = target.z - sim.player.z;
+    const range = Math.round(Math.hypot(dx, dz)) + ' m';
+    const point = world.project(target.x, target.y, target.z);
+    const visible = point.visible && point.y >= top && point.y < height * .84 && point.x > 60 && point.x < width - 60;
+    view.marker.hidden = !visible;
+    view.edge.hidden = visible;
+    if (visible) {
+      view.marker.style.left = point.x + 'px';
+      view.marker.style.top = point.y + 'px';
+      setText(view.label, target.label);
+      setText(view.detail, range + ' · ' + target.detail);
+    } else {
+      occupied.push(positionEdgeMarker(view.edge, point, dx, dz, top, width, height, occupied));
+      setText(view.edgeLabel, target.label + ' · ' + range);
+    }
+  }
+  for (const [key, view] of fieldMarkers) {
+    if (live.has(key)) continue;
+    view.marker.remove();
+    view.edge.remove();
+    fieldMarkers.delete(key);
   }
 }
 
@@ -2252,6 +2307,21 @@ function applyEvents() {
       if (event.stage === 'draining') announce('DRAIN OPEN', 'WATCH THE LOWER PASSAGE', 2.5);
       if (event.stage === 'flank') announce('FLANK ATTACK', 'DEFEND BOTH TISSUE NODES', 2.5);
       if (event.stage === 'counterattack') announce('PATHOGENS INBOUND', event.name, 2);
+    }
+    if (event.type === 'nest') {
+      if (event.stage === 'spawn') {
+        audio.play({ type: 'wave', stage: 'start' });
+        announce('BROOD NEST DETECTED', 'CROSS THE ARENA AND DESTROY IT BEFORE IT HATCHES MORE', 3.4);
+      }
+      if (event.stage === 'destroyed') announce('BROOD NEST DESTROYED', '+600 SCORE', 2);
+    }
+    if (event.type === 'cache') {
+      if (event.stage === 'spawn') announce('ANTIBODY CACHE INBOUND', 'REACH IT FOR SUIT REPAIR AND A FULL MAGAZINE', 3);
+      if (event.stage === 'collect') {
+        audio.play({ type: 'repair', complete: true });
+        const collector = onlineRun ? sim.players?.find(player => player.id === event.playerId) : null;
+        announce('ANTIBODY CACHE SECURED', collector && collector.id !== sim.player.id ? 'COLLECTED BY ' + (collector.name || 'TEAMMATE').toUpperCase() : 'SUIT PATCHED · MAGAZINE FULL · +250', 2.2);
+      }
     }
     if (event.type === 'turret') {
       if (event.stage === 'deployed') announce('AUTO-TURRET ONLINE', 'COVERING THIS POSITION', 1.8);

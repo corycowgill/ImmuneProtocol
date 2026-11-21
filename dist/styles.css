@@ -655,6 +655,10 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .objective-marker.critical,.objective-edge.critical,#secondary-marker.critical,#secondary-edge.critical{color:#ff8a73}
 .objective-edge:is(.under-attack,.critical),#secondary-edge:is(.under-attack,.critical){border-color:currentColor}
 .turret-marker{color:#a8e3ff}
+.field-marker[data-kind="nest"],.field-edge[data-kind="nest"]{color:#ffb347}
+.field-marker[data-kind="cache"],.field-edge[data-kind="cache"]{color:#8dffd9}
+.field-edge{border-color:currentColor}
+.field-marker>span{width:8px;height:8px}
 .turret-marker>span{width:7px;height:7px;transform:none;background:#16324ccc}
 .gash-marker,.gash-edge{color:#ffb18f}
 .gash-marker>span{background:#442219e8}

@@ -100,6 +100,10 @@ function think(sim, rover, memory, clock) {
       target = enemy;
     }
   }
+  // With nothing closer to deal with, cross the arena to the nearest brood nest.
+  if (!target) {
+    target = enemies.filter(enemy => enemy.nest).sort((a, b) => distance(a, player) - distance(b, player))[0] ?? null;
+  }
   if (target !== memory.target) memory.misses = 0;
   memory.target = target;
 
