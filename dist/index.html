@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="loading.css">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="interface.css">
+  <link rel="stylesheet" href="armory.css">
   <link rel="stylesheet" href="coop-suits.css">
   <link rel="stylesheet" href="intro/intro.css" data-hg-fonts>
   <style>a.brand{color:inherit;text-decoration:none}a.brand:hover>span,a.brand:focus-visible>span{color:var(--green);text-decoration:underline;text-underline-offset:3px}</style>
@@ -385,25 +386,39 @@
       </div>
     </section>
 
-    <dialog id="armory-dialog" class="panel armory-panel" aria-labelledby="armory-title" aria-describedby="armory-context">
-      <header class="armory-heading">
-        <div>
-          <p class="eyebrow"><span></span> NEEDLE CARBINE</p>
+    <dialog id="armory-dialog" class="panel armory-panel" aria-labelledby="armory-title" aria-describedby="armory-context" data-mode="gunsmith">
+      <header class="gs-top">
+        <div class="gs-title">
+          <p class="eyebrow"><span></span> <b id="armory-kicker">PRIMARY · NEEDLE CARBINE</b></p>
           <h2 id="armory-title" tabindex="-1">Armory</h2>
         </div>
+        <nav id="armory-modes" class="gs-modes" role="tablist" aria-label="Armory sections"></nav>
         <p id="armory-context" aria-live="polite"></p>
       </header>
       <p id="coop-armory-status" class="coop-armory-status" role="status" hidden></p>
-      <div class="armory-preview">
+      <section id="armory-stage" class="gs-stage" aria-label="Weapon preview">
         <div id="armory-preview" class="armory-image" role="presentation"></div>
-        <p class="armory-hint" aria-hidden="true">Drag to turn</p>
-        <div class="armory-readout">
-          <h3>Build stats</h3>
-          <dl id="armory-stats" class="armory-stats"></dl>
+        <svg id="armory-leaders" class="gs-leaders" aria-hidden="true"></svg>
+        <div id="armory-callouts" class="gs-callouts"></div>
+        <p class="armory-hint" aria-hidden="true">Drag to rotate</p>
+        <div class="gs-plate">
+          <span id="armory-class">Assault</span>
+          <strong id="armory-weapon-name">Needle Carbine</strong>
+          <small id="armory-weapon-detail"></small>
         </div>
-      </div>
-      <div id="armory-slots" class="armory-slots" role="tablist" aria-label="Weapon customization"></div>
-      <div id="armory-options"></div>
+        <div class="gs-build">
+          <h3>Build stats <span>Hover an option to preview</span></h3>
+          <dl id="armory-stats" class="gs-stats"></dl>
+        </div>
+      </section>
+      <aside class="gs-panel" aria-labelledby="armory-panel-title">
+        <div class="gs-panel-head">
+          <h3 id="armory-panel-title">Barrel</h3>
+          <span id="armory-panel-note"></span>
+        </div>
+        <div id="armory-subtabs" class="gs-subtabs" role="tablist"></div>
+        <div id="armory-options" class="gs-options"></div>
+      </aside>
       <footer class="armory-actions">
         <button id="armory-reset" class="button outline" type="button" title="Restore factory parts and finishes">Reset carbine</button>
         <button id="armory-done" class="button primary" type="button">Done <svg aria-hidden="true"><use href="#arrow"></use></svg></button>

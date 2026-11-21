@@ -127,6 +127,8 @@ export async function prepareArmoryArt(renderer) {
   const focus = new THREE.Vector3();
   const up = new THREE.Vector3(0, 1, 0);
   const side = new THREE.Vector3();
+  const projected = new THREE.Vector3();
+  let shown = 'carbine';
   function frame(view, loadout) {
     if (loadout.weapon === 'carbine') {
       focus.copy(carbineFocus);
@@ -184,7 +186,21 @@ export async function prepareArmoryArt(renderer) {
     // `view` turns the camera around the weapon ({ yaw, pitch } in radians).
     render(loadout, view) {
       carbine.setLoadout(loadout);
+      shown = loadout.weapon;
       return preview.draw(photography, orbit(frame(carbine, loadout), view));
+    },
+    // Where each part slot sits in the last rendered preview, as fractions of its width and
+    // height, for the callout lines drawn over it.
+    anchors() {
+      const places = shown === 'carbine'
+        ? Object.fromEntries(Object.entries(CARD_VIEWS).map(([slot, { focus }]) => [slot, new THREE.Vector3(...focus)]))
+        : carbine.anchors();
+      if (!places) return null;
+      orbitCamera.updateMatrixWorld();
+      return Object.fromEntries(Object.entries(places).map(([slot, place]) => {
+        const point = projected.copy(place).project(orbitCamera);
+        return [slot, { x: point.x * .5 + .5, y: .5 - point.y * .5 }];
+      }));
     },
   };
 }

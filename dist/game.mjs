@@ -2,8 +2,8 @@ import { Simulation, JUNCTION_INLETS, RULES } from './simulation.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
 import {
-  WEAPON_ACCENTS, WEAPON_FINISHES, WEAPON_SLOTS, WEAPON_TYPES, legacyWeaponLoadout, loadoutInSlot, loadoutWithBuild,
-  loadoutWithWeapon, magazineCapacity, normalizeWeaponBuild, normalizeWeaponLoadout, weaponStats,
+  WEAPON_ACCENTS, WEAPON_FINISHES, WEAPON_TYPES, legacyWeaponLoadout, loadoutWithBuild,
+  normalizeWeaponBuild, normalizeWeaponLoadout,
 } from './weapon-mods.mjs';
 import { FIELD_UPGRADE_ART, prepareArmoryArt } from './armory-art.mjs';
 import { World } from './world.mjs';
@@ -17,7 +17,8 @@ import { GamepadInput } from './gamepad.mjs';
 import { GamepadMenu } from './gamepad-menu.mjs';
 import { applyRenderedPreviews, currentDifficulty, installLevelHud } from './level-hud.mjs';
 import { DIFFICULTIES } from './difficulty.mjs';
-import { COSMETIC_SLOTS, cosmeticArt, createLoadoutPicker, drawWeaponHud, installArsenalUi, weaponName } from './arsenal-ui.mjs';
+import { COSMETIC_SLOTS, cosmeticArt, drawWeaponHud, installArsenalUi, weaponName } from './arsenal-ui.mjs';
+import { createArmoryScreen } from './armory-screen.mjs';
 import { createDiseaseGuide } from './disease-guide.mjs';
 import { createUpgradeCards, drawIntel, drawLoadout, drawOperatorCard } from './deployment.mjs';
 
@@ -51,9 +52,6 @@ const armoryContext = byId('armory-context');
 const armoryDone = byId('armory-done');
 const armoryReset = byId('armory-reset');
 const armoryPreview = byId('armory-preview');
-const armoryStats = byId('armory-stats');
-const armoryTabs = byId('armory-slots');
-const armoryOptions = byId('armory-options');
 const missionSelect = byId('mission-select');
 const missionDialog = byId('mission-dialog');
 const missionGallery = byId('mission-gallery');
@@ -285,24 +283,11 @@ const attackWarnings = {
 const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo', Digit4: 'turret' };
 const supplyPad = { left: 'left', right: 'right', up: 'ammo', down: 'turret' };
 const supplyPadLabels = { left: '←', right: '→', ammo: '↑', turret: '↓' };
-const armorySlots = {
-  ...WEAPON_SLOTS,
-  finish: { name: 'Body finish', options: WEAPON_FINISHES },
-  accent: { name: 'Accent color', options: WEAPON_ACCENTS },
+const armoryCosmetics = {
+  finish: { name: 'Finish', options: WEAPON_FINISHES },
+  accent: { name: 'Accent', options: WEAPON_ACCENTS },
   ...COSMETIC_SLOTS,
 };
-const degrees = radians => radians * 180 / Math.PI;
-const armoryMetrics = [
-  { name: 'Damage per shot', value: stats => Math.round(stats.bodyDamage * stats.pellets + stats.splashDamage), delta: 'damage' },
-  { name: 'Critical damage', value: stats => Math.round(stats.criticalDamage * stats.pellets + stats.splashDamage), delta: 'critical' },
-  { name: 'Fire rate', value: stats => Math.round(60 / stats.interval), unit: ' RPM', delta: 'RPM' },
-  { name: 'Capacity', value: (stats, baseCapacity) => magazineCapacity(stats, baseCapacity), unit: ' rds', delta: 'rounds' },
-  { name: 'Reload time', value: stats => stats.reloadSeconds, unit: ' s', digits: 2, delta: 's reload' },
-  { name: 'Aimed crit zone', value: stats => Math.round(stats.aimCritical * 100), unit: '%', points: true },
-  { name: 'Hip-fire spread', value: stats => degrees(stats.hipSpread), unit: '°', digits: 1, delta: '° hip spread' },
-  { name: 'Aimed spread', value: stats => degrees(stats.aimSpread), unit: '°', digits: 2, delta: '° aimed spread' },
-  { name: 'Move speed', value: stats => Math.round(stats.moveSpeed * 100), unit: '%', points: true },
-];
 
 let world;
 let ready = false;
@@ -312,10 +297,8 @@ let coopBusy = false;
 let onlineRun = false;
 let coopClock = 0;
 let armoryArt;
-let activeArmorySlot = Object.keys(WEAPON_SLOTS)[0];
 // Which carried weapon the armory's part tabs are customizing.
-let editingSlot = 'primary';
-let loadoutPicker;
+let armoryScreen;
 let swapTap = false;
 let wheelSwapAt = 0;
 let sim;
@@ -497,157 +480,26 @@ function setupLoadouts() {
   updatePracticeLoadout();
 }
 
-function compareWeaponStats(current, alternative, baseCapacity) {
-  return armoryMetrics.flatMap(metric => {
-    const difference = Number((metric.value(alternative, baseCapacity) - metric.value(current, baseCapacity)).toFixed(metric.digits ?? 0));
-    if (!difference) return [];
-    const sign = difference > 0 ? '+' : '−';
-    const suffix = metric.points ? ' pp ' + metric.name.toLowerCase() : ' ' + (metric.delta ?? metric.name.toLowerCase());
-    return [sign + Math.abs(difference) + suffix];
-  }).join(' · ');
-}
-
-// The armory shows and edits the carried weapon chosen with the loadout picker.
+// The armory shows and edits whichever carried weapon is selected on its Weapons tab.
 function editedLoadout() {
-  return loadoutInSlot(weaponLoadout, editingSlot);
-}
-
-function drawArmoryOptions(stats, baseCapacity) {
-  const edited = editedLoadout();
-  const cards = armoryArt.thumbnailsFor?.(edited.weapon) ?? armoryArt.thumbnails;
-  for (const tab of armoryTabs.children) {
-    const slot = tab.dataset.slot;
-    const active = slot === activeArmorySlot;
-    tab.setAttribute('aria-selected', String(active));
-    tab.tabIndex = active ? 0 : -1;
-    setText(tab.lastElementChild, armorySlots[slot].options[edited[slot]].name);
-  }
-  for (const panel of armoryOptions.children) {
-    const slot = panel.dataset.slot;
-    panel.hidden = slot !== activeArmorySlot;
-    if (panel.hidden) continue;
-    for (const card of panel.children) {
-      const part = card.dataset.option;
-      const equipped = edited[slot] === part;
-      card.setAttribute('aria-pressed', String(equipped));
-      const picture = card.querySelector('img[data-part]');
-      const source = cards[slot]?.[part]?.src;
-      if (picture && source && picture.src !== source) picture.src = source;
-      const comparison = card.querySelector('.armory-compare');
-      if (equipped) setText(comparison, 'Equipped');
-      else if (!Object.hasOwn(WEAPON_SLOTS, slot) && slot !== 'charm') setText(comparison, '');
-      else {
-        const alternative = weaponStats(loadoutInSlot(loadoutWithBuild(weaponLoadout, edited.weapon, { [slot]: part }), editingSlot));
-        setText(comparison, compareWeaponStats(stats, alternative, baseCapacity) || 'No stat change');
-      }
-    }
-  }
-}
-
-function armoryBaseCapacity() {
-  return RULES.magazine;
+  return armoryScreen.edited();
 }
 
 function drawArmory() {
   const edited = editedLoadout();
-  const stats = weaponStats(edited);
-  const baseCapacity = armoryBaseCapacity();
-  loadoutPicker.draw(weaponLoadout, editingSlot);
-  setText(armoryReset, 'Reset ' + WEAPON_TYPES[edited.weapon].short.toLowerCase());
-  armoryTitle.previousElementSibling.lastChild.textContent = ' ' + (editingSlot === 'primary' ? 'PRIMARY' : 'SECONDARY') +
-    ' · ' + WEAPON_TYPES[edited.weapon].name.toUpperCase();
   const preview = armoryArt.render(edited, armoryView);
   preview.setAttribute('role', 'img');
   preview.setAttribute('aria-label', WEAPON_TYPES[edited.weapon].name + ' in ' + WEAPON_FINISHES[edited.finish].name +
     ' with ' + WEAPON_ACCENTS[edited.accent].name + ' accents');
   if (armoryPreview.firstElementChild !== preview) armoryPreview.replaceChildren(preview);
-  armoryMetrics.forEach((metric, index) => {
-    const value = metric.value(stats, baseCapacity).toFixed(metric.digits ?? 0);
-    setText(armoryStats.children[index].lastElementChild, value + (metric.unit ?? ''));
-  });
-  drawArmoryOptions(stats, baseCapacity);
+  armoryScreen.draw();
 }
 
 function setupArmory() {
-  armoryStats.replaceChildren();
-  armoryTabs.replaceChildren();
-  armoryOptions.replaceChildren();
-  if (!loadoutPicker) {
-    loadoutPicker = createLoadoutPicker(document, {
-      onPick: (slot, weapon) => {
-        if (weaponLoadout.arsenal[slot] !== weapon) equipWeaponLoadout(loadoutWithWeapon(weaponLoadout, slot, weapon));
-      },
-      onEdit: slot => {
-        editingSlot = slot;
-        drawArmory();
-      },
-    });
-    armoryTabs.before(loadoutPicker.element);
-  }
-  for (const { name } of armoryMetrics) {
-    const stat = document.createElement('div');
-    const label = document.createElement('dt');
-    label.textContent = name;
-    stat.append(label, document.createElement('dd'));
-    armoryStats.append(stat);
-  }
-  for (const [slot, { name, options }] of Object.entries(armorySlots)) {
-    const tab = document.createElement('button');
-    tab.type = 'button';
-    tab.className = 'armory-slot';
-    tab.id = 'armory-slot-' + slot;
-    tab.dataset.slot = slot;
-    tab.setAttribute('role', 'tab');
-    tab.setAttribute('aria-controls', 'armory-options-' + slot);
-    const slotLabel = document.createElement('strong');
-    slotLabel.textContent = name;
-    tab.append(slotLabel, document.createElement('span'));
-    armoryTabs.append(tab);
-
-    const panel = document.createElement('div');
-    panel.className = 'armory-cards';
-    panel.id = 'armory-options-' + slot;
-    panel.dataset.slot = slot;
-    panel.setAttribute('role', 'tabpanel');
-    panel.setAttribute('aria-labelledby', tab.id);
-    for (const [id, option] of Object.entries(options)) {
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'armory-card';
-      card.dataset.option = id;
-      const label = document.createElement('strong');
-      label.textContent = option.name;
-      if (Object.hasOwn(COSMETIC_SLOTS, slot)) {
-        const picture = new Image(225, 130);
-        picture.className = 'armory-art';
-        picture.alt = '';
-        picture.src = cosmeticArt(slot, id);
-        const detail = document.createElement('small');
-        detail.textContent = option.detail;
-        card.append(picture, label, detail);
-      } else if (option.color) {
-        card.classList.add('armory-color');
-        card.style.setProperty('--swatch', option.color);
-        const swatch = document.createElement('span');
-        swatch.className = 'armory-swatch';
-        swatch.setAttribute('aria-hidden', 'true');
-        card.append(swatch, label);
-      } else {
-        const picture = armoryArt.thumbnails[slot][id].cloneNode();
-        picture.alt = '';
-        picture.dataset.part = id;
-        const detail = document.createElement('small');
-        detail.textContent = option.detail;
-        card.append(picture, label, detail);
-      }
-      const comparison = document.createElement('span');
-      comparison.className = 'armory-compare';
-      card.append(comparison);
-      panel.append(card);
-    }
-    armoryOptions.append(panel);
-  }
-  drawArmoryOptions(weaponStats(editedLoadout()), RULES.magazine);
+  armoryScreen ??= createArmoryScreen({
+    document, dialog: armoryDialog, art: armoryArt, cosmetics: armoryCosmetics, cosmeticArt,
+    getLoadout: () => weaponLoadout, equip: equipWeaponLoadout, baseCapacity: () => RULES.magazine,
+  });
 }
 
 function equipWeaponLoadout(loadout) {
@@ -1118,7 +970,7 @@ function suspendCombat() {
 // The armory opens from the menus only: before deployment and between missions, never mid-mission.
 function openArmory() {
   if (!ready || running || armoryDialog.open) return;
-  setText(armoryContext, 'Pick a primary and a secondary, then tune parts, looks and charms.');
+  setText(armoryContext, 'Pick two weapons, fit parts at the bench, then finish them your way.');
   armoryDone.disabled = false;
   coopArmoryStatus.hidden = true;
   drawArmory();
@@ -1134,6 +986,8 @@ const armoryView = { yaw: 0, pitch: 0 };
 let armorySpin = 0;
 let armorySpinAt = 0;
 let armoryDrag = null;
+let armoryRest = 0;
+let armorySway = 0;
 
 function spinArmory(now) {
   if (!armoryDialog.open) {
@@ -1147,8 +1001,11 @@ function spinArmory(now) {
   const dt = armorySpinAt ? Math.min(.1, (now - armorySpinAt) / 1000) : 0;
   armorySpinAt = now;
   if (armoryDrag || reducedMotion || !dt) return;
-  armoryView.yaw += dt * .22;
+  // The weapon idles with a slow sway around wherever it was last turned to.
+  armorySway += dt;
+  armoryView.yaw = armoryRest + Math.sin(armorySway * .55) * .2;
   armoryArt.render(editedLoadout(), armoryView);
+  armoryScreen.drawLeaders();
 }
 
 armoryPreview.addEventListener('pointerdown', event => {
@@ -1161,8 +1018,17 @@ armoryPreview.addEventListener('pointermove', event => {
   armoryView.pitch = clamp(armoryView.pitch + (event.clientY - armoryDrag.y) * .006, -.45, .6);
   armoryDrag = { x: event.clientX, y: event.clientY };
   armoryArt.render(editedLoadout(), armoryView);
+  armoryScreen.drawLeaders();
 });
-for (const type of ['pointerup', 'pointercancel']) armoryPreview.addEventListener(type, () => { armoryDrag = null; });
+for (const type of ['pointerup', 'pointercancel']) {
+  armoryPreview.addEventListener(type, () => {
+    // Idle sway resumes around the angle the weapon was left at.
+    armoryRest = armoryView.yaw;
+    armorySway = 0;
+    armoryDrag = null;
+  });
+}
+window.addEventListener('resize', () => { if (armoryDialog.open) armoryScreen.drawLeaders(); });
 
 function closeArmory() {
   armoryDialog.close();
@@ -2478,35 +2344,6 @@ armoryDialog.addEventListener('cancel', event => {
 });
 armoryReset.addEventListener('click', () => {
   equipWeaponLoadout(loadoutWithBuild(weaponLoadout, editedLoadout().weapon, normalizeWeaponBuild({})));
-});
-armoryTabs.addEventListener('click', event => {
-  const tab = event.target.closest('[role="tab"]');
-  if (!tab) return;
-  activeArmorySlot = tab.dataset.slot;
-  drawArmoryOptions(weaponStats(weaponLoadout), armoryBaseCapacity());
-});
-armoryTabs.addEventListener('keydown', event => {
-  const tabs = [...armoryTabs.children];
-  const index = tabs.indexOf(event.target);
-  if (index < 0) return;
-  const nextIndex = {
-    ArrowLeft: (index + tabs.length - 1) % tabs.length,
-    ArrowRight: (index + 1) % tabs.length,
-    Home: 0,
-    End: tabs.length - 1,
-  }[event.key];
-  if (nextIndex === undefined) return;
-  event.preventDefault();
-  tabs[nextIndex].click();
-  tabs[nextIndex].focus();
-});
-armoryOptions.addEventListener('click', event => {
-  const card = event.target.closest('[data-option]');
-  if (!card) return;
-  const slot = card.parentElement.dataset.slot;
-  const part = card.dataset.option;
-  const edited = editedLoadout();
-  if (edited[slot] !== part) equipWeaponLoadout(loadoutWithBuild(weaponLoadout, edited.weapon, { [slot]: part }));
 });
 for (const button of supplyButtons) {
   button.addEventListener('click', () => {
