@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Immune Protocol shader hitch check</title></head><body style="background:#171018;color:#daf5bd;font:14px monospace"><h1>Shader compiles during play</h1><!-- Plays a scripted opening of one mission (?area=heart, ?tutorial, ?frames=300) and lists every shader program linked after the loading screen. The count must be zero: each one is a freeze on a real GPU. --><p id="status">…</p><pre id="report"></pre><canvas id="world" style="width:200px;height:112px"></canvas><script type="module">
+import { World } from './world.mjs';
+import { Simulation } from './simulation.mjs';
+import { DEFAULT_WEAPON_LOADOUT } from './weapon-mods.mjs';
+const q = new URLSearchParams(location.search);
+const status = document.querySelector('#status'), report = document.querySelector('#report');
+const log = s => report.textContent += s + '\n';
+const paint = () => new Promise(requestAnimationFrame);
+try {
+  const area = q.get('area') ?? 'artery';
+  const world = new World(document.querySelector('#world'));
+  const gl = world.renderer.getContext();
+  let links = 0, phase = 'load', frame = -1; const linkLog = [];
+  const link = gl.linkProgram.bind(gl);
+  gl.linkProgram = p => { links++; if (phase === 'play') linkLog.push(frame); return link(p); };
+  await world.prepareAll([area], (d, t, l) => status.textContent = l);
+  world.renderScale.enabled = false;
+  const sim = new Simulation(area, { tutorial: q.has('tutorial'), upgrades: [], bossPractice: false, weaponLoadout: { ...DEFAULT_WEAPON_LOADOUT, slot: 'primary' } });
+  await world.prepareMission(sim, (v, l) => status.textContent = l);
+  sim.start();
+  log('links during load+prepare: ' + links);
+  phase = 'play';
+  const lightsNow = () => { let n = 0; world.scene.traverseVisible(o => { if (o.isPointLight) n++; }); return n; };
+  let lastLights = -1, lastPrograms = world.renderer.info.programs.length;
+  const frames = Number(q.get('frames') ?? 200), dt = 1 / 12;
+  for (frame = 0; frame < frames; frame++) {
+    const input = { moveX: Math.sin(frame / 25) * .5, moveZ: 1, lookX: (frame % 60 < 30 ? 14 : -10), lookY: 0, fire: frame % 9 < 4, repair: frame % 50 > 35, deploy: frame === 40, aim: frame % 70 > 55, swap: frame === 90 || frame === 140, reload: false };
+    for (let k = 0; k < 5; k++) sim.step(dt / 5, k ? { ...input, lookX: 0, deploy: false, swap: false } : input);
+    sim.player.health = 100; for (const n of sim.nodes) n.health = Math.max(n.health, 40);
+    const before = linkLog.length;
+    world.render(sim, dt, input, false);
+    const lights = lightsNow(), programs = world.renderer.info.programs.length;
+    if (lights !== lastLights || linkLog.length !== before) log(`frame ${frame} t=${sim.clock.toFixed(1)} pointLights ${lights} programs ${programs} newLinks ${linkLog.length - before} tutorial=${!!sim.tutorial} enemies=${sim.enemies.length} events=${sim.events.map(e => e.type + (e.stage ? ':' + e.stage : '')).join(',').slice(0, 120)}`);
+    lastLights = lights; lastPrograms = programs;
+    if (frame % 10 === 0) { status.textContent = 'frame ' + frame; await paint(); }
+  }
+  log('links during play: ' + linkLog.length);
+  status.textContent = 'DONE';
+} catch (e) { status.textContent = 'FAIL: ' + e.message + e.stack; }
+</script></body></html>

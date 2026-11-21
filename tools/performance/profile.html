@@ -56,9 +56,9 @@ try {
     gl.finish();
     const wall = (performance.now() - begin) / frames;
     let lights = 0, meshes = 0;
-    world.scene.traverseVisible(o => { if (o.isLight) lights++; if (o.isMesh || o.isPoints || o.isLine) meshes++; });
+    world.scene.traverseVisible(o => { if (o.isPointLight && o.layers.mask) lights++; if (o.isMesh || o.isPoints || o.isLine) meshes++; });
     const row = { area, wallMs: +wall.toFixed(1), simMs: +(simTime / frames).toFixed(2), updateMs: +(update / frames).toFixed(2), submitMs: +(submit / frames).toFixed(2),
-      calls: Math.round(calls / frames), triangles: Math.round(triangles / frames), lights, visibleObjects: meshes,
+      calls: Math.round(calls / frames), triangles: Math.round(triangles / frames), pointLights: lights, visibleObjects: meshes,
       programs: info.programs.length, geometries: info.memory.geometries, textures: info.memory.textures,
       pixels: world.renderer.domElement.width + 'x' + world.renderer.domElement.height };
     results.push(row);

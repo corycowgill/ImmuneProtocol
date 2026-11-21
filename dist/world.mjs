@@ -1315,6 +1315,8 @@ export class World {
     this.width = this.height = 0;
     this.renderScale = new RenderScale();
     this.lastRender = 0;
+    this.lightProxies = new Map();
+    this.lightMembers = new Map();
     this.setArea(area);
     this.setQuality('high');
   }
@@ -1363,6 +1365,7 @@ export class World {
     this.renderer.initTexture(this.scene.environment);
     try {
       for (const shot of this.tracerPool) shot.line.visible = true;
+      this.syncLights();
       await this.renderer.compileAsync(this.scene, this.camera);
       this.renderer.render(this.scene, this.camera);
       for (const shot of this.tracerPool) shot.line.visible = false;
@@ -1431,6 +1434,7 @@ export class World {
       this.props?.update(null, 2, 1 / 60, false);
       this.updateTissue(sim, 0, true);
       this.renderer.setSize(480, 270, false);
+      this.syncLights();
       this.renderer.render(this.scene, this.camera);
       this.previews[area] = this.renderer.domElement.toDataURL('image/webp', .86);
     } catch {
@@ -1497,6 +1501,7 @@ export class World {
       for (const teammate of sim.players.slice(1)) teammate.suit = suit;
       this.teammateView.update(sim.players, start.id, floorHeight, 0, false);
       warmTextures(this.scene);
+      this.syncLights();
       await this.renderer.compileAsync(this.scene, this.camera);
       this.renderer.render(this.scene, this.camera);
     }
@@ -1668,6 +1673,47 @@ export class World {
     this.turretView.reset();
     this.camera.fov = 61;
     this.camera.updateProjectionMatrix();
+    this.syncLights();
+  }
+
+  // Shaders are compiled for an exact number of lights. A light that drops out of the scene
+  // because its owner is hidden (a tissue node during training, a closed valve, a stowed turret)
+  // would force every material to recompile mid-mission, freezing the game for seconds. So each
+  // light is drawn through a stand-in that stays in the scene and merely goes dark. A light joins
+  // an arena's set the first time it is seen lit there, which the loading screen's rehearsal
+  // triggers, so lights that belong to other arenas add no cost.
+  syncLights() {
+    let members = this.lightMembers.get(this.area);
+    if (!members) this.lightMembers.set(this.area, members = new Set());
+    const found = [];
+    this.scene.traverse(object => {
+      if (object.isPointLight && !object.userData.standIn && !this.lightProxies.has(object)) found.push(object);
+    });
+    for (const light of found) {
+      const proxy = new THREE.PointLight();
+      proxy.userData.standIn = true;
+      light.layers.disableAll(); // The renderer skips the original; game code keeps driving it.
+      this.lightProxies.set(light, proxy);
+      this.scene.add(proxy);
+    }
+    for (const [light, proxy] of this.lightProxies) {
+      let shown = light.visible;
+      let node = light.parent;
+      while (node && node !== this.scene) {
+        shown &&= node.visible;
+        node = node.parent;
+      }
+      // Lights of another arena leave with it; that only happens behind a loading screen.
+      const attached = node === this.scene;
+      if (attached && shown) members.add(light);
+      proxy.visible = attached && members.has(light);
+      if (!proxy.visible) continue;
+      proxy.intensity = shown ? light.intensity : 0;
+      proxy.color.copy(light.color);
+      proxy.distance = light.distance;
+      proxy.decay = light.decay;
+      light.getWorldPosition(proxy.position);
+    }
   }
 
   setQuality(quality) {
@@ -2371,6 +2417,7 @@ export class World {
     this.processEvents(sim.events, dt, reduceMotion, sim.weapon.muzzleFlash, player.id);
     this.updateParticles(dt);
     this.scene.updateMatrixWorld();
+    this.syncLights();
     cullDecor(this.camera, this.scene.fog);
     this.renderer.render(this.scene, this.camera);
     // Give the close-up model its own depth buffer without clearing the artery.
