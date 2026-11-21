@@ -203,6 +203,7 @@
           <strong id="coop-ally"></strong>
           <span id="coop-match-status"></span>
         </div>
+        <ol id="scoreboard" class="scoreboard" aria-label="Score by player"></ol>
         <div class="host-panel">
           <div class="hud-label"><svg aria-hidden="true"><use href="#pulse"></use></svg> TISSUE NODES</div>
           <div id="node-status" class="node-status" role="group" aria-label="Tissue node integrity">
@@ -623,7 +624,7 @@
         <details>
           <summary>Loadouts and checkpoints</summary>
           <ul>
-            <li>Compare and equip one part per slot in the armory before deployment or between waves. Body finish and accent color are cosmetic.</li>
+            <li>Compare and equip one part per slot in the armory before deployment or between missions. Body finish and accent color are cosmetic.</li>
             <li>Equip one field upgrade at each campaign checkpoint. Insulated Suit reduces acid and pressure damage. Turret Stabilizer makes the turret’s slowing effect last longer.</li>
             <li>Your checkpoint saves completed missions and the chosen field upgrade. The final report shows tissue integrity across the campaign.</li>
             <li>Mission select lets you choose any arena and field upgrade. Reaching the Mega Virus unlocks its practice fight.</li>
@@ -730,6 +731,13 @@
       <p id="coop-checkpoint-status" role="status" hidden></p>
       <dl id="result-stats" class="result-stats"><div><dt>Score</dt><dd id="result-score"></dd></div><div><dt>Neutralized</dt><dd id="result-kills"></dd></div><div id="result-tissue-stat"><dt>Tissue average</dt><dd id="result-tissue"></dd></div></dl>
       <dl id="result-nodes" class="node-breakdown" aria-label="Final tissue node integrity" hidden></dl>
+      <section id="result-players" class="campaign-section" aria-labelledby="result-players-title" hidden>
+        <div class="campaign-heading">
+          <h3 id="result-players-title">Score by player</h3>
+          <span id="result-players-caption" class="campaign-caption"></span>
+        </div>
+        <dl id="result-player-list" class="campaign-tissue-list"></dl>
+      </section>
       <section id="campaign-reward" class="campaign-section" aria-labelledby="campaign-reward-title" hidden>
         <div class="campaign-heading">
           <h3 id="campaign-reward-title">Choose a field upgrade</h3>
@@ -768,7 +776,7 @@
       </section>
       <p id="result-launch-error" role="alert" hidden></p>
       <button id="continue-mission" class="button primary full-button result-next" type="button" hidden><span id="continue-mission-label">Continue campaign</span><svg aria-hidden="true"><use href="#arrow"></use></svg></button>
-      <div class="dialog-buttons"><button id="replay" class="button primary" type="button"><span id="replay-label">Redeploy</span> <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button id="return-menu" class="button outline" type="button">Main menu</button></div>
+      <div class="dialog-buttons"><button id="replay" class="button primary" type="button"><span id="replay-label">Redeploy</span> <svg aria-hidden="true"><use href="#arrow"></use></svg></button><button id="result-armory" class="button outline" type="button">Armory</button><button id="return-menu" class="button outline" type="button">Main menu</button></div>
     </dialog>
   </main>
   <script type="module" src="boot.mjs"></script>

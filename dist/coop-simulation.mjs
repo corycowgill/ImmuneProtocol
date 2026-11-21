@@ -18,7 +18,7 @@ class CoopSuit {
     this.baseMagazineSize = RULES.magazine;
     this.weaponLoadout = Object.freeze(normalizeWeaponLoadout({ ...weaponLoadout, slot: 'primary' }));
     this.configuredWeapon = weaponStats(this.weaponLoadout);
-    this.player = { id, name, suit: normalizeSuit(suit), ammo: this.magazineSize };
+    this.player = { id, name, suit: normalizeSuit(suit), ammo: this.magazineSize, score: 0, kills: 0 };
     this.resetPose(RULES.health);
   }
 

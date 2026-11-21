@@ -96,8 +96,18 @@ svg{display:block;width:24px;height:24px;flex:none}
 .armory-panel .coop-armory-status{margin:0 0 9px;color:var(--green);font:500 11px/1.4 var(--mono)}
 .coop-hud{position:absolute;top:126px;left:25px;display:grid;max-width:220px;padding:5px 8px;border:1px solid #65d2f28c;background:#100d14d9;color:#d9f5ff;font:500 10px/1.35 var(--mono);overflow-wrap:anywhere}
 .coop-hud span{color:var(--paper)}
+.scoreboard{position:absolute;top:74px;right:25px;display:grid;gap:2px;margin:0;padding:6px 9px;list-style:none;min-width:150px;max-width:230px;background:#100d14c4;border-right:1px solid #d7c5ab42;font:500 10px/1.35 var(--mono);letter-spacing:.06em;text-align:right}
+.scoreboard li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:baseline}
+.scoreboard span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;color:#efdfc8;text-transform:uppercase}
+.scoreboard strong{color:var(--green);font-variant-numeric:tabular-nums}
+.scoreboard small{color:var(--muted);font-size:9px;font-variant-numeric:tabular-nums}
+.scoreboard li[data-self="true"] span{color:#d9f5ff}
+.scoreboard li[data-team="true"]{margin-top:2px;padding-top:3px;border-top:1px solid var(--line)}
+.game:has(:is(#boss-hud,#airway-hud,#gastric-hud):not([hidden])) .scoreboard{top:190px}
 @media(max-width:720px){
   .coop-hud{top:92px;left:12px;max-width:44vw;padding:4px 6px;font-size:9px}
+  .scoreboard,.game:has(:is(#boss-hud,#airway-hud,#gastric-hud):not([hidden])) .scoreboard{top:auto;bottom:118px;right:12px;min-width:0;max-width:44vw;padding:4px 6px;font-size:9px}
+  .scoreboard small{display:none}
 }
 @media(max-width:510px){
   .coop-choices{grid-template-columns:minmax(0,1fr);gap:12px}

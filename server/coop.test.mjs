@@ -79,11 +79,10 @@ test('serves the game, health check and demo ranges on the same host', async t =
   assert.match(denial.message, /403/);
 });
 
-test('shares authoritative combat, reload-safe reconnect, and the team intermission', async t => {
+test('shares authoritative combat, reload-safe reconnect, and an unattended wave countdown', async t => {
   let simulation;
   const origin = await localServer(t, {
     simulation: players => { simulation = new CoopSimulation(players); return simulation; },
-    intermissionMs: 4000,
   });
   const host = await connect(t, origin);
   const guest = await connect(t, origin);
@@ -158,23 +157,15 @@ test('shares authoritative combat, reload-safe reconnect, and the team intermiss
   simulation.spawnIndex = simulation.missions[0].species.length;
   simulation.enemies = [];
   simulation.projectiles = [];
-  // Skip the post-wave countdown so the armory opens on the next tick.
+  // Skip the post-wave banner. The countdown to the next wave then runs on its own: the room
+  // stays in play with no ready-up and no armory stop.
   simulation.outro = { remaining: 0, duration: 0 };
-  const armory = await host.take(roomPhase('intermission'));
-  await connectedAgain.take(roomPhase('intermission'));
-  assert.ok(armory.deadline > Date.now());
-  const breakClock = simulation.clock;
-  host.send({ type: 'ready', ready: true, loadout: { magazine: 'extended-magazine' } });
-  await host.take(message => roomPhase('intermission')(message) && message.players[0].ready);
-  const extended = await host.take(message => tagged('state')(message) && message.state.weaponLoadout.magazine === 'extended-magazine');
-  assert.ok(extended.state.magazineSize > firstHost.state.magazineSize);
-  await delay(90);
-  assert.equal(simulation.clock, breakClock);
-  connectedAgain.send({ type: 'ready', ready: true });
-  await connectedAgain.take(roomPhase('playing'));
-  const continuing = await host.take(message => roomPhase('playing')(message) && !message.players[0].ready);
-  assert.equal(continuing.deadline, undefined);
-  assert.ok((await host.take(message => tagged('state')(message) && message.state.clock > breakClock)).tick > 0);
+  const countdown = await host.take(message => tagged('state')(message) && message.state.phase === 'intermission');
+  assert.equal(countdown.state.wave, 1);
+  simulation.intermission = .1;
+  const nextWave = await host.take(message => tagged('state')(message) && message.state.wave === 2);
+  assert.equal(nextWave.state.phase, 'combat');
+  assert.ok(nextWave.state.clock > countdown.state.clock);
 
   connectedAgain.send({ type: 'leave' });
   assert.equal((await host.take(tagged('error'))).code, 'PARTNER_LEFT');
@@ -440,7 +431,7 @@ test('difficulty reshapes solo missions and leaves scripted encounters intact', 
   junction.chooseExtraction('stay');
   const overtime = junction.missions.at(-1);
   assert.equal(overtime.name, 'Overtime');
-  assert.ok(overtime.arrivals.length < 9);
+  assert.ok(overtime.arrivals.length < 27);
   assert.equal(junction.spawnIndex, 0);
 
   // The heart colony and Mega Virus waves are untouched; the boss scales through its hit size.
@@ -466,7 +457,8 @@ test('difficulty reshapes solo missions and leaves scripted encounters intact', 
   const suit = deploy('artery', 'hard');
   const attacker = suit.createEnemy('virus', 0, 0, suit.nodes[0]);
   suit.damageTarget(attacker, 'player', 10);
-  assert.equal(100 - suit.player.health, 10 * DIFFICULTIES.hard.suitDamage);
+  // Each strike is scaled down for the tripled waves before difficulty applies.
+  assert.ok(Math.abs(100 - suit.player.health - 10 * .4 * DIFFICULTIES.hard.suitDamage) < 1e-9);
 });
 
 test('two carried weapons: loadouts, swapping, spread, pellets, rockets and charms', () => {
@@ -554,4 +546,44 @@ test('two carried weapons: loadouts, swapping, spread, pellets, rockets and char
   assert.equal(coop.snapshotFor('alpha').weaponLoadout.weapon, 'pistol');
   assert.equal(coop.snapshotFor('bravo').weaponLoadout.weapon, 'carbine');
   assert.equal(coop.snapshotFor('alpha').weaponLoadout.arsenal.builds, undefined);
+});
+
+test('waves field three times their roster and score is kept per player', () => {
+  const artery = new Simulation('artery');
+  assert.deepEqual(artery.missions.map(wave => wave.species.length), [27, 39, 48, 57, 66]);
+  assert.equal(artery.missions[0].species.slice(0, 9).join(), artery.missions[0].species.slice(9, 18).join());
+  const lungs = new Simulation('lungs');
+  assert.equal(lungs.missions[0].species.length, 33);
+  for (const wave of lungs.missions) assert.equal(wave.lanes.length, wave.species.length);
+  assert.equal(new Simulation('junction').missions[0].arrivals.length, 18);
+  assert.deepEqual(new Simulation('heart').missions[0].species, ['colony']);
+
+  const sim = new CoopSimulation([{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Bravo' }]);
+  sim.start();
+  const [alpha, bravo] = sim.suits;
+  const spawn = () => { const enemy = sim.createEnemy('virus', 0, 0, sim.nodes[0]); sim.enemies.push(enemy); return enemy; };
+  const at = { x: 0, y: 1, z: 0 };
+  sim.hitEnemy(spawn(), 1e4, true, at, 'player', alpha);
+  sim.hitEnemy(spawn(), 1e4, false, at, 'player', bravo);
+  sim.hitEnemy(spawn(), 1e4, false, at, 'player', bravo);
+  sim.hitEnemy(spawn(), 1e4, false, at, 'turret');
+  assert.deepEqual([alpha.player.score, alpha.player.kills], [135, 1]);
+  assert.deepEqual([bravo.player.score, bravo.player.kills], [200, 2]);
+  // Turret kills and wave bonuses count for the team only.
+  assert.equal(sim.score, 435);
+  assert.equal(sim.kills, 4);
+  const view = sim.snapshotFor('a');
+  assert.deepEqual(view.players.map(player => [player.name, player.score, player.kills]), [['Alpha', 135, 1], ['Bravo', 200, 2]]);
+  // A respawn keeps the score; a new mission starts from zero.
+  alpha.resetPose(50);
+  assert.equal(alpha.player.score, 135);
+  sim.start();
+  assert.deepEqual(sim.players.map(player => player.score), [0, 0]);
+
+  const solo = new Simulation('artery');
+  solo.start();
+  const target = solo.createEnemy('spore', 0, 0, solo.nodes[0]);
+  solo.enemies.push(target);
+  solo.hitEnemy(target, 1e4, false, at, 'player', solo);
+  assert.deepEqual([solo.player.score, solo.player.kills, solo.score], [130, 1, 130]);
 });

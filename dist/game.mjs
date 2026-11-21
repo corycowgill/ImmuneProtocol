@@ -43,6 +43,7 @@ const coopReady = byId('coop-ready');
 const coopRoster = byId('coop-roster');
 const coopHud = byId('coop-hud');
 const coopArmoryStatus = byId('coop-armory-status');
+const scoreboard = byId('scoreboard');
 const armoryOpen = byId('armory-open');
 const armoryDialog = byId('armory-dialog');
 const armoryTitle = byId('armory-title');
@@ -311,7 +312,6 @@ let coopBusy = false;
 let onlineRun = false;
 let coopClock = 0;
 let armoryArt;
-let armoryRound = 0;
 let activeArmorySlot = Object.keys(WEAPON_SLOTS)[0];
 // Which carried weapon the armory's part tabs are customizing.
 let editingSlot = 'primary';
@@ -545,7 +545,7 @@ function drawArmoryOptions(stats, baseCapacity) {
 }
 
 function armoryBaseCapacity() {
-  return armoryRound ? sim.baseMagazineSize : RULES.magazine;
+  return RULES.magazine;
 }
 
 function drawArmory() {
@@ -653,9 +653,7 @@ function setupArmory() {
 function equipWeaponLoadout(loadout) {
   weaponLoadout = normalizeWeaponLoadout({ ...normalizeWeaponLoadout(loadout), slot: 'primary' });
   writeSetting(weaponLoadoutKey, JSON.stringify(weaponLoadout));
-  // Armory edits between waves keep whichever weapon is in hand.
-  if (armoryRound && !onlineRun) sim.setWeaponLoadout({ ...weaponLoadout, slot: sim.weaponLoadout.slot });
-  if ((onlineRun && armoryRound) || (coopClient?.localPlayer?.ready && ['lobby', 'finished'].includes(coopClient.room?.phase))) {
+  if (coopClient?.localPlayer?.ready && ['lobby', 'finished'].includes(coopClient.room?.phase)) {
     coopClient.setReady(false, weaponLoadout);
   }
   drawArmory();
@@ -759,14 +757,6 @@ function syncCoopIndicators() {
     : room?.reconnectDeadline ? 'Waiting for teammate · ' + reconnectTime + 's'
       : down ? (sim.wave < sim.waves ? 'Suit down · Rejoin next wave' : 'Suit down · Teammate still active')
         : allies.length ? allies.map(ally => (ally.name || 'Teammate') + ': ' + (ally.downed ? 'Down' : Math.ceil(ally.health) + '%')).join(' / ') : 'Connected');
-  if (armoryDialog.open && armoryRound && onlineRun) {
-    const seconds = Math.max(0, Math.ceil(((room?.deadline ?? Date.now()) - Date.now()) / 1000));
-    const count = room?.players.filter(player => player.ready).length ?? 0;
-    setText(coopArmoryStatus, !connected ? 'Reconnecting…' : room?.reconnectDeadline
-      ? 'Waiting for teammate · ' + reconnectTime + 's' : count + ' of ' + room.players.length + ' ready · Ready-up closes in ' + seconds + 's');
-    setText(armoryDone.firstChild, localPlayer?.ready ? 'Cancel ready ' : 'Ready for next wave ');
-    armoryDone.disabled = !connected || !!room?.reconnectDeadline;
-  }
 }
 
 function syncCoopRoom() {
@@ -813,14 +803,6 @@ function syncCoopRoom() {
           : 'All three players must ready up to deploy.');
   }
   if (onlineRun && resultDialog.open) syncCoopCheckpoint();
-  if (onlineRun && running && room.phase === 'intermission' && !paused) {
-    armoryRound = sim.wave;
-    openArmory(armoryRound);
-  } else if (onlineRun && room.phase === 'playing' && armoryDialog.open && armoryRound) {
-    armoryDialog.close();
-    armoryRound = 0;
-    resume();
-  }
   syncCoopIndicators();
 }
 
@@ -1009,7 +991,6 @@ async function launch(area, run = null, drill = null, onlineState = null) {
     sim = nextSim;
     onlineRun = Boolean(onlineState);
     coopHud.hidden = !onlineRun;
-    armoryRound = 0;
     campaign = run;
     practice = drill;
     selectedUpgrade = null;
@@ -1036,6 +1017,7 @@ async function launch(area, run = null, drill = null, onlineState = null) {
     hitTimer = 0;
     guardHintUntil = 0;
     drawnWave = '';
+    drawnScores = '';
     running = true;
     paused = false;
     audio.setActive(true);
@@ -1133,14 +1115,12 @@ function suspendCombat() {
   releaseMouse();
 }
 
-function openArmory(round = 0) {
-  if (!ready || armoryDialog.open) return;
-  if (round) suspendCombat();
-  setText(armoryContext, round ? 'Wave ' + round + ' complete. Adjust your build before resuming.' : 'Pick a primary and a secondary, then tune parts, looks and charms.');
-  armoryDone.firstChild.textContent = round ? 'Resume mission ' : 'Done ';
-  if (round && sim?.weaponLoadout) editingSlot = sim.weaponLoadout.slot;
+// The armory opens from the menus only: before deployment and between missions, never mid-mission.
+function openArmory() {
+  if (!ready || running || armoryDialog.open) return;
+  setText(armoryContext, 'Pick a primary and a secondary, then tune parts, looks and charms.');
   armoryDone.disabled = false;
-  coopArmoryStatus.hidden = !onlineRun || !round;
+  coopArmoryStatus.hidden = true;
   drawArmory();
   armoryDialog.showModal();
   if (!armorySpin) armorySpin = requestAnimationFrame(spinArmory);
@@ -1185,14 +1165,7 @@ armoryPreview.addEventListener('pointermove', event => {
 for (const type of ['pointerup', 'pointercancel']) armoryPreview.addEventListener(type, () => { armoryDrag = null; });
 
 function closeArmory() {
-  const inRound = armoryRound > 0;
-  if (inRound && onlineRun) {
-    coopClient.setReady(!coopClient.localPlayer?.ready, weaponLoadout);
-    return;
-  }
   armoryDialog.close();
-  armoryRound = 0;
-  if (inRound) resume();
 }
 
 function resume() {
@@ -1207,7 +1180,6 @@ function resume() {
   canvas.focus({ preventScroll: true });
   requestMouse();
   animation = requestAnimationFrame(frame);
-  if (onlineRun && coopClient.room?.phase === 'intermission') syncCoopRoom();
 }
 
 function offerExtraction() {
@@ -1247,7 +1219,6 @@ function mainMenu(keepRoom = false) {
   campaign = null;
   practice = null;
   selectedUpgrade = null;
-  armoryRound = 0;
   clearControls();
   audio.setActive(false);
   releaseMouse();
@@ -1485,6 +1456,8 @@ function finish() {
     updateUpgradeChoice();
   }
   if (complete) drawCampaignReport(results);
+  // A co-op campaign in progress keeps every won mission on the server, including this one.
+  drawPlayerScores(onlineRun ? (won ? coopClient.room?.results ?? [] : []) : results, complete);
   setText(replayLabel, complete ? 'Restart campaign' : bossPractice ? 'Practice again' : campaign ? 'Retry mission' : 'Redeploy');
   replay.hidden = reward || Boolean(onlineRun && next);
   continueButton.disabled = replay.disabled = false;
@@ -1815,8 +1788,71 @@ function drawGastricHud() {
   setText(gastricTime, timer > 0 ? Math.ceil(timer) + 's' : '');
 }
 
+// Score on screen: one line per player with points and kills, and the team total in co-op.
+let drawnScores = '';
+function drawScoreboard() {
+  const squad = onlineRun ? sim.players ?? [] : [];
+  const rows = squad.map(player => ({
+    name: player.name || 'Player', score: player.score ?? 0, kills: player.kills ?? 0, self: player.id === sim.player.id,
+  }));
+  rows.push({ name: squad.length ? 'Team' : 'Score', score: sim.score, kills: sim.kills, team: squad.length > 0 });
+  const signature = rows.map(row => row.name + ':' + Math.round(row.score) + ':' + row.kills).join('|');
+  if (signature === drawnScores) return;
+  drawnScores = signature;
+  scoreboard.replaceChildren(...rows.map(row => {
+    const item = document.createElement('li');
+    const name = document.createElement('span');
+    const score = document.createElement('strong');
+    const kills = document.createElement('small');
+    name.textContent = row.name;
+    score.textContent = Math.round(row.score).toLocaleString();
+    kills.textContent = row.kills + (row.kills === 1 ? ' kill' : ' kills');
+    if (row.self) item.dataset.self = 'true';
+    if (row.team) item.dataset.team = 'true';
+    item.append(name, score, kills);
+    return item;
+  }));
+}
+
+// Mission points and kills per player, with the campaign total so far beside them in co-op.
+function drawPlayerScores(results, complete) {
+  const section = byId('result-players');
+  section.hidden = !onlineRun;
+  if (!onlineRun) return;
+  const totals = new Map();
+  for (const result of results) {
+    for (const player of result.players ?? []) {
+      const total = totals.get(player.id) ?? { name: player.name, score: 0, kills: 0 };
+      total.score += player.score ?? 0;
+      total.kills += player.kills ?? 0;
+      totals.set(player.id, total);
+    }
+  }
+  setText(byId('result-players-title'), complete ? 'Campaign score by player' : 'Score by player');
+  setText(byId('result-players-caption'), complete ? results.length + ' missions' : missionName(sim.area));
+  const squad = complete ? [...totals].map(([id, total]) => ({ id, ...total })) : sim.players ?? [];
+  const ranked = [...squad].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  byId('result-player-list').replaceChildren(...ranked.map(player => {
+    const row = document.createElement('div');
+    const name = document.createElement('dt');
+    const score = document.createElement('dd');
+    const kills = player.kills ?? 0;
+    name.textContent = (player.name || 'Player') + (player.id === sim.player.id ? ' (you)' : '');
+    const detail = document.createElement('small');
+    detail.className = 'campaign-node-detail';
+    const campaignTotal = totals.get(player.id);
+    detail.textContent = kills + (kills === 1 ? ' pathogen' : ' pathogens') + ' neutralized' +
+      (!complete && campaignTotal && results.length > 1 ? ' · Campaign ' + Math.round(campaignTotal.score).toLocaleString() : '');
+    name.append(detail);
+    score.textContent = Math.round(player.score ?? 0).toLocaleString();
+    row.append(name, score);
+    return row;
+  }));
+}
+
 function drawHud() {
   const { player, tissue, wave, waves, remaining, phase, intermission, valve } = sim;
+  drawScoreboard();
   const suitPercent = Math.ceil(player.health);
   drawNodeHud();
   drawWaveOutro();
@@ -2273,7 +2309,6 @@ function applyEvents() {
       } else if (event.wave < sim.waves && sim.gastric?.stage !== 'intake') {
         announce('WAVE CONTAINED', sim.junctionForecast ? 'CHOOSE SUPPORT FOR THE NEXT WAVE' : 'RELOAD AND REPAIR TISSUE', 3);
       }
-      if (!onlineRun && event.stage === 'clear' && (sim.phase === 'intermission' || sim.airway?.state === 'reopen')) armoryRound = event.wave;
     }
   }
 }
@@ -2347,10 +2382,6 @@ function frame(now) {
       finish();
       return;
     }
-    if (armoryRound) {
-      openArmory(armoryRound);
-      return;
-    }
   }
   animation = requestAnimationFrame(frame);
 }
@@ -2369,10 +2400,11 @@ byId('manual').addEventListener('click', () => {
   byId('manual-title').focus({ preventScroll: true });
 });
 armoryOpen.addEventListener('click', () => openArmory());
+byId('result-armory').addEventListener('click', () => openArmory());
 armoryDone.addEventListener('click', closeArmory);
 armoryDialog.addEventListener('cancel', event => {
   event.preventDefault();
-  if (!onlineRun || !armoryRound) closeArmory();
+  closeArmory();
 });
 armoryReset.addEventListener('click', () => {
   equipWeaponLoadout(loadoutWithBuild(weaponLoadout, editedLoadout().weapon, normalizeWeaponBuild({})));

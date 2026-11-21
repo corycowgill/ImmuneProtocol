@@ -61,11 +61,10 @@ function resetInput(player) {
 }
 
 export class CoopRooms {
-  constructor({ simulation = (players, area) => new CoopSimulation(players, area), graceMs = COOP_RECONNECT_MS, intermissionMs = 45_000 } = {}) {
+  constructor({ simulation = (players, area) => new CoopSimulation(players, area), graceMs = COOP_RECONNECT_MS } = {}) {
     this.rooms = new Map();
     this.createSimulation = simulation;
     this.graceMs = graceMs;
-    this.intermissionMs = intermissionMs;
     this.timer = setInterval(() => this.tick(Date.now()), 1000 / TICK_RATE).unref();
   }
 
@@ -142,7 +141,7 @@ export class CoopRooms {
     const room = {
       code, ownerId: '', players: [], phase: 'lobby', simulation: null, tick: 0, events: [],
       missionIndex: 0, results: [],
-      deadline: null, heldWave: null, intermissionRemaining: null, touchedAt: now,
+      touchedAt: now,
     };
     this.rooms.set(code, room);
     this.addPlayer(room, connection, message, now);
@@ -202,17 +201,13 @@ export class CoopRooms {
       return;
     }
     this.bind(room, player, connection, now);
-    if (room.intermissionRemaining !== null && room.players.every(entry => entry.connection)) {
-      room.deadline = now + room.intermissionRemaining;
-      room.intermissionRemaining = null;
-    }
     this.publishRoom(room);
     if (room.simulation) this.publishState(room, player, []);
   }
 
   leave(connection, now) {
     const { room, player } = connection;
-    if (room.phase === 'playing' || room.phase === 'intermission') {
+    if (room.phase === 'playing') {
       connection.room = null;
       connection.player = null;
       player.connection = null;
@@ -236,10 +231,6 @@ export class CoopRooms {
         teammate.ack = teammate.sequence;
         resetInput(teammate);
       }
-    }
-    if (room.phase === 'intermission' && room.deadline !== null) {
-      room.intermissionRemaining = Math.max(0, room.deadline - now);
-      room.deadline = null;
     }
     this.publishRoom(room);
   }
@@ -280,16 +271,13 @@ export class CoopRooms {
     if (room.phase === 'playing' || typeof message.ready !== 'boolean') return;
     if (message.loadout && typeof message.loadout === 'object') {
       player.weaponLoadout = normalizeWeaponLoadout(message.loadout);
-      if (room.phase === 'intermission') room.simulation.setWeaponLoadoutFor(player.id, player.weaponLoadout);
     }
     room.touchedAt = now;
     player.ready = message.ready;
     if (room.players.length >= COOP_MIN_PLAYERS && room.players.length <= COOP_MAX_PLAYERS && room.players.every(entry => entry.connection && entry.ready)) {
-      if (room.phase === 'intermission') this.continueMatch(room);
-      else this.startMatch(room);
+      this.startMatch(room);
     } else {
       this.publishRoom(room);
-      if (room.phase === 'intermission') this.publishState(room, player, []);
     }
   }
 
@@ -302,15 +290,12 @@ export class CoopRooms {
     room.simulation = this.createSimulation(participants, CAMPAIGN_AREAS[room.missionIndex]);
     room.simulation.start();
     room.tick = 0;
-    room.heldWave = null;
     room.events = [...room.simulation.events];
     this.continueMatch(room);
   }
 
   continueMatch(room) {
     room.phase = 'playing';
-    room.deadline = null;
-    room.intermissionRemaining = null;
     for (const player of room.players) {
       player.ready = false;
       player.ack = player.sequence;
@@ -369,10 +354,6 @@ export class CoopRooms {
       return;
     }
     if (room.players.some(player => !player.connection)) return;
-    if (room.phase === 'intermission') {
-      if (now >= room.deadline) this.continueMatch(room);
-      return;
-    }
 
     const sim = room.simulation;
     const inputs = Object.fromEntries(room.players.map(player => [player.id, this.consumeInput(player, now)]));
@@ -383,17 +364,11 @@ export class CoopRooms {
       if (sim.phase === 'won') {
         const { area, tissue, score, kills } = sim;
         const nodes = sim.nodes.map(({ name, health }) => ({ name, health }));
-        room.results.push({ area, tissue, score, kills, nodes });
+        const players = sim.players.map(({ id, name, score, kills }) => ({ id, name, score, kills }));
+        room.results.push({ area, tissue, score, kills, nodes, players });
       }
       room.phase = 'finished';
       room.touchedAt = now;
-      this.publishRoom(room);
-      this.publishStates(room);
-    } else if (sim.phase === 'intermission' && !sim.settling && room.heldWave !== sim.wave) {
-      room.heldWave = sim.wave;
-      room.phase = 'intermission';
-      room.deadline = now + this.intermissionMs;
-      for (const player of room.players) resetInput(player);
       this.publishRoom(room);
       this.publishStates(room);
     } else if (room.tick % 2 === 0) {
@@ -414,7 +389,6 @@ export class CoopRooms {
     if (room.phase === 'finished' && room.simulation.phase === 'won') {
       message.nextArea = CAMPAIGN_AREAS[room.missionIndex + 1] ?? null;
     }
-    if (room.deadline !== null) message.deadline = room.deadline;
     if (disconnected.length) message.reconnectDeadline = Math.min(...disconnected.map(player => player.disconnectedAt + this.graceMs));
     for (const player of room.players) send(player.connection?.client, message);
   }

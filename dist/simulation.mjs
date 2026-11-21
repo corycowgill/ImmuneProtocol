@@ -72,6 +72,10 @@ const FRAGMENT = { radius: .55, y: 1.35, health: 24, speed: 4.05, suitDamage: 5,
 const TUTORIAL_ATTACKER_HEALTH = 34;
 const GUARD_FRONT_THRESHOLD = .55;
 
+// Every wave fields three times its authored roster, in the same order and at the same pace.
+export const WAVE_SCALE = 3;
+export const extendRoster = roster => Array.from({ length: WAVE_SCALE }, () => roster).flat();
+
 const MISSIONS = [
   { cadence: 1.55, species: ['virus', 'virus', 'virus', 'spore', 'virus', 'virus', 'spore', 'virus', 'virus'] },
   { cadence: 1.30, species: ['virus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'bacillus', 'virus', 'virus', 'spore', 'virus', 'bacillus', 'spore'] },
@@ -79,6 +83,8 @@ const MISSIONS = [
   { cadence: 0.90, species: ['virus', 'bacillus', 'spore', 'spore', 'bacillus', 'virus', 'phage', 'bacillus', 'spore', 'filovirus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'phage', 'spore', 'bacillus', 'virus'] },
   { cadence: 0.76, species: ['bacillus', 'spore', 'virus', 'filovirus', 'spore', 'phage', 'bacillus', 'blister', 'bacillus', 'virus', 'spore', 'filovirus', 'spore', 'bacillus', 'phage', 'spore', 'virus', 'bacillus', 'virus', 'blister', 'bacillus', 'virus'] },
 ];
+
+for (const mission of MISSIONS) mission.species = extendRoster(mission.species);
 
 const SURGE_SPACING = .68;
 const JUNCTION_NODE_INDEX = { left: 0, right: 1 };
@@ -90,7 +96,7 @@ function junctionMission(name, groups, bonus = 0) {
     const nodeName = TISSUE_NODES.junction[JUNCTION_NODE_INDEX[branch]].name;
     const surge = { at, branch, nodeName, threat };
     surges.push(surge);
-    for (const [index, type] of species.entries()) {
+    for (const [index, type] of extendRoster(species).entries()) {
       arrivals.push({ at: at + index * SURGE_SPACING, type, branch, surge: index === 0 ? surge : null });
     }
   }
@@ -126,7 +132,9 @@ const HEART_LEAFLET_TIME = 0.42;
 const HEART_MIN_PLAYER_Z = -9.8;
 const HEART_MAX_PLAYER_Z = 28;
 const HEART_MAX_PLAYER_X = 20;
-const HEART_PATROL = ['virus', 'spore', 'bacillus', 'spore', 'virus', 'virus', 'bacillus', 'spore', 'virus', 'bacillus'];
+const HEART_PATROL = extendRoster(['virus', 'spore', 'bacillus', 'spore', 'virus', 'virus', 'bacillus', 'spore', 'virus', 'bacillus']);
+// Seconds between patrol arrivals.
+const HEART_PATROL_PACE = 3.2;
 const HEART_PATROL_ENTRIES = [{ x: 19, z: 27 }, { x: -18, z: 24 }, { x: 22, z: -4 }];
 // Which areas each species attacks in, for the disease guide. Gastric
 // counterattacks and Mega Virus broods only use species already in their waves.
@@ -171,6 +179,11 @@ const INTERMISSION_TIME = 6.5;
 // Pause between the final kill of a wave and the wave-clear / armory screen.
 export const WAVE_OUTRO_TIME = 4;
 // Nodes sit much farther apart in the enlarged arenas, so each one soaks a little more punishment.
+// Waves field three times the pathogens, so each strike on tissue or suit takes proportionally
+// less. Pathogens also arrive a little further apart so the longer waves do not pile up faster than they can be shot.
+const WAVE_CADENCE = 1.35;
+const WAVE_SUIT_DAMAGE = .4;
+const WAVE_TISSUE_DAMAGE = .35;
 const THREE_NODE_TISSUE_DAMAGE = .5;
 const ORGAN_TISSUE_DAMAGE = .72;
 const JUNCTION_BREAK_TIME = 8;
@@ -401,7 +414,7 @@ export class Simulation {
     this.tutorial = null;
     this.player = {
       x: 0, y: 1.7, z: this.valve ? 4 : this.area === 'junction' ? 20 : 26, yaw: 0, pitch: 0,
-      health: RULES.health, ammo: this.magazineSize,
+      health: RULES.health, ammo: this.magazineSize, score: 0, kills: 0,
     };
     if (this.organMission) [this.player.x, this.player.z] = this.organMission.entry;
     this.nodes = TISSUE_NODES[this.area].map(node => ({ ...node, health: RULES.tissue, underAttack: false }));
@@ -692,7 +705,7 @@ export class Simulation {
       this.spawnCountdown -= dt;
       if (this.spawnIndex < mission.species.length && this.spawnCountdown <= 0) {
         this.spawn(mission.species[this.spawnIndex]);
-        this.spawnCountdown += mission.cadence;
+        this.spawnCountdown += mission.cadence * WAVE_CADENCE;
       }
     }
     this.advanceEnemies(dt);
@@ -935,7 +948,7 @@ export class Simulation {
   }
 
   spawnHeartPatrol() {
-    if (this.patrolIndex >= HEART_PATROL.length || this.clock < 2.3 + this.patrolIndex * 4.6) return;
+    if (this.patrolIndex >= HEART_PATROL.length || this.clock < 2.3 + this.patrolIndex * HEART_PATROL_PACE) return;
     const index = this.patrolIndex++;
     const entry = HEART_PATROL_ENTRIES[index % HEART_PATROL_ENTRIES.length];
     this.enemies.push(this.createEnemy(HEART_PATROL[index], entry.x, entry.z, this.nodes[1]));
@@ -1027,7 +1040,10 @@ export class Simulation {
       const amount = Math.min(suit.repairAmount, RULES.tissue - node.health);
       node.health += amount;
       this.sealAirwayPort(node);
-      if (!this.tutorial) this.score += amount * 8;
+      if (!this.tutorial) {
+        this.score += amount * 8;
+        this.creditPlayer(suit, amount * 8);
+      }
       suit.repairProgress -= 1;
       if (sealing) {
         gash.sealRemaining = Math.max(0, gash.sealRemaining - suit.repairAmount);
@@ -1231,7 +1247,7 @@ export class Simulation {
       return;
     }
     this.events.push({ type: 'shot', weapon: kind, pellet, hit: Boolean(target), crit: critical, ...impact });
-    if (target) this.hitEnemy(target, (critical ? weapon.criticalDamage : weapon.bodyDamage) * falloff, critical, impact, 'player');
+    if (target) this.hitEnemy(target, (critical ? weapon.criticalDamage : weapon.bodyDamage) * falloff, critical, impact, 'player', suit);
   }
 
   // Rockets travel visibly and burst where the ray ends; damage lands when they arrive.
@@ -1255,7 +1271,7 @@ export class Simulation {
     this.rockets.length = count;
   }
 
-  detonate({ target, bossHit, impact, weapon }) {
+  detonate({ owner, target, bossHit, impact, weapon }) {
     const radius = weapon.splashRadius;
     this.events.push({ type: 'explosion', radius, ...impact });
     if (bossHit?.vulnerable && this.boss?.state === 'exposed') {
@@ -1270,7 +1286,7 @@ export class Simulation {
       if (gap > radius && !direct) continue;
       const splash = gap > radius ? 0 : weapon.splashDamage * (1 - .55 * gap / radius);
       const point = { x: enemy.x, y: enemy.y, z: enemy.z };
-      this.hitEnemy(enemy, splash + (direct ? weapon.bodyDamage : 0), direct, point, 'player');
+      this.hitEnemy(enemy, splash + (direct ? weapon.bodyDamage : 0), direct, point, 'player', owner);
     }
   }
 
@@ -1278,7 +1294,16 @@ export class Simulation {
     this.events.push({ type: 'guard', stage: 'block', id: guard.id, source, ...impact });
   }
 
-  hitEnemy(target, damage, critical, impact, source) {
+  // Kills and repairs count toward the player who made them; wave bonuses and turret kills
+  // only count toward the team score.
+  creditPlayer(suit, points, kill = false) {
+    const player = suit?.player;
+    if (!player) return;
+    player.score = (player.score ?? 0) + points;
+    if (kill) player.kills = (player.kills ?? 0) + 1;
+  }
+
+  hitEnemy(target, damage, critical, impact, source, suit = null) {
     target.health -= damage;
     const lethal = target.health <= 0;
     this.events.push({ type: 'hit', id: target.id, damage, crit: critical, lethal, source, ...impact });
@@ -1288,6 +1313,7 @@ export class Simulation {
     this.kills += 1;
     const score = target.fragment ? FRAGMENT.score : target.tutorial ? SPECIES.virus.score : SPECIES[target.type].score;
     this.score += score + (critical ? 35 : 0);
+    this.creditPlayer(suit, score + (critical ? 35 : 0), true);
     this.events.push({
       type: 'kill', id: target.id, enemyType: target.type, source, x: target.x, y: target.y, z: target.z,
     });
@@ -1460,12 +1486,13 @@ export class Simulation {
     const player = target === 'player' ? this.attackPlayer(playerId) : null;
     if (target === 'player') {
       if (!player) return;
-      player.health = Math.max(0, player.health - amount);
+      player.health = Math.max(0, player.health - amount * WAVE_SUIT_DAMAGE);
     } else {
       if (this.organ?.phase === 'active' && this.organ.nodeId === enemy.nodeId) {
         amount *= this.organMission.hazard.tissueDamage ?? 1;
       }
       amount *= this.nodes.length > 2 ? THREE_NODE_TISSUE_DAMAGE : this.organMission ? ORGAN_TISSUE_DAMAGE : 1;
+      amount *= WAVE_TISSUE_DAMAGE;
       this.damageNode(enemy.node, amount);
     }
     const impact = { type: 'damage', target, amount, id: enemy.id, x: origin.x, y: origin.y, z: origin.z };

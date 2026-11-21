@@ -11,10 +11,15 @@ const SPECIES_CODES = {
 // Waves use one letter per pathogen (v virus, b bacillus, s spore, g shellback guard, p splitter,
 // h phage, f flagellate, m blister mortar, w filovirus, a amoeba, r rogue cell) and one
 // lane letter per pathogen (L first node, R second node, C third node).
+// Keep in step with WAVE_SCALE in simulation.mjs: each authored wave is fielded three times over.
+const WAVE_SCALE = 3;
+
 function wave(name, cadence, codes, lanes) {
   // A three-letter lane order (for example 'LCR') expands into surges of three pathogens per node.
   if (lanes.length === 3 && codes.length > 3) lanes = [...codes].map((_, index) => lanes[Math.floor(index / 3) % 3]).join('');
   if (codes.length !== lanes.length) throw new Error('Wave ' + name + ' needs one lane per pathogen');
+  codes = codes.repeat(WAVE_SCALE);
+  lanes = lanes.repeat(WAVE_SCALE);
   // Enemies walk farther in the enlarged arenas, so the spawn cadence is stretched to match.
   return { name, cadence: cadence * CADENCE_STRETCH, species: [...codes].map(code => SPECIES_CODES[code]), lanes };
 }

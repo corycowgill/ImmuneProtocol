@@ -14,7 +14,7 @@ import { CAMPAIGN_AREAS } from '../../dist/coop-protocol.mjs';
 import { DIFFICULTIES, applyDifficulty } from '../../dist/difficulty.mjs';
 
 const STEP = 1 / 30;
-const TIME_LIMIT = 900;
+const TIME_LIMIT = 2700;
 
 function parse(argv) {
   const options = { difficulties: Object.keys(DIFFICULTIES), players: ['anchor', 'rover'], trials: 4, areas: [] };
@@ -72,6 +72,7 @@ function play(area, difficulty, rover) {
     }
     lowest = Math.min(lowest, ...sim.nodes.map(node => node.health));
   }
+  if (process.env.BOT_DEBUG && sim.phase !== 'won') console.log(area, difficulty, sim.phase, 'wave', sim.wave, 'failed', sim.failedNode?.name, 'hp', Math.round(sim.player.health), 't', Math.round(clock));
   return { won: sim.phase === 'won', lowest };
 }
 

@@ -49,7 +49,7 @@ async function squad(t, options = {}) {
 }
 
 test('three seats enforce capacity and ready barriers, share third-player shots, and reconnect all seats', async t => {
-  const team = await squad(t, { intermissionMs: 8000 });
+  const team = await squad(t);
   const { clients, sessions } = team;
   const fourth = await connect(t, team.origin);
   fourth.send({ type: 'join', code: sessions[0].code });
@@ -83,13 +83,11 @@ test('three seats enforce capacity and ready barriers, share third-player shots,
   assert.equal((await clients[2].take(type('state'))).state.players.length, 3);
   team.sim.spawnIndex = team.sim.missions[0].species.length;
   team.sim.enemies = []; team.sim.projectiles = []; team.sim.outro = { remaining: 0, duration: 0 };
-  await Promise.all(clients.map(client => client.take(phase('intermission'))));
-  const breakClock = team.sim.clock;
-  for (const index of [0, 1]) clients[index].send({ type: 'ready', ready: true });
-  await clients[0].take(message => phase('intermission')(message) && message.players[0].ready && message.players[1].ready);
-  await delay(70); assert.equal(team.sim.clock, breakClock);
-  clients[2].send({ type: 'ready', ready: true });
-  await Promise.all(clients.map(client => client.take(phase('playing'))));
+  // The next wave counts down for everyone without a ready-up.
+  const counting = message => type('state')(message) && message.state.phase === 'intermission';
+  await Promise.all(clients.map(client => client.take(counting)));
+  team.sim.intermission = .1;
+  await Promise.all(clients.map(client => client.take(message => type('state')(message) && message.state.wave === 2)));
 });
 
 test('a three-player squad advances all ten missions and retries a loss with every loadout intact', async t => {
