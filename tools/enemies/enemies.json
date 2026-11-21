@@ -265,5 +265,28 @@
       "frequency": 0.8,
       "clench": 0.05
     }
+  },
+  "nest": {
+    "builder": "build_nest",
+    "tris": 24000,
+    "voxel": 0.0085,
+    "material": {
+      "clearcoat": 0.8,
+      "coat_roughness": 0.16,
+      "sheen": 0.3,
+      "sheen_tint": [
+        0.95,
+        0.6,
+        0.5
+      ],
+      "roughness_scale": 0.85,
+      "saturation": 1.06
+    },
+    "motion": {
+      "sway": 0.03,
+      "breathe": 0.04,
+      "frequency": 1.7,
+      "clench": 0.05
+    }
   }
 }

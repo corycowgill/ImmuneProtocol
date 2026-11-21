@@ -16,6 +16,7 @@ import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon }
 import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, SPECIES, TISSUE_NODES } from './simulation.mjs';
 import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion } from './enemy-models.mjs';
 import { RenderScale } from './render-scale.mjs';
+import { NEST } from './field-objectives.mjs';
 import { chunkInstances, cullDecor } from './decor-chunks.mjs';
 
 // Every lit pixel walks all of the arena's point lights, and most of them are out of range of
@@ -1457,6 +1458,8 @@ export class World {
     sim.nodes[0].health = 66;
     sim.turret = { x: start.x + 2, y: 0, z: start.z - 4, yaw: Math.PI, pitch: 0 };
     sim.projectiles.push({ id: 0, x: start.x, y: 1, z: start.z - 8, vx: .2, vy: 0, vz: 1, radius: .25 });
+    const nest = sim.createEnemy(NEST.model, start.x - 9, start.z - 14, sim.nodes[0], NEST);
+    sim.enemies.push(Object.assign(nest, { nest: true, behavior: 'nest', scale: NEST.scale }));
     sim.pickups = [{ id: 0, kind: 'cache', x: start.x + 3, y: 1.3, z: start.z - 6, remaining: 30 }];
     if (sim.organ) sim.organ.phase = 'active';
     if (sim.area === 'junction') {
@@ -1927,15 +1930,16 @@ export class World {
         // A brood nest sits rooted to the floor, swollen, and throbs faster as it is shot.
         view.hit = Math.max(0, view.hit - dt * 7);
         const throb = reduceMotion ? 0 : Math.sin(this.clock * 2.4 + view.phase) * .04;
+        // Rooted: it follows the floor, turned at a fixed angle, and swells without leaving it.
+        view.model.position.y = floorHeight(enemy.x, enemy.z) + enemy.y * (1 + throb * .5 - view.hit * .04) - .06;
         view.model.rotation.set(0, view.phase, 0);
-        view.model.scale.set(1 + throb + view.hit * .05, 1 - throb - view.hit * .07, 1 + throb + view.hit * .05).multiplyScalar(enemy.scale);
+        view.model.scale.set(1 + view.hit * .03, 1 + throb * .5 - view.hit * .04, 1 + view.hit * .03).multiplyScalar(enemy.scale);
         if (view.attackMembrane) {
-          view.attackMembrane.emissive.copy(view.membraneGlow).lerp(ATTACK_GLOW.blister ?? view.membraneGlow, .5);
-          view.attackMembrane.emissiveIntensity = view.membraneIntensity + .5 + throb * 6;
+          view.attackMembrane.emissiveIntensity = view.membraneIntensity + .15 + throb * 4 + view.hit * .5;
         }
         if (!reduceMotion) animatePathogen(view.motion, dt, throb * 8);
         view.shadow.position.set(enemy.x, floorHeight(enemy.x, enemy.z) + .1, enemy.z);
-        view.shadow.scale.setScalar(enemy.radius * 1.5);
+        view.shadow.scale.setScalar(enemy.radius * 1.9);
         continue;
       }
       const angle = view.phase + this.clock * (enemy.type === 'virus' ? .64 : .9);

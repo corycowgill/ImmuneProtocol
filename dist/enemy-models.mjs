@@ -22,6 +22,8 @@ export const ENEMY_MODELS = Object.freeze({
   filovirus: { size: 1.2, glow: 0x46100a },
   amoeba: { size: 1.12, glow: 0x24204a },
   rogue: { size: 1.15, glow: 0x46120e },
+  // The brood nest (field-objectives.mjs) is modelled in Blender by tools/enemies/build_nest.py.
+  nest: { size: 1, glow: 0x4a1608 },
 });
 
 // glTF clips keyed by the shared morph geometry, so every clone of a template finds its clip.

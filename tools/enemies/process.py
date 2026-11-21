@@ -393,15 +393,22 @@ def build(enemy):
     cfg = CONFIG[enemy]
     bpy.ops.wm.read_factory_settings(use_empty=True)
     device = use_gpu()
-    bpy.ops.import_scene.gltf(filepath=os.path.join(ORIGINALS, cfg['source']))
-    meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
-    if len(meshes) != 1:
-        raise RuntimeError('%s: expected one mesh, found %d' % (cfg['source'], len(meshes)))
-    master = meshes[0]
+    if cfg.get('builder'):
+        # Modelled rather than scanned: a sibling script sculpts the master in this scene.
+        sys.path.insert(0, HERE)
+        master = __import__(cfg['builder']).build_master()
+        source = cfg['builder'] + '.py'
+    else:
+        source = cfg['source']
+        bpy.ops.import_scene.gltf(filepath=os.path.join(ORIGINALS, source))
+        meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+        if len(meshes) != 1:
+            raise RuntimeError('%s: expected one mesh, found %d' % (source, len(meshes)))
+        master = meshes[0]
     master.name = enemy + '_master'
     for other in [o for o in bpy.context.scene.objects if o != master]:
         bpy.data.objects.remove(other)
-    report = {'source': cfg['source'], 'device': device, 'refine': refine(master)}
+    report = {'source': source, 'device': device, 'refine': refine(master)}
     normalise(master)
     bpy.ops.object.shade_smooth_by_angle(angle=math.radians(40), keep_sharp_edges=True)
     master_shading(master)

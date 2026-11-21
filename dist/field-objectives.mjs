@@ -4,8 +4,10 @@
 // crosses the arena and destroys them; a wave is not clear while a nest stands. Antibody caches
 // drift in for a limited time and patch up the suit of whoever reaches them first. Both pull
 // players off their node and across the full chamber.
+// The model spans two units across its roots and stands 0.7 tall; at this scale the mound is
+// about 4.4 m wide and 2.4 m high, resting on the floor with its centre at y.
 export const NEST = Object.freeze({
-  model: 'blister', health: 640, radius: 2.05, y: 1.75, scale: 2.4,
+  model: 'nest', health: 640, radius: 1.95, y: 1.2, scale: 3.4,
   firstHatch: 5, hatchEvery: 6.5, hatchLimit: 8, score: 600,
 });
 export const CACHE = Object.freeze({ radius: 2.6, lifetime: 45, heal: 40, score: 250, y: 1.3 });
@@ -123,7 +125,6 @@ export function stepFieldObjectives(sim, dt, arena) {
 
 // A nest never moves. It hatches a larva toward the weakest node on a timer until it runs dry.
 export function advanceNest(sim, nest, dt, larva) {
-  nest.y = NEST.y + Math.sin(sim.clock * 1.4 + nest.id) * .05;
   if (nest.hatched >= NEST.hatchLimit) return;
   nest.hatchIn -= dt;
   if (nest.hatchIn > 0) return;

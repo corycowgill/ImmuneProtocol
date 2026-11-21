@@ -6,7 +6,8 @@ import { SPECIES, speciesHabitats } from '../dist/simulation.mjs';
 const asset = path => readFileSync(new URL('../dist/assets/enemies/' + path, import.meta.url));
 
 test('every species has a scanned model with its animation targets', () => {
-  for (const type of Object.keys(SPECIES)) {
+  // The brood nest is a field objective rather than a species, built by tools/enemies/build_nest.py.
+  for (const type of [...Object.keys(SPECIES), 'nest']) {
     const file = asset(type + '.glb');
     assert.equal(file.toString('ascii', 0, 4), 'glTF', type + ' is a binary glTF');
     const length = file.readUInt32LE(12);
