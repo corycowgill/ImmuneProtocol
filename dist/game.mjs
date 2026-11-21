@@ -1,4 +1,5 @@
 import { Simulation, JUNCTION_INLETS, RULES } from './simulation.mjs';
+import { AIDebugSystem } from './ai-debug.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
 import {
@@ -29,6 +30,7 @@ const byId = id => document.getElementById(id);
 const menu = byId('menu');
 const game = byId('game');
 const canvas = byId('world');
+const aiDebug = new AIDebugSystem(document);
 const deploy = byId('deploy');
 const newCampaignButton = byId('new-campaign');
 const newCampaignDialog = byId('new-campaign-dialog');
@@ -1082,6 +1084,7 @@ function chooseExtraction(choice) {
 
 function mainMenu(keepRoom = false) {
   running = false;
+  aiDebug.update(sim, performance.now(), false);
   paused = false;
   campaign = null;
   practice = null;
@@ -1259,6 +1262,7 @@ function drawNodeBreakdown(container, nodes) {
 
 function finish() {
   running = false;
+  aiDebug.update(sim, performance.now(), false);
   extractionDialog.close();
   clearControls();
   releaseMouse();
@@ -2344,6 +2348,7 @@ function frame(now) {
       touch.reload = false;
     }
     const aiming = world.render(sim, dt, input, reducedMotion);
+    aiDebug.update(sim, now, running);
     input.lookX = 0;
     input.lookY = 0;
     drawHud();
@@ -2614,6 +2619,11 @@ function switchFromGamepad(event) {
 window.addEventListener('keydown', switchFromGamepad, { capture: true });
 window.addEventListener('pointerdown', switchFromGamepad, { capture: true, passive: true });
 window.addEventListener('keydown', event => {
+  if (event.code === 'F3' && running) {
+    event.preventDefault();
+    if (!event.repeat) aiDebug.toggle(event.shiftKey);
+    return;
+  }
   if (!running || paused || sim.extractionPending) return;
   const supply = supplyKeys[event.code];
   if (supply && !junctionSupply.hidden) {

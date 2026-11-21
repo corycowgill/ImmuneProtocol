@@ -542,6 +542,8 @@ const BEHAVIOURS = {
     for (const prey of [...sim.enemies]) {
       if (prey === boss || prey.boss || prey.nest || prey.segmentOf || distance(prey, boss) > boss.radius + 1) continue;
       sim.enemies.splice(sim.enemies.indexOf(prey), 1);
+      sim.ai?.emit('death', prey, { owner: prey.id, radius: 22 });
+      sim.ai?.remove(prey.id);
       boss.health = Math.min(boss.maxHealth, boss.health + boss.maxHealth * .035);
       emit(sim, boss, 'ability', { ability: 'devour' });
     }
