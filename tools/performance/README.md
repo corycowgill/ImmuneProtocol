@@ -45,7 +45,7 @@ Changes:
 
 - **Light loop.** The stock three.js shader evaluates the full reflectance model for every point light on every pixel, including lights that are switched off (muzzle flash, explosion pool, indicators) or out of range. `world.mjs` patches the shared shader chunk to skip lights whose contribution is exactly zero. No pixel changes.
 - **Dynamic resolution** (`dist/render-scale.mjs`). Below 50 fps the canvas is drawn at a lower scale, down to 60% per axis, and restored after several seconds at 57 fps or more. If fewer pixels do not raise the frame rate (a 30 Hz display, a CPU limit) the scale is restored and adaptation backs off. Covered by `server/render-scale.test.mjs`.
-- **Decor geometry.** Small or distant instanced decor uses coarser meshes: blood river cells 784 → 196 triangles, drifting cells 672 → 448, villus grass 180 → 84, tall villi 840 → 448, colon rods 126 → 60, lymphocytes and ear cilia 396 → 176.
+- **Decor geometry.** Small or distant instanced decor uses coarser meshes: blood river cells 784 → 196 triangles, drifting cells 672 → 448, villus grass 180 → 84, tall villi 840 → 448, lymphocytes and ear cilia 396 → 176.
 
 | Arena (no pathogens) | Triangles before | After |
 | --- | ---: | ---: |
@@ -56,3 +56,18 @@ Changes:
 | Inner ear | 597,000 | 501,000 |
 
 These runs used a software rasterizer, so triangle and CPU numbers are real but GPU time was not measured. The light-loop and dynamic-resolution gains need a check on real hardware. Not done: lower-detail pathogen models at distance (16,000–24,000 morph-animated triangles each) and fewer arena lights, both of which would change assets or lighting.
+
+## Scenery culling
+
+`dist/decor-chunks.mjs` splits arena-wide instanced batches into floor patches with their own bounds, so three.js skips the patches outside the view: wall folds, floor growths and cilia, villi and villus grass, colon bacteria and cocci, lymphocytes, ear cilia. Blood river cells are dealt each frame into six stretches per river. Patches wholly beyond the distance where fog leaves under 1% of their colour are hidden too; with the current fog that is over 100 m, so it rarely triggers.
+
+Triangles per frame with no pathogens, from the spawn point (`?enemies=0&yaw=…`):
+
+| Arena | Before culling | Facing ahead | Turned 90° | Turned 180° |
+| --- | ---: | ---: | ---: | ---: |
+| Artery | 1,120,000 | 874,000 | 662,000 | 555,000 |
+| Small intestine | 867,000 | 805,000 | 535,000 | 411,000 |
+| Colon | 887,000 | 870,000 | 678,000 | 535,000 |
+| Lymph node | 657,000 | 558,000 | 379,000 | 406,000 |
+
+Draw calls stayed between 170 and 290. The drifting red cells near the player and the stomach, lung and brain decor are not split.

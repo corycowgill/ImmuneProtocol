@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import { chunkInstances, flowPatches } from './decor-chunks.mjs';
 import { bioTexture } from './bio-textures.mjs';
 
 // Large-scale set dressing and ambient VFX for every arena: blood-cell rivers and a pumping valve
@@ -186,10 +187,23 @@ function bloodRiver(root, rivers, count, time, random) {
     color: 0xffffff, roughness: .34, clearcoat: .55, clearcoatRoughness: .3, sheen: .7, sheenColor: 0xff9c8a,
     sheenRoughness: .45, emissive: 0x3a0306, emissiveIntensity: .35,
   });
-  const cells = new THREE.InstancedMesh(redCellGeometry(), material, count);
-  cells.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  cells.frustumCulled = false;
-  root.add(cells);
+  // Each river is cut into stretches with their own bounds, so the stretches behind the camera
+  // are skipped. Cells are dealt back into the stretch they are passing through every frame.
+  const STRETCHES = 6;
+  const bounds = [];
+  for (const flow of rivers) {
+    flow.patch = bounds.length;
+    const { positions, samples } = flow.path;
+    for (let stretch = 0; stretch < STRETCHES; stretch++) {
+      const from = Math.floor(stretch / STRETCHES * samples);
+      const to = Math.ceil((stretch + 1) / STRETCHES * samples);
+      const sphere = new THREE.Sphere().setFromPoints(positions.slice(from, to + 1));
+      // Room for the eddies that swing cells off the stream line, and for the cells themselves.
+      sphere.radius += flow.radius * 1.2 + flow.cell * 1.6;
+      bounds.push(sphere);
+    }
+  }
+  const cells = flowPatches(root, redCellGeometry(), material, bounds, count);
   const totalWeight = rivers.reduce((sum, river) => sum + river.share, 0);
   const state = [];
   let riverIndex = 0;
@@ -208,12 +222,12 @@ function bloodRiver(root, rivers, count, time, random) {
       radius, angle, size, spin: (random() - .5) * 3, tumble: random() * TAU, wobble: random() * TAU,
     });
     const tint = .82 + random() * .18;
-    cells.setColorAt(i, new THREE.Color(tint, tint * (.86 + random() * .1), tint * (.88 + random() * .1)));
+    state[i].color = new THREE.Color(tint, tint * (.86 + random() * .1), tint * (.88 + random() * .1));
   }
   const position = new THREE.Vector3();
   const tangent = new THREE.Vector3();
   return (dt, pulse, visible) => {
-    cells.count = visible;
+    cells.begin();
     for (let i = 0; i < visible; i++) {
       const cell = state[i];
       const { river } = cell;
@@ -233,9 +247,10 @@ function bloodRiver(root, rivers, count, time, random) {
       const squish = 1 + .12 * Math.sin(time.value * 3 + cell.wobble);
       tempS.set(cell.size * squish, cell.size * 1.05, cell.size / squish);
       tempM.compose(position, tempQ, tempS);
-      cells.setMatrixAt(i, tempM);
+      const stretch = Math.min(STRETCHES - 1, Math.max(0, Math.floor(cell.t * STRETCHES)));
+      cells.push(river.patch + stretch, tempM, cell.color);
     }
-    cells.instanceMatrix.needsUpdate = true;
+    cells.end();
   };
 }
 
@@ -493,8 +508,8 @@ function villusForest(root, time, random, nodes, obstacles) {
     const tint = .8 + random() * .2;
     forest.setColorAt(index, new THREE.Color(tint, tint * (.86 + random() * .1), tint * (.88 + random() * .1)));
   });
-  forest.frustumCulled = false;
   root.add(forest);
+  chunkInstances(forest);
   const grassCount = 2600;
   const meadow = new THREE.InstancedMesh(fingerGeometry(6, 7), grass, grassCount);
   for (let i = 0; i < grassCount; i++) {
@@ -513,9 +528,9 @@ function villusForest(root, time, random, nodes, obstacles) {
     const tint = .8 + random() * .2;
     meadow.setColorAt(i, new THREE.Color(tint, tint * .9, tint * .9));
   }
-  meadow.frustumCulled = false;
   root.add(meadow);
-  return quality => { meadow.count = quality ? grassCount : 800; };
+  const patches = chunkInstances(meadow, { cell: 21 });
+  return quality => patches.setFraction(quality ? 1 : 800 / grassCount);
 }
 
 // Nutrient motes drift down and are drawn into the nearest villus tips.
@@ -574,7 +589,7 @@ function microbiome(root, time, random, nodes, obstacles, glow) {
     blob.position.set(x, size * .05, z);
     root.add(blob);
   }
-  const rods = new THREE.CapsuleGeometry(.16, .62, 1, 6);
+  const rods = new THREE.CapsuleGeometry(.16, .62, 2, 7);
   rods.translate(0, .47, 0);
   const rodMaterial = addSway(bioMaterial('biofilm', [1, 1], { color: 0xffffff, roughness: .32, clearcoat: 1,
     clearcoatRoughness: .12, sheen: .6, sheenColor: 0xfff4d8, normalScale: new THREE.Vector2(.4, .4) }), time, .5, 4.2, 'rods');
@@ -595,8 +610,8 @@ function microbiome(root, time, random, nodes, obstacles, glow) {
     color.setHex(palettes[(i % colonies.length) % palettes.length]).multiplyScalar(.75 + random() * .35);
     bacteria.setColorAt(i, color);
   }
-  bacteria.frustumCulled = false;
   root.add(bacteria);
+  chunkInstances(bacteria, { cell: 21 });
   // Streptococcus chains draped over the floor.
   const cocci = new THREE.InstancedMesh(new THREE.SphereGeometry(.13, 9, 6), bioMaterial('leukocyte', [1, 1], {
     color: 0xd9c4e8, roughness: .3, clearcoat: 1, sheen: .5, sheenColor: 0xffffff }), 640);
@@ -613,8 +628,8 @@ function microbiome(root, time, random, nodes, obstacles, glow) {
       cocci.setColorAt(chain * 16 + link, color.setHSL(.72 + random() * .1, .35, .62 + random() * .15));
     }
   }
-  cocci.frustumCulled = false;
   root.add(cocci);
+  chunkInstances(cocci);
   // Spirilla corkscrew through the air.
   const spirals = [];
   const spiralSkin = new THREE.MeshPhysicalMaterial({ color: 0xc9e08a, roughness: .3, clearcoat: 1,

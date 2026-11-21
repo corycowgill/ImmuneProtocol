@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import { chunkInstances } from './decor-chunks.mjs';
 import { GASTRIC_PASSAGE, GASTRIC_VALVES } from './gastric.mjs';
 
 const TAU = 2 * Math.PI;
@@ -588,7 +589,7 @@ function makeLymph(root, skin, lobe, random, glow) {
     const angle = i / 8 * TAU + .3;
     follicles.push([Math.cos(angle) * 26, 2 + random() * 4, Math.sin(angle) * 36, 3.4 + random() * 1.6]);
   }
-  const lymphocytes = instances(root, lobe.small, skin(0xf4eef4, { roughness: .4, clearcoat: .8, sheen: .8, sheenColor: 0xe0ecff,
+  const lymphocytes = chunkInstances(instances(root, lobe.small, skin(0xf4eef4, { roughness: .4, clearcoat: .8, sheen: .8, sheenColor: 0xe0ecff,
     emissive: 0x4a5878, emissiveIntensity: .35 }),
     follicles.length * 70, index => {
       const [x, y, z, radius] = follicles[Math.floor(index / 70)];
@@ -598,8 +599,7 @@ function makeLymph(root, skin, lobe, random, glow) {
       const size = .32 + random() * .16;
       return { position: [x + Math.cos(phi) * r, y + h * radius * .8, z + Math.sin(phi) * r],
         scale: [size, size, size], angles: [random(), random(), random()], brightness: .78 + random() * .22 };
-    });
-  lymphocytes.frustumCulled = false;
+    }), { cell: 20 });
   const germinal = new THREE.MeshPhysicalMaterial({ color: 0x9fd7ff, emissive: 0x5fa8ff, emissiveIntensity: .45,
     roughness: .3, transparent: true, opacity: .4, depthWrite: false });
   for (const [x, y, z, radius] of follicles) {
@@ -659,7 +659,7 @@ function makeEar(root, skin, lobe, random, glow) {
     }
   }
   tubes(root, canalArches, skin(0xae93ad));
-  const cilia = instances(root, lobe.small, skin(0xd2b4ae), 420, index => {
+  const cilia = chunkInstances(instances(root, lobe.small, skin(0xd2b4ae), 420, index => {
     const side = index % 2 ? -1 : 1;
     const lane = Math.floor(index / 56);
     const z = -34 + random() * 51;
@@ -667,7 +667,7 @@ function makeEar(root, skin, lobe, random, glow) {
     const x = side * (18.6 + lane * 1.38 + Math.sin(z * .22) * .76);
     return { position: [x, y * .75, z], scale: [.07 + random() * .13, y, .11 + random() * .10],
       angles: [.35, 0, side * .49], brightness: .67 + random() * .43 };
-  });
+  }), { cell: 14 });
   centerGlow(root, glow, .2, 5.8, -21, 0xd0c3e4, 169, 34);
   centerGlow(root, glow, -16, 3.8, -12, 0x98d1ee, 126, 32);
   return (time, active) => { cilia.scale.y = 1 + Math.sin(time * 10) * (active ? .06 : .005); };

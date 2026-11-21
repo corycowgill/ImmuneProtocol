@@ -16,6 +16,7 @@ import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon }
 import { Simulation, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, SPECIES, TISSUE_NODES } from './simulation.mjs';
 import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion } from './enemy-models.mjs';
 import { RenderScale } from './render-scale.mjs';
+import { chunkInstances, cullDecor } from './decor-chunks.mjs';
 
 // Every lit pixel walks all of the arena's point lights, and most of them are out of range of
 // it or switched off (muzzle flash, explosion pool, indicators). Their contribution is exactly
@@ -580,7 +581,9 @@ function makeRoom(scene, tile, normal, glow, random) {
   const heartDetails = makeHeartChamber(scene, skin, glow);
   // The heart's play space grew; push its muscular walls out to match.
   heartDetails.scale.set(1.2, 1.1, 1.12);
-  return { surfaces, arteryDetails, junctionDetails, heartDetails, floor, wall, canopy, growths, cilia };
+  chunkInstances(folds, { pad: 0 });
+  return { surfaces, arteryDetails, junctionDetails, heartDetails, floor, wall, canopy,
+    growths: chunkInstances(growths, { pad: 0 }), cilia: chunkInstances(cilia, { pad: 0 }) };
 }
 
 function makeAtmosphere(scene, glow, random) {
@@ -1676,8 +1679,8 @@ export class World {
     this.weaponKey.castShadow = !low;
     this.weaponKey.shadow.needsUpdate = !low;
     const { growths, cilia } = this.room;
-    growths.count = low ? 330 : growths.instanceMatrix.count;
-    cilia.count = low ? 170 : cilia.instanceMatrix.count;
+    growths.setFraction(low ? 330 / growths.total : 1);
+    cilia.setFraction(low ? 170 / cilia.total : 1);
     const { cells, cellPath, motes, clouds } = this.atmosphere;
     cells.count = low ? 35 : cellPath.length;
     motes.geometry.setDrawRange(0, low ? 280 : motes.geometry.attributes.position.count);
@@ -2367,6 +2370,8 @@ export class World {
     this.updateWeapon(sim, dt, input, aiming, reduceMotion);
     this.processEvents(sim.events, dt, reduceMotion, sim.weapon.muzzleFlash, player.id);
     this.updateParticles(dt);
+    this.scene.updateMatrixWorld();
+    cullDecor(this.camera, this.scene.fog);
     this.renderer.render(this.scene, this.camera);
     // Give the close-up model its own depth buffer without clearing the artery.
     this.renderer.autoClear = false;

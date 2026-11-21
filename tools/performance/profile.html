@@ -5,7 +5,7 @@ import { CAMPAIGN_AREAS } from './coop-protocol.mjs';
 import { DEFAULT_WEAPON_LOADOUT } from './weapon-mods.mjs';
 // Renders a crowded wave in each arena and reports where the frame goes: scene update on the
 // CPU, draw submission, and the draw calls and triangles behind it. ?areas=artery,brain narrows
-// the run; ?quality=low, ?enemies=30 and ?frames=90 change the load.
+// the run; ?quality=low, ?enemies=30, ?frames=90 and ?yaw=180 (turn the camera) change the load.
 const query = new URLSearchParams(location.search);
 const status = document.querySelector('#status'), report = document.querySelector('#report');
 const paint = () => new Promise(requestAnimationFrame);
@@ -31,6 +31,7 @@ try {
     await world.prepareMission(sim, (_value, label) => status.textContent = area + ': ' + label);
     sim.start();
     const p = sim.player;
+    if (query.has('yaw')) p.yaw += Number(query.get('yaw')) * Math.PI / 180;
     for (let i = 0; i < crowd; i++) {
       sim.enemies.push(sim.createEnemy(types[i % types.length], p.x - 9 + (i % 8) * 2.6, p.z - 7 - Math.floor(i / 8) * 3.5));
     }
