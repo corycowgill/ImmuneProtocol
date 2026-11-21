@@ -106,7 +106,8 @@ svg{display:block;width:24px;height:24px;flex:none}
 .game:has(:is(#boss-hud,#airway-hud,#gastric-hud):not([hidden])) .scoreboard{top:190px}
 @media(max-width:720px){
   .coop-hud{top:92px;left:12px;max-width:44vw;padding:4px 6px;font-size:9px}
-  .scoreboard,.game:has(:is(#boss-hud,#airway-hud,#gastric-hud):not([hidden])) .scoreboard{top:auto;bottom:118px;right:12px;min-width:0;max-width:44vw;padding:4px 6px;font-size:9px}
+  .scoreboard{top:58px;right:12px;min-width:0;max-width:44vw;padding:4px 6px;font-size:9px}
+  .game:has(:is(#boss-hud,#airway-hud,#gastric-hud):not([hidden])) .scoreboard{top:158px}
   .scoreboard small{display:none}
 }
 @media(max-width:510px){
