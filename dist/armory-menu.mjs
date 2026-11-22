@@ -105,7 +105,7 @@ function spinArmory(now) {
 
 armoryPreview.addEventListener('pointerdown', event => {
   armoryDrag = { x: event.clientX, y: event.clientY };
-  armoryPreview.setPointerCapture(event.pointerId);
+  if (event.isTrusted) armoryPreview.setPointerCapture(event.pointerId);
 });
 
 armoryPreview.addEventListener('pointermove', event => {

@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import { publishUiFrame } from './ui-media.mjs';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { ENEMY_MODELS, animatePathogen, loadEnemyModel, pathogenMotion } from './enemy-models.mjs';
 import { SPECIES, speciesHabitats } from './simulation.mjs';
@@ -201,7 +202,7 @@ class PathogenViewer {
     this.dragging = null;
     canvas.addEventListener('pointerdown', event => {
       this.dragging = { x: event.clientX, y: event.clientY };
-      canvas.setPointerCapture(event.pointerId);
+      if (event.isTrusted) canvas.setPointerCapture(event.pointerId);
     });
     canvas.addEventListener('pointermove', event => {
       if (!this.dragging) return;
@@ -270,6 +271,7 @@ class PathogenViewer {
       this.camera.updateProjectionMatrix();
     }
     this.renderer.render(this.scene, this.camera);
+    publishUiFrame(this.canvas);
     requestAnimationFrame(this.frame);
   }
 

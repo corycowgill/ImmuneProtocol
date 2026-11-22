@@ -9,6 +9,7 @@ import {
 import { FIELD_UPGRADE_ART, prepareArmoryArt } from './armory-art.mjs';
 import { World } from './world.mjs';
 import { loadingScreen, paintLoading } from './loading-screen.mjs';
+import { gameUi } from './ui-browser.mjs';
 import { LOW_MEMORY } from './asset-loading.mjs';
 import { loadLab } from './coop-lobby-bay.mjs';
 import { ENEMY_MODELS } from './enemy-models.mjs';
@@ -1078,6 +1079,7 @@ function frame(now) {
     drawAttackers();
     drawBranches();
     drawCombatFeedback(aiming);
+    gameUi.presentCombat(now);
     if (session.sim.extractionPending) {
       offerExtraction();
       return;

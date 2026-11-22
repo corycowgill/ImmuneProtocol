@@ -1,6 +1,7 @@
 // Local-only fixture, served at /__hud by the performance server. Uses the real
 // game DOM, renderer and HUD; freezes combat so screenshots are reproducible.
 import { World } from './world.mjs';
+import { gameUi } from './ui-browser.mjs';
 import { Simulation } from './simulation.mjs';
 import { session } from './session.mjs';
 import { drawHud, drawMarkers, drawAttackers, drawBranches } from './hud.mjs';
@@ -8,11 +9,13 @@ import { spawnLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss } from './brain-boss.mjs';
 import { startGastric } from './gastric.mjs';
 const $ = id => document.getElementById(id), query = new URLSearchParams(location.search);
+gameUi.start();
 const scenario = query.get('scenario') ?? 'encounter';
 const area = ({ boss: 'colon', brain: 'brain', airway: 'lungs', gastric: 'stomach', junction: 'junction', hazard: 'colon' })[scenario] ?? 'artery';
 const panel = document.createElement('details'); panel.style.cssText = 'position:fixed;bottom:5px;left:40%;z-index:99;background:#111d;color:white;font:11px monospace;padding:5px';
 panel.innerHTML = '<summary>HUD check</summary><select aria-label="HUD scenario">' + ['encounter', 'active', 'quiet', 'laser', 'hazard', 'boss', 'brain', 'airway', 'gastric', 'junction', 'training'].map(s => `<option ${s === scenario ? 'selected' : ''}>${s}</option>`).join('') + '</select> <button>Hide check controls</button><p id="hud-check-status">Preparing…</p>';
 document.body.append(panel);
+panel.style.zIndex = '2147483004'; panel.hidden = query.has('clean');
 panel.querySelector('select').onchange = e => { location.search = '?scenario=' + e.target.value; };
 panel.querySelector('button').onclick = () => { panel.hidden = true; };
 try {

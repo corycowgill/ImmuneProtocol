@@ -247,6 +247,8 @@ git subtree push --prefix=dist origin gh-pages
 
 When mouse capture is unavailable, drag the view to look. On touchscreens, move with the joystick, drag to look, and use the action buttons.
 
+All screens now use a shared canvas interface, including menus, armory, guide, co-op, combat, pause, loading and mission reports. Game panes handle scrolling, selectors and focus without browser page scrolling or native select menus. Native text entry is retained for callsigns, room codes and invite links. The reusable models, layout, input and rendering boundaries are documented in [Canvas game interface](docs/canvas-ui.md).
+
 Phones use a compact HUD in landscape and portrait: tissue bars across the top, small health and ammo readouts, and touch buttons in the lower corners. Score remains available in Pause. Healthy node markers stay subtle; damaged nodes, blocked airways, boss attacks and laser locks keep their guidance. Encounter arrival notices clear after 2.5 seconds, while incoming breach warnings stay until arrival. Desktop retains its full HUD, with encounter intelligence moved to the upper right.
 
 To check the layout locally, run `npm run profile` and open `http://127.0.0.1:8027/__hud`. The fixture uses the real HUD and renderer with selectable combat, boss, hazard, training and objective states. Check 852×393 and 667×375 landscape, 393×852 portrait, and 1280×720 desktop. Touch targets should remain at least 44×44 CSS pixels. This fixture is served only by the local performance server.
@@ -289,17 +291,19 @@ flowchart LR
     Game -->|input and elapsed time| Sim["simulation.mjs · gameplay rules"]
     Sim -->|state and events| Game
     Game -->|state and events| World["world.mjs · Three.js renderer"]
-    Game --> HUD["HTML menus and HUD"]
+    Game --> HUD["Canvas UI · shared screen models"]
     Game -->|audio cues| Audio["audio.mjs · Web Audio"]
     World --> Canvas["WebGL 2 canvas"]
 ```
 
 | File | Responsibility |
 | --- | --- |
-| [`dist/index.html`](dist/index.html), [`dist/styles.css`](dist/styles.css) | Menus, HUD, canvas, and touch controls. |
+| [`dist/index.html`](dist/index.html), [`dist/styles.css`](dist/styles.css) | Browser shell and nonvisual compatibility controls for the existing screen controllers. |
 | [`dist/game.mjs`](dist/game.mjs) | The game loop and screen flow: startup, deploying and retrying missions, pause, the mission report, the campaign, Free Mode, settings and the co-op lobby. |
 | [`dist/session.mjs`](dist/session.mjs) | The live state the modules below share (the world, the running mission, pause and co-op flags, HUD feedback timers). An imported variable is read-only, so anything one module changes and another reads lives here. |
-| [`dist/hud.mjs`](dist/hud.mjs), [`dist/field-events.mjs`](dist/field-events.mjs) | Drawing the in-mission HUD and the markers projected from the 3D world; and reacting to what happened each step with sounds, announcements and hit feedback. |
+| [`dist/hud.mjs`](dist/hud.mjs), [`dist/field-events.mjs`](dist/field-events.mjs) | Updating combat HUD values and world-projected markers for the UI adapter; reacting to each step with sounds, announcements and hit feedback. |
+| [`dist/ui-core.mjs`](dist/ui-core.mjs), [`dist/ui-screens.mjs`](dist/ui-screens.mjs), [`dist/ui-renderer.mjs`](dist/ui-renderer.mjs) | Portable UI layout/input, plain screen definitions and canvas drawing. |
+| [`dist/ui-browser.mjs`](dist/ui-browser.mjs), [`dist/ui-bindings.mjs`](dist/ui-bindings.mjs) | Browser host, accessibility and text entry, plus the compatibility adapter for existing screen controllers. |
 | [`dist/controls.mjs`](dist/controls.mjs) | Keyboard, mouse with pointer lock, touch controls and gamepads. Listeners record held and tapped input in `controls` for the game loop. |
 | [`dist/armory-menu.mjs`](dist/armory-menu.mjs), [`dist/armory-screen.mjs`](dist/armory-screen.mjs) | Opening the armory, the turning weapon on the bench, and its Weapons, Gunsmith and Customize tabs. |
 | [`dist/dom.mjs`](dist/dom.mjs), [`dist/settings-store.mjs`](dist/settings-store.mjs), [`dist/mission-text.mjs`](dist/mission-text.mjs) | DOM helpers; settings and progress saved in the browser (campaign checkpoint, unlocks, best score, training, settings); mission names and campaign order. |

@@ -7,6 +7,7 @@ import { GamepadInput } from './gamepad.mjs';
 import { GamepadMenu } from './gamepad-menu.mjs';
 import { session } from './session.mjs';
 import { byId, isTouch, setText } from './dom.mjs';
+import { gameUi } from './ui-browser.mjs';
 import { turretStatus, junctionSupply, supplyButtons, drawJunctionStatus, drawTurretHud } from './hud.mjs';
 
 // What is held and what was tapped since the last frame, plus pointer and controller state.
@@ -41,6 +42,39 @@ const controlKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyR', 'Ke
 const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo', Digit4: 'turret' };
 const supplyPad = { left: 'left', right: 'right', up: 'ammo', down: 'turret' };
 const supplyPadLabels = { left: '←', right: '→', ammo: '↑', turret: '↓' };
+
+// The same actions serve canvas touch controls and any future platform host.
+const playing = () => session.running && !session.paused && !session.sim.extractionPending;
+gameUi.bindControls({
+  clear: clearControls,
+  pause: () => commands.pause(),
+  hold(name, down) {
+    if (down && !playing()) return;
+    if (['fire', 'repair', 'reload'].includes(name)) touch[name] = down;
+    if (name === 'fire' && down) controls.fireTap = true;
+  },
+  tap(name) {
+    if (!playing()) return;
+    if (name === 'swap' && !session.sim.tutorial) controls.swapTap = true;
+    if (name === 'turret' && !session.sim.tutorial && (session.sim.turretCharges > 0 || session.sim.canRedeployTurret)) controls.deployTap = true;
+  },
+  stick(value) { touch.x = value.x; touch.z = value.z; },
+  look(phase, point, id) {
+    if (!playing()) return;
+    if (point.pointerType === 'mouse') {
+      controls.leftButton = phase !== 'end' && !!(point.buttons & 1); controls.rightButton = phase !== 'end' && !!(point.buttons & 2);
+      if (phase === 'start' && point.button === 0) { controls.fireTap = true; requestMouse(); }
+    }
+    if (phase === 'start' && !controls.locked) controls.lookPointer = { id, x: point.x, y: point.y };
+    if (phase === 'move' && !controls.locked && controls.lookPointer?.id === id) {
+      const multiplier = session.sensitivity * (point.pointerType === 'touch' ? 1.35 : 1);
+      input.lookX += (point.x - controls.lookPointer.x) * multiplier;
+      input.lookY += (point.y - controls.lookPointer.y) * multiplier;
+      controls.lookPointer.x = point.x; controls.lookPointer.y = point.y;
+    }
+    if (phase === 'end' && controls.lookPointer?.id === id) controls.lookPointer = null;
+  },
+});
 
 export function requestMouse() {
   if (isTouch || session.usingGamepad || !canvas.requestPointerLock) return;
@@ -119,7 +153,7 @@ export function controllerFrame(now) {
   if (current.active) setGamepadMode(true);
   if (!session.running || session.paused || session.sim.extractionPending) {
     controls.xboxState = null;
-    if (current.connected && session.usingGamepad) xboxMenus.update(current, now);
+    if (current.connected && session.usingGamepad && !gameUi.menuGamepad(current, now)) xboxMenus.update(current, now);
     return;
   }
   if (current.pressed.pause) {
