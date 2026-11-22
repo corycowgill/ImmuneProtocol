@@ -1,0 +1,285 @@
+{
+  "runtime": "v22.16.0",
+  "cpu": "13th Gen Intel(R) Core(TM) i9-13900F",
+  "seed": 31,
+  "rendering": false,
+  "note": "Scheduler only; all ordinary waves, real arena geometry, fixed suit positions and ten-second enemy lifetimes. No combat AI/rendering.",
+  "rows": [
+    {
+      "area": "artery",
+      "players": 1,
+      "packs": 15,
+      "spawns": 237,
+      "warnings": 15,
+      "patterns": [
+        "crossfire",
+        "feint",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.105,
+      "schedulerP95Ms": 0.001,
+      "schedulerPeakMs": 1.355
+    },
+    {
+      "area": "lungs",
+      "players": 1,
+      "packs": 9,
+      "spawns": 126,
+      "warnings": 9,
+      "patterns": [
+        "convoy",
+        "crossfire",
+        "feint",
+        "hunters",
+        "pincer"
+      ],
+      "setupPeakMs": 0.121,
+      "schedulerP95Ms": 0.001,
+      "schedulerPeakMs": 0.699
+    },
+    {
+      "area": "stomach",
+      "players": 1,
+      "packs": 6,
+      "spawns": 90,
+      "warnings": 6,
+      "patterns": [
+        "convoy",
+        "crossfire",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.062,
+      "schedulerP95Ms": 0,
+      "schedulerPeakMs": 0.739
+    },
+    {
+      "area": "intestines",
+      "players": 1,
+      "packs": 12,
+      "spawns": 201,
+      "warnings": 12,
+      "patterns": [
+        "convoy",
+        "crossfire",
+        "feint",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.045,
+      "schedulerP95Ms": 0,
+      "schedulerPeakMs": 1.492
+    },
+    {
+      "area": "colon",
+      "players": 1,
+      "packs": 12,
+      "spawns": 210,
+      "warnings": 12,
+      "patterns": [
+        "crossfire",
+        "feint",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.056,
+      "schedulerP95Ms": 0,
+      "schedulerPeakMs": 0.231
+    },
+    {
+      "area": "lymph",
+      "players": 1,
+      "packs": 12,
+      "spawns": 189,
+      "warnings": 12,
+      "patterns": [
+        "convoy",
+        "crossfire",
+        "feint",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.055,
+      "schedulerP95Ms": 0,
+      "schedulerPeakMs": 0.296
+    },
+    {
+      "area": "ear",
+      "players": 1,
+      "packs": 9,
+      "spawns": 135,
+      "warnings": 9,
+      "patterns": [
+        "crossfire",
+        "feint",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.032,
+      "schedulerP95Ms": 0,
+      "schedulerPeakMs": 0.147
+    },
+    {
+      "area": "brain",
+      "players": 1,
+      "packs": 6,
+      "spawns": 87,
+      "warnings": 6,
+      "patterns": [
+        "convoy",
+        "feint",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.163,
+      "schedulerP95Ms": 0,
+      "schedulerPeakMs": 0.243
+    },
+    {
+      "area": "artery",
+      "players": 3,
+      "packs": 15,
+      "spawns": 316,
+      "warnings": 15,
+      "patterns": [
+        "crossfire",
+        "feint",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.09,
+      "schedulerP95Ms": 0.001,
+      "schedulerPeakMs": 0.817
+    },
+    {
+      "area": "lungs",
+      "players": 3,
+      "packs": 9,
+      "spawns": 126,
+      "warnings": 9,
+      "patterns": [
+        "convoy",
+        "crossfire",
+        "feint",
+        "hunters",
+        "pincer"
+      ],
+      "setupPeakMs": 0.037,
+      "schedulerP95Ms": 0,
+      "schedulerPeakMs": 0.926
+    },
+    {
+      "area": "stomach",
+      "players": 3,
+      "packs": 6,
+      "spawns": 90,
+      "warnings": 6,
+      "patterns": [
+        "convoy",
+        "crossfire",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.055,
+      "schedulerP95Ms": 0.001,
+      "schedulerPeakMs": 0.702
+    },
+    {
+      "area": "intestines",
+      "players": 3,
+      "packs": 12,
+      "spawns": 201,
+      "warnings": 12,
+      "patterns": [
+        "convoy",
+        "crossfire",
+        "feint",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.043,
+      "schedulerP95Ms": 0,
+      "schedulerPeakMs": 2.252
+    },
+    {
+      "area": "colon",
+      "players": 3,
+      "packs": 12,
+      "spawns": 210,
+      "warnings": 12,
+      "patterns": [
+        "crossfire",
+        "feint",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.038,
+      "schedulerP95Ms": 0,
+      "schedulerPeakMs": 0.506
+    },
+    {
+      "area": "lymph",
+      "players": 3,
+      "packs": 12,
+      "spawns": 189,
+      "warnings": 12,
+      "patterns": [
+        "convoy",
+        "crossfire",
+        "feint",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.07,
+      "schedulerP95Ms": 0,
+      "schedulerPeakMs": 0.152
+    },
+    {
+      "area": "ear",
+      "players": 3,
+      "packs": 9,
+      "spawns": 135,
+      "warnings": 9,
+      "patterns": [
+        "crossfire",
+        "feint",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.075,
+      "schedulerP95Ms": 0,
+      "schedulerPeakMs": 0.334
+    },
+    {
+      "area": "brain",
+      "players": 3,
+      "packs": 6,
+      "spawns": 87,
+      "warnings": 6,
+      "patterns": [
+        "convoy",
+        "feint",
+        "hunters",
+        "pincer",
+        "siege"
+      ],
+      "setupPeakMs": 0.047,
+      "schedulerP95Ms": 0,
+      "schedulerPeakMs": 0.332
+    }
+  ]
+}

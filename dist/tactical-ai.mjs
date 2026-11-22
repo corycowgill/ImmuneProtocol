@@ -94,6 +94,7 @@ export class SquadCoordinator {
       c.role = c.enemy.behavior === 'bacillus' ? (c.enemy.type === 'guard' ? 'defender' : rank % 3 === 2 ? 'flanker' : 'objective')
         : rank % 3 === 0 ? 'objective' : c.enemy.behavior === 'spore' ? 'suppressor'
         : rank % 3 === 1 ? 'aggressor' : 'flanker';
+      if (c.enemy.encounterOrder?.until > now) c.role = c.enemy.encounterOrder.role;
       if (previousRole !== c.role) c.nextDecision = now;
       // A spatially nearby colony shares an old observation, never a live player reference.
       if (c.profile.teamwork * world.difficulty.teamwork < .4) continue;
@@ -131,6 +132,7 @@ export class EnemyAIController {
     this.changedAt = world.sim.clock; this.nextSense = world.sim.clock + (enemy.id * .037 % .15);
     this.nextDecision = world.sim.clock + (enemy.id * .071 % .32);
     this.role = enemy.behavior === 'bacillus' ? 'objective' : 'aggressor'; this.slot = enemy.id % 3;
+    if (enemy.encounterOrder?.until > world.sim.clock) this.role = enemy.encounterOrder.role;
     this.targetKey = 'node:' + enemy.nodeId; this.target = point(enemy.node); this.visible = false;
     this.destination = point(enemy.attackAnchor ?? enemy.node); this.path = []; this.pathGoal = null;
     this.nextPath = 0; this.pathIndex = 0; this.stuck = 0; this.lastMove = point(enemy); this.cooldowns = {};
@@ -189,7 +191,7 @@ export class EnemyAIController {
   decide() {
     const { world, enemy, profile: p } = this, now = world.sim.clock;
     let node = enemy.node?.health > 0 ? enemy.node : null, nodeValue = -Infinity;
-    const locked = !!(enemy.attackAnchor || enemy.branch || world.sim.valve || enemy.fragment || enemy.latched || enemy.action !== 'idle' || world.director.pressure.has(enemy.id));
+    const locked = !!(enemy.attackAnchor || enemy.branch || world.sim.valve || enemy.fragment || enemy.latched || enemy.action !== 'idle' || world.director.pressure.has(enemy.id) || enemy.encounterOrder?.until > now);
     for (const record of this.memory.targets.values()) {
       if (record.kind !== 'node' || locked) continue;
       const candidate = world.sim.nodes.find(n => 'node:' + n.id === record.key && n.health > 0);
@@ -284,6 +286,11 @@ export class EnemyAIController {
       const angle = enemy.id * 2.39996;
       desired.x += Math.sin(angle) * 1.5; desired.z += Math.cos(angle) * 1.5;
     }
+    const order = enemy.encounterOrder;
+    if (p.family !== 'mutated' && order?.until > now && !order.reached && this.targetKey?.startsWith('node:') && ['objective', 'flank'].includes(action)) {
+      if (distance(enemy, order.approach) < 3) order.reached = true;
+      else desired = order.approach;
+    }
     if (p.family === 'mutated' && distance(this.home, desired) > p.territory) {
       const length = distance(this.home, desired);
       desired = { x: this.home.x + (desired.x - this.home.x) / length * p.territory, z: this.home.z + (desired.z - this.home.z) / length * p.territory };
@@ -311,6 +318,8 @@ export class EnemyAIController {
   }
   move(dt, speed, stopDistance = 0) {
     const { enemy, world } = this, now = world.sim.clock, nav = world.navigation;
+    if (this.profile.family !== 'mutated' && enemy.encounterOrder?.until > now && !enemy.encounterOrder.reached &&
+        this.targetKey?.startsWith('node:') && ['objective', 'flank'].includes(this.action)) stopDistance = 0;
     if (!this.destination || this.action === 'idle' || (this.blockedUntil ?? 0) > now) return;
     const remaining = distance(enemy, this.destination);
     if (remaining <= stopDistance + .08) { this.stuck = 0; return; }

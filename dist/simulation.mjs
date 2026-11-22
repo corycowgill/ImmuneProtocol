@@ -3,6 +3,7 @@ import { grow, growPoint } from './arena-scale.mjs';
 import { AIWorld } from './tactical-ai.mjs';
 import { clearSegment } from './ai-navigation.mjs';
 import { bossDamageThreat, telegraph } from './boss-tactics.mjs';
+import { planEncounters, stepEncounters, ENCOUNTER_RULES } from './encounters.mjs';
 import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-objectives.mjs';
 import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
@@ -90,7 +91,7 @@ const FRAGMENT = { radius: .55, y: 1.35, health: 24, speed: 4.05, suitDamage: 5,
 const TUTORIAL_ATTACKER_HEALTH = 34;
 const GUARD_FRONT_THRESHOLD = .55;
 
-// Every wave fields three times its authored roster, in the same order and at the same pace.
+// Every wave fields three times its authored roster; encounters can regroup ordinary arrivals.
 export const WAVE_SCALE = 3;
 export const extendRoster = roster => Array.from({ length: WAVE_SCALE }, () => roster).flat();
 
@@ -272,7 +273,7 @@ function guardFaces(enemy, source) {
 
 export class Simulation {
   constructor(area = 'artery', {
-    tutorial = false, upgrades = [], bossPractice = false, weaponLoadout, weaponMod = 'standard', ai = {},
+    tutorial = false, upgrades = [], bossPractice = false, weaponLoadout, weaponMod = 'standard', ai = {}, encounterSeed,
   } = {}) {
     this.organMission = Object.hasOwn(ORGAN_MISSIONS, area) ? ORGAN_MISSIONS[area] : null;
     this.area = this.organMission || area === 'heart' || area === 'junction' ? area : 'artery';
@@ -288,6 +289,7 @@ export class Simulation {
     this.weaponLoadout = Object.freeze(normalizeWeaponLoadout(weaponLoadout ?? legacyWeaponLoadout(weaponMod)));
     this.configuredWeapon = weaponStats(this.weaponLoadout);
     this.aiOptions = ai;
+    this.encounterSeed = (encounterSeed ?? ai.seed ?? Math.floor(Math.random() * 4294967296)) >>> 0;
     this.reset();
   }
 
@@ -447,6 +449,8 @@ export class Simulation {
     this.kills = 0;
     this.pickups = [];
     this.field = null;
+    this.encounter = null;
+    this.encounterPlan = null;
     this.nextPickupId = 1;
     this.bossArrived = false;
     this.bossTrail = null;
@@ -544,6 +548,7 @@ export class Simulation {
     if (mission.boss) createBrainBoss(this);
     this.remaining = mission.boss ? 1 : (mission.arrivals ?? mission.species).length;
     planFieldObjectives(this);
+    planEncounters(this);
     this.applyJunctionSupply();
     this.events.push({ type: 'wave', wave: this.wave, stage: 'start' });
   }
@@ -569,6 +574,8 @@ export class Simulation {
   }
 
   clearWave() {
+    this.encounter = null;
+    this.encounterPlan = null;
     this.projectiles.length = 0;
     this.pickups = [];
     this.reinforcement = null;
@@ -605,6 +612,7 @@ export class Simulation {
       stage,
       wave: stage === 'airway' ? this.wave : this.wave + 1,
       clock: this.clock,
+      encounterSeed: this.encounterSeed,
       score: this.score,
       kills: this.kills,
       nodes: Object.fromEntries(this.nodes.map(node => [node.id, node.health])),
@@ -622,6 +630,7 @@ export class Simulation {
   }
 
   restoreCheckpoint(checkpoint) {
+    if (Number.isInteger(checkpoint.encounterSeed)) this.encounterSeed = checkpoint.encounterSeed >>> 0;
     this.clock = checkpoint.clock;
     this.score = checkpoint.score;
     this.kills = checkpoint.kills;
@@ -684,6 +693,8 @@ export class Simulation {
   }
 
   endMission(outcome, reason) {
+    this.encounter = null;
+    this.encounterPlan = null;
     if (outcome === 'won' && this.overtime && !this.overtimeBonus) {
       this.overtimeBonus = JUNCTION_OVERTIME.bonus;
       this.score += this.overtimeBonus;
@@ -803,10 +814,12 @@ export class Simulation {
         arrival = mission.arrivals[this.spawnIndex];
       }
     } else if (this.phase === 'combat') {
-      this.spawnCountdown -= dt;
-      if (this.spawnIndex < mission.species.length && this.spawnCountdown <= 0) {
-        this.spawn(mission.species[this.spawnIndex]);
-        this.spawnCountdown += mission.cadence * WAVE_CADENCE;
+      if (!stepEncounters(this, dt)) {
+        this.spawnCountdown -= dt;
+        if (this.spawnIndex < mission.species.length && this.spawnCountdown <= 0) {
+          this.spawn(mission.species[this.spawnIndex]);
+          this.spawnCountdown += mission.cadence * WAVE_CADENCE;
+        }
       }
       stepFieldObjectives(this, dt, ARENA);
     }
@@ -1465,20 +1478,27 @@ export class Simulation {
       const fragment = this.createEnemy('virus', enemy.x + direction * Math.cos(enemy.heading) * .85,
         enemy.z - direction * Math.sin(enemy.heading) * .85, enemy.node, FRAGMENT);
       fragment.fragment = true;
+      if (enemy.encounterOrder) fragment.encounterOrder = { ...enemy.encounterOrder,
+        approach: { ...enemy.encounterOrder.approach }, reached: true, fragment: true };
       this.confineToArena(fragment);
       this.enemies.push(fragment);
     }
   }
 
-  spawn(type) {
+  spawn(type, encounter = null) {
     const index = this.spawnIndex++;
-    const lane = this.organMission ? Math.min(this.nodes.length - 1, 'LRC'.indexOf(this.missions[this.wave - 1].lanes[index]))
-      : (index + this.wave - 1) % this.nodes.length;
+    const lane = encounter?.nodeIndex ?? (this.organMission ? Math.min(this.nodes.length - 1, 'LRC'.indexOf(this.missions[this.wave - 1].lanes[index]))
+      : (index + this.wave - 1) % this.nodes.length);
     const route = (this.organMission?.inlets ?? ENTRANCES)[lane];
     const [x, z] = route[(Math.floor(index / this.nodes.length) + this.wave - 1) % route.length];
     const spawnX = index === 0 ? x : x + Math.sin(index * 2.4 + this.wave) * 1.35;
     const spawnZ = z + Math.cos(index * 1.9 + this.wave) * 0.85;
-    this.enemies.push(this.createEnemy(type, spawnX, spawnZ, this.nodes[lane]));
+    const enemy = this.createEnemy(type, encounter?.x ?? spawnX, encounter?.z ?? spawnZ, this.nodes[lane]);
+    if (encounter?.packId) enemy.encounterOrder = {
+      id: encounter.packId, role: encounter.role, until: this.clock + ENCOUNTER_RULES.orderSeconds,
+      approach: encounter.approach, reached: false,
+    };
+    this.enemies.push(enemy);
   }
 
   spawnJunctionEnemy({ type, branch, surge }) {

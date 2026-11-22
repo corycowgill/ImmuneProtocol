@@ -8,6 +8,7 @@ import { ORGAN_MISSIONS } from './organs.mjs';
 import { drawWeaponHud, weaponName } from './arsenal-ui.mjs';
 import { levelBossStatus } from './level-bosses.mjs';
 import { BossTelegraphView } from './boss-telegraphs.mjs';
+import { EncounterView } from './encounter-ui.mjs';
 import { floorHeight } from './arena-scene.mjs';
 import { session } from './session.mjs';
 import { byId, isTouch, reducedMotion, pad, clamp, setText } from './dom.mjs';
@@ -15,6 +16,7 @@ import { missionName } from './mission-text.mjs';
 
 export const game = byId('game');
 const bossTelegraphs = new BossTelegraphView(game);
+const encounterView = new EncounterView(game);
 const scoreboard = byId('scoreboard');
 const reticle = byId('reticle');
 export const hitMarker = byId('hit-marker');
@@ -506,6 +508,7 @@ export function drawPlayerScores(results, complete) {
 }
 
 export function drawHud() {
+  encounterView.update(session.sim);
   const { player, tissue, wave, waves, remaining, phase, intermission, valve } = session.sim;
   drawScoreboard();
   const suitPercent = Math.ceil(player.health);
@@ -768,6 +771,13 @@ const fieldMarkers = new Map();
 
 function drawFieldMarkers(top, width, height, occupied) {
   const targets = [];
+  const encounter = session.sim.encounter;
+  if (encounter && session.sim.phase === 'combat' && !session.sim.enemies.some(e => e.boss)) {
+    for (const [index, approach] of encounter.approaches.entries()) targets.push({
+      key: `encounter-${encounter.id}-${index}`, kind: 'encounter', label: approach.label,
+      x: approach.x, y: 2.5, z: approach.z, detail: `${encounter.name} · ${Math.ceil(encounter.remaining)}s`,
+    });
+  }
   for (const enemy of session.sim.enemies) {
     if (enemy.nest) targets.push({ key: 'nest' + enemy.id, kind: 'nest', label: 'BROOD NEST', x: enemy.x, y: enemy.y + enemy.radius + .5, z: enemy.z,
       detail: Math.ceil(100 * enemy.health / enemy.maxHealth) + '%' });

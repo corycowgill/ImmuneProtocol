@@ -1,0 +1,13 @@
+mission      medium/anchor   medium/rover
+artery            3/4  81%       4/4  98%
+junction          4/4  60%       4/4  88%
+heart             4/4  74%       4/4  74%
+lungs             4/4  37%       4/4  82%
+stomach           4/4  59%       4/4  62%
+intestines        4/4  44%       3/4  59%
+colon             1/4  44%       3/4  51%
+lymph             4/4  65%       3/4  53%
+ear               4/4  72%       4/4  76%
+brain             4/4  75%       4/4  85%
+
+Wins per trials, then the average of each run's lowest tissue node integrity.

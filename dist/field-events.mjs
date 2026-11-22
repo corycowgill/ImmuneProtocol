@@ -106,6 +106,12 @@ export function applyEvents() {
         session.audio.play({ type: 'boss', stage: 'warning', x: event.x, z: event.z });
       }
     }
+    if (event.type === 'encounter') {
+      if (event.stage === 'warning') {
+        session.audio.play({ type: 'wave', stage: 'start' });
+      }
+      if (event.stage === 'turn') session.audio.play({ type: 'wave', stage: 'start' });
+    }
     if (event.type === 'nest') {
       if (event.stage === 'spawn') {
         session.audio.play({ type: 'wave', stage: 'start' });

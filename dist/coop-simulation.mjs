@@ -61,8 +61,8 @@ class CoopSuit {
 }
 
 export class CoopSimulation extends Simulation {
-  constructor(profiles, area = 'artery') {
-    super(area);
+  constructor(profiles, area = 'artery', options = {}) {
+    super(area, options);
     if (profiles.length < COOP_MIN_PLAYERS || profiles.length > COOP_MAX_PLAYERS ||
         profiles.some(profile => typeof profile.id !== 'string' || !profile.id) ||
         new Set(profiles.map(profile => profile.id)).size !== profiles.length) {
@@ -235,6 +235,7 @@ export class CoopSimulation extends Simulation {
       enemies: this.enemies.map(enemy => ({ ...enemy, node: nodeCopy(enemy.node) })),
       projectiles: this.projectiles.map(({ owner, ...projectile }) => ({ ...projectile, ownerId: owner.id })),
       pickups: this.pickups.map(pickup => ({ ...pickup })),
+      encounter: this.encounter ? { ...this.encounter, approaches: this.encounter.approaches.map(p => ({ ...p })) } : null,
       events: this.events,
       tutorial: null, settling: this.settling,
       valve: this.valve, boss: this.boss, airway: this.airway, gastric: this.gastric,
