@@ -1,0 +1,77 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Tactical AI combat verification</title></head>
+<body style="margin:0;background:#0a1518;color:#b7ead8;font:13px monospace">
+<div style="position:fixed;top:0;left:0;z-index:90;background:#07151deb;padding:8px;max-width:55vw">
+<strong>Tactical AI combat verification</strong> <span id="status">Preparing models…</span><br>
+<label>Arena <select id="area"></select></label> <label>Pathogens <select id="count"><option>20</option><option selected>40</option></select></label>
+<button id="reset" disabled>Restart encounter</button> <button id="debug">Toggle debug (F3)</button>
+<pre id="report"></pre></div><canvas id="world" style="width:100vw;height:100vh;display:block"></canvas>
+<script type="module">
+import { Simulation, SPECIES } from './simulation.mjs';
+import { World } from './world.mjs';
+import { AIDebugSystem } from './ai-debug.mjs';
+import { CAMPAIGN_AREAS } from './coop-protocol.mjs';
+const $ = id => document.getElementById(id), params = new URLSearchParams(location.search);
+const status = $('status'), report = $('report'), area = $('area'), count = $('count');
+for (const id of CAMPAIGN_AREAS) area.add(new Option(id, id));
+area.value = params.get('area') ?? 'artery'; count.value = params.get('count') ?? '40';
+const debug = new AIDebugSystem(document);
+debug.toggle(); $('debug').onclick = () => debug.toggle();
+window.addEventListener('keydown', e => { if (e.code === 'F3') { e.preventDefault(); debug.toggle(e.shiftKey); } });
+try {
+  const world = new World($('world'));
+  world.setQuality(params.get('quality') ?? 'low');
+  let sim, running = false, samples = [], ai = [], observations = new Set(), attacks = 0, lost = 0;
+  const reset = async () => {
+    running = false; $('reset').disabled = true; status.textContent = 'Preparing ' + area.value;
+    const next = new Simulation(area.value);
+    await world.prepareAll([area.value], () => {}); await world.prepareMission(next, () => {});
+    sim?.ai.dispose(); sim = next; sim.start(); sim.enemies = []; sim.projectiles = [];
+    const types = Object.keys(SPECIES).filter(t => t !== 'colony');
+    for (let i = 0; i < Number(count.value); i++) {
+      const angle = i * 2.39996, radius = 10 + i % 5 * 3;
+      const pos = sim.ai.navigation.project({ x: sim.player.x + Math.sin(angle) * radius, z: sim.player.z + Math.cos(angle) * radius });
+      const enemy = sim.createEnemy(types[i % types.length], pos.x, pos.z, sim.nodes[i % sim.nodes.length]);
+      if (i % 5 === 0) enemy.health *= .25;
+      sim.enemies.push(enemy);
+    }
+    samples = []; ai = []; observations = new Set(); attacks = 0; lost = 0;
+    status.textContent = 'Running · scripted moving suit · health restored for soak test';
+    $('reset').disabled = false; running = true;
+  };
+  $('reset').onclick = () => reset().catch(fail);
+  function fail(e) { status.textContent = 'FAIL: ' + e.message; console.error(e); running = false; }
+  await reset();
+  let previous = performance.now(), lastReport = 0;
+  function frame(now) {
+    try {
+      const dt = Math.min(.05, (now - previous) / 1000); previous = now;
+      if (running) {
+        sim.clock += dt; sim.events = []; sim.player.health = 100;
+        for (const node of sim.nodes) node.health = 100;
+        const pos = sim.ai.navigation.project({ x: Math.sin(sim.clock * .2) * 18, z: 14 + Math.cos(sim.clock * .2) * 10 });
+        sim.player.x = pos.x; sim.player.z = pos.z; sim.player.yaw = Math.PI + Math.sin(sim.clock * .15) * .8;
+        if (Math.floor(sim.clock * 3) !== Math.floor((sim.clock - dt) * 3)) sim.ai.emit('gunfire', sim.player, { key: 'player:solo' });
+        sim.advanceEnemies(dt); sim.advanceProjectiles(dt);
+        for (const event of sim.events) if (event.type === 'enemyAttack' && event.stage === 'windup') attacks++;
+        for (const c of sim.ai.controllers.values()) {
+          observations.add(c.action);
+          if (c.action === 'investigate') lost++;
+        }
+        world.render(sim, dt, {}, true); debug.update(sim, now);
+        samples.push((now - (window.lastAIFrame ?? now))); window.lastAIFrame = now;
+        ai.push(sim.ai.telemetry.lastMs);
+        if (samples.length > 600) { samples.shift(); ai.shift(); }
+        if (now - lastReport > 1000) {
+          const sorted = [...ai].sort((a, b) => a - b);
+          const fps = 1000 / (samples.reduce((a, b) => a + b, 0) / samples.length);
+          report.textContent = `${area.value} · ${sim.enemies.length} enemies · ${sim.clock.toFixed(1)}s\nFPS ${fps.toFixed(1)} · AI p95 ${sorted[Math.floor(sorted.length * .95)].toFixed(2)}ms\nAttacks ${attacks} · investigation samples ${lost}\nActions: ${[...observations].join(', ')}`;
+          lastReport = now;
+        }
+      }
+    } catch (e) { fail(e); }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+} catch (e) { status.textContent = 'FAIL: ' + e.message; console.error(e); }
+</script></body></html>

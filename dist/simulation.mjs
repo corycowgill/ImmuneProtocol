@@ -1,5 +1,7 @@
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { grow, growPoint } from './arena-scale.mjs';
+import { AIWorld } from './tactical-ai.mjs';
+import { clearSegment } from './ai-navigation.mjs';
 import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-objectives.mjs';
 import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
@@ -220,24 +222,9 @@ const VIRUS_RANGE = 3.6;
 const SPORE_WINDUP = 0.55;
 const SPORE_RECOVERY = 0.55;
 const SPORE_RANGE = 8.2;
-const SPORE_STANDOFF = 2.4;
 const SPORE_SPEED = 7.3;
 const SPORE_RADIUS = 0.21;
 const SPORE_ARM_TIME = 0.12;
-// Pathogen tactics. Mobile pathogens fan out on the approach instead of filing in, sidestep when
-// a suit holds them in its sights, keep out of each other's way, and some hunt for whichever
-// node is weakest or unguarded. Spitters shift position between shots.
-const FLANK_ARC = .6;
-const DODGE_CONE = .07;
-const DODGE_RANGE = 34;
-const DODGE_TIME = .42;
-const DODGE_REST = 1.7;
-const DODGE_SPEED = { virus: 3.4, spore: 2.1 };
-const CROWD_RADIUS = 2.3;
-const CROWD_PUSH = 1.5;
-const RETHINK_TIME = 4;
-const RELOCATE_TIME = .85;
-const RELOCATE_SPEED = 2.6;
 const TURRET_RANGE = 12.5;
 const TURRET_INTERVAL = 2.6;
 const TURRET_DAMAGE = 20;
@@ -284,7 +271,7 @@ function guardFaces(enemy, source) {
 
 export class Simulation {
   constructor(area = 'artery', {
-    tutorial = false, upgrades = [], bossPractice = false, weaponLoadout, weaponMod = 'standard',
+    tutorial = false, upgrades = [], bossPractice = false, weaponLoadout, weaponMod = 'standard', ai = {},
   } = {}) {
     this.organMission = Object.hasOwn(ORGAN_MISSIONS, area) ? ORGAN_MISSIONS[area] : null;
     this.area = this.organMission || area === 'heart' || area === 'junction' ? area : 'artery';
@@ -299,6 +286,7 @@ export class Simulation {
     this.turretSlowDuration = activeUpgrades.includes('turret-stabilizer') ? FIELD_UPGRADES['turret-stabilizer'].slowDuration : TURRET_SLOW_TIME;
     this.weaponLoadout = Object.freeze(normalizeWeaponLoadout(weaponLoadout ?? legacyWeaponLoadout(weaponMod)));
     this.configuredWeapon = weaponStats(this.weaponLoadout);
+    this.aiOptions = ai;
     this.reset();
   }
 
@@ -435,6 +423,7 @@ export class Simulation {
   }
 
   reset() {
+    this.ai?.dispose();
     if (this.overtime) this.missions = JUNCTION_MISSIONS;
     this.valve = this.area === 'heart' ? {
       phase: 'closed', duration: HEART_CLOSED_TIME, remaining: HEART_CLOSED_TIME,
@@ -506,6 +495,7 @@ export class Simulation {
     this.airway = null;
     this.gastric = this.area === 'stomach' ? createGastric() : null;
     this.organ = this.organMission ? this.createOrganPhase('recovery') : null;
+    this.ai = new AIWorld(this, this.aiOptions);
   }
 
   // checkpoint: resume at the start of a wave recorded by an earlier run of this mission
@@ -1274,6 +1264,7 @@ export class Simulation {
 
   shoot(aiming, suit = this) {
     const { player, weapon } = suit;
+    this.ai.emit('gunfire', player, { key: 'player:' + (player.id ?? 'solo'), radius: 38 });
     player.ammo -= 1;
     suit.fireCooldown = weapon.interval;
     const spread = aiming ? weapon.aimSpread : weapon.hipSpread;
@@ -1388,6 +1379,7 @@ export class Simulation {
   }
 
   detonate({ owner, target, bossHit, impact, weapon }) {
+    this.ai.emit('explosion', impact, { radius: 46 });
     const radius = weapon.splashRadius;
     this.events.push({ type: 'explosion', radius, ...impact });
     if (bossHit?.vulnerable && this.boss?.state === 'exposed') {
@@ -1424,10 +1416,13 @@ export class Simulation {
     damage *= target.damageScale ?? 1;
     if (target.boss) target.damageTaken += damage;
     target.health -= damage;
+    this.ai.damage(target, suit?.player);
     const lethal = target.health <= 0;
     this.events.push({ type: 'hit', id: target.id, damage, crit: critical, lethal, source, ...impact });
     if (!lethal) return;
 
+    this.ai.emit('death', target, { owner: target.id, radius: 22 });
+    this.ai.remove(target.id);
     this.enemies.splice(this.enemies.indexOf(target), 1);
     this.kills += 1;
     const score = target.score ?? (target.fragment ? FRAGMENT.score : target.tutorial ? SPECIES.virus.score : SPECIES[target.type].score);
@@ -1505,7 +1500,7 @@ export class Simulation {
       attackCooldown: 0.65,
       attackingTissue: false,
       latched: false,
-      heading: type === 'guard' ? Math.atan2(node.x - x, node.z - z) : 0,
+      heading: Math.atan2(node.x - x, node.z - z),
       action: 'idle',
       actionProgress: 0,
       actionElapsed: 0,
@@ -1541,8 +1536,9 @@ export class Simulation {
     this.events.push(event);
   }
 
-  advanceBacillus(enemy, dt, spec, speedFactor) {
+  advanceBacillus(enemy, dt, spec, speedFactor, controller = null) {
     const anchor = enemy.attackAnchor ?? enemy.node;
+    if (enemy.node.health <= 0) { enemy.latched = false; this.setEnemyAction(enemy, 'idle'); return; }
     if (!enemy.latched) {
       const dx = anchor.x - enemy.x;
       const dz = anchor.z - enemy.z;
@@ -1551,11 +1547,15 @@ export class Simulation {
       const speed = enemy.tutorial ? 2.7 : spec.speed + (this.wave - 1) * 0.13;
       const travel = Math.min(Math.max(0, distance - LATCH_RANGE), speed * speedFactor * dt);
       if (distance > LATCH_RANGE) {
-        enemy.x += dx * travel / distance;
-        enemy.z += dz * travel / distance;
-        this.skirtObstacles(enemy);
+        if (controller) controller.move(dt, speed * speedFactor, 0);
+        else {
+          enemy.x += dx * travel / distance;
+          enemy.z += dz * travel / distance;
+          this.skirtObstacles(enemy);
+        }
       }
-      if (distance - travel > LATCH_RANGE + 0.001) {
+      if (Math.hypot(anchor.x - enemy.x, anchor.z - enemy.z) > LATCH_RANGE + .04 ||
+          !clearSegment(this.obstacles, enemy, anchor)) {
         enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * 0.08;
         return;
       }
@@ -1564,6 +1564,10 @@ export class Simulation {
       enemy.node.underAttack = true;
       enemy.y = anchor.y + 0.13;
       enemy.attackCooldown = LATCH_WINDUP;
+      if (controller && !this.ai.director.acquire(enemy, 'tissue', spec.period + .7)) {
+        this.setEnemyAction(enemy, 'idle');
+        return;
+      }
       enemy.actionTarget = 'tissue';
       this.setEnemyAction(enemy, 'bacillus-windup');
       this.attackEvent(enemy, 'windup', 'tissue');
@@ -1579,6 +1583,11 @@ export class Simulation {
     if (enemy.action === 'bacillus-windup') {
       enemy.actionProgress = 1 - enemy.attackCooldown / LATCH_WINDUP;
     } else if (enemy.attackCooldown <= LATCH_WINDUP) {
+      if (controller && !this.ai.director.acquire(enemy, 'tissue', spec.period + .7)) {
+        enemy.attackCooldown = LATCH_WINDUP;
+        return;
+      }
+      enemy.attackCooldown = LATCH_WINDUP;
       enemy.actionTarget = 'tissue';
       this.setEnemyAction(enemy, 'bacillus-windup');
       this.attackEvent(enemy, 'windup', 'tissue');
@@ -1603,30 +1612,34 @@ export class Simulation {
   }
 
   damageNode(node, amount) {
+    this.ai.emit('biological', node, { radius: 18 });
     node.underAttack = true;
     node.health = Math.max(0, node.health - amount);
     if (node.health === 0) this.failedNode ??= node;
   }
 
-  damageTarget(enemy, target, amount, origin = enemy, playerId = enemy.actionPlayerId) {
+  damageTarget(enemy, target, amount, origin = enemy, playerId = enemy.actionPlayerId, node = enemy.node) {
     const player = target === 'player' ? this.attackPlayer(playerId) : null;
     if (target === 'player') {
-      if (!player) return;
+      if (!player || player.health <= 0) return;
       player.health = Math.max(0, player.health - amount * WAVE_SUIT_DAMAGE);
+      this.ai.director.recentDamage += amount * WAVE_SUIT_DAMAGE;
     } else {
-      if (this.organ?.phase === 'active' && this.organ.nodeId === enemy.nodeId) {
+      if (!node || node.health <= 0) return;
+      if (this.organ?.phase === 'active' && this.organ.nodeId === node.id) {
         amount *= this.organMission.hazard.tissueDamage ?? 1;
       }
       amount *= this.nodes.length > 2 ? THREE_NODE_TISSUE_DAMAGE : this.organMission ? ORGAN_TISSUE_DAMAGE : 1;
       amount *= WAVE_TISSUE_DAMAGE;
-      this.damageNode(enemy.node, amount);
+      this.damageNode(node, amount);
     }
     const impact = { type: 'damage', target, amount, id: enemy.id, x: origin.x, y: origin.y, z: origin.z };
     if (player?.id != null) impact.playerId = player.id;
-    if (target === 'tissue') impact.nodeId = enemy.nodeId;
+    if (target === 'tissue') impact.nodeId = node.id;
     if (enemy.branch) impact.branch = enemy.branch;
     if (enemy.attackAnchor === origin) impact.anchor = 'gash';
     this.events.push(impact);
+    this.ai.emit('combat', origin, { owner: enemy.id, radius: 16 });
   }
 
   attackPlayer() {
@@ -1638,130 +1651,56 @@ export class Simulation {
   }
 
   advanceEnemies(dt) {
+    this.ai.begin(dt);
     for (const enemy of this.enemies) {
       if (enemy.type === 'colony') continue;
-      if (enemy.nest) {
-        advanceNest(this, enemy, dt, FRAGMENT);
-        continue;
-      }
-      if (enemy.boss || enemy.segmentOf) {
-        stepLevelBoss(this, enemy, dt);
-        continue;
-      }
+      if (enemy.nest) { advanceNest(this, enemy, dt, FRAGMENT); continue; }
+      if (enemy.boss || enemy.segmentOf) { stepLevelBoss(this, enemy, dt); continue; }
       const spec = enemy.fragment ? FRAGMENT : SPECIES[enemy.type];
-      const { behavior } = enemy;
       const reinforced = !!this.reinforcement && this.reinforcement.branch === enemy.branch;
       const speedFactor = (reinforced ? REINFORCED_SPEED : 1) * (enemy.slowRemaining > 0 ? TURRET_SLOW_FACTOR : 1);
       enemy.slowRemaining = Math.max(0, enemy.slowRemaining - dt);
-      if (reinforced && enemy.inletHold > 0) {
-        enemy.inletHold -= dt;
-        continue;
-      }
-      if (behavior === 'bacillus') {
-        this.advanceBacillus(enemy, dt, spec, speedFactor);
+      if (reinforced && enemy.inletHold > 0) { enemy.inletHold -= dt; continue; }
+      // The guided first breach retains its authored, guaranteed demonstration.
+      if (enemy.tutorial) { this.advanceBacillus(enemy, dt, spec, speedFactor); continue; }
+      const controller = this.ai.controllers.get(enemy.id);
+      if (!controller) continue;
+      controller.tick(dt);
+      if (enemy.behavior === 'bacillus') {
+        const defensive = ['retreat', 'cover', 'regroup', 'protect'].includes(controller.action) && !enemy.attackAnchor;
+        if (defensive) {
+          enemy.latched = false; enemy.attackingTissue = false;
+          this.setEnemyAction(enemy, 'idle');
+          controller.move(dt, spec.speed * speedFactor);
+        } else this.advanceBacillus(enemy, dt, spec, speedFactor, controller);
         continue;
       }
       if (enemy.action !== 'idle') {
         enemy.node.underAttack ||= enemy.attackingTissue;
-        if (behavior === 'virus') this.advanceVirusAttack(enemy, dt, spec);
+        if (enemy.behavior === 'virus') this.advanceVirusAttack(enemy, dt, spec);
         else this.advanceSporeAttack(enemy, dt);
         continue;
       }
-
-      this.rethinkTarget(enemy, dt);
-      const player = this.chooseAttackPlayer(enemy);
-      const distanceToSuit = player ? Math.hypot(player.x - enemy.x, player.z - enemy.z) : Infinity;
-      const distanceToTissue = Math.hypot(enemy.node.x - enemy.x, enemy.node.z - enemy.z);
-      const aggro = behavior === 'spore' ? 12 : 7.4;
-      const attacksSuit = distanceToSuit < aggro && distanceToSuit < distanceToTissue + 0.6;
-      const target = attacksSuit ? player : enemy.node;
-      const distance = attacksSuit ? distanceToSuit : distanceToTissue;
-      const range = behavior === 'virus' ? (attacksSuit ? VIRUS_RANGE : 2.7) : (attacksSuit ? SPORE_RANGE : 3.4);
-      enemy.attackingTissue = !attacksSuit && distance <= range + 0.04;
-      enemy.node.underAttack ||= enemy.attackingTissue;
       enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
-      enemy.heading = Math.atan2(target.x - enemy.x, target.z - enemy.z);
-      enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * 0.24;
-      if (behavior === 'spore' && attacksSuit && distance > 0.01 && distance < SPORE_STANDOFF - 0.04) {
-        const retreat = Math.min(SPORE_STANDOFF - distance, 2.6 * speedFactor * dt);
-        enemy.x -= Math.sin(enemy.heading) * retreat;
-        enemy.z -= Math.cos(enemy.heading) * retreat;
-        this.confineToArena(enemy);
-        if (Math.hypot(player.x - enemy.x, player.z - enemy.z) > distance + retreat * .3) continue;
-      }
-      this.evade(enemy, player, distanceToSuit, speedFactor, dt);
-      if (enemy.relocate > 0 && !enemy.tutorial) {
-        // A spitter that has just fired circles its target before lining up the next shot.
-        enemy.relocate -= dt;
-        const side = enemy.id % 2 ? 1 : -1;
-        enemy.x += Math.cos(enemy.heading) * side * RELOCATE_SPEED * speedFactor * dt;
-        enemy.z -= Math.sin(enemy.heading) * side * RELOCATE_SPEED * speedFactor * dt;
-        this.confineToArena(enemy);
-        continue;
-      }
-      if (distance > range + 0.04) {
-        const heading = Math.atan2(target.z - enemy.z, target.x - enemy.x);
-        // Each pathogen favours one side, swinging wide while far out and straightening up close.
-        const flank = enemy.tutorial ? 0 : ((enemy.id * .618034) % 1 - .5) * 2 * FLANK_ARC * clamp((distance - 6) / 14, 0, 1);
-        const course = heading + flank + Math.sin(this.clock * 2.2 + enemy.id * 2.9) * 0.30 * Math.min(1, distance / 4);
-        const travel = Math.min(distance - range, (spec.speed + (this.wave - 1) * 0.13) * speedFactor * dt);
-        enemy.x += Math.cos(course) * travel;
-        enemy.z += Math.sin(course) * travel;
-        this.keepApart(enemy, speedFactor, dt);
-        this.skirtObstacles(enemy);
-      } else if (enemy.attackCooldown === 0) {
+      enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * .24;
+      const target = controller.attackTarget();
+      const attacksSuit = controller.targetKey?.startsWith('player:');
+      const distance = target ? Math.hypot(target.x - enemy.x, target.z - enemy.z) : Infinity;
+      const range = enemy.behavior === 'virus' ? (attacksSuit ? VIRUS_RANGE : 2.7) : (attacksSuit ? SPORE_RANGE : 3.4);
+      if (target && distance <= range + .04) enemy.heading = Math.atan2(target.x - enemy.x, target.z - enemy.z);
+      const defensive = ['retreat', 'cover', 'evade', 'regroup', 'investigate', 'idle'].includes(controller.action);
+      const tooClose = attacksSuit && enemy.behavior === 'spore' && distance < controller.profile.preferredDistance * .65;
+      enemy.attackingTissue = !defensive && !attacksSuit && distance <= range + .04;
+      enemy.node.underAttack ||= enemy.attackingTissue;
+      if (!defensive && !tooClose && target && distance <= range + .04 && enemy.attackCooldown === 0 &&
+          clearSegment(this.obstacles, enemy, target) && this.ai.director.acquire(enemy, attacksSuit ? 'player' : 'tissue', enemy.behavior === 'spore' ? 3 : 1.6)) {
         this.startEnemyAttack(enemy, target, attacksSuit ? 'player' : 'tissue');
+      } else {
+        const stop = !defensive && !tooClose && target && !['flank', 'strafe'].includes(controller.action) ? Math.max(0, range - .2) : 0;
+        controller.move(dt, (spec.speed + (this.wave - 1) * .13) * speedFactor, stop);
       }
     }
-  }
-
-  // Every few seconds a third of the lungers and spitters reconsider which node to hit: the most
-  // damaged one, or one no suit is standing near. Scripted lanes (junction, heart) are left alone.
-  rethinkTarget(enemy, dt) {
-    if (enemy.id % 3 || enemy.fragment || enemy.tutorial || this.valve || this.area === 'junction' || this.nodes.length < 2) return;
-    enemy.rethink = (enemy.rethink ?? RETHINK_TIME * ((enemy.id * .37) % 1)) - dt;
-    if (enemy.rethink > 0) return;
-    enemy.rethink = RETHINK_TIME;
-    // Committed attackers stay on the node they have reached.
-    if (Math.hypot(enemy.node.x - enemy.x, enemy.node.z - enemy.z) < 9) return;
-    const suits = this.activeSuits().filter(({ player }) => player.health > 0);
-    let best = enemy.node;
-    let bestValue = -Infinity;
-    for (const node of this.nodes) {
-      const guarded = suits.some(({ player }) => Math.hypot(player.x - node.x, player.z - node.z) < 13);
-      const value = (RULES.tissue - node.health) * .45 + (guarded ? 0 : 22) -
-        Math.hypot(node.x - enemy.x, node.z - enemy.z) * .55 + (node === enemy.node ? 6 : 0);
-      if (value > bestValue) {
-        best = node;
-        bestValue = value;
-      }
-    }
-    enemy.node = best;
-    enemy.nodeId = best.id;
-  }
-
-  // A pathogen caught in a suit's crosshair darts sideways for a moment, then has to recover
-  // before it can do it again, so steady aim still lands.
-  evade(enemy, player, distance, speedFactor, dt) {
-    const speed = DODGE_SPEED[enemy.behavior];
-    if (!speed || enemy.tutorial || enemy.fragment) return;
-    enemy.dodgeRest = Math.max(0, (enemy.dodgeRest ?? 0) - dt);
-    if (!(enemy.dodge > 0)) {
-      if (enemy.dodgeRest > 0 || !player || distance > DODGE_RANGE || distance < 2) return;
-      const bearing = Math.atan2(-(enemy.x - player.x), -(enemy.z - player.z));
-      const off = Math.abs(Math.atan2(Math.sin(bearing - player.yaw), Math.cos(bearing - player.yaw)));
-      if (off > DODGE_CONE + enemy.radius / distance) return;
-      enemy.dodge = DODGE_TIME;
-      enemy.dodgeSide = Math.sin(this.clock * 1.7 + enemy.id * 4.1) > 0 ? 1 : -1;
-    }
-    enemy.dodge -= dt;
-    if (enemy.dodge <= 0) enemy.dodgeRest = DODGE_REST;
-    const dx = enemy.x - player.x;
-    const dz = enemy.z - player.z;
-    const length = Math.max(.01, Math.hypot(dx, dz));
-    enemy.x += -dz / length * enemy.dodgeSide * speed * speedFactor * dt;
-    enemy.z += dx / length * enemy.dodgeSide * speed * speedFactor * dt;
-    this.confineToArena(enemy);
+    this.ai.end();
   }
 
   // Pathogens flow around solid scenery instead of drifting through it.
@@ -1779,32 +1718,13 @@ export class Simulation {
     }
   }
 
-  // Moving pathogens push off their neighbours so a wave arrives as a spread, not a column.
-  keepApart(enemy, speedFactor, dt) {
-    let pushX = 0;
-    let pushZ = 0;
-    for (const other of this.enemies) {
-      if (other === enemy || other.latched || other.type === 'colony') continue;
-      const dx = enemy.x - other.x;
-      const dz = enemy.z - other.z;
-      const gap = Math.hypot(dx, dz);
-      const reach = CROWD_RADIUS + (other.nest || other.boss ? other.radius : 0);
-      if (gap >= reach || gap < 1e-4) continue;
-      pushX += dx / gap * (1 - gap / reach);
-      pushZ += dz / gap * (1 - gap / reach);
-    }
-    const push = Math.hypot(pushX, pushZ);
-    if (push < 1e-4) return;
-    const step = Math.min(1, push) * CROWD_PUSH * speedFactor * dt / push;
-    enemy.x += pushX * step;
-    enemy.z += pushZ * step;
-  }
-
   startEnemyAttack(enemy, target, targetName) {
     enemy.actionTarget = targetName;
     enemy.actionPlayerId = targetName === 'player' ? target.id : null;
     enemy.attackOrigin = { x: enemy.x, y: enemy.y, z: enemy.z };
     enemy.attackPoint = { x: target.x, y: target.y, z: target.z };
+    const controller = this.ai.controllers.get(enemy.id);
+    if (controller && enemy.behavior === 'spore') enemy.attackPoint = controller.aim(target, SPORE_SPEED);
     if (enemy.behavior === 'virus') {
       // Leave the virus on the near side of what it strikes so it stays shootable.
       const dx = enemy.x - target.x;
@@ -1821,6 +1741,14 @@ export class Simulation {
   advanceVirusAttack(enemy, dt, spec) {
     if (enemy.action === 'virus-windup') {
       if (this.advanceAction(enemy, dt, VIRUS_WINDUP)) {
+        const target = enemy.actionTarget === 'player' ? this.attackPlayer(enemy.actionPlayerId) : enemy.node;
+        if (!target || target.health <= 0 || !clearSegment(this.obstacles, enemy.attackOrigin, enemy.attackPoint, enemy.radius * .5)) {
+          this.ai.controllers.get(enemy.id)?.memory.fail('attack obstructed or target destroyed', this.clock);
+          this.ai.director.release(enemy.id);
+          enemy.attackCooldown = .4;
+          this.setEnemyAction(enemy, 'idle');
+          return;
+        }
         this.setEnemyAction(enemy, 'virus-pounce');
         this.attackEvent(enemy, 'release', enemy.actionTarget);
       }
@@ -1837,8 +1765,8 @@ export class Simulation {
       if (!landed) return;
 
       const player = enemy.actionTarget === 'player' ? this.attackPlayer(enemy.actionPlayerId) : null;
-      const hitsSuit = !!player && Math.hypot(enemy.x - player.x, enemy.z - player.z) < 1.06;
-      const hitsTissue = enemy.actionTarget === 'tissue';
+      const hitsSuit = !!player && player.health > 0 && Math.hypot(enemy.x - player.x, enemy.z - player.z) < 1.06 && clearSegment(this.obstacles, enemy.attackOrigin, player);
+      const hitsTissue = enemy.actionTarget === 'tissue' && enemy.node.health > 0;
       if (hitsSuit || hitsTissue) this.damageTarget(enemy, enemy.actionTarget, hitsSuit ? spec.suitDamage : spec.tissueDamage);
       this.attackEvent(enemy, hitsSuit || hitsTissue ? 'impact' : 'miss', enemy.actionTarget);
       this.setEnemyAction(enemy, 'virus-recover');
@@ -1847,6 +1775,7 @@ export class Simulation {
     if (this.advanceAction(enemy, dt, VIRUS_RECOVERY)) {
       enemy.attackCooldown = enemy.actionTarget === 'tissue' ? 0.12 : 0.34;
       this.setEnemyAction(enemy, 'idle');
+      this.ai.director.release(enemy.id);
     }
   }
 
@@ -1859,15 +1788,26 @@ export class Simulation {
       return;
     }
     if (this.advanceAction(enemy, dt, SPORE_RECOVERY)) {
-      // Shots at a suit are followed by a sidestep; a spitter shelling tissue holds its ground.
-      if (enemy.actionTarget === 'player') enemy.relocate = RELOCATE_TIME;
       enemy.attackCooldown = enemy.actionTarget === 'tissue' ? 0.12 : 0.38;
+      const controller = this.ai.controllers.get(enemy.id);
+      if (controller && enemy.actionTarget === 'player') {
+        controller.cooldowns.pursue = this.clock + .8;
+        controller.nextDecision = this.clock;
+      }
       this.setEnemyAction(enemy, 'idle');
     }
   }
 
   launchSpore(enemy) {
     const aim = enemy.attackPoint;
+    const controller = this.ai.controllers.get(enemy.id);
+    const target = enemy.actionTarget === 'player' ? this.attackPlayer(enemy.actionPlayerId) : enemy.node;
+    if (controller && (!target || target.health <= 0 || !clearSegment(this.obstacles, enemy, aim))) {
+      controller.memory.fail('spit obstructed or target destroyed', this.clock);
+      this.ai.director.release(enemy.id);
+      this.attackEvent(enemy, 'miss', enemy.actionTarget);
+      return;
+    }
     const dx = aim.x - enemy.x;
     const dy = aim.y - enemy.y;
     const dz = aim.z - enemy.z;
@@ -1876,6 +1816,7 @@ export class Simulation {
     this.projectiles.push({
       id: this.nextProjectileId++, owner: enemy,
       target: enemy.actionTarget, targetPlayerId: enemy.actionPlayerId,
+      targetNodeId: enemy.nodeId,
       x: enemy.x, y: enemy.y, z: enemy.z,
       vx: dx * scale, vy: dy * scale, vz: dz * scale, radius: SPORE_RADIUS,
       arming: SPORE_ARM_TIME,
@@ -1893,8 +1834,13 @@ export class Simulation {
       const dx = vx * travel;
       const dy = vy * travel;
       const dz = vz * travel;
-      const objective = target === 'player' ? this.attackPlayer(projectile.targetPlayerId) : owner.node;
-      if (objective && projectile.arming <= travel) {
+      if (!clearSegment(this.obstacles, from, { x: from.x + dx, z: from.z + dz }, projectile.radius)) {
+        this.attackEvent(owner, 'miss', target, from, projectile.targetPlayerId);
+        continue;
+      }
+      const objective = target === 'player' ? this.attackPlayer(projectile.targetPlayerId)
+        : this.nodes.find(node => node.id === projectile.targetNodeId) ?? owner.node;
+      if (objective?.health > 0 && projectile.arming <= travel) {
         const tx = objective.x - from.x;
         const ty = objective.y - from.y;
         const tz = objective.z - from.z;
@@ -1905,7 +1851,7 @@ export class Simulation {
         if (Math.hypot(tx - dx * nearest, ty - dy * nearest, tz - dz * nearest) <= radius) {
           const impact = { x: from.x + dx * nearest, y: from.y + dy * nearest, z: from.z + dz * nearest };
           const spec = SPECIES.spore;
-          this.damageTarget(owner, target, target === 'player' ? spec.suitDamage : spec.tissueDamage, impact, projectile.targetPlayerId);
+          this.damageTarget(owner, target, target === 'player' ? spec.suitDamage : spec.tissueDamage, impact, projectile.targetPlayerId, objective);
           this.attackEvent(owner, 'impact', target, impact, projectile.targetPlayerId);
           continue;
         }

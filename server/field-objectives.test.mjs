@@ -98,53 +98,26 @@ test('an antibody cache patches up and credits the suit that reaches it, then ex
   assert.deepEqual(solo.pickups, []);
 });
 
-test('pathogens sidestep a crosshair, spread out and hunt the weak, unguarded node', () => {
+test('pathogens spread out and only reconsider tissue they have sensed', () => {
   const sim = new Simulation('artery');
   sim.start();
-  const { player } = sim;
-  Object.assign(player, { x: 0, z: 26, yaw: 0, pitch: 0 });
-
-  // A lunger dead ahead darts sideways; one well off the crosshair keeps its line.
-  const aimed = sim.createEnemy('virus', 0, 6, sim.nodes[0]);
-  const ignored = sim.createEnemy('virus', 14, 8, sim.nodes[0]);
-  sim.enemies.push(aimed, ignored);
-  for (let i = 0; i < 6; i++) sim.advanceEnemies(STEP);
-  assert.ok(aimed.dodge > 0 && Math.abs(aimed.x) > .3, 'aimed-at pathogen should dodge');
-  assert.ok(!(ignored.dodge > 0));
-  for (let i = 0; i < 30; i++) sim.advanceEnemies(STEP);
-  assert.ok(aimed.dodgeRest > 0, 'a dodge is followed by a rest');
-  // Bacilli never dodge.
-  const slow = sim.createEnemy('bacillus', 0, 4, sim.nodes[0]);
-  sim.enemies = [slow];
-  for (let i = 0; i < 6; i++) sim.advanceEnemies(STEP);
-  assert.equal(slow.dodge, undefined);
-
-  // Two pathogens spawned on the same spot drift apart on the approach.
-  sim.enemies = [];
-  Object.assign(player, { x: -30, z: 40 });
-  const pair = [sim.createEnemy('virus', 20, -45, sim.nodes[0]), sim.createEnemy('virus', 20.2, -45, sim.nodes[0])];
-  pair.forEach((enemy, index) => { enemy.id = 100 + index; });
-  sim.enemies.push(...pair);
-  for (let i = 0; i < 45; i++) sim.advanceEnemies(STEP);
+  Object.assign(sim.player, { x: -30, z: 40 });
+  const pair = [sim.createEnemy('virus', 20, -45), sim.createEnemy('virus', 20.2, -45)];
+  sim.enemies = pair;
+  for (let i = 0; i < 90; i++) { sim.clock += STEP; sim.advanceEnemies(STEP); }
   assert.ok(Math.hypot(pair[0].x - pair[1].x, pair[0].z - pair[1].z) > 1.2);
 
-  // A hunter (every third pathogen) far from its node switches to the battered, unguarded one.
-  sim.enemies = [];
-  const [core, flank, venous] = sim.nodes;
-  Object.assign(player, { x: core.x, z: core.z + 3 });
+  // Remote tissue damage is no longer omniscient information. A remembered local
+  // tissue signal can still make an objective attacker change its route.
+  const hunter = pair[0], [core, , venous] = sim.nodes;
   venous.health = 35;
-  const hunter = sim.createEnemy('virus', -10, -40, core);
-  hunter.id = 300;
-  hunter.rethink = 0;
-  const loyal = sim.createEnemy('virus', -10, -40, core);
-  loyal.id = 301;
-  loyal.rethink = 0;
-  sim.enemies.push(hunter, loyal);
-  sim.advanceEnemies(STEP);
+  const controller = sim.ai.controllers.get(hunter.id);
+  controller.decide();
+  assert.equal(hunter.node, core);
+  controller.memory.observe('node:' + venous.id, venous, sim.clock, { kind: 'node', source: 'tissue-signal', health: 35 });
+  controller.decide();
   assert.equal(hunter.node, venous);
   assert.equal(hunter.nodeId, venous.id);
-  assert.equal(loyal.node, core);
-  assert.ok(flank.health === 100);
 });
 
 test('arenas are a third larger and every obstacle leaves the objectives reachable', async () => {

@@ -1,4 +1,5 @@
 import { Simulation, JUNCTION_INLETS, RULES } from './simulation.mjs';
+import { AIDebugSystem } from './ai-debug.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
 import {
@@ -36,6 +37,7 @@ import {
 import { armoryDialog, armoryEvents, armoryOpen, openArmory, setupArmory } from './armory-menu.mjs';
 
 const menu = byId('menu');
+const aiDebug = new AIDebugSystem(document);
 const deploy = byId('deploy');
 const newCampaignButton = byId('new-campaign');
 const newCampaignDialog = byId('new-campaign-dialog');
@@ -745,6 +747,7 @@ function chooseExtraction(choice) {
 
 function mainMenu(keepRoom = false) {
   session.running = false;
+  aiDebug.update(session.sim, performance.now(), false);
   session.paused = false;
   campaign = null;
   practice = null;
@@ -924,6 +927,7 @@ function drawNodeBreakdown(container, nodes) {
 
 function finish() {
   session.running = false;
+  aiDebug.update(session.sim, performance.now(), false);
   extractionDialog.close();
   clearControls();
   releaseMouse();
@@ -1053,6 +1057,7 @@ function frame(now) {
       touch.reload = false;
     }
     const aiming = session.world.render(session.sim, dt, input, reducedMotion);
+    aiDebug.update(session.sim, now, session.running);
     input.lookX = 0;
     input.lookY = 0;
     drawHud();
@@ -1303,7 +1308,7 @@ extractionDialog.addEventListener('cancel', event => event.preventDefault());
 pauseDialog.addEventListener('cancel', event => { event.preventDefault(); resume(); });
 resultDialog.addEventListener('cancel', event => { event.preventDefault(); returnFromResult(); });
 
-Object.assign(commands, { pause, syncMusic, selectJunctionSupply });
+Object.assign(commands, { pause, syncMusic, selectJunctionSupply, toggleAiDebug: all => aiDebug.toggle(all) });
 // Changing weapons in the armory cancels a co-op ready, so teammates see the new loadout.
 armoryEvents.changed = loadout => {
   if (coopClient?.localPlayer?.ready && ['lobby', 'finished'].includes(coopClient.room?.phase)) coopClient.setReady(false, loadout);

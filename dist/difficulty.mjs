@@ -11,6 +11,7 @@ export const DIFFICULTIES = Object.freeze({
       'Tissue takes 35% less damage, your suit 40% less (hazards included)',
       'Repair pulses restore 30% more tissue',
       'Place your auto-turret twice per mission, so you can move it once',
+      'Slower pathogen reactions, less information sharing and at most three ordinary high-pressure attacks',
     ],
     enemyHealth: .75, tissueDamage: .65, suitDamage: .6, cadence: 1.3, drop: 3, extra: 0, repair: 1.3, turrets: 2,
   }),
@@ -20,6 +21,7 @@ export const DIFFICULTIES = Object.freeze({
     changes: [
       'Standard wave sizes and spawn timing',
       'Standard pathogen health and damage',
+      'Standard tactical reactions and at most four ordinary high-pressure attacks',
       'One auto-turret placement per mission',
     ],
     enemyHealth: 1, tissueDamage: 1, suitDamage: 1, cadence: 1, drop: 0, extra: 0, repair: 1, turrets: 1,
@@ -32,6 +34,7 @@ export const DIFFICULTIES = Object.freeze({
       'Pathogens and the Mega Virus have 15% more health',
       'Tissue takes 10% more damage in two-node arenas, your suit 15% more everywhere (hazards included)',
       'Repair pulses restore 15% less tissue',
+      'Faster tactical reactions, stronger colony coordination and at most five ordinary high-pressure attacks',
       'One auto-turret placement per mission',
     ],
     enemyHealth: 1.15, tissueDamage: 1.1, suitDamage: 1.15, cadence: .9, drop: 0, extra: 7, repair: .85, turrets: 1,

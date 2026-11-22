@@ -25,6 +25,7 @@ export const commands = {
   pause() {},
   syncMusic() {},
   selectJunctionSupply() { return false; },
+  toggleAiDebug() {},
 };
 
 export const canvas = byId('world');
@@ -164,6 +165,12 @@ window.addEventListener('keydown', switchFromGamepad, { capture: true });
 window.addEventListener('pointerdown', switchFromGamepad, { capture: true, passive: true });
 
 window.addEventListener('keydown', event => {
+  // F3 shows the pathogen AI debug overlay (Shift+F3 for every enemy).
+  if (event.code === 'F3' && session.running) {
+    event.preventDefault();
+    if (!event.repeat) commands.toggleAiDebug(event.shiftKey);
+    return;
+  }
   if (!session.running || session.paused || session.sim.extractionPending) return;
   const supply = supplyKeys[event.code];
   if (supply && !junctionSupply.hidden) {
