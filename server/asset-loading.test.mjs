@@ -1,16 +1,39 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as THREE from '../dist/vendor/three.module.js';
-import { constrainedDevice, createAssetQueue, limitTextures, textureSize } from '../dist/asset-loading.mjs';
+import { LOW_MEMORY, MAX_TEXTURE_SIZE, constrainedDevice, createAssetQueue, limitTextures, scheduleAsset, textureSize } from '../dist/asset-loading.mjs';
 
 test('mobile memory policy is selected before asset loading, including iPad desktop user agents', () => {
   assert.equal(constrainedDevice({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' }), true);
   assert.equal(constrainedDevice({ userAgent: 'Android' }), true);
   assert.equal(constrainedDevice({ platform: 'MacIntel', maxTouchPoints: 5 }), true);
-  assert.equal(constrainedDevice({ deviceMemory: 4 }), true);
+  assert.equal(constrainedDevice({ deviceMemory: 4 }), false);
   assert.equal(constrainedDevice({ userAgent: 'Windows', deviceMemory: 16 }), false);
-  assert.equal(constrainedDevice({}, '?memory=low'), true);
+  assert.equal(constrainedDevice({}, '?memory=low', 'localhost'), true);
+  assert.equal(constrainedDevice({}, '?memory=low', '127.0.0.1'), true);
+  assert.equal(constrainedDevice({}, '?memory=low', '[::1]'), true);
   assert.equal(constrainedDevice(), false);
+});
+
+test('desktop PCs stay full quality regardless of RAM, touch input, or public URL parameters', () => {
+  for (const userAgent of ['Windows NT 10.0', 'Macintosh; Intel Mac OS X', 'X11; Linux x86_64']) {
+    for (const deviceMemory of [1, 2, 4, 8, 16]) {
+      assert.equal(constrainedDevice({ userAgent, deviceMemory, maxTouchPoints: 10 }, '?memory=low', 'corycowgill.github.io'), false);
+    }
+  }
+  assert.equal(constrainedDevice({ userAgent: 'Macintosh', platform: 'MacIntel', maxTouchPoints: 0 }), false);
+  assert.equal(constrainedDevice({ userAgent: 'Macintosh', platform: 'MacIntel', maxTouchPoints: 5 }), true); // iPad desktop mode.
+});
+
+test('desktop loader starts more than six pending assets immediately and retains full textures', async () => {
+  assert.equal(LOW_MEMORY, false); assert.equal(MAX_TEXTURE_SIZE, Infinity);
+  let started = 0, release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const jobs = Array.from({ length: 20 }, () => scheduleAsset(() => { started++; return gate; }));
+  assert.equal(started, 20); release(); await Promise.all(jobs);
+  const image = { width: 4096, height: 2048 }, texture = new THREE.Texture(image);
+  await limitTextures([texture], undefined, () => { throw Error('Desktop texture must retain its source'); });
+  assert.equal(texture.image, image);
 });
 
 test('texture budget preserves aspect ratio and never upscales smaller images', () => {

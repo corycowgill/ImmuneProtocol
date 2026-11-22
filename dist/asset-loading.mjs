@@ -4,14 +4,13 @@ import { MeshoptDecoder } from './vendor/meshopt_decoder.mjs';
 
 // This budget is selected before the first model request, not after the menu loads.
 // The override is useful for checking the same path in a desktop browser.
-export function constrainedDevice(nav = {}, search = '') {
-  if (new URLSearchParams(search).get('memory') === 'low') return true;
+export function constrainedDevice(nav = {}, search = '', hostname = '') {
+  if (['localhost', '127.0.0.1', '[::1]'].includes(hostname) && new URLSearchParams(search).get('memory') === 'low') return true;
   return /iPhone|iPad|iPod|Android/i.test(nav.userAgent ?? '') ||
-    (nav.platform === 'MacIntel' && nav.maxTouchPoints > 1) ||
-    (Number.isFinite(nav.deviceMemory) && nav.deviceMemory <= 4);
+    (nav.platform === 'MacIntel' && nav.maxTouchPoints > 1);
 }
 
-export const LOW_MEMORY = constrainedDevice(globalThis.navigator, globalThis.location?.search);
+export const LOW_MEMORY = constrainedDevice(globalThis.navigator, globalThis.location?.search, globalThis.location?.hostname);
 export const MAX_TEXTURE_SIZE = LOW_MEMORY ? 512 : Infinity;
 export const assetLoadingStats = { active: 0, peak: 0, reducedImages: 0, sourceBytes: 0, retainedBytes: 0 };
 
@@ -28,7 +27,9 @@ export function createAssetQueue(limit = 1, stats = { active: 0, peak: 0 }) {
   };
   return task => new Promise((resolve, reject) => { pending.push({ task, resolve, reject }); pump(); });
 }
-const enqueue = createAssetQueue(LOW_MEMORY ? 1 : 6, assetLoadingStats);
+const mobileQueue = LOW_MEMORY ? createAssetQueue(1, assetLoadingStats) : null;
+// Desktop starts requests immediately, preserving the original parallel loader.
+export const scheduleAsset = task => mobileQueue ? mobileQueue(task) : task();
 
 export function textureSize(width, height, maximum = MAX_TEXTURE_SIZE) {
   const scale = Math.min(1, maximum / Math.max(width, height));
@@ -75,7 +76,7 @@ export async function limitTextures(textures, maximum = MAX_TEXTURE_SIZE, resize
 }
 
 export function loadModel(url) {
-  return enqueue(async () => {
+  return scheduleAsset(async () => {
     const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(url);
     if (LOW_MEMORY) {
       const textures = new Set();
@@ -91,7 +92,8 @@ export function loadModel(url) {
 }
 
 export function loadTexture(url) {
-  return enqueue(async () => {
+  if (!LOW_MEMORY) return new THREE.TextureLoader().loadAsync(url);
+  return scheduleAsset(async () => {
     const texture = await new THREE.TextureLoader().loadAsync(url);
     await limitTextures([texture]);
     return texture;

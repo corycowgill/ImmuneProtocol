@@ -1,6 +1,7 @@
 import { COOP_SUITS, SUITS, loadSuitModels, normalizeSuit, saveSuit, savedSuit, suitModelVersion } from './suits.mjs';
 import { createLobbyBay } from './coop-lobby-bay.mjs';
 import { COOP_MAX_PLAYERS, COOP_MIN_PLAYERS } from './coop-protocol.mjs';
+import { LOW_MEMORY } from './asset-loading.mjs';
 
 // Co-op lobby: once in a room the dialog becomes a full-screen miniaturization lab where both
 // players stand in the shrinking machine in their chosen suits, with a picker to choose your
@@ -153,15 +154,17 @@ export function attachLobby(client) {
   const watcher = new MutationObserver(sync);
   watcher.observe(lobby, { attributes: true, attributeFilter: ['hidden'] });
   watcher.observe(dialog, { attributes: true, attributeFilter: ['open'] });
+  async function prepareResources() {
+    await loadSuitModels();
+    if (!ensureBay()) throw new Error('Could not prepare the miniaturization lab renderer');
+    await bay.prepare();
+    drawPortraits();
+    await Promise.all(buttons.map(button => button.querySelector('img').decode()));
+  }
   return {
     prepare() {
-      preparation ??= (async () => {
-        await loadSuitModels();
-        if (!ensureBay()) throw new Error('Could not prepare the miniaturization lab renderer');
-        await bay.prepare();
-        drawPortraits();
-        await Promise.all(buttons.map(button => button.querySelector('img').decode()));
-      })().catch(error => { preparation = null; throw error; });
+      if (!LOW_MEMORY) return prepareResources();
+      preparation ??= prepareResources().catch(error => { preparation = null; throw error; });
       return preparation;
     },
   };

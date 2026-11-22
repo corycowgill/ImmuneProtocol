@@ -8,16 +8,16 @@ The GLBs' embedded images alone represent approximately 444 MiB of RGBA pixels, 
 
 ## Changes
 
-- `asset-loading.mjs` chooses the budget before the first request. iPhone/iPad/iPod/Android user agents, iPad desktop mode, and devices reporting at most 4 GB RAM use the constrained profile. `?memory=low` enables the same path for development checks. There is no pretend numeric RAM reading for iPhone.
-- A shared queue bounds fetch/decode/resize work to one asset job on constrained devices (six on desktop). A GLB can still decode its own material images internally; it must finish resizing before another queued asset starts. Failures release the queue slot.
+- `asset-loading.mjs` chooses the budget before the first request. Only iPhone/iPad/iPod/Android user agents and iPad desktop mode use the constrained profile. Desktop RAM and touch input alone never enable it. `?memory=low` enables the same path for development checks only on localhost/loopback hosts; public desktop URLs ignore it. There is no pretend numeric RAM reading for iPhone.
+- A shared queue bounds fetch/decode/resize work to one asset job on mobile. Desktop starts every request immediately, preserving its original parallel loading without a new job limit. A GLB can still decode its own material images internally; it must finish resizing before another queued asset starts. Failures release the queue slot.
 - GLB material images and external texture images are capped at 512 pixels per axis while retaining aspect ratio. Small textures, typed pixel textures and compressed GPU textures are preserved. Shared image references switch together before the original ImageBitmap closes. HTML images use a small canvas to retain WebGL's flipY behavior; glTF ImageBitmaps retain their existing orientation. Desktop keeps original texture dimensions.
 - Mobile prepares its initial arena, then prepares other arenas at the existing deployment gate. Suits, lab atlases, lab renderer and suit portraits load when Online Co-op opens. The full co-op catalog remains available. Lab preparation is cached after success.
 - Mobile skips exhaustive startup weapon/cosmetic shader permutations and other weapons' generated part cards. Its existing armory cache fills on first use. The armory preview is 640 × 400 without multisampling; the main and lab renderers also avoid antialias buffers, and the lab caps device pixel ratio at one. Low graphics is the default when no preference exists. Saved preferences remain usable.
-- The preparation error mentions graphics-memory limits as a possible cause instead of suggesting only a connection problem. A process killed by iOS cannot reliably run this handler.
+- Mobile's preparation error mentions graphics-memory limits as a possible cause instead of suggesting only a connection problem. A process killed by iOS cannot reliably run this handler. Desktop retains its original preparation flow, error text, renderer settings, armory size, texture dimensions and startup warmup.
 
 ## Validation on 2026-11-21
 
-`npm test` passed 117 tests, including seven new checks for device policy, texture sizing, queue ordering/failure recovery, shared-image lifetime, resize failure, typed texture exclusions and external-image orientation. `npm run check` and the whitespace checks passed.
+`npm test` passed 119 tests, including nine checks for device policy, texture sizing, queue ordering/failure recovery, shared-image lifetime, resize failure, typed texture exclusions and external-image orientation. Desktop regression checks cover Windows, macOS and Linux at 1–16 GB reported RAM, public URL parameters and touch input; twenty pending desktop asset tasks start immediately and a 4096-pixel texture keeps its original source. `npm run check` and the whitespace checks passed.
 
 `tools/performance/mobile-loading.html`, served at `/__mobile?memory=low` by the local verification server, checks actual loaded model texture dimensions, asset queue peak, initial arena count, deferred asset requests, a later Bronchial Fork deployment and deferred suits/lab. Captured output is in `tools/performance/mobile-loading-results.txt`.
 

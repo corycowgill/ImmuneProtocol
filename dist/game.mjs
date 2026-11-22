@@ -331,7 +331,9 @@ async function prepareGame() {
     }
   } catch (error) {
     console.error('Could not prepare Immune Protocol', error);
-    loadingScreen.fail('The device could not finish loading the game. Close other tabs and retry. A connection or graphics-memory limit may have interrupted preparation.');
+    loadingScreen.fail(LOW_MEMORY
+      ? 'The device could not finish loading the game. Close other tabs and retry. A connection or graphics-memory limit may have interrupted preparation.'
+      : 'The lab could not finish preparation. Check your connection and WebGL 2, then retry.');
   }
 }
 
