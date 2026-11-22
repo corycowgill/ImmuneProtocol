@@ -1,6 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { GLTFLoader } from './vendor/GLTFLoader.js';
-import { MeshoptDecoder } from './vendor/meshopt_decoder.mjs';
+import { loadModel } from './asset-loading.mjs';
 
 // Photoreal pathogen models. Each one is a 3D scan that tools/enemies/process.py
 // refines, retopologises, texture-bakes and animates in Blender
@@ -69,7 +68,7 @@ export function loadEnemyModel(type) {
   if (!Object.hasOwn(ENEMY_MODELS, type)) return Promise.resolve(null);
   if (!loads.has(type)) {
     const url = new URL('./assets/enemies/' + type + '.glb', import.meta.url).href;
-    loads.set(type, new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(url)
+    loads.set(type, loadModel(url)
       .then(gltf => prepare(type, gltf))
       .catch(error => {
         console.warn('Could not load the ' + type + ' model; showing a placeholder', error);

@@ -1,5 +1,6 @@
-// Getting the renderer ready before play: startup downloads and decodes every model, uploads
-// textures and compiles shaders for all arenas (prepareScenes), photographs the Free Mode
+// Getting the renderer ready before play: desktop startup prepares every arena; mobile
+// prepares one arena and defers the co-op lab. Both upload textures and compile shaders,
+// photograph available Free Mode
 // previews, and each deployment rehearses its own arena, hazards, effects and both carried
 // weapons on a throwaway fixture, then waits for the GPU (prepareMission), so nothing stalls
 // once the mission starts. Called through World's methods of the same names.
@@ -13,6 +14,7 @@ import { ENEMY_MODELS } from './enemy-models.mjs';
 import { NEST } from './field-objectives.mjs';
 import { LEVEL_BOSSES } from './level-bosses.mjs';
 import { floorHeight } from './arena-scene.mjs';
+import { LOW_MEMORY } from './asset-loading.mjs';
 
 const PRELOAD_INPUT = Object.freeze({ moveX: 0, moveZ: 0, lookX: 0, lookY: 0 });
 
@@ -28,6 +30,8 @@ export function prepareAll(world, areas, onProgress = () => {}) {
 
 export async function prepareScenes(world, areas, onProgress) {
   const startArea = world.area;
+  // Mobile prepares the insertion site, then other arenas at their deployment gate.
+  if (LOW_MEMORY) areas = [startArea];
   const shadows = world.renderer.shadowMap.enabled;
   const total = areas.length + 2;
   const textures = new Set();
@@ -46,13 +50,14 @@ export async function prepareScenes(world, areas, onProgress) {
     });
   };
 
-  onProgress(0, total, 'Downloading and decoding weapons, pathogens, suits and sound');
+  onProgress(0, total, LOW_MEMORY ? 'Loading compact weapons, pathogens and sound' : 'Downloading and decoding weapons, pathogens, suits and sound');
   world.warmTextures = warmTextures;
-  const [, , weapons, suits] = await Promise.all([world.textureReady, world.enemyModelsReady, weaponModelsReady, loadSuitModels()]);
+  const [, , weapons, suits] = await Promise.all([world.textureReady, world.enemyModelsReady, weaponModelsReady,
+    LOW_MEMORY ? Promise.resolve([]) : loadSuitModels()]);
   if (weapons.size !== WEAPON_ORDER.length || world.enemyModels.size !== Object.keys(ENEMY_MODELS).length || suits.some(suit => !suit)) {
     throw new Error('Required weapon, pathogen or suit models are missing');
   }
-  prepareWeaponCosmetics(world.renderer);
+  if (!LOW_MEMORY) prepareWeaponCosmetics(world.renderer);
   onProgress(1, total, 'Uploading textures and preparing weapon shaders');
   // Prime GPU programs and texture uploads on the actual renderer using a small frame.
   world.renderer.setPixelRatio(1);
@@ -78,10 +83,10 @@ export async function prepareScenes(world, areas, onProgress) {
     })));
     world.carbine.flash.visible = true;
     // Prime both weapon shadow variants before preparing the arena scenes.
-    for (const enabled of [!shadows, shadows]) {
+    for (const enabled of LOW_MEMORY ? [shadows] : [!shadows, shadows]) {
       world.renderer.shadowMap.enabled = enabled;
       world.weaponKey.castShadow = enabled;
-      for (const loadout of warmupBuilds) {
+      for (const loadout of LOW_MEMORY ? [DEFAULT_WEAPON_LOADOUT] : warmupBuilds) {
         world.setWeaponLoadout(loadout);
         await world.renderer.compileAsync(world.weaponScene, world.weaponCamera);
         world.renderer.render(world.weaponScene, world.weaponCamera);
@@ -175,7 +180,7 @@ export async function prepareArea(world, sim, warmTextures) {
   const fire = { type: 'turret', stage: 'fire', x: sim.turret.x, y: 1, z: sim.turret.z,
     impact: { x: start.x - 2, y: 1, z: start.z - 13 } };
   start.id = 'warmup-local';
-  sim.players = [start, ...Array.from({ length: COOP_MAX_PLAYERS - 1 }, (_, index) => ({
+  sim.players = [start, ...Array.from({ length: LOW_MEMORY ? 0 : COOP_MAX_PLAYERS - 1 }, (_, index) => ({
     ...start, id: 'warmup-teammate-' + index, name: 'Teammate ' + (index + 1),
     x: start.x + (index ? 2.2 : -2.2), z: start.z - 9,
   }))];
@@ -201,7 +206,7 @@ export async function prepareArea(world, sim, warmTextures) {
   sim.repairTarget = sim.nodes[0];
   for (const teammate of sim.players.slice(1)) teammate.repairing = true;
   world.render(sim, .24, PRELOAD_INPUT, false, false);
-  for (const suit of COOP_SUITS) {
+  for (const suit of LOW_MEMORY ? [null] : COOP_SUITS) {
     for (const teammate of sim.players.slice(1)) teammate.suit = suit;
     world.teammateView.update(sim.players, start.id, floorHeight, 0, false);
     warmTextures(world.scene);

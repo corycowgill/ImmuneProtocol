@@ -1,6 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { GLTFLoader } from './vendor/GLTFLoader.js';
-import { MeshoptDecoder } from './vendor/meshopt_decoder.mjs';
+import { LOW_MEMORY, loadModel, loadTexture } from './asset-loading.mjs';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { createTeammate } from './teammate.mjs';
 import { COOP_SUITS } from './suits.mjs';
@@ -63,8 +62,8 @@ export function loadLab() {
   labLoad ??= (async () => {
     const asset = path => new URL('./assets/lobby/' + path, import.meta.url).href;
     const [gltf, ...atlases] = await Promise.all([
-      new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(asset('lab.glb')),
-      ...LAB_GROUPS.map(group => new THREE.TextureLoader().loadAsync(asset('lab-' + group + '.webp'))),
+      loadModel(asset('lab.glb')),
+      ...LAB_GROUPS.map(group => loadTexture(asset('lab-' + group + '.webp'))),
     ]);
     const nodes = {};
     LAB_GROUPS.forEach((group, index) => {
@@ -88,12 +87,12 @@ export function loadLab() {
 }
 
 export function createLobbyBay(canvas, softMask = radialMask()) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !LOW_MEMORY, alpha: true, powerPreference: 'low-power' });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
-  renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
-  renderer.shadowMap.enabled = true;
+  renderer.setPixelRatio(Math.min(LOW_MEMORY ? 1 : 2, devicePixelRatio || 1));
+  renderer.shadowMap.enabled = !LOW_MEMORY;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   // A studio reflection until the lab has loaded; then the suits reflect the lab itself.

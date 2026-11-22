@@ -1,0 +1,60 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Mobile loading verification</title>
+<style>body{background:#171018;color:#daf5bd;font:15px/1.5 monospace;margin:24px}canvas{width:640px;height:360px;max-width:100%}pre{white-space:pre-wrap}button{padding:12px}</style>
+<h1>Mobile loading verification</h1><p id="status">Preparing the mobile insertion site…</p>
+<pre id="report"></pre><button id="coop-check" disabled>Check deferred co-op assets</button><br><canvas id="world"></canvas>
+<script type="module">
+import { World } from './world.mjs';
+import { Simulation } from './simulation.mjs';
+import { CAMPAIGN_AREAS } from './coop-protocol.mjs';
+import { LOW_MEMORY, assetLoadingStats } from './asset-loading.mjs';
+import { loadSuitModels } from './suits.mjs';
+import { loadLab } from './coop-lobby-bay.mjs';
+const status = document.querySelector('#status'), report = document.querySelector('#report'), coop = document.querySelector('#coop-check');
+const rows = [], out = value => { rows.push(value); report.textContent = rows.join('\n'); };
+const check = (value, message) => { if (!value) throw Error(message); };
+function maps(roots) {
+  const textures = new Set();
+  for (const root of roots) root.traverse(object => {
+    for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+      for (const texture of Object.values(material ?? {})) if (texture?.isTexture) textures.add(texture);
+    }
+  });
+  const images = [...new Set([...textures].map(t => t.image).filter(i => i?.width))];
+  return { count: images.length, max: Math.max(0, ...images.map(i => Math.max(i.width, i.height))),
+    rgbaMiB: +(images.reduce((sum, i) => sum + i.width * i.height * 4, 0) / 1048576).toFixed(2) };
+}
+try {
+  check(LOW_MEMORY, 'Open this harness with ?memory=low');
+  const at = performance.now(), world = new World(document.querySelector('#world'));
+  await world.prepareAll(CAMPAIGN_AREAS, (_done, _total, label) => { status.textContent = label; });
+  check(world.levelProps.size === 1, 'Startup prepared more than one arena');
+  const sources = maps(world.enemyModels.values());
+  check(sources.max <= 512, 'An enemy texture exceeds the mobile budget');
+  const requests = performance.getEntriesByType('resource');
+  const deferred = requests.filter(r => /\/assets\/(suits|lobby)\//.test(r.name));
+  check(deferred.length === 0, 'Startup loaded co-op-only assets');
+  check(assetLoadingStats.peak === 1, 'More than one asset decoded at once');
+  check(!world.renderer.getContext().isContextLost(), 'Graphics context was lost');
+  out('Startup: ' + Math.round(performance.now() - at) + ' ms; prepared arenas: ' + world.levelProps.size);
+  out('Enemy images: ' + JSON.stringify(sources));
+  out('Co-op-only startup requests: ' + deferred.length + '; peak asset decode jobs: ' + assetLoadingStats.peak);
+  out('Resize totals (source RGBA equivalents, not measured process memory): ' + JSON.stringify(assetLoadingStats));
+  const sim = new Simulation('lungs');
+  await world.prepareMission(sim); sim.start(); world.render(sim, 1 / 60, {}, false);
+  check(world.levelProps.has('lungs'), 'Deferred arena did not prepare');
+  out('Deferred Bronchial Fork deployment: PASS');
+  status.textContent = 'PASS: mobile startup and deferred arena'; coop.disabled = false;
+  coop.onclick = async () => {
+    coop.disabled = true; status.textContent = 'Checking deferred suits and lab…';
+    try {
+      const suits = await loadSuitModels(), lab = await loadLab();
+      check(suits.every(Boolean) && lab, 'Deferred co-op assets failed to load');
+      const textures = maps([...suits.flatMap(parts => [...parts.values()]), ...Object.values(lab)]);
+      check(textures.max <= 512, 'A co-op texture exceeds the mobile budget');
+      out('Deferred suits and lab images: ' + JSON.stringify(textures));
+      out('Final decode peak: ' + assetLoadingStats.peak);
+      status.textContent = 'PASS: mobile startup, deferred arena, suits and lab';
+    } catch (error) { status.textContent = 'FAIL: ' + error.message; console.error(error); }
+  };
+} catch (error) { status.textContent = 'FAIL: ' + error.message; console.error(error); }
+</script></html>

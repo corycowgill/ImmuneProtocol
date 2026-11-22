@@ -16,6 +16,7 @@ import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon }
 import { Simulation, arenaObstacles, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, SPECIES, TISSUE_NODES } from './simulation.mjs';
 import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion } from './enemy-models.mjs';
 import { RenderScale } from './render-scale.mjs';
+import { LOW_MEMORY, loadTexture } from './asset-loading.mjs';
 import { ARENA_GROWTH } from './arena-scale.mjs';
 import { NEST } from './field-objectives.mjs';
 import { BOSS_FLOATS, LEVEL_BOSSES } from './level-bosses.mjs';
@@ -47,7 +48,7 @@ const REPAIR_LIGHT = new THREE.Color(0x9bf4c4);
 export class World {
   constructor(canvas, area = 'artery') {
     this.canvas = canvas;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !LOW_MEMORY, powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.18;
@@ -192,7 +193,7 @@ export class World {
       const maps = membraneMaps(26701, [238, 181, 170]);
       return createHeartValve(this.scene, maps, redCellGeometry(), randomSource(9468));
     };
-    this.textureReady = new THREE.TextureLoader().loadAsync(new URL('./assets/tissue.webp', import.meta.url).href).then(asset => {
+    this.textureReady = loadTexture(new URL('./assets/tissue.webp', import.meta.url).href).then(asset => {
       configureTile(asset, anisotropy, true);
       const normalMap = normalFromImage(asset.image, anisotropy);
       for (const material of this.room.surfaces) {
@@ -254,7 +255,7 @@ export class World {
     this.lightProxies = new Map();
     this.lightMembers = new Map();
     this.setArea(area);
-    this.setQuality('high');
+    this.setQuality(LOW_MEMORY ? 'low' : 'high');
   }
 
   prepareAll(...args) {

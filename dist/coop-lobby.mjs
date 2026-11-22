@@ -58,6 +58,7 @@ export function attachLobby(client) {
   let bay = null;
   let portraitVersion = -1;
   let modelsRequested = false;
+  let preparation = null;
   let selected = savedSuit();
 
   function ensureBay() {
@@ -153,12 +154,15 @@ export function attachLobby(client) {
   watcher.observe(lobby, { attributes: true, attributeFilter: ['hidden'] });
   watcher.observe(dialog, { attributes: true, attributeFilter: ['open'] });
   return {
-    async prepare() {
-      await loadSuitModels();
-      if (!ensureBay()) throw new Error('Could not prepare the miniaturization lab renderer');
-      await bay.prepare();
-      drawPortraits();
-      await Promise.all(buttons.map(button => button.querySelector('img').decode()));
+    prepare() {
+      preparation ??= (async () => {
+        await loadSuitModels();
+        if (!ensureBay()) throw new Error('Could not prepare the miniaturization lab renderer');
+        await bay.prepare();
+        drawPortraits();
+        await Promise.all(buttons.map(button => button.querySelector('img').decode()));
+      })().catch(error => { preparation = null; throw error; });
+      return preparation;
     },
   };
 }

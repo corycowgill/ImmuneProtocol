@@ -7,8 +7,7 @@ import { ACCENT_COLORS, FINISH_COLORS, createCarbine, finishTexture } from './ca
 import {
   DEFAULT_WEAPON_LOADOUT, WEAPON_CHARMS, WEAPON_DECALS, WEAPON_STICKERS, WEAPON_SKINS, normalizeWeaponLoadout,
 } from './weapon-mods.mjs';
-import { GLTFLoader } from './vendor/GLTFLoader.js';
-import { MeshoptDecoder } from './vendor/meshopt_decoder.mjs';
+import { loadModel, loadTexture } from './asset-loading.mjs';
 import {
   skinTexture, decalTexture, dressShell, ensureWeathering, makeSkinnable, makeWeathered, setWeatheringAtlas,
 } from './weapon-skins.mjs';
@@ -20,11 +19,9 @@ import {
 const MODELLED = ['carbine', 'sniper', 'shotgun', 'launcher', 'pistol'];
 let weaponModels = new Map();
 export const weaponModelsReady = typeof document === 'undefined' ? Promise.resolve(weaponModels)
-  : Promise.all(MODELLED.map(kind => new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
-    .loadAsync(new URL('./assets/weapons/' + kind + '.glb', import.meta.url).href)
+  : Promise.all(MODELLED.map(kind => loadModel(new URL('./assets/weapons/' + kind + '.glb', import.meta.url).href)
     .then(async gltf => {
-      const atlas = await new THREE.TextureLoader()
-        .loadAsync(new URL('./assets/weapons/' + kind + '-weathering.webp', import.meta.url).href);
+      const atlas = await loadTexture(new URL('./assets/weapons/' + kind + '-weathering.webp', import.meta.url).href);
       if (atlas) {
         // Blender's atlas is stored bottom-up; glTF UVs already count from the top.
         atlas.flipY = false;

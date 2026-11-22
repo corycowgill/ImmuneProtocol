@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { createArsenalView, weaponModelsReady } from './arsenal-models.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
+import { LOW_MEMORY, loadTexture } from './asset-loading.mjs';
 
 // The armory's large preview, and the smaller part and cosmetic card pictures.
 // Close to the shape of the armory stage, so the preview fills it without bands.
@@ -22,7 +23,7 @@ const CARD_VIEWS = {
 // keeps its plain studio backdrop.
 async function loadBench() {
   try {
-    const picture = await new THREE.TextureLoader().loadAsync(new URL('./assets/armory/bench.webp', import.meta.url).href);
+    const picture = await loadTexture(new URL('./assets/armory/bench.webp', import.meta.url).href);
     picture.colorSpace = THREE.SRGBColorSpace;
     return picture;
   } catch (error) {
@@ -34,7 +35,7 @@ async function loadBench() {
 function createCapture(renderer, width, height) {
   const target = new THREE.WebGLRenderTarget(width, height, {
     colorSpace: THREE.SRGBColorSpace,
-    samples: Math.min(4, renderer.capabilities.maxSamples),
+    samples: LOW_MEMORY ? 0 : Math.min(4, renderer.capabilities.maxSamples),
   });
   const bytes = new Uint8Array(width * height * 4);
   const canvas = document.createElement('canvas');
@@ -71,7 +72,7 @@ function createCapture(renderer, width, height) {
 }
 
 export async function prepareArmoryArt(renderer) {
-  const { width, height } = ARMORY_ART_SIZE;
+  const { width, height } = LOW_MEMORY ? { width: 640, height: 400 } : ARMORY_ART_SIZE;
   const [bench] = await Promise.all([loadBench(), weaponModelsReady]);
   const photography = new THREE.Scene();
   photography.background = new THREE.Color(0x201917);

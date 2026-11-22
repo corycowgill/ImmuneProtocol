@@ -1,6 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { GLTFLoader } from './vendor/GLTFLoader.js';
-import { MeshoptDecoder } from './vendor/meshopt_decoder.mjs';
+import { loadModel } from './asset-loading.mjs';
 import { COOP_SUITS, DEFAULT_COOP_SUIT } from './coop-protocol.mjs';
 
 // Co-op suit catalog. The photoreal suits are TRELLIS scans refined, baked and cut
@@ -83,7 +82,7 @@ export function loadSuitModel(id) {
   if (!COOP_SUITS.includes(id)) return Promise.resolve(null);
   if (!glbLoads.has(id)) {
     const url = new URL('./assets/suits/' + id + '.glb', import.meta.url).href;
-    glbLoads.set(id, new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(url).then(gltf => {
+    glbLoads.set(id, loadModel(url).then(gltf => {
       const parts = glbParts(id, gltf);
       if (!parts) throw new Error('Suit model is missing rig joints');
       glbModels.set(id, parts);

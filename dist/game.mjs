@@ -9,6 +9,7 @@ import {
 import { FIELD_UPGRADE_ART, prepareArmoryArt } from './armory-art.mjs';
 import { World } from './world.mjs';
 import { loadingScreen, paintLoading } from './loading-screen.mjs';
+import { LOW_MEMORY } from './asset-loading.mjs';
 import { loadLab } from './coop-lobby-bay.mjs';
 import { ENEMY_MODELS } from './enemy-models.mjs';
 import { GameAudio } from './audio.mjs';
@@ -143,7 +144,7 @@ let campaignCheckpoint = readCheckpoint();
 let megaVirusReached = readSetting(megaVirusKey) === 'true';
 session.trainingComplete = readSetting(tutorialKey) === 'true';
 session.sensitivity = clamp(Number.parseFloat(readSetting(sensitivityKey)) || 1, 0.5, 2.5);
-let graphicsQuality = readSetting(qualityKey) === 'low' ? 'low' : 'high';
+let graphicsQuality = readSetting(qualityKey) === 'low' || (LOW_MEMORY && readSetting(qualityKey) !== 'high') ? 'low' : 'high';
 const savedLevel = key => {
   const value = Number.parseFloat(readSetting(key));
   return Number.isFinite(value) ? clamp(value, 0, 1) : 1;
@@ -295,7 +296,7 @@ async function prepareGame() {
         portrait.src = new URL('./assets/enemies/portraits/' + type + '.webp', import.meta.url).href;
         return portrait.decode();
       }),
-      loadLab().then(lab => { if (!lab) throw new Error('The miniaturization lab could not load'); }),
+      LOW_MEMORY ? Promise.resolve() : loadLab().then(lab => { if (!lab) throw new Error('The miniaturization lab could not load'); }),
       upgradeArt.decode(), titleArt.decode(),
       ...missionThumbnails.map(image => image.decode().catch(() => { image.hidden = true; })),
       document.fonts.ready,
@@ -304,17 +305,17 @@ async function prepareGame() {
     loadingScreen.progress(81, 'Photographing the arsenal');
     await paintLoading();
     session.armoryArt = await prepareArmoryArt(session.world.renderer);
-    // Build and decode all weapon cards now, including weapons not yet equipped.
-    for (const [i, weapon] of Object.keys(WEAPON_TYPES).entries()) {
+    // Desktop prepares all cards now; mobile uses the armory's existing first-visit cache.
+    for (const [i, weapon] of (LOW_MEMORY ? [] : Object.keys(WEAPON_TYPES)).entries()) {
       const cards = session.armoryArt.thumbnailsFor(weapon);
       await Promise.all(Object.values(cards).flatMap(options => Object.values(options)).map(image => image.decode()));
       loadingScreen.progress(84 + 2 * i, 'Preparing ' + weaponName(weapon) + ' part cards');
       await paintLoading();
     }
     setupArmory();
-    loadingScreen.progress(95, 'Preparing the miniaturization lab and suit portraits');
+    loadingScreen.progress(95, LOW_MEMORY ? 'Checking the insertion site' : 'Preparing the miniaturization lab and suit portraits');
     await paintLoading();
-    await getCoopClient().lobby.prepare();
+    if (!LOW_MEMORY) await getCoopClient().lobby.prepare();
     loadingScreen.progress(97, 'Checking your carried weapons');
     await session.world.prepareMission(new Simulation('artery', { weaponLoadout: session.weaponLoadout }), () => {});
     session.ready = true;
@@ -330,7 +331,7 @@ async function prepareGame() {
     }
   } catch (error) {
     console.error('Could not prepare Immune Protocol', error);
-    loadingScreen.fail('The lab could not finish preparation. Check your connection and WebGL 2, then retry.');
+    loadingScreen.fail('The device could not finish loading the game. Close other tabs and retry. A connection or graphics-memory limit may have interrupted preparation.');
   }
 }
 
@@ -505,6 +506,16 @@ async function openCoop() {
   if (code) coopCode.value = code;
   coopName.value = readSetting(coopNameKey) ?? '';
   const client = getCoopClient();
+  if (LOW_MEMORY) {
+    setCoopStatus('Preparing the miniaturization lab…');
+    try { await client.lobby.prepare(); }
+    catch (error) {
+      console.error('Could not prepare the co-op lab', error);
+      setCoopStatus('The lab could not finish loading. Close and reopen online co-op to retry.');
+      return;
+    }
+    if (!coopDialog.open) return;
+  }
   const saved = code && savedCoopSession(code);
   setCoopStatus(code ? 'You’ve been invited to room ' + code + '.' : '');
   if (saved && !client.session) client.connect({ type: 'resume', code, token: saved.token });
