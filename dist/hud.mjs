@@ -9,6 +9,7 @@ import { drawWeaponHud, weaponName } from './arsenal-ui.mjs';
 import { levelBossStatus } from './level-bosses.mjs';
 import { BossTelegraphView } from './boss-telegraphs.mjs';
 import { EncounterView } from './encounter-ui.mjs';
+import { compactHud, shortNodeName, importantNode, fieldTargets } from './hud-layout.mjs';
 import { floorHeight } from './arena-scene.mjs';
 import { session } from './session.mjs';
 import { byId, isTouch, reducedMotion, pad, clamp, setText } from './dom.mjs';
@@ -17,6 +18,15 @@ import { missionName } from './mission-text.mjs';
 export const game = byId('game');
 const bossTelegraphs = new BossTelegraphView(game);
 const encounterView = new EncounterView(game);
+let compact = false, layoutKey = '';
+function syncHudLayout() {
+  const width = window.innerWidth, height = window.innerHeight;
+  const key = `${width}:${height}:${isTouch}:${session.sim.nodes.length}:${!!session.sim.tutorial}`;
+  if (key === layoutKey) return;
+  layoutKey = key; compact = compactHud(width, height, isTouch);
+  game.dataset.hud = compact ? 'compact' : 'full';
+  game.style.setProperty('--hud-nodes', String(session.sim.tutorial ? 1 : session.sim.nodes.length));
+}
 const scoreboard = byId('scoreboard');
 const reticle = byId('reticle');
 export const hitMarker = byId('hit-marker');
@@ -286,7 +296,11 @@ function drawNodeHud() {
     if (row.hidden) continue;
     const label = nodeStatus(node);
     const integrity = Math.ceil(node.health);
-    setText(name, node.name);
+    setText(name, compact ? shortNodeName(node, session.sim.nodes) : node.name);
+    if (meter.getAttribute('aria-label') !== node.name + ' integrity') {
+      meter.removeAttribute('aria-labelledby'); meter.setAttribute('aria-label', node.name + ' integrity');
+      row.title = node.name;
+    }
     setText(value, integrity + '%');
     fillMeter(meter, meter.firstElementChild, integrity);
     setText(state, label);
@@ -305,6 +319,8 @@ export function drawTurretHud() {
   const state = ready ? (session.sim.turretPlacement ? 'ready' : 'blocked') :
     turret?.jammed ? 'jammed' : turret?.targetId == null ? 'online' : 'engaging';
   turretStatus.dataset.state = state;
+  touchTurret.dataset.state = state;
+  setText(touchTurret, compact && !ready ? state === 'jammed' ? 'Jammed' : 'Online' : 'Turret');
   setText(turretStatusValue, {
     online: 'TURRET ONLINE', engaging: 'TURRET ENGAGING', jammed: 'TURRET JAMMED',
     ready: moving || turret ? 'REDEPLOY READY' : 'TURRET READY', blocked: 'FIND CLEAR GROUND',
@@ -327,7 +343,9 @@ function drawBossHud() {
   const boss = session.sim.boss;
   const levelBoss = boss ? null : levelBossStatus(session.sim);
   bossHud.hidden = !boss && !levelBoss;
-  setText(byId('boss-name'), levelBoss?.name ?? 'Mega Virus');
+  const name = levelBoss?.name ?? 'Mega Virus';
+  setText(byId('boss-name'), name);
+  if (bossHealth.getAttribute('aria-label') !== name + ' health') bossHealth.setAttribute('aria-label', name + ' health');
   if (levelBoss) {
     // The same bar serves every level boss: its name, health, and what it is doing right now.
     bossHud.dataset.state = levelBoss.warning ? 'warning' : levelBoss.state === 'hidden' ? 'sealed' : levelBoss.state;
@@ -508,6 +526,7 @@ export function drawPlayerScores(results, complete) {
 }
 
 export function drawHud() {
+  syncHudLayout();
   encounterView.update(session.sim);
   const { player, tissue, wave, waves, remaining, phase, intermission, valve } = session.sim;
   drawScoreboard();
@@ -532,13 +551,13 @@ export function drawHud() {
   if (!session.sim.repairing) {
     if (session.sim.reloading > 0) {
       ammoStatus = 'reloading';
-      ammoMessage = 'RELOADING';
+      ammoMessage = compact ? 'RELOAD' : 'RELOADING';
     } else if (player.ammo === 0) {
       ammoStatus = 'empty';
-      ammoMessage = 'MAGAZINE EMPTY';
+      ammoMessage = compact ? 'EMPTY' : 'MAGAZINE EMPTY';
     } else if (player.ammo <= Math.ceil(session.sim.magazineSize / 5)) {
       ammoStatus = 'low';
-      ammoMessage = 'MAGAZINE LOW';
+      ammoMessage = compact ? 'LOW' : 'MAGAZINE LOW';
     }
   }
   if (ammoPanel.dataset.state !== ammoStatus) ammoPanel.dataset.state = ammoStatus;
@@ -644,16 +663,19 @@ export function drawMarkers() {
     const distance = Math.hypot(dx, dz);
     const valveNode = index === 0 && !!session.sim.valve;
     const point = session.world.project(x, y + (valveNode ? .96 : 1.65), z);
-    const visible = point.visible && point.y >= top && point.y < height * .84 && point.x > 58 && point.x < width - 58;
+    const visible = point.visible && point.y >= top && point.y < worldMarkerBottom(height, .84) && point.x > 58 && point.x < width - 58;
     const concealed = (index > 0 && !!session.sim.tutorial) || (valveNode && session.sim.valve.exposed && !session.sim.valve.colonyDefeated) || session.sim.gash?.nodeId === node.id;
     const status = nodeStatus(node);
     const port = session.sim.airway?.ports[index];
-    const markerName = port?.name ?? node.name;
+    const markerName = port?.name ?? (compact ? shortNodeName(node, session.sim.nodes) : node.name);
     const danger = status === 'UNDER ATTACK' || status === 'CRITICAL';
     const nearby = distance <= RULES.repairRadius && !danger;
     marker.hidden = concealed || !visible || nearby;
     edge.hidden = concealed || visible || nearby;
+    const important = importantNode(node, session.sim);
+    if (compact && !important) edge.hidden = true;
     for (const element of [marker, edge]) {
+      element.classList.toggle('quiet', compact && !important);
       element.classList.toggle('under-attack', status === 'UNDER ATTACK');
       element.classList.toggle('critical', node.health <= 32);
     }
@@ -698,7 +720,7 @@ function drawGastricMarker(top, width, height, occupied) {
   const point = session.world.project(target.x, target.y + 1.8, target.z);
   const distance = Math.round(Math.hypot(dx, dz)) + ' m';
   const label = target === session.sim.gastric.intake ? 'Close intake' : 'Open drain';
-  const visible = point.visible && point.y >= top && point.y < height * .84 && point.x > 65 && point.x < width - 65;
+  const visible = point.visible && point.y >= top && point.y < worldMarkerBottom(height, .84) && point.x > 65 && point.x < width - 65;
   gastricMarker.hidden = !visible;
   gastricEdge.hidden = visible;
   if (visible) {
@@ -716,9 +738,9 @@ function positionEdgeMarker(edge, point, dx, dz, top, width, height, occupied) {
   const player = session.sim.player;
   const side = dx * Math.cos(player.yaw) - dz * Math.sin(player.yaw);
   const forward = -dx * Math.sin(player.yaw) - dz * Math.cos(player.yaw);
-  const insetX = Math.min(84, width * 0.23);
+  const insetX = compact ? (width > height ? 100 : 64) : Math.min(84, width * 0.23);
   const halfWidth = Math.max(12, width / 2 - insetX);
-  const bottom = Math.max(top + 20, height * (isTouch ? 0.68 : 0.8));
+  const bottom = Math.max(top + 20, compact ? height - 170 : height * (isTouch ? 0.68 : 0.8));
   const middleY = (top + bottom) / 2;
   const halfHeight = (bottom - top) / 2;
   // A point behind the view projects to the wrong side of the camera.
@@ -728,7 +750,10 @@ function positionEdgeMarker(edge, point, dx, dz, top, width, height, occupied) {
   const x = width / 2 + towardX * scale;
   let y = middleY + towardY * scale;
   for (const other of occupied) {
-    if (Math.abs(other.x - x) < 130 && Math.abs(other.y - y) < 38) y = y + 40 <= bottom ? y + 40 : y - 40;
+    if (Math.abs(other.x - x) < (compact ? 110 : 130) && Math.abs(other.y - y) < (compact ? 28 : 38)) {
+      const step = compact ? 30 : 40;
+      y = y + step <= bottom ? y + step : Math.max(top, y - step);
+    }
   }
   edge.style.setProperty('--objective-x', x + 'px');
   edge.style.setProperty('--objective-y', y + 'px');
@@ -749,7 +774,7 @@ function drawGash(edgePositions) {
   const width = window.innerWidth;
   const height = window.innerHeight;
   const top = worldMarkerTop(width <= 720 ? 112 : 128);
-  const readable = point.visible && point.y >= top && point.y < height * .83 && point.x > 60 && point.x < width - 60;
+  const readable = point.visible && point.y >= top && point.y < worldMarkerBottom(height, .83) && point.x > 60 && point.x < width - 60;
   gashMarker.hidden = session.sim.nearGash || !readable;
   gashEdge.hidden = session.sim.nearGash || readable;
   const label = branches[branch].name + ' GASH';
@@ -772,7 +797,7 @@ const fieldMarkers = new Map();
 function drawFieldMarkers(top, width, height, occupied) {
   const targets = [];
   const encounter = session.sim.encounter;
-  if (encounter && session.sim.phase === 'combat' && !session.sim.enemies.some(e => e.boss)) {
+  if (encounter && ['warning', 'holding'].includes(encounter.stage) && session.sim.phase === 'combat' && !session.sim.enemies.some(e => e.boss)) {
     for (const [index, approach] of encounter.approaches.entries()) targets.push({
       key: `encounter-${encounter.id}-${index}`, kind: 'encounter', label: approach.label,
       x: approach.x, y: 2.5, z: approach.z, detail: `${encounter.name} · ${Math.ceil(encounter.remaining)}s`,
@@ -797,7 +822,7 @@ function drawFieldMarkers(top, width, height, occupied) {
       detail: Math.ceil(pickup.remaining) + 's' });
   }
   const live = new Set();
-  for (const target of targets) {
+  for (const target of fieldTargets(targets, session.sim.player, compact)) {
     live.add(target.key);
     let view = fieldMarkers.get(target.key);
     if (!view) {
@@ -815,10 +840,12 @@ function drawFieldMarkers(top, width, height, occupied) {
     const dz = target.z - session.sim.player.z;
     const range = Math.round(Math.hypot(dx, dz)) + ' m';
     const point = session.world.project(target.x, target.y, target.z);
-    const visible = point.visible && point.y >= top && point.y < height * .84 && point.x > 60 && point.x < width - 60;
+    const visible = point.visible && point.y >= top && point.y < worldMarkerBottom(height, .84) && point.x > 60 && point.x < width - 60;
     view.marker.hidden = !visible;
     view.edge.hidden = visible;
     if (visible) {
+      const quiet = compact && target.kind === 'cache' && Math.hypot(dx, dz) > 14;
+      view.marker.classList.toggle('quiet', quiet);
       view.marker.style.left = point.x + 'px';
       view.marker.style.top = point.y + 'px';
       setText(view.label, target.label);
@@ -844,7 +871,7 @@ function drawTurretMarker(top, width, height) {
   }
   const distance = Math.hypot(turret.x - session.sim.player.x, turret.z - session.sim.player.z);
   const point = session.world.project(turret.x, turret.y + 1.75, turret.z);
-  turretMarker.hidden = !point.visible || distance < 4 || point.y < top || point.y > height * .78 || point.x < 52 || point.x > width - 52;
+  turretMarker.hidden = !point.visible || distance < 4 || point.y < top || point.y > worldMarkerBottom(height, .78) || point.x < 52 || point.x > width - 52;
   if (turretMarker.hidden) return;
   turretMarker.style.left = point.x + 'px';
   turretMarker.style.top = point.y + 'px';
@@ -852,14 +879,22 @@ function drawTurretMarker(top, width, height) {
 }
 
 function worldMarkerTop(defaultTop) {
+  if (compact) return window.innerWidth > window.innerHeight ? 83 : 165;
   return window.innerWidth <= 480 ? Math.max(defaultTop, 156) : defaultTop;
+}
+
+function worldMarkerBottom(height, fraction) {
+  return compact ? height - 170 : height * fraction;
 }
 
 export function drawAttackers() {
   bossTelegraphs.update(session.sim, session.world, floorHeight);
   const active = new Set();
   const captions = [];
-  for (const enemy of session.sim.enemies) {
+  // Player attack warnings take the caption slots before routine tissue attackers.
+  const priority = enemy => Number(!!enemy.warning || enemy.action.endsWith('-windup')) * 2 + Number(enemy.actionTarget === 'player');
+  const enemies = compact ? [...session.sim.enemies].sort((a, b) => priority(b) - priority(a)) : session.sim.enemies;
+  for (const enemy of enemies) {
     const telegraph = enemy.type + '-windup';
     const warning = enemy.tutorial ? '' : enemy.warning || (enemy.action.endsWith('-windup') ?
       attackWarnings[telegraph] ?? attackWarnings[enemy.action] : '');
@@ -882,7 +917,7 @@ export function drawAttackers() {
     const text = enemy.warning || (warning && enemy.actionTarget === 'player' ? warning + ' · MOVE' : warning || label);
     icon.classList.toggle('winding-up', !!warning);
     setText(icon.firstElementChild, text);
-    const showCaption = point.x >= 65 && point.x <= window.innerWidth - 65 &&
+    const showCaption = (!compact || captions.length < 2) && point.x >= 65 && point.x <= window.innerWidth - 65 &&
       !captions.some(other => Math.abs(other.x - point.x) < 125 && Math.abs(other.y - point.y) < 24);
     icon.classList.toggle('compact', !showCaption);
     if (showCaption) captions.push(point);

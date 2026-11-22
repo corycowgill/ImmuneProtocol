@@ -1,0 +1,122 @@
+/* Keep combat visible: full HUD at desktop sizes, a perimeter layout on phones. */
+.encounter-card{position:absolute;top:118px;right:25px;width:252px;box-sizing:border-box;padding:7px 10px;border:1px solid #d6ae6970;border-left:2px solid #d6ae69;background:#171817cf;color:#ffdeb1;border-radius:3px;z-index:7;pointer-events:none;font:11px/1.35 var(--mono);text-align:left}
+.encounter-card strong{font-size:11px;letter-spacing:.06em}
+.encounter-card small{display:block;color:#d7dfc8;margin-top:4px;font-size:10px}
+.encounter-card[hidden],.encounter-card [hidden]{display:none}
+#game :is(.field-marker,.field-edge)[data-kind="laser"]{color:#ffb193}
+
+#game[data-hud="compact"]{--hud-left:max(12px,env(safe-area-inset-left));--hud-right:max(12px,env(safe-area-inset-right));--hud-top:max(8px,env(safe-area-inset-top));--hud-bottom:max(10px,env(safe-area-inset-bottom));--hud-notice-top:calc(var(--hud-top) + 43px)}
+#game[data-hud="compact"] .hud{font-size:9px;letter-spacing:.025em}
+#game[data-hud="compact"] .hud .host-panel{top:var(--hud-top);left:var(--hud-left);width:238px;min-width:0;padding:5px 7px 6px;background:#1414119e;border:0;border-radius:3px}
+#game[data-hud="compact"] .hud .host-panel>.hud-label{display:none}
+#game[data-hud="compact"] .node-status{grid-template-columns:repeat(var(--hud-nodes,3),minmax(0,1fr));gap:9px;margin:0}
+#game[data-hud="compact"] .node-readout{font-size:9px;gap:4px;letter-spacing:0}
+#game[data-hud="compact"] .node-readout>span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#game[data-hud="compact"] .node-row .meter{height:2px}
+#game[data-hud="compact"] .node-state{display:none}
+#game[data-hud="compact"] .node-row:is(.under-attack,.critical){outline:1px solid #ff9c8366;outline-offset:3px}
+#game[data-hud="compact"] .gash-status{font-size:8px;line-height:1.1}
+#game[data-hud="compact"] .wave-panel{top:var(--hud-top);right:auto;left:calc(50% - 75px);transform:none;width:150px;min-width:0;max-width:none;padding:2px 3px 4px;background:#14141170;border:0;border-radius:3px}
+#game[data-hud="compact"] #wave-mode{display:none}
+#game[data-hud="compact"] #wave-value{font-size:22px;line-height:1;margin:0 0 2px}
+#game[data-hud="compact"] #wave-value span{font-size:13px}
+#game[data-hud="compact"] #threats{font-size:8px;line-height:1;letter-spacing:.035em;white-space:normal}
+#game[data-hud="compact"] .game-actions{top:var(--hud-top);right:var(--hud-right);gap:3px}
+#game[data-hud="compact"] .game-actions .icon-button{width:44px;height:44px;background:#17141166;border-color:#dac9ad38}
+#game[data-hud="compact"] .game-actions .icon-button svg{width:17px;height:17px}
+#game[data-hud="compact"] .scoreboard{display:none}
+#game[data-hud="compact"] .coop-hud{top:calc(var(--hud-top) + 35px);left:var(--hud-left);padding:2px 5px;max-width:230px;border:0;background:#1414118c;font-size:8px;line-height:1.2}
+#game[data-hud="compact"] .coop-hud strong{font-size:8px;font-weight:600}
+#game[data-hud="compact"] .player-panel{left:var(--hud-left);bottom:var(--hud-bottom);min-width:0;width:104px;padding:5px 7px;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:2px 5px;background:#141411a3;border:0;border-radius:3px}
+#game[data-hud="compact"] .player-panel .hud-label{font-size:0;gap:0}
+#game[data-hud="compact"] .player-panel .hud-label svg{width:13px;height:13px}
+#game[data-hud="compact"] #suit-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+#game[data-hud="compact"] #health-value{font-size:25px;line-height:1;margin:0;justify-self:end}
+#game[data-hud="compact"] #health-meter{grid-column:1/-1;height:2px;margin:1px 0 0}
+#game[data-hud="compact"] .ammo-panel{right:calc(var(--hud-right) + 185px);bottom:var(--hud-bottom);min-width:0;width:110px;padding:4px 7px;border:0;border-radius:3px;background:#141411a3}
+#game[data-hud="compact"] #weapon-strip,#game[data-hud="compact"] #reserve-value,#game[data-hud="compact"] #campaign-equipped{display:none}
+#game[data-hud="compact"] #equipment-label{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;font-size:8px;letter-spacing:.025em;line-height:1}
+#game[data-hud="compact"] #ammo-value{font-size:26px;line-height:1;margin-top:2px}
+#game[data-hud="compact"] .reload-feedback{margin-top:2px;font-size:8px;gap:4px}
+#game[data-hud="compact"] .reload-feedback:has(#reload-state:empty){display:none}
+#game[data-hud="compact"]:has(#touch-controls:not([hidden])) #turret-status{display:none}
+#game[data-hud="compact"] #turret-status{font-size:8px;margin-top:3px;padding-top:3px}
+#game[data-hud="compact"] .field-hint{display:none}
+#game[data-hud="compact"] .joystick{left:calc(var(--hud-left) + 5px);bottom:calc(var(--hud-bottom) + 49px);width:92px;height:92px;background:#191b142e;border-color:#e7f0cc54}
+#game[data-hud="compact"] .joystick div{width:36px;height:36px;background:#ceef9770}
+#game[data-hud="compact"] .touch-actions{right:var(--hud-right);bottom:var(--hud-bottom);grid-template-columns:44px 44px 64px;grid-template-rows:44px 44px;grid-template-areas:"swap turret fire" "reload repair fire";gap:7px}
+#game[data-hud="compact"] .touch-actions:has(#touch-turret[hidden]){grid-template-areas:"swap . fire" "reload repair fire"}
+#game[data-hud="compact"] .touch-actions button{width:44px;height:44px;font-size:8px;background:#171b165c;border-color:#ecf3d363}
+#game[data-hud="compact"] .touch-actions .touch-fire{width:64px;height:64px;background:#c8f79479;color:#edffcd;border-color:#d8fda7b5;font-size:10px}
+#game[data-hud="compact"] #touch-turret{background:#14304370;color:#b2e8ff}
+#game[data-hud="compact"] #touch-turret[data-state="jammed"]{color:#ff9c83;border-color:#ff9c83}
+#game[data-hud="compact"] #touch-swap{background:#19273263}
+#game[data-hud="compact"] .encounter-card{top:var(--hud-notice-top);right:auto;left:50%;transform:translateX(-50%);width:max-content;max-width:min(330px,43vw);padding:5px 8px;display:flex;align-items:center;gap:7px;line-height:1.2;background:#171817c7}
+#game[data-hud="compact"] .encounter-card[hidden]{display:none}
+#game[data-hud="compact"] .encounter-card strong{font-size:9px;letter-spacing:.035em;max-width:145px}
+#game[data-hud="compact"] .encounter-card>div{font-size:9px;max-width:170px}
+#game[data-hud="compact"] .encounter-card small{display:none}
+#game[data-hud="compact"] #organ-hazard{position:fixed;top:calc(var(--hud-top) + 36px);left:var(--hud-left);right:auto;width:220px;margin:0;padding:4px 6px;grid-template-areas:"label time";gap:3px;font-size:8px;border:0;border-left:2px solid var(--condition);background:#181514b8;transform:none}
+#game[data-hud="compact"] .organ-hazard-detail{display:none}
+#game[data-hud="compact"] .organ-hazard-time{font-size:16px}
+#game[data-hud="compact"] .mission-guidance{top:calc(var(--hud-top) + 49px);right:auto;left:50%;bottom:auto;transform:translateX(-50%);width:min(300px,43vw);gap:5px}
+#game[data-hud="compact"] .game-alert{font-size:16px;letter-spacing:.04em;line-height:1.05}
+#game[data-hud="compact"] .game-alert small{font-size:8px;margin-top:4px;letter-spacing:.03em}
+#game[data-hud="compact"]:has(.encounter-card:not([hidden])) .game-alert{display:none}
+#game[data-hud="compact"] .training-hint{padding:6px 8px;max-width:100%}
+#game[data-hud="compact"] .training-hint strong{font-size:14px}
+#game[data-hud="compact"] .training-hint p{font-size:10px;line-height:1.25;max-width:29ch}
+#game[data-hud="compact"] .action-prompt{top:auto;bottom:calc(var(--hud-bottom) + 52px);left:50%;transform:translateX(-50%);min-width:0;width:max-content;max-width:220px;padding:5px 7px;font-size:9px;white-space:normal;background:#171b16a8}
+#game[data-hud="compact"] .action-prompt .meter{height:2px;margin-top:4px}
+#game[data-hud="compact"] .objective-marker{font-size:8px;letter-spacing:.02em;text-shadow:0 1px 4px #000}
+#game[data-hud="compact"] .objective-marker>span{width:6px;height:6px;margin-bottom:3px}
+#game[data-hud="compact"] .objective-marker small{font-size:8px}
+#game[data-hud="compact"] .objective-marker.quiet{opacity:.5}
+#game[data-hud="compact"] .objective-marker.quiet :is(strong,small){display:none}
+#game[data-hud="compact"] .objective-edge{max-width:106px;padding:3px 5px;font-size:8px;letter-spacing:.015em;background:#171614af;gap:3px}
+#game[data-hud="compact"] .objective-edge svg{width:12px;height:12px;flex:none}
+#game[data-hud="compact"] .objective-edge strong{overflow-wrap:normal}
+#game[data-hud="compact"] .attacker-marker strong{font-size:8px;padding:3px 5px;letter-spacing:.025em}
+#game[data-hud="compact"] .attacker-marker.compact strong{display:none}
+#game[data-hud="compact"] .wave-outro{top:20%;padding:6px 12px;min-width:160px;gap:2px}
+#game[data-hud="compact"] .wave-outro span{font-size:13px}
+#game[data-hud="compact"] .wave-outro strong{font-size:30px}
+#game[data-hud="compact"] .wave-outro small{font-size:8px}
+#game[data-hud="compact"] .wave-panel:has(:is(#boss-hud,#airway-hud,#gastric-hud):not([hidden])){left:calc(50% - min(120px,17vw));width:240px;max-width:34vw;padding:0;background:none}
+#game[data-hud="compact"] :is(.boss-hud,.airway-hud,.gastric-hud){padding:5px 7px;background:#181514bb}
+#game[data-hud="compact"] :is(.boss-hud,.airway-hud,.gastric-hud) h2{font-size:16px;letter-spacing:.02em;margin:0 0 4px}
+#game[data-hud="compact"] .boss-phase{font-size:8px}
+#game[data-hud="compact"] :is(.boss-status-detail,.airway-detail,.gastric-detail){display:none}
+#game[data-hud="compact"] :is(.boss-status,.airway-status,.gastric-status){font-size:9px}
+#game[data-hud="compact"] :is(.boss-time,.airway-time,.gastric-time){font-size:17px}
+#game[data-hud="compact"] :is(.airway-port,.gastric-valve){font-size:8px;padding:3px 4px}
+#game[data-hud="compact"] :is(.airway-ports,.gastric-valves){gap:4px;margin-bottom:4px}
+#game[data-hud="compact"] .boss-readout,#game[data-hud="compact"] .airway-readout,#game[data-hud="compact"] .gastric-readout{margin-top:3px;gap:3px}
+#game[data-hud="compact"] .boss-health{height:3px}
+#game[data-hud="compact"] .junction-forecast,#game[data-hud="compact"] .junction-wave-name{display:none}
+#game[data-hud="compact"] .branch-readout{font-size:8px;margin-top:3px}
+#game[data-hud="compact"] .junction-surge{margin-top:4px;padding:4px 5px;font-size:8px;max-width:150px}
+#game[data-hud="compact"] .junction-surge-time{font-size:17px}
+#game[data-hud="compact"] .junction-surge-threat{font-size:8px}
+#game[data-hud="compact"] .valve-readout{font-size:8px;margin-top:4px}
+
+#game[data-hud="compact"]:has(.coop-hud:not([hidden])) #organ-hazard{top:calc(var(--hud-top) + 64px)}
+
+@media(orientation:portrait){
+  #game[data-hud="compact"]{--hud-notice-top:calc(var(--hud-top) + 77px)}
+  #game[data-hud="compact"] .hud .host-panel{top:calc(var(--hud-top) + 43px);width:calc(100% - var(--hud-left) - var(--hud-right))}
+  #game[data-hud="compact"] .wave-panel{left:var(--hud-left);transform:none;width:160px;text-align:left}
+  #game[data-hud="compact"] #wave-value{display:inline-block;margin:2px 8px 0 0}
+  #game[data-hud="compact"] #threats{display:inline;font-size:8px}
+  #game[data-hud="compact"] .encounter-card{max-width:calc(100% - var(--hud-left) - var(--hud-right));font-size:9px}
+  #game[data-hud="compact"] #organ-hazard,#game[data-hud="compact"]:has(.coop-hud:not([hidden])) #organ-hazard{top:calc(var(--hud-top) + 112px);width:210px}
+  #game[data-hud="compact"] .mission-guidance{top:calc(var(--hud-top) + 118px);width:min(300px,85vw)}
+  #game[data-hud="compact"] .ammo-panel{right:var(--hud-right);bottom:calc(var(--hud-bottom) + 109px)}
+  #game[data-hud="compact"] .action-prompt{bottom:calc(var(--hud-bottom) + 169px);max-width:85vw}
+  #game[data-hud="compact"] .coop-hud{top:calc(var(--hud-top) + 145px)}
+  #game[data-hud="compact"]:has(#organ-hazard:not([hidden])) .mission-guidance{top:calc(var(--hud-top) + 182px)}
+  #game[data-hud="compact"] .wave-panel:has(:is(#boss-hud,#airway-hud,#gastric-hud):not([hidden])){left:var(--hud-left);max-width:none;width:calc(100% - 120px)}
+  #game[data-hud="compact"]:has(:is(#boss-hud,#airway-hud,#gastric-hud):not([hidden])) .host-panel{top:calc(var(--hud-top) + 108px)}
+  #game[data-hud="compact"]:has(:is(#boss-hud,#airway-hud,#gastric-hud):not([hidden])) #organ-hazard{top:calc(var(--hud-top) + 145px)}
+  #game[data-hud="compact"]:has(:is(#boss-hud,#airway-hud,#gastric-hud):not([hidden])) .coop-hud{top:calc(var(--hud-top) + 177px)}
+}
