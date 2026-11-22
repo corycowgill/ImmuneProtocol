@@ -2,6 +2,10 @@ const MUSIC_CUES = [
   { mode: 'drift', file: 'arterial-drift.mp3', volume: 0.36 },
   { mode: 'combat', file: 'immune-response.mp3', volume: 0.43 },
 ];
+// Each level's own combat theme (assets/music/levels/<area>.mp3). Only the current level's
+// theme is decoded; until it is ready, or if it fails, the shared combat cue plays instead.
+const LEVEL_THEMES = new Set(['artery', 'junction', 'heart', 'lungs', 'stomach', 'intestines', 'colon', 'lymph', 'ear', 'brain']);
+const LEVEL_THEME_VOLUME = 0.4;
 
 const SHOTS = ['weapon/shot-1', 'weapon/shot-2', 'weapon/shot-3', 'weapon/shot-4'];
 const ENEMY_CUES = {
@@ -114,6 +118,8 @@ export class GameAudio {
     this.repairVoice = null;
     this.musicMode = 'drift';
     this.musicTracks = null;
+    // { area, buffer, gain, source } for the current level's combat theme.
+    this.levelTheme = null;
     // Player mix from Settings, 0 to 1.
     this.musicLevel = 1;
     this.effectsLevel = 1;
@@ -220,11 +226,71 @@ export class GameAudio {
     this.fadeMusic();
   }
 
+  // Load the combat theme for a mission area during its loading screen. The previous
+  // level's theme is stopped and released so only one theme is held in memory.
+  setLevel(area) {
+    if (this.levelTheme?.area === area) {
+      // Same level again (retry or replay): keep the decoded theme, restart it from the top.
+      this.stopLevelTheme(this.levelTheme);
+      return this.levelTheme.ready;
+    }
+    this.stopLevelTheme(this.levelTheme);
+    this.levelTheme = null;
+    if (!LEVEL_THEMES.has(area)) return Promise.resolve();
+    const theme = { area, buffer: null, gain: null, source: null };
+    const OfflineAudio = globalThis.OfflineAudioContext || globalThis.webkitOfflineAudioContext;
+    const decoder = OfflineAudio ? new OfflineAudio(1, 1, 44100) : this.context;
+    theme.ready = (async () => {
+      try {
+        if (!decoder) return;
+        const response = await fetch(new URL(`./assets/music/levels/${area}.mp3`, import.meta.url));
+        if (!response.ok) return;
+        const buffer = await decoder.decodeAudioData(await response.arrayBuffer());
+        if (this.levelTheme !== theme) return;
+        theme.buffer = buffer;
+        this.fadeMusic();
+      } catch {
+        // The shared combat cue covers a missing or undecodable theme.
+      }
+    })();
+    this.levelTheme = theme;
+    return theme.ready;
+  }
+
+  stopLevelTheme(theme) {
+    if (!theme?.source) return;
+    const { source, gain } = theme;
+    theme.source = null;
+    theme.gain = null;
+    const now = this.context.currentTime;
+    gain.gain.setTargetAtTime(0, now, 0.15);
+    try { source.stop(now + 0.8); } catch { /* Already stopped. */ }
+    source.onended = () => gain.disconnect();
+  }
+
   fadeMusic() {
     if (!this.musicTracks) return;
     const now = this.context.currentTime;
+    const theme = this.levelTheme;
+    const themed = !!theme?.buffer;
+    // The theme starts from its opening bar the first time combat begins in the level,
+    // then loops under later waves; between waves it fades out like the shared cue.
+    if (themed && !theme.source && this.musicMode === 'combat') {
+      theme.gain = this.context.createGain();
+      theme.gain.gain.value = 0;
+      theme.gain.connect(this.master);
+      theme.source = this.context.createBufferSource();
+      theme.source.buffer = theme.buffer;
+      theme.source.loop = true;
+      theme.source.connect(theme.gain);
+      theme.source.start(now + 0.02);
+    }
     for (const { mode, volume, gain } of this.musicTracks) {
-      gain.gain.setTargetAtTime(mode === this.musicMode ? volume * this.musicLevel : 0, now, 0.23);
+      const on = mode === this.musicMode && !(themed && mode === 'combat');
+      gain.gain.setTargetAtTime(on ? volume * this.musicLevel : 0, now, 0.23);
+    }
+    if (theme?.gain) {
+      theme.gain.gain.setTargetAtTime(this.musicMode === 'combat' ? LEVEL_THEME_VOLUME * this.musicLevel : 0, now, 0.23);
     }
   }
 

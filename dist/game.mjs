@@ -579,6 +579,7 @@ async function launch(area, run = null, drill = null, onlineState = null, checkp
   game.hidden = false;
   requestMouse();
   const unlocked = Promise.resolve(session.audio.unlock()).catch(() => {});
+  const levelMusic = session.audio.setLevel(area);
   try {
     session.world.setArea(area);
     session.world.setQuality(graphicsQuality);
@@ -592,6 +593,9 @@ async function launch(area, run = null, drill = null, onlineState = null, checkp
     loadingScreen.begin(missionName(area), 'Preparing the arena, your loadout and combat effects before insertion.', 'MISSION ' + String(index + 1).padStart(2, '0') + ' / ' + campaignAreas.length);
     await paintLoading();
     await session.world.prepareMission(nextSim, (value, label) => loadingScreen.progress(value, label));
+    // Give the level's theme a moment to finish decoding; a slow connection falls back
+    // to the shared combat cue rather than holding the player on the loading screen.
+    await Promise.race([levelMusic, new Promise(resolve => setTimeout(resolve, 4000))]);
     if (!onlineState) nextSim.start(checkpoint);
     session.sim = nextSim;
     session.onlineRun = Boolean(onlineState);
