@@ -30,13 +30,18 @@ export const AI_PROFILES = Object.freeze({
   territorial: profile({ family: 'mutated', name: 'Territorial defender', courage: .45, tissuePriority: 1.5,
     playerPriority: 0, sophistication: .6, territory: 16, sight: 23,
     actions: ['objective', 'retreat', 'cover', 'regroup', 'idle'] }),
+  drone: profile({ family: 'mechanical', name: 'Hacked medical drone', courage: .55, tissuePriority: 0,
+    playerPriority: 1.8, preferredDistance: 13, sight: 40, fov: 3.8, biologicalRange: 0,
+    sophistication: .8, reaction: .28, evasion: .35, teamwork: .55, hearing: 30,
+    actions: ['patrol', 'pursue', 'investigate', 'flank', 'strafe', 'retreat', 'cover', 'evade', 'idle'] }),
 });
 
-// These are the existing species; no invented attacks or new assets.
+// Species map to a local tactical profile; attack execution remains in the simulation.
 export const SPECIES_AI = Object.freeze({
   virus: 'swarm', phage: 'swarm', flagellate: 'fast', splitter: 'fast',
   spore: 'harasser', blister: 'harasser', bacillus: 'colony', filovirus: 'colony',
   guard: 'tank', amoeba: 'territorial', rogue: 'territorial',
+  'rogue-bot': 'drone',
 });
 export const AI_DIFFICULTY = Object.freeze({
   easy: Object.freeze({ reaction: 1.5, decision: 1.25, pressure: 3, teamwork: .6, accuracy: .8 }),

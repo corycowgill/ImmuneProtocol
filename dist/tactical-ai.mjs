@@ -95,6 +95,7 @@ export class SquadCoordinator {
         : rank % 3 === 0 ? 'objective' : c.enemy.behavior === 'spore' ? 'suppressor'
         : rank % 3 === 1 ? 'aggressor' : 'flanker';
       if (c.enemy.encounterOrder?.until > now) c.role = c.enemy.encounterOrder.role;
+      if (c.profile.tissuePriority === 0) c.role = 'aggressor';
       if (previousRole !== c.role) c.nextDecision = now;
       // A spatially nearby colony shares an old observation, never a live player reference.
       if (c.profile.teamwork * world.difficulty.teamwork < .4) continue;
@@ -128,17 +129,19 @@ export class EnemyAIController {
     this.profile = AI_PROFILES[SPECIES_AI[enemy.type] ?? 'swarm'];
     this.memory = new EnemyMemory(world.config.memorySeconds);
     this.home = point(enemy.node);
-    this.action = 'objective'; this.reason = 'Spawn tissue signal'; this.scores = {};
+    this.action = this.profile.tissuePriority > 0 ? 'objective' : 'patrol';
+    this.reason = this.profile.tissuePriority > 0 ? 'Spawn tissue signal' : 'Search patrol'; this.scores = {};
     this.changedAt = world.sim.clock; this.nextSense = world.sim.clock + (enemy.id * .037 % .15);
     this.nextDecision = world.sim.clock + (enemy.id * .071 % .32);
     this.role = enemy.behavior === 'bacillus' ? 'objective' : 'aggressor'; this.slot = enemy.id % 3;
     if (enemy.encounterOrder?.until > world.sim.clock) this.role = enemy.encounterOrder.role;
-    this.targetKey = 'node:' + enemy.nodeId; this.target = point(enemy.node); this.visible = false;
-    this.destination = point(enemy.attackAnchor ?? enemy.node); this.path = []; this.pathGoal = null;
+    this.targetKey = this.profile.tissuePriority > 0 ? 'node:' + enemy.nodeId : null;
+    this.target = point(this.profile.tissuePriority > 0 ? enemy.node : enemy); this.visible = false;
+    this.destination = point(this.profile.tissuePriority > 0 ? enemy.attackAnchor ?? enemy.node : enemy); this.path = []; this.pathGoal = null;
     this.nextPath = 0; this.pathIndex = 0; this.stuck = 0; this.lastMove = point(enemy); this.cooldowns = {};
     this.lastDamage = -Infinity; this.heardSequence = 0; this.alertUntil = 0; this.dangerUntil = 0;
     this.coverCandidates = []; this.disposed = false;
-    this.memory.observe(this.targetKey, enemy.node, world.sim.clock, { kind: 'node', source: 'spawn-signal', health: enemy.node.health });
+    if (this.profile.tissuePriority > 0) this.memory.observe(this.targetKey, enemy.node, world.sim.clock, { kind: 'node', source: 'spawn-signal', health: enemy.node.health });
   }
   perceive() {
     const world = this.world, now = world.sim.clock, enemy = this.enemy, p = this.profile;
@@ -161,7 +164,7 @@ export class EnemyAIController {
         }
       }
     }
-    for (const node of world.sim.nodes) {
+    for (const node of this.profile.tissuePriority > 0 ? world.sim.nodes : []) {
       if (node.health <= 0) { this.memory.targets.delete('node:' + node.id); continue; }
       if (node.id === enemy.nodeId || (distance(enemy, node) <= p.sight && world.sight(enemy, node))) {
         this.memory.observe('node:' + node.id, node, now, { kind: 'node', source: 'tissue-signal', health: node.health });
@@ -190,10 +193,10 @@ export class EnemyAIController {
   }
   decide() {
     const { world, enemy, profile: p } = this, now = world.sim.clock;
-    let node = enemy.node?.health > 0 ? enemy.node : null, nodeValue = -Infinity;
+    let node = p.tissuePriority > 0 && enemy.node?.health > 0 ? enemy.node : null, nodeValue = -Infinity;
     const locked = !!(enemy.attackAnchor || enemy.branch || world.sim.valve || enemy.fragment || enemy.latched || enemy.action !== 'idle' || world.director.pressure.has(enemy.id) || enemy.encounterOrder?.until > now);
     for (const record of this.memory.targets.values()) {
-      if (record.kind !== 'node' || locked) continue;
+      if (record.kind !== 'node' || locked || p.tissuePriority === 0) continue;
       const candidate = world.sim.nodes.find(n => 'node:' + n.id === record.key && n.health > 0);
       if (!candidate) continue;
       const value = (100 - record.health) * .009 - distance(enemy, record) * .008 + (candidate === enemy.node ? .15 : 0);
@@ -215,6 +218,7 @@ export class EnemyAIController {
     const hasAllies = this.memory.allies.length > 0;
     const scores = {
       idle: .05,
+      patrol: !threat ? .35 : -Infinity,
       objective: node ? .6 * p.tissuePriority + (this.role === 'objective' ? .28 : 0) + (100 - node.health) * .002 : -Infinity,
       pursue: canPlayer && visible ? (.6 + p.aggression * .3 + (this.role === 'aggressor' ? .2 : 0) + .55 * clamp(1 - d / 15) - d * .009) * (world.director.aggression ?? 1) : -Infinity,
       investigate: canPlayer && !visible && now - threat.seenAt < world.config.memorySeconds ? 1.12 - (now - threat.seenAt) * .045 : -Infinity,
@@ -253,7 +257,10 @@ export class EnemyAIController {
     const { enemy, world, profile: p, action } = this, now = world.sim.clock;
     let desired = point(this.target);
     const dx = enemy.x - this.target.x, dz = enemy.z - this.target.z, d = Math.max(.01, Math.hypot(dx, dz));
-    if (['retreat', 'evade'].includes(action)) {
+    if (action === 'patrol') {
+      const angle = enemy.id * 2.39996 + Math.floor(now / 14) * 1.4;
+      desired = world.navigation.project({ x: Math.sin(angle) * 27, z: Math.cos(angle) * 36 });
+    } else if (['retreat', 'evade'].includes(action)) {
       const angle = action === 'evade' ? Math.atan2(dx, dz) + (enemy.id % 2 ? 1 : -1) * 1.2 : Math.atan2(dx, dz);
       desired = { x: enemy.x + Math.sin(angle) * 6, z: enemy.z + Math.cos(angle) * 6 };
     } else if (action === 'cover' && threat) {

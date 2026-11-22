@@ -8,6 +8,16 @@ import { SPECIES, speciesHabitats } from './simulation.mjs';
 // and some facts. Portraits are Cycles renders from tools/enemies/process.py.
 export const PATHOGENS = [
   {
+    type: 'rogue-bot', name: 'Rogue Bot', family: 'Compromised medical nanodrone', inspiration: 'Surgical robotics (fictional)',
+    description: 'An NMD-07 medical drone hijacked inside the host. Sterile ceramic armor, surgical manipulators and magnetic stabilizers now carry a mini laser cannon aimed exclusively at the human response team.',
+    tactics: 'The red aiming line locks before it fires. Step out of that line or break it with solid cover, then attack during its cooldown. It never attacks tissue.',
+    facts: [
+      'Its telemetry still reports a successful treatment. The hacked target list is the problem.',
+      'The surgical laser was meant for precise repairs. Its new operator has terrible bedside manner.',
+      'The white armor and medical markings are a reminder: this machine used to be on your side.',
+    ],
+  },
+  {
     type: 'virus', name: 'Crown Virus', family: 'Enveloped RNA virus', inspiration: 'Coronavirus',
     description: 'The rank and file of every infection. A fatty envelope studded with red spike proteins that it uses like grappling hooks to dock with cells, and with you.',
     tactics: 'Coils before it lunges at a fixed landing point. Step sideways during the windup and it sails past.',
@@ -133,6 +143,7 @@ const BEHAVIORS = {
   virus: 'Lunger · attacks suits and tissue',
   bacillus: 'Latcher · tears tissue',
   spore: 'Ranged · spits projectiles',
+  laser: 'Laser drone · attacks human players only',
 };
 const SPECIALS = {
   guard: 'Armored front blocks shots',

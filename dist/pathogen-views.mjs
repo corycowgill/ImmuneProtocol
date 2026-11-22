@@ -23,7 +23,39 @@ const ATTACK_GLOW = {
   filovirus: new THREE.Color(0xff5136),
   amoeba: new THREE.Color(0x9f96ff),
   rogue: new THREE.Color(0xff4d3d),
+  'rogue-bot': new THREE.Color(0xff5b35),
 };
+
+function updateBotView(world, enemy, view, dt, reduceMotion) {
+  view.hit = Math.max(0, view.hit - dt * 7);
+  view.model.rotation.set(0, enemy.heading || 0, reduceMotion ? 0 : Math.sin(world.clock * 1.7 + view.phase) * .025);
+  view.model.scale.setScalar(1 + view.hit * .025);
+  const charge = enemy.action === 'laser-windup' ? enemy.actionProgress : enemy.action === 'laser-fire' ? 1 : 0;
+  if (!reduceMotion) animatePathogen(view.motion, dt, enemy.action === 'laser-fire' ? 1 : charge * .25);
+  if (view.attackMembrane) view.attackMembrane.emissiveIntensity = view.membraneIntensity + charge * 1.6 + view.hit;
+  if (!view.laser) {
+    world.botLaserGeometry ??= new THREE.CylinderGeometry(1, 1, 1, 8);
+    view.laser = new THREE.Group();
+    for (const core of [false, true]) view.laser.add(new THREE.Mesh(world.botLaserGeometry,
+      new THREE.MeshBasicMaterial({ color: core ? 0xffe7cb : 0xff2c18, transparent: true,
+        opacity: core ? .9 : .32, depthWrite: false, toneMapped: false })));
+    world.scene.add(view.laser);
+  }
+  const beam = enemy.laser;
+  view.laser.visible = !!beam;
+  if (beam) {
+    const from = new THREE.Vector3(beam.from.x, beam.from.y, beam.from.z);
+    const to = new THREE.Vector3(beam.to.x, beam.to.y, beam.to.z), direction = to.clone().sub(from);
+    const length = direction.length();
+    view.laser.position.copy(from).add(to).multiplyScalar(.5);
+    if (length > .001) view.laser.quaternion.setFromUnitVectors(UP, direction.normalize());
+    const firing = beam.stage === 'fire';
+    view.laser.children.forEach((mesh, index) => mesh.scale.set(firing ? index ? .026 : .075 : index ? .005 : .016,
+      length, firing ? index ? .026 : .075 : index ? .005 : .016));
+  }
+  view.shadow.position.set(enemy.x, floorHeight(enemy.x, enemy.z) + .1, enemy.z);
+  view.shadow.scale.setScalar(enemy.radius * 1.4);
+}
 
 // The species' scanned model. If one failed to download, a plain membrane sphere keeps the
 // pathogen visible and shootable.
@@ -97,6 +129,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
     view.shadow.visible = true;
     if (view.tethers) for (const tether of view.tethers) tether.visible = !!enemy.latched;
     view.model.position.set(enemy.x, enemy.y, enemy.z);
+    if (enemy.type === 'rogue-bot') { updateBotView(world, enemy, view, dt, reduceMotion); continue; }
     if (enemy.type === 'colony') {
       view.hit = Math.max(0, view.hit - dt * 7);
       const throb = reduceMotion ? 0 : Math.sin(world.clock * 3.1) * .025;
@@ -181,6 +214,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       if (!pool) world.enemyPool.set(view.type, pool = []);
       if (pool.length < 12) {
         view.model.visible = view.shadow.visible = false;
+        if (view.laser) view.laser.visible = false;
         if (view.tethers) for (const tether of view.tethers) tether.visible = false;
         pool.push(view);
       } else {
@@ -188,6 +222,10 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
         if (view.tethers) world.scene.remove(...view.tethers);
         view.clonedMembrane?.dispose();
         view.motion?.mixer?.uncacheRoot(view.model);
+        if (view.laser) {
+          world.scene.remove(view.laser);
+          for (const mesh of view.laser.children) mesh.material.dispose();
+        }
       }
       world.enemyViews.delete(id);
     }

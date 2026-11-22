@@ -7,6 +7,7 @@ const SHOTS = ['weapon/shot-1', 'weapon/shot-2', 'weapon/shot-3', 'weapon/shot-4
 const ENEMY_CUES = {
   virus: { windup: ['field/virus-windup', .47], release: ['field/virus-pounce', .36] },
   spore: { windup: ['field/spore-windup', .44], release: ['field/spore-spit', .39] },
+  laser: { windup: ['field/laser-charge', .4], release: ['field/laser-fire', .55] },
   bacillus: { windup: ['field/bacillus-windup', .43] },
 };
 const ORGAN_CUES = {
@@ -32,6 +33,10 @@ const EFFECTS = [
 // Short procedural cues for the colon, lymph node and wave countdown, rendered once at load.
 const SYNTH_RATE = 44100;
 const SYNTHESIZED = {
+  'field/laser-charge': [.95, t => (Math.sin(2 * Math.PI * (320 * t + 420 * t * t)) +
+    .25 * Math.sin(2 * Math.PI * 1600 * t)) * Math.min(1, t / .03) * (.05 + .17 * t) * Math.min(1, (.95 - t) / .03)],
+  'field/laser-fire': [.22, (t, noise) => (Math.sin(2 * Math.PI * (2600 * t - 4000 * t * t)) * .65 + noise(7000) * .2) *
+    Math.exp(-t * 20) * Math.min(1, t / .003)],
   'field/outro-tick': [.12, t => (Math.sin(t * 2 * Math.PI * 1320) + Math.sin(t * 2 * Math.PI * 1980)) * .18 *
     Math.min(1, t / .003) * Math.max(0, 1 - t / .12)],
   'field/outro-start': [1.1, t => {
@@ -172,7 +177,7 @@ export class GameAudio {
         // Missing cues fall back to silence.
       }
     }
-    const effects = Promise.all(EFFECTS.map(async name => {
+    const effects = Promise.all(EFFECTS.filter(name => !Object.hasOwn(SYNTHESIZED, name)).map(async name => {
       const buffer = await decode(`./assets/sfx/${name}.wav`);
       if (buffer) this.samples.set(name, buffer);
     }));

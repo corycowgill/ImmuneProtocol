@@ -1,0 +1,48 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Rogue Bot combat verification</title>
+<style>body{margin:20px;background:#131918;color:#dff2d9;font:14px/1.5 monospace}canvas{width:960px;height:540px;max-width:100%}button,label{margin:5px;padding:8px}pre{white-space:pre-wrap}</style>
+<h1>Rogue Bot — medical drone combat check</h1><p id="status">Loading the arena and Blender model…</p>
+<button id="reset">Reset encounter</button><button id="sidestep">Sidestep locked laser</button><button id="run">Resume</button>
+<label><input id="freeze" type="checkbox" checked>Pause during laser warning</label>
+<label><input id="side" type="checkbox" checked>Side camera</label>
+<pre id="report"></pre><canvas id="world"></canvas>
+<script type="module">
+import { World } from './world.mjs';
+import { Simulation } from './simulation.mjs';
+const status = document.querySelector('#status'), report = document.querySelector('#report');
+const freeze = document.querySelector('#freeze'), side = document.querySelector('#side');
+try {
+  const world = new World(document.querySelector('#world')); world.setQuality('low');
+  await world.prepareAll(['artery']);
+  let sim, bot, paused, last = 0, shots = 0, hits = 0;
+  function reset() {
+    sim?.ai.dispose(); sim = new Simulation('artery', { ai: { seed: 31 }, encounterSeed: 31 }); sim.start();
+    Object.assign(sim.player, { x: 0, z: 32, yaw: 0, y: 1.7, health: 100 });
+    bot = sim.createEnemy('rogue-bot', 0, 19); bot.heading = 0;
+    sim.enemies = [bot]; paused = false; shots = hits = 0;
+  }
+  reset();
+  document.querySelector('#reset').onclick = reset;
+  document.querySelector('#sidestep').onclick = () => { sim.player.x += 4; paused = false; freeze.checked = false; };
+  document.querySelector('#run').onclick = () => { paused = false; freeze.checked = false; };
+  function frame(at) {
+    requestAnimationFrame(frame); const dt = Math.min(.05, (at - (last || at)) / 1000); last = at;
+    sim.events = [];
+    if (!paused) {
+      sim.clock += dt; sim.advanceEnemies(dt);
+      for (const event of sim.events) {
+        if (event.type === 'enemyAttack' && event.stage === 'release') shots++;
+        if (event.type === 'damage') hits++;
+      }
+      if (freeze.checked && bot.action === 'laser-windup' && bot.actionProgress > .4) paused = true;
+    }
+    world.render(sim, paused ? 0 : dt, { moveX: 0, moveZ: 0, lookX: 0, lookY: 0 }, false);
+    if (side.checked) {
+      world.camera.position.set(5, 3.2, 25); world.camera.lookAt(bot.x, bot.y, bot.z);
+      world.renderer.clear(); world.renderer.render(world.scene, world.camera);
+    }
+    status.textContent = paused ? 'PAUSED: committed laser warning — sidestep or resume' : 'RUNNING: real simulation AI and laser';
+    report.textContent = `Action: ${bot.action}; AI: ${bot.tactical?.action}; target: ${bot.tactical?.target}\nSuit: ${sim.player.health.toFixed(1)}; tissue: ${sim.nodes.map(n => n.health).join(' / ')}\nShots: ${shots}; damage events: ${hits}; laser: ${bot.laser?.stage ?? 'off'}`;
+  }
+  requestAnimationFrame(frame);
+} catch (error) { status.textContent = 'FAIL: ' + error.message; console.error(error); }
+</script></html>

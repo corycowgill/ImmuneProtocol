@@ -4,6 +4,7 @@ import { AIWorld } from './tactical-ai.mjs';
 import { clearSegment } from './ai-navigation.mjs';
 import { bossDamageThreat, telegraph } from './boss-tactics.mjs';
 import { planEncounters, stepEncounters, ENCOUNTER_RULES } from './encounters.mjs';
+import { ROGUE_BOT_SPEC, startBotLaser, stepRogueBot } from './rogue-bot.mjs';
 import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-objectives.mjs';
 import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
@@ -69,9 +70,8 @@ export const RULES = Object.freeze({
   arenaZ: ARENA.z,
 });
 
-// Every species fights with one of three behaviors: virus (coil and lunge), bacillus
-// (latch onto tissue and tear) or spore (keep distance and spit). Variants stand in
-// for a base species in later waves and stay close to its numbers.
+// Biological species lunge, latch or spit. The hacked medical drone has its own
+// player-only laser state machine. Variants retain their own authored statistics.
 export const SPECIES = {
   virus: { radius: 0.92, y: 1.63, health: 60, speed: 2.28, suitDamage: 11, tissueDamage: 6, score: 100 },
   bacillus: { radius: 1.12, y: 1.13, health: 115, speed: 1.47, tissueDamage: 10, period: 1.75, score: 180 },
@@ -85,6 +85,7 @@ export const SPECIES = {
   filovirus: { behavior: 'bacillus', radius: 1.15, y: 1.2, health: 118, speed: 1.55, tissueDamage: 10, period: 1.7, score: 195 },
   amoeba: { behavior: 'bacillus', radius: 1.2, y: 1.25, health: 126, speed: 1.22, tissueDamage: 9, period: 1.95, score: 205 },
   rogue: { behavior: 'bacillus', radius: 1.2, y: 1.3, health: 128, speed: 1.5, tissueDamage: 11, period: 1.8, score: 225 },
+  'rogue-bot': ROGUE_BOT_SPEC,
 };
 
 const FRAGMENT = { radius: .55, y: 1.35, health: 24, speed: 4.05, suitDamage: 5, tissueDamage: 2, score: 55 };
@@ -98,9 +99,9 @@ export const extendRoster = roster => Array.from({ length: WAVE_SCALE }, () => r
 const MISSIONS = [
   { cadence: 1.55, species: ['virus', 'virus', 'virus', 'spore', 'virus', 'virus', 'spore', 'virus', 'virus'] },
   { cadence: 1.30, species: ['virus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'bacillus', 'virus', 'virus', 'spore', 'virus', 'bacillus', 'spore'] },
-  { cadence: 1.05, species: ['spore', 'virus', 'bacillus', 'virus', 'spore', 'spore', 'bacillus', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'virus', 'bacillus'] },
+  { cadence: 1.05, species: ['spore', 'virus', 'bacillus', 'virus', 'rogue-bot', 'spore', 'bacillus', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'virus', 'bacillus'] },
   { cadence: 0.90, species: ['virus', 'bacillus', 'spore', 'spore', 'bacillus', 'virus', 'phage', 'bacillus', 'spore', 'filovirus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'phage', 'spore', 'bacillus', 'virus'] },
-  { cadence: 0.76, species: ['bacillus', 'spore', 'virus', 'filovirus', 'spore', 'phage', 'bacillus', 'blister', 'bacillus', 'virus', 'spore', 'filovirus', 'spore', 'bacillus', 'phage', 'spore', 'virus', 'bacillus', 'virus', 'blister', 'bacillus', 'virus'] },
+  { cadence: 0.76, species: ['bacillus', 'spore', 'virus', 'filovirus', 'spore', 'phage', 'bacillus', 'rogue-bot', 'bacillus', 'virus', 'spore', 'filovirus', 'spore', 'bacillus', 'phage', 'spore', 'virus', 'bacillus', 'virus', 'blister', 'bacillus', 'virus'] },
 ];
 
 for (const mission of MISSIONS) mission.species = extendRoster(mission.species);
@@ -1651,6 +1652,7 @@ export class Simulation {
   }
 
   damageTarget(enemy, target, amount, origin = enemy, playerId = enemy.actionPlayerId, node = enemy.node) {
+    if (enemy.type === 'rogue-bot' && target !== 'player') return;
     const player = target === 'player' ? this.attackPlayer(playerId) : null;
     if (target === 'player') {
       if (!player || player.health <= 0) return;
@@ -1698,6 +1700,7 @@ export class Simulation {
       const controller = this.ai.controllers.get(enemy.id);
       if (!controller) continue;
       controller.tick(dt);
+      if (enemy.behavior === 'laser') { stepRogueBot(this, enemy, dt, spec, speedFactor, controller); continue; }
       if (enemy.behavior === 'bacillus') {
         const defensive = ['retreat', 'cover', 'regroup', 'protect'].includes(controller.action) && !enemy.attackAnchor;
         if (defensive) {
@@ -1751,6 +1754,7 @@ export class Simulation {
   }
 
   startEnemyAttack(enemy, target, targetName) {
+    if (enemy.behavior === 'laser') return startBotLaser(this, enemy, target, targetName);
     enemy.actionTarget = targetName;
     enemy.actionPlayerId = targetName === 'player' ? target.id : null;
     enemy.attackOrigin = { x: enemy.x, y: enemy.y, z: enemy.z };

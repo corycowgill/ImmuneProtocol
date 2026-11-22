@@ -779,6 +779,11 @@ function drawFieldMarkers(top, width, height, occupied) {
     });
   }
   for (const enemy of session.sim.enemies) {
+    if (enemy.type === 'rogue-bot' && enemy.laser?.stage === 'warning' &&
+        (enemy.actionPlayerId == null || enemy.actionPlayerId === session.sim.player.id)) {
+      targets.push({ key: 'laser' + enemy.id, kind: 'laser', label: 'LASER LOCK', x: enemy.x,
+        y: enemy.y + enemy.radius + .5, z: enemy.z, detail: 'STEP ASIDE · ' + enemy.laser.remaining.toFixed(1) + 's' });
+    }
     if (enemy.nest) targets.push({ key: 'nest' + enemy.id, kind: 'nest', label: 'BROOD NEST', x: enemy.x, y: enemy.y + enemy.radius + .5, z: enemy.z,
       detail: Math.ceil(100 * enemy.health / enemy.maxHealth) + '%' });
   }

@@ -6,8 +6,8 @@ import { SPECIES, speciesHabitats } from '../dist/simulation.mjs';
 
 const asset = path => readFileSync(new URL('../dist/assets/enemies/' + path, import.meta.url));
 
-test('every species has a scanned model with its animation targets', () => {
-  // The brood nest and the level bosses are modelled in Blender rather than scanned.
+test('every species has a runtime model with its animation targets', () => {
+  // The drone, brood nest and level bosses are modelled in Blender rather than scanned.
   for (const type of [...Object.keys(SPECIES), 'nest', ...BOSS_MODELS]) {
     const file = asset(type + '.glb');
     assert.equal(file.toString('ascii', 0, 4), 'glTF', type + ' is a binary glTF');

@@ -139,7 +139,7 @@ Run `npm run balance` to play every mission headlessly with two scripted strateg
 
 Open **Disease guide** on the main menu to browse every pathogen. Each entry shows its animated 3D model (drag to turn it, or choose **Provoke** to see its attack windup), a description and counter tactics, its health, speed, damage and score, the missions it attacks in, and three facts. The stats and mission lists come straight from the simulation, so they stay current.
 
-Every pathogen fights with one of three behaviors. Lungers coil, then leap at a fixed landing point. Latchers ignore your suit, grab a tissue node and tear. Ranged pathogens hang back and spit.
+Biological pathogens lunge, latch or spit. Lungers coil, then leap at a fixed landing point. Latchers ignore your suit, grab a tissue node and tear. Ranged pathogens hang back and spit. The hacked **Rogue Bot** hunts human players with a laser cannon: its aiming line commits for a 0.95-second warning, then fires once and cools down. Sidestep or use solid cover. It never attacks or damages tissue.
 
 | Pathogen | Behavior | First seen in |
 | --- | --- | --- |
@@ -155,6 +155,9 @@ Every pathogen fights with one of three behaviors. Lungers coil, then leap at a 
 | Whiptail | Lunger, sturdier and harder hitting | Gastric Chamber |
 | Amoeba | Latcher, slow and very tough | Gastric Chamber |
 | Rogue Cell | Latcher, hits hard | Lymph Node |
+| Rogue Bot | Player-only laser drone, patrols and uses cover | Arterial Junction, Wave 3 |
+
+The Rogue Bot is an NMD-07 surgical drone built in Blender with worn medical-white ceramic armor, titanium, brass fittings, ducted stabilizers, folded surgical instruments and red compromised optics. It has baked albedo, roughness/metallic, normal and emission maps, subtle servo animation, and cannon recoil. `blender -b -P tools/enemies/build_rogue_bot.py` rebuilds its GLB and Cycles guide portrait; set `ROGUE_BOT_OUTPUT` to choose where its editable `.blend` studio and larger render are saved. It appears in eight missions, uses normal health/score/difficulty rules and co-op targeting, and can provide ranged support in Predator Packs. [Rogue Bot behavior, assets and validation](docs/rogue-bot.md) describes the integration; run `npm run test:rogue-bot` for its focused checks.
 
 The pathogens are photoreal 3D scans processed in Blender by `tools/enemies/process.py` (Blender 4.2 LTS or newer, plus `gltfpack`, for example `npx gltfpack`). Put the source scans in `tools/enemies/originals/` (they are not committed; `originals/manifest.json` records each file's size and SHA-256), then run `blender -b -P tools/enemies/process.py -- [species ...]`. Set `GLTFPACK` to the `gltfpack` binary or its npm `cli.js` if it isn't on your `PATH`. `tools/enemies/enemies.json` maps each species to its scan and sets its triangle budget, material and motion. For each species the script:
 

@@ -39,6 +39,7 @@ const MAX_PARTICLES = 288;
 const SPECIES_COLORS = {
   virus: 0xff6d4a, bacillus: 0xffd078, spore: 0xf384ff, colony: 0xa8e07a, guard: 0x6fd8cf, splitter: 0xc96bdc,
   phage: 0xb98cff, flagellate: 0xa678ff, blister: 0xff7a5c, filovirus: 0xff5a46, amoeba: 0xb7b2ff, rogue: 0xff6650,
+  'rogue-bot': 0xff4838,
 };
 const HEALTHY = new THREE.Color(0xffc6ad);
 const HEALTHY_FLANK = new THREE.Color(0xf1c1d5);

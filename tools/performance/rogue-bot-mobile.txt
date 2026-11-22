@@ -1,0 +1,8 @@
+PASS: mobile startup, deferred arena, suits and lab
+Startup: 1865 ms; prepared arenas: 1
+Enemy images: {"count":70,"max":512,"rgbaMiB":67.19}
+Co-op-only startup requests: 0; peak asset decode jobs: 1
+Resize totals (source RGBA equivalents, not measured process memory): {"active":0,"peak":1,"reducedImages":73,"sourceBytes":371194512,"retainedBytes":76546048}
+Deferred Bronchial Fork deployment: PASS
+Deferred suits and lab images: {"count":15,"max":512,"rgbaMiB":15}
+Final decode peak: 1
