@@ -11,6 +11,7 @@ WebGL canvas underneath. No additional WebGL context is created for the UI.
 | Module | Responsibility |
 | --- | --- |
 | `ui-core.mjs` | Logical coordinates, wrapping, flow and grid layout, clipping, scrolling bounds, directional focus, ranges, and independent pointer ownership. No browser globals. |
+| `ui-theme.mjs` | Shared palette, body/display/technical type roles and line-height metrics. |
 | `ui-screens.mjs` | Screen definitions and combat layout. Consumes plain models, viewport size and safe areas; emits draw commands and hit regions. No HTML or CSS selectors. |
 | `ui-renderer.mjs` | Canvas 2D painting, text measurement, pictures, controls, HUD, scope and boss footprints. Resources are resolved by key. |
 | `ui-browser.mjs` | Browser input, native text editing, viewport and keyboard changes, semantic accessibility mirror, controller routing, and presentation loop. |
@@ -51,6 +52,14 @@ this change does not automatically convert the Three.js game to that engine.
   initial delay and an interval. Settings and armory have useful initial focus.
 - Changing a mission, enemy, armory mode or part resets its content scroll.
   Portrait mission/enemy selectors and armory part selectors remain visible.
+- Desktop workspaces separate mission navigation, visual briefing and setup;
+  the gallery separates specimens from field intelligence. Compact screens use
+  persistent content tabs. A new mission returns to Briefing, and switching an
+  armory mode returns to Configure. Co-op has separate portrait Squad/Suit tabs.
+- Reports place field-upgrade choices and extraction risk beside the key metrics;
+  individual node statistics remain in Full mission details. Confirmations and
+  recovery use compact centered panels. The safe checkpoint action gets initial
+  keyboard focus in a destructive campaign confirmation.
 - Combat presentation runs after HUD updates in the game frame, keeping ammo,
   aim, hit feedback and boss footprints in step with the rendered world.
 - The browser host accounts for safe areas and `visualViewport` resizing, and
@@ -66,6 +75,23 @@ this change does not automatically convert the Three.js game to that engine.
 to the game surface. Browser address bars and OS controls remain under browser/OS
 control; the intentional text editor retains normal editing behavior.
 
+## Visual system
+
+The interface uses dark neutral surfaces, white display headings, restrained
+medical-green selection/primary states, and a separate warm destructive state.
+Inter handles readable body copy and controls, Barlow Condensed handles display
+titles and large metrics, and IBM Plex Mono handles technical metadata. Layout
+measurement uses the same font roles, weights and line heights as painting.
+The Inter variable font is bundled locally with its SIL OFL license in `vendor/`;
+the game does not depend on a font CDN. See the [Inter project](https://github.com/rsms/inter).
+Vector control icons replace platform-dependent text glyphs. Preview cameras use
+the canvas stage dimensions, rather than the old hidden HTML aspect ratio.
+
+The UX comparison used Call of Duty's category/tab/action hierarchy and aligned
+control rows as reference, with Immune Protocol's own assets and identity. See
+[the reference settings screenshots](https://esports.gg/news/call-of-duty/how-to-change-your-hud-in-black-ops-6/)
+and the [official controls/settings guide](https://www.callofduty.com/guides/blackops6/training/call-of-duty-guides-black-ops-6-multiplayer-training-controls).
+
 ## Verification
 
 Run `npm test` and `npm run check`. UI tests cover wrapping, clipping and hit
@@ -76,7 +102,7 @@ density, safe areas, and combat/menu geometry at 393×852, 852×393, 667×375,
 
 Run `npm run profile` and open `/__ui?screen=menu&nointro`. Supported fixtures:
 `menu`, `settings`, `manual`, `guide`, `armory`, `deployment`, `confirm`, `coop`,
-`play`, `result`, `loss`, `extraction`, `failure`, `ui-failure`, and `intro`.
+`play`, `pause`, `result`, `loss`, `extraction`, `loading`, `failure`, `ui-failure`, and `intro`.
 These are local performance-server routes, not production cheats. Fixtures use
 the real controllers and simulation, and restore local settings when leaving.
 The `ui-failure` fixture intentionally emits one console error. Use `/__hud` for

@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { publishUiFrame } from './ui-media.mjs';
+import { publishUiFrame, uiViewport } from './ui-media.mjs';
 import { LOW_MEMORY, loadModel, loadTexture } from './asset-loading.mjs';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { createTeammate } from './teammate.mjs';
@@ -302,8 +302,7 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
   const charged = new THREE.Color(GREEN);
 
   function resize() {
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
+    const { width, height } = uiViewport(canvas);
     if (!width || !height) return;
     if (canvas.width !== Math.round(width * renderer.getPixelRatio()) || canvas.height !== Math.round(height * renderer.getPixelRatio())) {
       renderer.setSize(width, height, false);

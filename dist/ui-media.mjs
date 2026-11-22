@@ -1,9 +1,12 @@
 // A bounded bridge for existing live 3D previews. Copies immediately after WebGL
 // renders, before its drawing buffer is discarded; no second WebGL context.
 const frames = new WeakMap();
+const viewports = new WeakMap();
 let active = false;
 let maximum = Infinity;
 export function enableUiMedia(maxDimension = Infinity) { active = true; maximum = maxDimension; }
+export function setUiViewport(source, width, height) { viewports.set(source, { width: Math.max(1, Math.round(width)), height: Math.max(1, Math.round(height)) }); }
+export function uiViewport(source) { return viewports.get(source) ?? { width: source.clientWidth, height: source.clientHeight }; }
 export function publishUiFrame(source) {
   if (!active || !source.width || !source.height) return;
   let frame = frames.get(source);

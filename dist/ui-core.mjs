@@ -1,3 +1,4 @@
+import { uiLineHeight, uiWeight } from './ui-theme.mjs';
 // Renderer/host independent UI geometry and input. Coordinates are logical pixels.
 export const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 export const inside = (r, x, y) => x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
@@ -5,16 +6,17 @@ export function intersect(a, b) {
   const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
   return { x, y, w: Math.max(0, Math.min(a.x + a.w, b.x + b.w) - x), h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - y) };
 }
-export function lines(text, width, measure, size = 14, weight = 500) {
+export function lines(text, width, measure, size = 14, weight = 500, face) {
+  const metric = value => measure(value, size, weight, face);
   const out = [];
   for (const paragraph of String(text ?? '').split('\n')) {
     let line = '';
     for (const word of paragraph.split(/\s+/).filter(Boolean)) {
       const next = line ? line + ' ' + word : word;
-      if (line && measure(next, size, weight) > width) { out.push(line); line = ''; }
-      if (measure(word, size, weight) > width) {
+      if (line && metric(next) > width) { out.push(line); line = ''; }
+      if (metric(word) > width) {
         for (const char of word) {
-          if (line && measure(line + char, size, weight) > width) { out.push(line); line = ''; }
+          if (line && metric(line + char) > width) { out.push(line); line = ''; }
           line += char;
         }
       } else line = line ? line + ' ' + word : word;
@@ -64,6 +66,7 @@ export class UiLayout {
     return item;
   }
   height(node, width) {
+    if (node.height != null && !['grid', 'row', 'stack'].includes(node.kind)) return node.height;
     const gap = node.gap ?? 10;
     if (node.kind === 'grid' || node.kind === 'row') {
       const cols = this.columns(node, width), cw = (width - gap * (cols - 1)) / cols;
@@ -74,15 +77,17 @@ export class UiLayout {
     if (node.kind === 'stack') return Math.max(0, node.children.reduce((h, n) => h + this.height(n, width) + 12, -12));
     if (node.kind === 'image' || node.kind === 'preview') return node.height ?? Math.min(260, width * .57);
     if (node.kind === 'spacer') return node.height ?? 12;
-    if (node.kind === 'slider' || node.kind === 'field' || node.kind === 'choice') return node.kind === 'choice' && !node.label ? 48 : 76;
+    if (node.kind === 'slider' || node.kind === 'field' || node.kind === 'choice') return node.kind === 'choice' && !node.label ? 48 : node.compact ? 64 : 76;
     if (node.kind === 'meter') return 38;
     if (node.kind === 'icon-label') return 48;
-    if (node.kind === 'stat') return Math.max(54, 28 + lines(node.detail, width - 24, this.measure, 16, 800).length * 20);
+    if (node.kind === 'section') return 28;
+    if (node.kind === 'keyrow') return Math.max(44, 24 + Math.max(lines(node.text, width * .4, this.measure, 14).length * 19.6, lines(node.detail, width * .56, this.measure, 13).length * 18.2));
+    if (node.kind === 'stat') return Math.max(66, 30 + lines(node.detail, width - 24, this.measure, 24, 800).length * 25);
     const pad = node.kind === 'button' ? 12 : 0;
     const size = node.size ?? (node.kind === 'heading' ? 21 : 14);
-    const inner = Math.max(20, width - pad * 2 - (node.src ? 76 : 0) - (node.swatch ? 32 : 0));
-    const title = lines(node.text, inner, this.measure, size, node.kind === 'button' ? 600 : 500).length * size * 1.3;
-    const detail = node.detail ? lines(node.detail, inner, this.measure, 12).length * 16 + 5 : 0;
+    const inner = Math.max(20, width - pad * 2 - (node.src ? (node.thumbnail ?? 64) + 12 : 0) - (node.swatch ? 32 : 0) - (node.icon ? 32 : 0) - (node.badge ? 30 : 0) - (node.selected != null ? 18 : 0));
+    const title = lines(node.text, inner, this.measure, size, uiWeight(node), node.face).length * size * uiLineHeight(node);
+    const detail = node.detail ? lines(node.detail, inner, this.measure, 13).length * 18.2 + 5 : 0;
     return Math.max(node.kind === 'button' ? 48 : 0, title + detail + pad * 2);
   }
   columns(node, width) { return node.kind === 'row' ? Math.max(1, node.children.length) : Math.max(1, Math.min(node.children.length, node.maxColumns ?? 6, Math.floor((width + (node.gap ?? 10)) / (node.minColumn ?? 170)))); }

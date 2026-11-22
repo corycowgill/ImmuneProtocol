@@ -1,4 +1,5 @@
 import { uiFrame } from './ui-media.mjs';
+import { FIELD_UPGRADES } from './loadouts.mjs';
 
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 const hash = text => { let n = 2166136261; for (const c of text) n = Math.imul(n ^ c.charCodeAt(0), 16777619); return (n >>> 0).toString(36); };
@@ -42,10 +43,12 @@ export class BrowserUiBindings {
       return { ...base, kind: 'field', label, value: el.value, placeholder: el.placeholder, readOnly: el.readOnly, maxLength: el.maxLength, inputMode: el.inputMode, inputType: el.type };
     }
     if (tag === 'SELECT') return { ...base, kind: 'choice', label, value: el.value, options: [...el.options].filter(o => !o.hidden).map(o => ({ value: o.value, text: o.text, disabled: o.disabled })) };
+    if (tag === 'SUMMARY') return { ...base, kind: 'button', text: this.text(el), expanded: el.parentElement.open };
     const title = el.querySelector('strong');
     const all = this.text(el), main = this.text(title) || all || label;
-    const detail = title ? clean(all.replace(main, '')) : '';
+    const detail = FIELD_UPGRADES[el.dataset.upgrade]?.shortDescription ?? (title ? clean(all.replace(main, '')) : '');
     const image = el.querySelector('img');
+    if (el.classList.contains('coop-suit')) return { ...base, kind: 'button', variant: 'operator', text: main, detail: this.text(el.querySelector('small')), src: this.resource(image), height: 178, label };
     return { ...base, kind: 'button', text: main, detail, swatch: el.querySelector('.gs-swatch')?.style.getPropertyValue('--swatch'), src: image ? this.resource(image) : null, primary: el.classList.contains('primary') || el.classList.contains('menu-campaign'), label: el.getAttribute('aria-label') || main, href: el.href };
   }
   block(el, excluded = new Set()) {
@@ -60,7 +63,13 @@ export class BrowserUiBindings {
     if (tag === 'LABEL' && el.querySelector('input,select')) return this.control(el.querySelector('input,select'));
     if (tag === 'LABEL' && el.htmlFor) return null;
     if (el.id === 'deploy-threats') return grid([...el.children].map(child => ({ kind: 'icon-label', text: this.text(child), src: this.resource(child.querySelector('img')) })), 170, 4);
-    if (el.id === 'deploy-difficulty') return { kind: 'stack', children: [heading('Difficulty'), grid(this.controls('button', el), 120, 3), { kind: 'text', text: this.text(el.querySelector('.difficulty-detail')), size: 12 }] };
+    if (el.id === 'deploy-difficulty') return { kind: 'stack', children: [heading('Difficulty'), grid(this.controls('button', el).map(item => ({ ...item, variant: 'tab', height: 44 })), 90, 3), { kind: 'text', text: this.text(el.querySelector('.difficulty-detail')), size: 12 }] };
+    if (el.id === 'deploy-intel') {
+      const rows = [...el.children], hazard = rows.find(row => row.querySelector('small'));
+      const stats = rows.filter(row => row !== hazard).map(row => ({ kind: 'stat', text: this.text(row.querySelector('dt')), detail: this.text(row.querySelector('dd')) }));
+      const title = hazard ? clean([...hazard.querySelector('dd').childNodes].filter(node => node.nodeType === 3).map(node => node.textContent).join(' ')) : '';
+      return { kind: 'stack', children: [grid(stats, 120, 2), ...(hazard ? [heading('Hazard / ' + title), { kind: 'text', text: this.text(hazard.querySelector('small')), size: 14 }] : [])] };
+    }
     if (tag === 'DETAILS') {
       const summary = el.querySelector('summary'), control = this.control(summary);
       return { kind: 'stack', children: [control, ...(el.open ? [...el.children].filter(c => c !== summary).map(c => this.block(c, excluded)).filter(Boolean) : [])] };
@@ -68,6 +77,7 @@ export class BrowserUiBindings {
     if (tag === 'PROGRESS' || el.getAttribute('role') === 'meter') return { kind: 'meter', text: el.getAttribute('aria-label') ?? '', value: el.value ?? Number(el.getAttribute('aria-valuenow')), max: el.max ?? Number(el.getAttribute('aria-valuemax') || 100) };
     if (/^H[1-6]$/.test(tag) || tag === 'LEGEND') return heading(this.text(el));
     if (tag === 'DL') {
+      if (el.classList.contains('controls-list')) return { kind: 'stack', children: [...el.children].map(row => ({ kind: 'keyrow', text: this.text(row.querySelector('dt')), detail: clean([...row.querySelector('dd').childNodes].map(n => n.nodeName === 'KBD' ? ' ' + n.textContent + ' ' : n.textContent).join('')) })) };
       const children = [...el.children], stats = [];
       for (let i = 0; i < children.length; i++) {
         const child = children[i]; if (!this.shown(child)) continue;
@@ -81,6 +91,7 @@ export class BrowserUiBindings {
     if (['P', 'LI', 'SMALL', 'DT', 'DD', 'STRONG', 'EM'].includes(tag) && !el.querySelector('button,input,select,canvas,img,dl,ul,ol')) return { kind: 'text', text: this.text(el), size: tag === 'SMALL' ? 12 : 14, color: tag === 'SMALL' ? '#c4b6ad' : undefined };
     const children = [...el.children].map(c => this.block(c, excluded)).filter(Boolean);
     if (!children.length) return !el.children.length && this.text(el) ? { kind: 'text', text: this.text(el), size: 14 } : null;
+    if (el.classList.contains('coop-suit-options')) return grid(children, 140, 2);
     const group = !['rows', 'weapons'].includes(el.dataset.layout) && (el.getAttribute('role') === 'tablist' || el.getAttribute('role') === 'radiogroup' || /options|choice|mission-list|roster|loadout-row|threats|difficulty-picker/.test(el.className ?? ''));
     return group ? grid(children, el.getAttribute('role') === 'tablist' ? 110 : 175, 4) : { kind: 'stack', children };
   }
@@ -140,7 +151,7 @@ export class BrowserUiBindings {
     if (id === 'studio-intro') return { id, type: 'intro', src: this.resource(root.querySelector('canvas')) };
     if (id === 'startup-load') return { id, type: 'loading', background: 'assets/loading-patrol.webp', title: this.value('loading-title'), detail: this.value('loading-detail'), eyebrow: this.value('loading-mode'), progress: Number(this.get('startup-progress').value), quote: this.value('loading-quote'), status: this.value('startup-status'), failed: this.shown(this.get('startup-retry')) };
     if (id === 'game') return this.combat(root);
-    if (id === 'menu') return { id, type: 'menu', brand: this.control(root.querySelector('.brand')), notices: ['menu-error', 'controller-audio-hint'].map(key => this.shown(this.get(key)) ? this.value(key) : '').filter(Boolean), detail: this.text(root.querySelector('.summary')), buttons: this.controls('.menu-navigation button', root), mute: { ...this.control(root.querySelector('[data-mute]')), text: '♪' }, settings: { ...this.control(root.querySelector('[data-settings]')), text: '⚙' }, status: [this.block(this.get('operator-card')), ...this.blocks(root.querySelector('.title-footer'))].filter(Boolean) };
+    if (id === 'menu') return { id, type: 'menu', brand: this.control(root.querySelector('.brand')), notices: ['menu-error', 'controller-audio-hint'].map(key => this.shown(this.get(key)) ? this.value(key) : '').filter(Boolean), detail: this.text(root.querySelector('.summary')), buttons: this.controls('.menu-navigation button', root), mute: this.control(root.querySelector('[data-mute]')), settings: this.control(root.querySelector('[data-settings]')), operator: { progress: this.value('operator-progress-value'), best: this.value('operator-best'), difficulty: this.value('operator-difficulty'), primary: this.value('operator-primary'), secondary: this.value('operator-secondary') }, status: [] };
     const model = { id, type: 'dialog', canBack: id !== 'extraction-dialog', background: this.shown(this.get('game')) ? false : 'assets/hero.webp', title: this.text(root.querySelector('h2')) || 'Immune Protocol', kicker: this.text(root.querySelector('.eyebrow,#deploy-mode')), body: [], footer: [] };
     const footerSelectors = {
       'armory-dialog': '#armory-reset,#armory-done', 'mission-dialog': '#deploy-armory,#deploy-practice',
@@ -163,17 +174,27 @@ export class BrowserUiBindings {
       const parts = this.controls('#armory-subtabs button');
       const selected = parts.find(p => p.selected) ?? parts[0];
       model.contextKey = root.dataset.mode + ':' + selected?.action + ':' + this.value('armory-weapon-name');
-      model.body = [this.block(this.get('coop-armory-status')), parts.length ? { kind: 'choice', id: '@armory-part', action: '@armory-part', actionOptions: true, label: this.value('armory-panel-title'), value: selected?.action, options: parts.map((p, i) => ({ value: p.action, text: (root.dataset.mode === 'weapons' ? (i === 0 ? 'Primary · ' : 'Secondary · ') : '') + p.text, disabled: p.disabled })) } : heading(this.value('armory-panel-title')), this.block(this.get('armory-options')), this.block(root.querySelector('.armory-loadout'))].filter(Boolean);
+      model.body = [this.block(this.get('coop-armory-status')), parts.length ? { kind: 'choice', id: '@armory-part', action: '@armory-part', actionOptions: true, label: root.dataset.mode === 'gunsmith' ? 'ATTACHMENT SLOT' : root.dataset.mode === 'customize' ? 'FINISH CATEGORY' : 'WEAPON SLOT', value: selected?.action, options: parts.map((p, i) => ({ value: p.action, text: (root.dataset.mode === 'weapons' ? (i === 0 ? 'Primary · ' : 'Secondary · ') : '') + p.text, disabled: p.disabled })) } : heading(this.value('armory-panel-title')), this.block(this.get('armory-options')), this.block(root.querySelector('.armory-loadout'))].filter(Boolean);
     } else if (id === 'mission-dialog') {
       model.defaultFocus = this.id(this.get('deploy-practice'));
-      model.sidebar = this.controls('#mission-gallery button');
+      model.sidebar = this.controls('#mission-gallery button').map(item => {
+        const number = item.text.match(/\s(\d{2})$/);
+        return number ? { ...item, text: item.text.slice(0, -3), badge: number[1] } : item;
+      });
       model.selection = model.sidebar.find(b => b.selected)?.text;
       model.body = [this.block(this.get('deploy-hero-art')), heading(this.value('mission-preview-title')), { kind: 'text', text: this.value('mission-preview-detail'), size: 14 }, this.block(this.get('deploy-intel')), heading('Expected pathogens'), this.block(this.get('deploy-threats')), this.block(this.get('deploy-difficulty')), heading(this.value('deploy-upgrade-title')), this.block(this.get('deploy-upgrades')), this.block(this.get('deploy-loadout')), this.block(this.get('mission-error'))].filter(Boolean);
+      model.briefing = model.body.slice(0, 6);
+      model.configuration = [...model.body.slice(6, 9), this.block(this.get('practice-loadout-detail')), ...model.body.slice(9)].filter(Boolean);
     } else if (id === 'guide-dialog') {
       model.sidebar = this.controls('[data-guide-list] button');
       model.defaultFocus = model.sidebar.find(tab => tab.selected)?.id;
       model.selection = model.sidebar.find(b => b.selected)?.text;
       model.body = [this.block(root.querySelector('[data-guide-viewer]')), this.control(root.querySelector('[data-guide-provoke]')), this.block(root.querySelector('[data-guide-detail]'))].filter(Boolean);
+      model.specimen = model.body.slice(0, 2);
+      const detail = root.querySelector('[data-guide-detail]'), counterplay = detail.querySelector('.guide-tactics');
+      const intelligence = this.blocks(detail, new Set([counterplay]));
+      model.intel = [...intelligence.slice(0, 1), ...(counterplay ? [heading('Countermeasures'), this.block(counterplay)] : []), ...intelligence.slice(1)];
+      for (const node of model.intel) if (node.kind === 'grid') { node.minColumn = 105; node.maxColumns = 3; }
     } else if (id === 'coop-dialog' && this.shown(this.get('coop-entry'))) {
       model.contextKey = 'entry';
       model.body = [this.block(this.get('coop-intro')), grid([this.control(this.get('coop-name')), this.control(this.get('coop-code'))], 280, 2), grid([this.control(this.get('coop-create')), this.control(this.get('coop-join')?.querySelector('button'))], 200, 2), this.block(this.get('coop-status'))].filter(Boolean);
@@ -181,13 +202,40 @@ export class BrowserUiBindings {
       model.contextKey = 'room:' + this.value('coop-room-code');
       model.kicker = 'ROOM ' + this.value('coop-room-code');
       model.left = [this.block(root.querySelector('.coop-bay canvas')), this.block(root.querySelector('.coop-bay-roster')), this.control(this.get('coop-link'))].filter(Boolean);
-      model.body = [this.block(this.get('coop-intro')), this.block(root.querySelector('.coop-suits')), this.block(this.get('coop-status'))].filter(Boolean);
+      model.squadText = [...root.querySelectorAll('.coop-bay-roster li:not(.coop-bay-empty)')].map(row => this.text(row.querySelector('strong')) + ' / ' + this.text(row.querySelector('span'))).join(' · ');
+      model.body = [this.block(root.querySelector('.coop-suits')), this.block(this.get('coop-status'))].filter(Boolean);
       const copy = this.control(this.get('coop-copy')); if (copy) model.footer.unshift(copy);
     } else if (id === 'settings-dialog') {
       model.defaultFocus = this.id(this.get('look-sensitivity'));
       model.body = [grid([this.control(this.get('look-sensitivity')), { kind: 'stack', children: [this.control(this.get('graphics-quality')), this.block(this.get('graphics-quality-detail'))].filter(Boolean) }, this.control(this.get('music-volume')), this.control(this.get('effects-volume'))], 280, 2)];
       model.footer.unshift(this.control(root.querySelector('[data-mute]')));
+      model.settingsGroups = [
+        { text: 'Controls', nodes: [this.control(this.get('look-sensitivity'))] },
+        { text: 'Video', nodes: [this.control(this.get('graphics-quality')), this.block(this.get('graphics-quality-detail'))] },
+        { text: 'Audio', nodes: [this.control(this.get('music-volume')), this.control(this.get('effects-volume'))] },
+      ];
+    } else if (id === 'manual-dialog') {
+      const controls = [...root.querySelector('.manual-controls').children].filter(el => el.tagName === 'DETAILS'), tactics = [...root.querySelector('.manual-tactics').children].filter(el => el.tagName === 'DETAILS');
+      model.views = [{ id: 'controls', text: 'Controls', body: controls.map(el => this.block(el)) }, { id: 'tactics', text: 'Tactics', body: tactics.slice(0, 2).map(el => this.block(el)) }, { id: 'operations', text: 'Operations', body: tactics.slice(2).map(el => this.block(el)) }];
+      model.body = model.views[0].body;
+    } else if (id === 'pause-dialog') {
+      model.body = this.blocks(root.querySelector('.pause-info'), new Set([...root.querySelectorAll('h2,.eyebrow')]));
+      model.pauseActions = model.footer.map(item => ({ ...item, tone: item.id === 'dom:quit' ? 'danger' : undefined }));
+      model.footer = [];
+      model.defaultFocus = this.id(this.get('resume'));
+    } else if (id === 'new-campaign-dialog') {
+      model.body = [this.block(this.get('new-campaign-detail'))].filter(Boolean);
+      model.defaultFocus = model.footer[0]?.id;
     } else model.body = this.blocks(root, excluded);
+    if (id === 'result-dialog' && this.shown(this.get('campaign-reward'))) {
+      const metrics = this.block(this.get('result-stats'))?.children ?? [];
+      model.report = { summary: metrics.map(item => ({ ...item, kind: 'keyrow', label: item.text, text: item.text.replace(/tissue average/i, 'Tissue') })), options: this.controls('#campaign-reward [data-upgrade]'), label: 'Choose a field upgrade' };
+      model.reportDetails = this.blocks(root, new Set([...excluded, this.get('campaign-reward')]));
+    } else if (id === 'extraction-dialog') {
+      const metrics = this.block(root.querySelector('.extraction-stats'))?.children ?? [];
+      model.report = { summary: metrics.map(item => ({ ...item, kind: 'keyrow', label: item.text, text: item.text.replace(/tissue average/i, 'Tissue').replace(/suit integrity/i, 'Suit').replace(/loaded \/ reserve/i, 'Ammo') })), forecast: [heading('Overtime / ' + this.value('extraction-bonus')), { kind: 'text', text: this.value('extraction-detail'), size: 13 }, { kind: 'text', text: this.text(root.querySelector('.overtime-forecast p')), size: 13 }] };
+      model.reportDetails = this.blocks(root, excluded);
+    }
     if (this.error) model.body.unshift({ kind: 'text', text: this.error, color: '#ff977d', size: 14 });
     return model;
   }
@@ -204,7 +252,7 @@ export class BrowserUiBindings {
       const panel = this.get(id);
       special = { title: this.text(panel.querySelector('h2')), detail: [t(prefix + '-status'), visibleText(prefix + '-time'), ...[...panel.querySelectorAll('.airway-port,.gastric-valve')].map(e => this.text(e))].filter(Boolean).join(' · '), phase: t('boss-phase'), health: prefix === 'boss' ? Number(this.get('boss-health').getAttribute('aria-valuenow')) : null };
     }
-    const actions = { mute: { ...this.control(root.querySelector('[data-mute]')), text: '♪' }, pause: this.control(this.get('pause')) };
+    const actions = { mute: { ...this.control(root.querySelector('[data-mute]')), text: '', icon: root.querySelector('[data-mute]')?.getAttribute('aria-pressed') === 'true' ? 'muted' : 'volume', iconOnly: true }, pause: { ...this.control(this.get('pause')), icon: 'pause', iconOnly: true } };
     for (const name of ['swap', 'turret', 'reload', 'repair']) {
       const el = root.querySelector(`[data-touch="${name}"]`);
       const control = this.control(el); if (control) actions[name] = { ...control, id: 'game:' + name, action: 'game:' + name, color: name === 'turret' ? el.dataset.state === 'jammed' ? '#ff977d' : '#b2e8ff' : undefined };

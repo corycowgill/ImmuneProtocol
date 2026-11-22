@@ -2,11 +2,11 @@ import { CanvasUiRenderer } from './ui-renderer.mjs';
 import { BrowserUiBindings } from './ui-bindings.mjs';
 import { buildUiScreen } from './ui-screens.mjs';
 import { hitTest, inside, nextFocus, clamp, UiPointers } from './ui-core.mjs';
-import { enableUiMedia } from './ui-media.mjs';
+import { enableUiMedia, setUiViewport } from './ui-media.mjs';
 
 export class GameUi {
   constructor() {
-    this.active = false; this.controls = {}; this.state = { scroll: {}, focus: null, hover: null, showFocus: false, popup: null, stick: { x: 0, z: 0 } };
+    this.active = false; this.controls = {}; this.state = { scroll: {}, pages: {}, focus: null, hover: null, showFocus: false, popup: null, stick: { x: 0, z: 0 } };
     this.images = new Map(); this.resourceImages = new WeakSet(); this.kinetic = new Map(); this.dirty = true; this.changed = true; this.lastSnapshot = 0; this.lastPaint = 0;
   }
   bindControls(controls) { this.controls = controls; }
@@ -50,6 +50,7 @@ export class GameUi {
       if (records.some(r => !r.target.closest?.('#game-ui-access,#game-ui-editor,#game-ui,#game-ui-safe-area'))) this.dirty = true;
     }).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
     document.fonts.ready.then(() => this.invalidate());
+    for (const font of ['500 16px Inter', '600 16px Inter', '800 46px "Barlow Condensed"']) document.fonts.load(font).then(() => this.invalidate(), () => this.invalidate());
     const frame = now => {
       if (!this.combatDriven || this.bindings.active()?.id !== 'game') this.present(now);
       requestAnimationFrame(frame);
@@ -110,6 +111,10 @@ export class GameUi {
       const previous = this.model;
       this.model = this.bindings.snapshot();
       if (previous && this.model?.id === previous.id && (this.model.selection !== previous.selection || this.model.contextKey !== previous.contextKey)) { this.state.scroll.body = 0; this.kinetic.clear(); }
+      if (previous && this.model && previous.id === this.model.id) {
+        if (this.model.id === 'mission-dialog' && this.model.selection !== previous.selection) this.state.pages[this.model.id] = 'briefing';
+        if (this.model.id === 'armory-dialog' && this.model.tabs?.find(tab => tab.selected)?.id !== previous.tabs?.find(tab => tab.selected)?.id) this.state.pages[this.model.id] = 'build';
+      }
       this.lastSnapshot = now; this.dirty = false; this.changed = true;
     }
     if (!this.model) return;
@@ -131,6 +136,10 @@ export class GameUi {
         }
         this.placeEditor(field);
       }
+    }
+    for (const item of this.scene.draw) {
+      const source = this.bindings.resources.get(item.src);
+      if (source?.tagName === 'CANVAS' && item.clip && item.rect.y < item.clip.y + item.clip.h && item.rect.y + item.rect.h > item.clip.y) setUiViewport(source, item.rect.w, item.rect.h);
     }
     this.renderer.render(this.scene, this.state); this.lastPaint = now; this.changed = false;
     this.canvas.dataset.screen = this.model.id; this.canvas.dataset.presentation = 'canvas';
@@ -202,8 +211,12 @@ export class GameUi {
     if (!item || item.disabled) return;
     if (item.id === '@reload-ui') { location.reload(); return; }
     this.state.focus = item.id;
+    if (item.id?.startsWith('@view:')) {
+      this.state.pages[this.model.id] = item.id.slice(6); this.state.scroll.body = 0; this.kinetic.clear(); this.invalidate(); return;
+    }
     if (item.id === '@close-popup') { this.state.popup = null; this.invalidate(); return; }
     if (item.id === '@armory-stats') { this.state.popup = { id: '@armory-stats', label: 'Build stats', body: this.model.left?.slice(3) ?? [] }; this.invalidate(); return; }
+    if (item.id === '@report-details') { this.state.popup = { id: '@report-details', label: 'Mission details', body: this.model.reportDetails }; this.invalidate(); return; }
     if (item.id?.startsWith('@option:')) {
       const popup = this.state.popup, option = popup?.options[Number(item.id.slice(8))];
       if (!option || option.disabled) return;
@@ -292,14 +305,15 @@ export class GameUi {
     const old = new Map([...this.access.children].map(e => [e.dataset.uiId, e]));
     const live = new Set();
     const titleId = '@screen-title', title = this.state.popup?.label || this.model.title || (this.model.type === 'combat' ? 'Mission HUD' : 'Immune Protocol');
-    const entries = [{ id: titleId, kind: 'heading', text: title, rect: { x: 0, y: 0, w: 1, h: 1 } }, ...(this.scene.accessDraw ?? this.scene.draw).filter(item => item.text && !(item.kind === 'heading' && item.text === title) && !['panel', 'image', 'preview', 'path', 'scope', 'reticle', 'look', 'scroll'].includes(item.kind)), ...this.scene.hits.filter(item => ['field', 'slider', 'choice', 'stick'].includes(item.kind))];
+    const entries = [{ id: titleId, kind: 'heading', text: title, rect: { x: 0, y: 0, w: 1, h: 1 } }, ...(this.scene.accessDraw ?? this.scene.draw).filter(item => (item.text || item.label && item.action) && !(item.kind === 'heading' && item.text.toUpperCase() === title.toUpperCase()) && !['panel', 'image', 'preview', 'path', 'scope', 'reticle', 'look', 'scroll'].includes(item.kind)), ...this.scene.hits.filter(item => ['field', 'slider', 'choice', 'stick'].includes(item.kind))];
     entries.forEach((item, index) => {
       const id = item.id ?? '@text:' + index; if (live.has(id)) return; live.add(id);
       const interactive = !!item.action || ['field', 'slider', 'choice', 'stick'].includes(item.kind);
       const tag = item.kind === 'slider' ? 'input' : interactive ? 'button' : item.kind === 'heading' ? 'h2' : 'p';
       let el = old.get(id);
       if (!el || el.tagName.toLowerCase() !== tag) { el?.remove(); el = document.createElement(tag); el.dataset.uiId = id; this.access.append(el); }
-      const label = [item.label || item.text, item.kind === 'field' || item.kind === 'slider' ? item.value : item.detail].filter(v => v != null && v !== '').join(': ');
+      const value = item.kind === 'choice' ? item.options?.find(option => option.value === item.value)?.text ?? item.text : item.kind === 'field' || item.kind === 'slider' ? item.value : item.detail;
+      const label = [...new Set([item.label || item.text, value].filter(v => v != null && v !== ''))].join(': ');
       if (el.textContent !== label && tag !== 'input') el.textContent = label;
       el.setAttribute('aria-label', label || item.id || 'Control');
       if (interactive) {
@@ -309,6 +323,7 @@ export class GameUi {
         if (tag === 'input') { el.type = 'range'; el.min = item.min; el.max = item.max; el.step = item.step; el.value = item.value; el.oninput = () => { this.bindings.setValue(item.action, el.value); this.invalidate(); }; }
         else el.type = 'button';
         if (item.selected != null) el.setAttribute('aria-pressed', String(item.selected));
+        if (item.expanded != null) el.setAttribute('aria-expanded', String(item.expanded));
       }
       Object.assign(el.style, { left: item.rect.x + 'px', top: item.rect.y + 'px', width: Math.max(1, item.rect.w) + 'px', height: Math.max(1, item.rect.h) + 'px' });
     });

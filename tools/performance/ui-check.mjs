@@ -12,16 +12,19 @@ const settings = Object.entries(localStorage);
 addEventListener('pagehide', () => { localStorage.clear(); for (const [key, value] of settings) localStorage.setItem(key, value); }, { once: true });
 while (!session.ready || !$('startup-load').hidden) await next();
 try {
-  if (['result', 'loss', 'extraction', 'play'].includes(scenario)) {
+  if (['result', 'loss', 'extraction', 'play', 'pause'].includes(scenario)) {
     if (scenario === 'extraction') {
       $('mission-select').click(); $('deploy-junction').click();
     } else $('deploy').click();
     $('deploy-practice').click();
     while (!session.running) await next();
-    if (scenario === 'extraction') { session.sim.extractionPending = true; session.sim.phase = 'intermission'; }
+    if (scenario === 'pause') { while (!$('startup-load').hidden) await next(); $('pause').click(); }
+    else if (scenario === 'extraction') { session.sim.extractionPending = true; session.sim.phase = 'intermission'; }
     else if (scenario !== 'play') { session.sim.tutorial = null; session.sim.phase = scenario === 'loss' ? 'lost' : 'won'; }
   } else if (scenario === 'ui-failure') {
     gameUi.bindings.snapshot = () => { throw new Error('Verification-only UI failure'); }; gameUi.invalidate();
+  } else if (scenario === 'loading') {
+    loadingScreen.begin();
   } else if (scenario === 'failure') {
     loadingScreen.begin(); loadingScreen.fail('Verification: interrupted preparation. Retry is available.');
   } else if (scenario === 'intro') {

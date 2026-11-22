@@ -10,6 +10,7 @@ export const FIELD_UPGRADES = Object.freeze({
   'deep-magazine': {
     name: 'Deep Magazine',
     description: 'Adds 12 rounds to the carbine magazine capacity, including modified magazines.',
+    shortDescription: 'Adds 12 carbine rounds, including modified magazines.',
     magazineSize: 42,
   },
   'insulated-suit': {

@@ -184,3 +184,59 @@ test('combat panels and touch targets stay separate at phone and desktop aspect 
     assert.ok(scene.hits.every(h => h.rect.x >= 0 && h.rect.x + h.rect.w <= size.w));
   }
 });
+
+test('all four quick settings stay visible in short landscape viewports', () => {
+  const slider = id => ({ kind: 'slider', id, action: id, label: id, value: 1, min: 0, max: 2 });
+  const quality = { kind: 'choice', id: 'quality', action: 'quality', label: 'Graphics quality', value: 'high', options: [{ value: 'high', text: 'High' }] };
+  const model = { id: 'settings-dialog', type: 'dialog', title: 'Settings', body: [], footer: [btn('done')], settingsGroups: [{ text: 'Controls', nodes: [slider('sensitivity')] }, { text: 'Video', nodes: [quality, { kind: 'text', text: 'Use Low for smoother rendering on slower devices.' }] }, { text: 'Audio', nodes: [slider('music'), slider('effects')] }] };
+  for (const size of [{ w: 852, h: 393 }, { w: 667, h: 375 }, { w: 568, h: 320 }]) {
+    const scene = buildUiScreen(model, size, safe, state(), measure);
+    for (const id of ['sensitivity', 'quality', 'music', 'effects']) {
+      const hit = scene.hits.find(item => item.id === id);
+      assert.deepEqual(intersect(hit.rect, hit.clip), hit.rect, id + JSON.stringify(size));
+      assert.ok(hit.rect.h >= 44);
+    }
+  }
+});
+
+test('phone workspace tabs expose setup without leaving the mission screen', () => {
+  const s = state(); s.pages = { 'mission-dialog': 'configuration' };
+  const model = { id: 'mission-dialog', type: 'dialog', title: 'Deployment', sidebar: [btn('mission', { selected: true })], body: [], briefing: [{ kind: 'text', text: 'Mission story' }], configuration: [btn('easy'), btn('hard')], footer: [btn('deploy')] };
+  const scene = buildUiScreen(model, sizes[1], safe, s, measure);
+  assert.ok(scene.hits.some(item => item.id === 'easy'));
+  assert.equal(scene.draw.some(item => item.text === 'Mission story'), false);
+  assert.ok(scene.hits.some(item => item.id === 'deploy'));
+  assert.equal(scene.hits.find(item => item.id === '@view:configuration').selected, true);
+});
+
+test('manual categories isolate their content while keeping the return action', () => {
+  const s = state(); s.pages = { 'manual-dialog': 'tactics' };
+  const model = { id: 'manual-dialog', type: 'dialog', title: 'Field manual', body: [], views: [{ id: 'controls', text: 'Controls', body: [btn('keybinds')] }, { id: 'tactics', text: 'Tactics', body: [btn('repair')] }], footer: [btn('return')] };
+  const scene = buildUiScreen(model, sizes[0], safe, s, measure);
+  assert.equal(scene.hits.some(item => item.id === 'keybinds'), false);
+  assert.ok(scene.hits.some(item => item.id === 'repair'));
+  assert.ok(scene.hits.some(item => item.id === 'return'));
+});
+
+test('destructive campaign confirmation defaults to keeping the checkpoint', () => {
+  const ui = new GameUi(), actions = [];
+  ui.active = true; ui.model = { id: 'new-campaign-dialog', type: 'dialog', title: 'Start new campaign?', defaultFocus: 'keep', body: [{ kind: 'text', text: 'Starting again replaces your campaign checkpoint.' }], footer: [btn('keep'), btn('start', { primary: true })] };
+  ui.scene = buildUiScreen(ui.model, sizes[3], safe, ui.state, measure);
+  ui.bindings = { activate: id => actions.push(id), actions: new Map() };
+  ui.key('Enter');
+  assert.deepEqual(actions, ['keep']);
+  const card = ui.scene.draw.find(item => item.kind === 'panel');
+  assert.ok(card.rect.w < sizes[3].w * .6);
+  assert.ok(card.rect.h < sizes[3].h * .6);
+});
+
+test('short victory reports show all four reward choices beside their metrics', () => {
+  const model = { id: 'result-dialog', type: 'dialog', title: 'Artery secured', body: [], footer: [btn('continue'), btn('armory'), btn('menu')], report: { label: 'Choose a field upgrade', summary: ['Score', 'Neutralized', 'Tissue'].map(text => ({ kind: 'keyrow', text, detail: '100%' })), options: ['Sealer', 'Magazine', 'Suit', 'Turret'].map(id => btn(id, { detail: 'Useful equipment for the next mission.', selected: false })) } };
+  const scene = buildUiScreen(model, sizes[1], safe, state(), measure);
+  for (const id of ['Sealer', 'Magazine', 'Suit', 'Turret', '@report-details']) {
+    const hit = scene.hits.find(item => item.id === id);
+    const visible = intersect(hit.rect, hit.clip);
+    for (const axis of ['x', 'y', 'w', 'h']) assert.ok(Math.abs(visible[axis] - hit.rect[axis]) < .01, id + ':' + axis);
+  }
+  assert.ok(scene.hits.find(item => item.id === 'continue'));
+});

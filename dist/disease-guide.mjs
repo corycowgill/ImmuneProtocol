@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { publishUiFrame } from './ui-media.mjs';
+import { publishUiFrame, uiViewport } from './ui-media.mjs';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { ENEMY_MODELS, animatePathogen, loadEnemyModel, pathogenMotion } from './enemy-models.mjs';
 import { SPECIES, speciesHabitats } from './simulation.mjs';
@@ -227,6 +227,10 @@ class PathogenViewer {
     // Show every model at the same apparent size, whatever its in-game scale.
     this.model.scale.setScalar(1 / ENEMY_MODELS[type].size);
     this.turntable.add(this.model);
+    const bounds = new THREE.Box3().setFromObject(this.model), center = bounds.getCenter(new THREE.Vector3());
+    this.model.position.sub(center);
+    this.previewBounds = bounds.getSize(new THREE.Vector3());
+    this.needsFit = true;
     this.motion = pathogenMotion(this.model);
   }
 
@@ -259,16 +263,19 @@ class PathogenViewer {
     }
     this.turntable.rotation.set(this.pitch, this.yaw, 0);
     if (!reduceMotion) animatePathogen(this.motion, dt, this.clench);
-    const width = this.canvas.clientWidth;
-    const height = this.canvas.clientHeight;
-    if (width && height && (this.canvas.width !== Math.round(width * this.renderer.getPixelRatio()) ||
+    const { width, height } = uiViewport(this.canvas);
+    if (width && height && (this.needsFit || this.canvas.width !== Math.round(width * this.renderer.getPixelRatio()) ||
         this.canvas.height !== Math.round(height * this.renderer.getPixelRatio()))) {
       this.renderer.setSize(width, height, false);
       this.camera.aspect = width / height;
-      // Back off in narrow frames so the widest models keep a margin on both sides.
-      const halfWidth = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect;
-      this.camera.position.setLength(Math.max(5.2, 1.45 / halfWidth));
+      // Fit the actual specimen to its canvas stage, including room for yaw.
+      // Flat drones can fill a wide phone stage without shrinking into an icon.
+      const halfHeight = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)), halfWidth = halfHeight * this.camera.aspect;
+      const b = this.previewBounds;
+      const distance = b ? Math.max(b.y / (2 * halfHeight), Math.hypot(b.x, b.z) / (2 * halfWidth)) * 1.3 + b.z / 2 : Math.max(5.2, 1.45 / halfWidth);
+      this.camera.position.setLength(distance);
       this.camera.updateProjectionMatrix();
+      this.needsFit = false;
     }
     this.renderer.render(this.scene, this.camera);
     publishUiFrame(this.canvas);
