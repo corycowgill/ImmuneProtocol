@@ -33,9 +33,9 @@ export const DEATHS = Object.freeze({
   'rogue-bot': { style: 'crash', flash: 0xffc070, gore: 0x1a1414, splat: 2.2 },
   // The Crawler's legs curl in under it like a dead spider's as it shorts out on the floor.
   crawler: { style: 'crash', flash: 0xffb060, gore: 0x1a1414, splat: 1.6, curl: true },
-  colony: { style: 'collapse', flash: 0xd8ff9a, gore: 0x7a9a3a, splat: 3.4, time: 1.5 },
-  nest: { style: 'collapse', flash: 0xffd080, gore: 0xb0482a, splat: 4, time: 1.4 },
-  segment: { style: 'rupture', flash: 0xfff0c0, gore: 0xc8a860, chunk: 'blob', chunks: 9, swell: .2, time: .12, splat: 2.2 },
+  colony: { style: 'collapse', flash: 0xd8ff9a, gore: 0x7a9a3a, splat: 1.5, time: 1.5 },
+  nest: { style: 'collapse', flash: 0xffd080, gore: 0xb0482a, splat: 1.5, time: 1.4 },
+  segment: { style: 'rupture', flash: 0xfff0c0, gore: 0xc8a860, chunk: 'blob', chunks: 9, swell: .2, time: .12, splat: 1.2 },
   engulf: { style: 'engulf', flash: 0xc8a8ff, gore: 0x8060c0, time: .42 },
 });
 
@@ -637,11 +637,11 @@ export class DeathFX {
         this.world.burst(point.x, point.y, point.z, recipe.gore, reduce ? 30 : 120, 9);
         this.gore(point, recipe, 3, 26, { speed: 6, up: 7, chunkSize: .2 });
         this.mist(point, recipe.gore, size * 1.2, reduce ? 3 : 9, { rise: .7, life: 2.2, opacity: .55 });
-        this.splat(point.x, point.z, recipe.gore, size * 2.6, { grow: .5, life: 12 });
+        this.splat(point.x, point.z, recipe.gore, size * 1.7, { grow: .5, life: 12 });
         for (let i = 0; i < 6; i++) {
           const angle = i / 6 * TAU + this.random();
           const reach = size * (1.4 + this.random() * 1.6);
-          this.splat(point.x + Math.cos(angle) * reach, point.z + Math.sin(angle) * reach, recipe.gore, size * (.4 + this.random() * .5), { grow: .5, life: 10 });
+          this.splat(point.x + Math.cos(angle) * reach, point.z + Math.sin(angle) * reach, recipe.gore, size * (.25 + this.random() * .3), { grow: .5, life: 10 });
         }
         break;
       }

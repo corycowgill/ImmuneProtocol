@@ -32,12 +32,12 @@ try {
       sim.enemies.push(target);
       if (type === 'segments') for (let order = 1; order <= 4; order++) {
         const segment = sim.createEnemy(design.model, order * 3.2, 16 + order * 1.5, sim.nodes[0], { health: 360, radius: 1.25, y: 1.3 });
-        Object.assign(segment, { segmentOf: target.id, order, behavior: 'boss-segment', scale: 2.3 * (1 - order * .035) });
+        Object.assign(segment, { segmentOf: target.id, order, behavior: 'boss-segment', scale: 2.3 * (1 - order * .035), score: 150 });
         sim.enemies.push(segment);
       }
     } else if (type === 'nest') {
       target = sim.createEnemy(NEST.model, 0, 22, sim.nodes[0], NEST);
-      Object.assign(target, { nest: true, behavior: 'nest', scale: NEST.scale });
+      Object.assign(target, { nest: true, behavior: 'nest', scale: NEST.scale, score: NEST.score });
       sim.enemies.push(target);
     } else if (type === 'devour') {
       target = sim.createEnemy('virus', 1.5, 26, sim.nodes[0]);
