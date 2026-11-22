@@ -68,7 +68,7 @@ try {
   }
   window.deaths = {
     ready: true, types: SPECIES,
-    get sim() { return sim; }, get target() { return target; },
+    get sim() { return sim; }, get target() { return target; }, world,
     // Moves the pathogen sideways a little each frame so a runner's gait can be seen.
     walk(frames = 1, speed = 4) { for (let i = 0; i < frames; i++) { target.x += speed / 60; step(1 / 60); } },
     spawn(type) { select.value = type; auto = false; spawn(type); },

@@ -9,7 +9,7 @@ export const LASER_RULES = Object.freeze({ range: 28, minimumRange: 4, windup: .
 // close in to fire, its lock is brief, and it is soon ready again, so it is fought on the move.
 export const CRAWLER_LASER = Object.freeze({ range: 9, minimumRange: 1.4, windup: .5, flash: .12, recovery: .3, cooldown: 1.25, radius: .5,
   muzzle: 1, muzzleHeight: .04, hover: 0 });
-export const CRAWLER_SPEC = Object.freeze({ behavior: 'laser', radius: .95, y: .7,
+export const CRAWLER_SPEC = Object.freeze({ behavior: 'laser', radius: .95, y: .63,
   health: 62, speed: 5.4, suitDamage: 8, tissueDamage: 0, score: 210 });
 const LASERS = { 'rogue-bot': LASER_RULES, crawler: CRAWLER_LASER };
 export const laserRules = enemy => LASERS[enemy.type] ?? LASER_RULES;

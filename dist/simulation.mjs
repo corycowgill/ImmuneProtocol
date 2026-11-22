@@ -95,8 +95,9 @@ const FRAGMENT = { radius: .55, y: 1.35, health: 24, speed: 4.05, suitDamage: 5,
 const TUTORIAL_ATTACKER_HEALTH = 34;
 const GUARD_FRONT_THRESHOLD = .55;
 
-// Every wave fields three times its authored roster; encounters can regroup ordinary arrivals.
-export const WAVE_SCALE = 3;
+// Every wave fields five times its authored roster, so the field is nearly overrun; encounters can
+// regroup ordinary arrivals.
+export const WAVE_SCALE = 5;
 export const extendRoster = roster => Array.from({ length: WAVE_SCALE }, () => roster).flat();
 
 const MISSIONS = [
@@ -202,11 +203,15 @@ const INTERMISSION_TIME = 6.5;
 // Pause between the final kill of a wave and the wave-clear / armory screen.
 export const WAVE_OUTRO_TIME = 4;
 // Nodes sit much farther apart in the enlarged arenas, so each one soaks a little more punishment.
-// Waves field three times the pathogens, so each strike on tissue or suit takes proportionally
-// less. Pathogens also arrive a little further apart so the longer waves do not pile up faster than they can be shot.
-const WAVE_CADENCE = 1.35;
-const WAVE_SUIT_DAMAGE = .4;
-const WAVE_TISSUE_DAMAGE = .25;
+// Waves field five times the pathogens and arrive close together, so the arena fills up and the
+// pressure comes from numbers. Each strike on tissue or suit takes less so a swarm is survivable
+// when it is fought, and lethal when it is ignored.
+export const WAVE_CADENCE = 1;
+const WAVE_SUIT_DAMAGE = .22;
+const WAVE_TISSUE_DAMAGE = .13;
+// Bosses and their segments are not multiplied, so they keep the strike scale they were tuned with.
+const BOSS_SUIT_DAMAGE = .4;
+const BOSS_TISSUE_DAMAGE = .25;
 const THREE_NODE_TISSUE_DAMAGE = .5;
 const ORGAN_TISSUE_DAMAGE = .72;
 const JUNCTION_BREAK_TIME = 8;
@@ -1677,17 +1682,19 @@ export class Simulation {
   damageTarget(enemy, target, amount, origin = enemy, playerId = enemy.actionPlayerId, node = enemy.node) {
     if (enemy.behavior === 'laser' && target !== 'player') return;
     const player = target === 'player' ? this.attackPlayer(playerId) : null;
+    const boss = !!(enemy.boss || enemy.segmentOf);
     if (target === 'player') {
       if (!player || player.health <= 0) return;
-      player.health = Math.max(0, player.health - amount * WAVE_SUIT_DAMAGE);
-      this.ai.director.recentDamage += amount * WAVE_SUIT_DAMAGE;
+      const scale = boss ? BOSS_SUIT_DAMAGE : WAVE_SUIT_DAMAGE;
+      player.health = Math.max(0, player.health - amount * scale);
+      this.ai.director.recentDamage += amount * scale;
     } else {
       if (!node || node.health <= 0) return;
       if (this.organ?.phase === 'active' && this.organ.nodeId === node.id) {
         amount *= this.organMission.hazard.tissueDamage ?? 1;
       }
       amount *= this.nodes.length > 2 ? THREE_NODE_TISSUE_DAMAGE : this.organMission ? ORGAN_TISSUE_DAMAGE : 1;
-      amount *= WAVE_TISSUE_DAMAGE;
+      amount *= boss ? BOSS_TISSUE_DAMAGE : WAVE_TISSUE_DAMAGE;
       this.damageNode(node, amount);
     }
     const impact = { type: 'damage', target, amount, id: enemy.id, x: origin.x, y: origin.y, z: origin.z };

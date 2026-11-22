@@ -1,5 +1,5 @@
 // Recompose the authored wave roster into readable encounters. Never adds enemies or stats.
-export const ENCOUNTER_RULES = Object.freeze({ warning: 4, minimumGap: .55, safeSuit: 18, safeNode: 18, maxActive: 28, orderSeconds: 24 });
+export const ENCOUNTER_RULES = Object.freeze({ warning: 4, minimumGap: .55, safeSuit: 18, safeNode: 18, maxActive: 44, orderSeconds: 24 });
 const mobile = ['virus', 'phage', 'flagellate', 'splitter'];
 const ranged = ['spore', 'blister'];
 const tissue = ['bacillus', 'filovirus', 'amoeba', 'rogue'];
@@ -37,7 +37,7 @@ export function planEncounters(sim) {
   const mission = sim.missions[sim.wave - 1];
   if (!mission || mission.boss || mission.arrivals || sim.valve || sim.area === 'junction' ||
       (sim.hasTutorial && sim.wave === 1) || mission.species.length < 16) return;
-  const base = mission.cadence * 1.35;
+  const base = mission.cadence * 1;
   const seed = hash(`${sim.encounterSeed}:${sim.area}:${sim.wave}`);
   const slots = mission.species.map((type, index) => ({ type, source: index,
     lane: mission.lanes ? Math.max(0, 'LRC'.indexOf(mission.lanes[index])) : (index + sim.wave - 1) % sim.nodes.length, pack: -1 }));

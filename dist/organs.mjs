@@ -4,7 +4,7 @@ function node(id, name, x, z) {
   return { id, name, x: grow(x), y: 1.25, z: grow(z) };
 }
 
-const CADENCE_STRETCH = 1.25;
+const CADENCE_STRETCH = .95;
 const SPECIES_CODES = {
   v: 'virus', b: 'bacillus', s: 'spore', g: 'guard', p: 'splitter',
   h: 'phage', f: 'flagellate', m: 'blister', w: 'filovirus', a: 'amoeba', r: 'rogue', d: 'rogue-bot', k: 'crawler',
@@ -13,8 +13,8 @@ const SPECIES_CODES = {
 // Waves use one letter per pathogen (v virus, b bacillus, s spore, g shellback guard, p splitter,
 // h phage, f flagellate, m blister mortar, w filovirus, a amoeba, r rogue cell, d rogue bot, k crawler) and one
 // lane letter per pathogen (L first node, R second node, C third node).
-// Keep in step with WAVE_SCALE in simulation.mjs: each authored wave is fielded three times over.
-const WAVE_SCALE = 3;
+// Keep in step with WAVE_SCALE in simulation.mjs: each authored wave is fielded five times over.
+const WAVE_SCALE = 5;
 
 function wave(name, cadence, codes, lanes) {
   // A three-letter lane order (for example 'LCR') expands into surges of three pathogens per node.

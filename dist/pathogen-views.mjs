@@ -132,6 +132,12 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
   for (const view of world.enemyViews.values()) view.present = false;
   for (const enemy of enemies) {
     let view = world.enemyViews.get(enemy.id);
+    // A fresh simulation restarts its ids: a view left from another species is not reused.
+    if (view && view.type !== enemy.type) {
+      world.enemyViews.delete(enemy.id);
+      releaseEnemyView(world, view);
+      view = null;
+    }
     if (!view) {
       view = world.enemyPool.get(enemy.type)?.pop();
       if (view) {

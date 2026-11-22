@@ -2,7 +2,7 @@
 export const AI_CONFIG = Object.freeze({
   perceptionInterval: .15, decisionInterval: .32, squadInterval: .7, directorInterval: .5,
   sightBudget: 24, pathsPerStep: 2, pathInterval: 1.1, memorySeconds: 6,
-  maxPressure: 5, maxTissuePressure: 3, maxEvents: 64, separationRadius: 3,
+  maxPressure: 9, maxTissuePressure: 5, maxEvents: 64, separationRadius: 3,
 });
 
 const base = {
@@ -49,7 +49,7 @@ export const SPECIES_AI = Object.freeze({
   'rogue-bot': 'drone', crawler: 'skitter',
 });
 export const AI_DIFFICULTY = Object.freeze({
-  easy: Object.freeze({ reaction: 1.5, decision: 1.25, pressure: 3, teamwork: .6, accuracy: .8 }),
-  medium: Object.freeze({ reaction: 1, decision: 1, pressure: 4, teamwork: .85, accuracy: 1 }),
-  hard: Object.freeze({ reaction: .8, decision: .85, pressure: 5, teamwork: 1, accuracy: 1.05 }),
+  easy: Object.freeze({ reaction: 1.5, decision: 1.25, pressure: 4, teamwork: .6, accuracy: .8 }),
+  medium: Object.freeze({ reaction: 1, decision: 1, pressure: 6, teamwork: .85, accuracy: 1 }),
+  hard: Object.freeze({ reaction: .8, decision: .85, pressure: 7, teamwork: 1, accuracy: 1.05 }),
 });

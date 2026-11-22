@@ -95,6 +95,11 @@ function play(area, difficulty, rover) {
   return { won: sim.phase === 'won', lowest };
 }
 
+function hiddenByTissue(sim, player, enemy) {
+  const dx = enemy.x - player.x, dy = enemy.y - player.y, dz = enemy.z - player.z, length = Math.hypot(dx, dy, dz) || 1;
+  return sim.traceRay(player, { x: dx / length, y: dy / length, z: dz / length }, true, sim.weapon).target !== enemy;
+}
+
 function think(sim, rover, memory, clock) {
   const { player } = sim;
   const input = {};
@@ -113,7 +118,9 @@ function think(sim, rover, memory, clock) {
   let best = Infinity;
   for (const enemy of enemies) {
     if ((memory.blocked.get(enemy) ?? 0) > clock) continue;
-    const score = distance(enemy, player) * .35 + distance(enemy, enemy.node) * (enemy.node === node ? .7 : 1);
+    // Tissue nodes stop shots: a pathogen behind one waits until a clear line opens.
+    const covered = !enemy.boss && !enemy.nest && hiddenByTissue(sim, player, enemy);
+    const score = distance(enemy, player) * .35 + distance(enemy, enemy.node) * (enemy.node === node ? .7 : 1) + (covered ? 30 : 0);
     if (score < best && distance(enemy, player) < 40) {
       best = score;
       target = enemy;

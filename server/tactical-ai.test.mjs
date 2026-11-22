@@ -270,9 +270,9 @@ test('armoured pathogens interpose themselves to protect wounded colony members'
 test('difficulty changes reaction, coordination and pressure without changing live stats', () => {
   const { sim, enemy } = fixture(); const health = enemy.health;
   sim.difficulty = 'easy'; sim.ai.director.next = 0; sim.ai.director.update(DT);
-  const easy = sim.ai.difficulty; assert.equal(sim.ai.director.limit, 3);
+  const easy = sim.ai.difficulty; assert.equal(sim.ai.director.limit, 4);
   sim.difficulty = 'hard'; sim.ai.director.next = 0; sim.ai.director.update(DT);
-  assert.equal(sim.ai.director.limit, 5);
+  assert.equal(sim.ai.director.limit, 7);
   assert.ok(sim.ai.difficulty.reaction < easy.reaction);
   assert.ok(sim.ai.difficulty.teamwork > easy.teamwork);
   assert.equal(enemy.health, health);

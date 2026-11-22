@@ -47,7 +47,7 @@ export class EncounterDirector {
     const relief = health < 30 || tissue < 22 || this.recentDamage > 18;
     // Health and damage are never changed here. Only attack opportunities are paced.
     this.limit = Math.min(config.maxPressure, Math.max(2, difficulty.pressure - Number(relief)));
-    this.tissueLimit = Math.min(config.maxTissuePressure, tissue < 22 ? 1 : 3);
+    this.tissueLimit = Math.min(config.maxTissuePressure, tissue < 22 ? 2 : 5);
     this.active = sim.enemies.length;
     this.composition = {};
     for (const enemy of sim.enemies) this.composition[enemy.type] = (this.composition[enemy.type] ?? 0) + 1;

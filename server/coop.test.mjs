@@ -431,7 +431,7 @@ test('difficulty reshapes solo missions and leaves scripted encounters intact', 
   junction.chooseExtraction('stay');
   const overtime = junction.missions.at(-1);
   assert.equal(overtime.name, 'Overtime');
-  assert.ok(overtime.arrivals.length < 27);
+  assert.ok(overtime.arrivals.length < 45);
   assert.equal(junction.spawnIndex, 0);
 
   // The heart colony and Mega Virus waves are untouched; the boss scales through its hit size.
@@ -455,11 +455,12 @@ test('difficulty reshapes solo missions and leaves scripted encounters intact', 
   assert.equal(tissueLoss('lungs', 'hard'), 10 * DIFFICULTIES.hard.tissueDamage);
   assert.equal(tissueLoss('artery', 'hard'), 10);
   assert.equal(tissueLoss('artery', 'easy'), 10 * DIFFICULTIES.easy.tissueDamage);
-  const suit = deploy('artery', 'hard');
+  // The Bronchial Fork has no per-mission suit exception on Hard.
+  const suit = deploy('lungs', 'hard');
   const attacker = suit.createEnemy('virus', 0, 0, suit.nodes[0]);
   suit.damageTarget(attacker, 'player', 10);
-  // Each strike is scaled down for the tripled waves before difficulty applies.
-  assert.ok(Math.abs(100 - suit.player.health - 10 * .4 * DIFFICULTIES.hard.suitDamage) < 1e-9);
+  // Each strike is scaled down for the five-fold waves before difficulty applies.
+  assert.ok(Math.abs(100 - suit.player.health - 10 * .22 * DIFFICULTIES.hard.suitDamage) < 1e-9);
 });
 
 test('two carried weapons: loadouts, swapping, spread, pellets, rockets and charms', () => {
@@ -549,14 +550,14 @@ test('two carried weapons: loadouts, swapping, spread, pellets, rockets and char
   assert.equal(coop.snapshotFor('alpha').weaponLoadout.arsenal.builds, undefined);
 });
 
-test('waves field three times their roster and score is kept per player', () => {
+test('waves field five times their roster and score is kept per player', () => {
   const artery = new Simulation('artery');
-  assert.deepEqual(artery.missions.map(wave => wave.species.length), [27, 39, 48, 57, 66]);
+  assert.deepEqual(artery.missions.map(wave => wave.species.length), [45, 65, 80, 95, 110]);
   assert.equal(artery.missions[0].species.slice(0, 9).join(), artery.missions[0].species.slice(9, 18).join());
   const lungs = new Simulation('lungs');
-  assert.equal(lungs.missions[0].species.length, 33);
+  assert.equal(lungs.missions[0].species.length, 55);
   for (const wave of lungs.missions) assert.equal(wave.lanes.length, wave.species.length);
-  assert.equal(new Simulation('junction').missions[0].arrivals.length, 18);
+  assert.equal(new Simulation('junction').missions[0].arrivals.length, 30);
   assert.deepEqual(new Simulation('heart').missions[0].species, ['colony']);
 
   const sim = new CoopSimulation([{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Bravo' }]);

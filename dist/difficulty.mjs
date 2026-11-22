@@ -11,7 +11,7 @@ export const DIFFICULTIES = Object.freeze({
       'Tissue takes 35% less damage, your suit 40% less (hazards included)',
       'Repair pulses restore 30% more tissue',
       'Place your auto-turret twice per mission, so you can move it once',
-      'Slower pathogen reactions, less information sharing and at most three ordinary high-pressure attacks',
+      'Slower pathogen reactions, less information sharing and at most four ordinary high-pressure attacks',
     ],
     enemyHealth: .75, tissueDamage: .65, suitDamage: .6, cadence: 1.3, drop: 3, extra: 0, repair: 1.3, turrets: 2,
   }),
@@ -21,7 +21,7 @@ export const DIFFICULTIES = Object.freeze({
     changes: [
       'Standard wave sizes and spawn timing',
       'Standard pathogen health and damage',
-      'Standard tactical reactions and at most four ordinary high-pressure attacks',
+      'Standard tactical reactions and at most six ordinary high-pressure attacks',
       'One auto-turret placement per mission',
     ],
     enemyHealth: 1, tissueDamage: 1, suitDamage: 1, cadence: 1, drop: 0, extra: 0, repair: 1, turrets: 1,
@@ -30,11 +30,11 @@ export const DIFFICULTIES = Object.freeze({
     name: 'Hard',
     summary: 'For veterans. Bigger, tougher waves arrive faster and hit harder, and repairs are slower.',
     changes: [
-      'One extra pathogen for every seven (none in Gastric Chamber), arriving 10% faster',
+      'One extra pathogen for every seven (none in the Gastric Chamber, Intestinal Bend, Colonic Reservoir or Lymph Node), arriving 10% faster',
       'Pathogens and the Mega Virus have 15% more health',
       'Tissue takes 10% more damage in two-node arenas, your suit 15% more everywhere (hazards included)',
       'Repair pulses restore 15% less tissue',
-      'Faster tactical reactions, stronger colony coordination and at most five ordinary high-pressure attacks',
+      'Faster tactical reactions, stronger colony coordination and at most seven ordinary high-pressure attacks',
       'One auto-turret placement per mission',
     ],
     enemyHealth: 1.15, tissueDamage: 1.1, suitDamage: 1.15, cadence: .9, drop: 0, extra: 7, repair: .85, turrets: 1,
@@ -48,15 +48,21 @@ export const DEFAULT_DIFFICULTY = 'medium';
 export const MISSION_TUNING = Object.freeze({
   medium: Object.freeze({
     // The longest final wave in the campaign, and the Biofilm Colossus arrives at the end of it.
-    colon: Object.freeze({ cadence: 1.2 }),
+    colon: Object.freeze({ cadence: 1.35, tissueDamage: .85, suitDamage: .85 }),
+    // Pressure waves sweep the bend while the five-fold waves pile onto its nodes.
+    intestines: Object.freeze({ cadence: 1.2, tissueDamage: .85 }),
   }),
   hard: Object.freeze({
     // The drained basin already sends six flankers and two counterattacks into the final wave.
-    stomach: Object.freeze({ extra: 0, tissueDamage: 1, cadence: 1.05 }),
+    // The opening arena's waves are the densest for their size; Hard's extra suit damage overwhelmed it.
+    artery: Object.freeze({ suitDamage: 1 }),
+    stomach: Object.freeze({ extra: 0, tissueDamage: 1, cadence: 1.15 }),
+    // Pressure waves sweep the bend while the five-fold waves pile onto its nodes.
+    intestines: Object.freeze({ extra: 0, tissueDamage: 1, cadence: 1.1 }),
     // The Rogue Macrophage punishes a suit that is caught; Hard's extra suit damage made it a one-mistake fight.
-    lymph: Object.freeze({ suitDamage: 1 }),
+    lymph: Object.freeze({ suitDamage: 1, extra: 0, tissueDamage: 1 }),
     // Three nodes more than fifty metres apart and a squeeze that sweeps the whole chamber.
-    colon: Object.freeze({ extra: 0, cadence: 1.1, suitDamage: 1 }),
+    colon: Object.freeze({ extra: 0, cadence: 1.3, suitDamage: 1, tissueDamage: 1 }),
   }),
 });
 
