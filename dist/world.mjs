@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import { createArsenalView, weaponModelsReady, prepareWeaponCosmetics } from './arsenal-models.mjs';
 import { COOP_SUITS, loadSuitModels } from './suits.mjs';
 import { ExplosionFX } from './explosions.mjs';
+import { DeathFX } from './death-fx.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve } from './heart-valve.mjs';
 import { createTurret } from './turret.mjs';
@@ -24,7 +25,7 @@ import { chunkInstances, cullDecor } from './decor-chunks.mjs';
 import { randomSource, configureTile, glowTexture, cloudTexture, fallbackTissue, normalFromImage, membraneMaps, reflectionTexture } from './arena-textures.mjs';
 import { TAU, UP, floorHeight, texturedLobe, redCellGeometry, sprite, setInstance, addMesh, makeRoom, makeAtmosphere, makeTissue, makeJunctionField, biologicalMaterial } from './arena-scene.mjs';
 import { prepareAll as prepareAllOf, prepareScenes as prepareScenesOf, capturePreview as capturePreviewOf, prepareArea as prepareAreaOf, prepareMission as prepareMissionOf } from './world-preparation.mjs';
-import { enemyTemplate as enemyTemplateOf, dressGuardModel as dressGuardModelOf, updateEnemies as updateEnemiesOf, poseEnemyAttack as poseEnemyAttackOf, updateTethers as updateTethersOf, updateProjectiles as updateProjectilesOf } from './pathogen-views.mjs';
+import { enemyTemplate as enemyTemplateOf, dressGuardModel as dressGuardModelOf, updateEnemies as updateEnemiesOf, releaseEnemyView as releaseEnemyViewOf, poseEnemyAttack as poseEnemyAttackOf, updateTethers as updateTethersOf, updateProjectiles as updateProjectilesOf } from './pathogen-views.mjs';
 import { updateWeapon as updateWeaponOf, updateRepairTool as updateRepairToolOf, addShot as addShotOf, addTracer as addTracerOf, addTeammateShot as addTeammateShotOf, addTurretShot as addTurretShotOf } from './weapon-view.mjs';
 
 // Every lit pixel walks all of the arena's point lights, and most of them are out of range of
@@ -39,7 +40,7 @@ const MAX_PARTICLES = 288;
 const SPECIES_COLORS = {
   virus: 0xff6d4a, bacillus: 0xffd078, spore: 0xf384ff, colony: 0xa8e07a, guard: 0x6fd8cf, splitter: 0xc96bdc,
   phage: 0xb98cff, flagellate: 0xa678ff, blister: 0xff7a5c, filovirus: 0xff5a46, amoeba: 0xb7b2ff, rogue: 0xff6650,
-  'rogue-bot': 0xff4838,
+  'rogue-bot': 0xff4838, crawler: 0xff5a30,
 };
 const HEALTHY = new THREE.Color(0xffc6ad);
 const HEALTHY_FLANK = new THREE.Color(0xf1c1d5);
@@ -97,6 +98,7 @@ export class World {
     this.shotLight = new THREE.PointLight(0xa8ffc4, 0, 8, 2);
     this.scene.add(this.shotLight);
     this.explosions = new ExplosionFX(this.scene, { floorHeight, burst: (...args) => this.burst(...args) });
+    this.deaths = new DeathFX(this);
 
     this.weaponScene = new THREE.Scene();
     this.weaponScene.environment = this.scene.environment;
@@ -359,6 +361,7 @@ export class World {
     cells.visible = !profile;
     motes.material.color.setHex(profile?.atmosphere ?? 0xffffff);
     clouds.forEach(({ cloud }, index) => cloud.material.color.setHex(profile?.atmosphere ?? (index > 4 ? 0xb77266 : 0xfac597)));
+    this.deaths?.clear();
     this.updateEnemies([], 0);
     this.updateProjectiles([], false);
     for (const shot of this.shots) {
@@ -580,6 +583,10 @@ export class World {
     return updateEnemiesOf(this, ...args);
   }
 
+  releaseEnemyView(...args) {
+    return releaseEnemyViewOf(this, ...args);
+  }
+
   poseEnemyAttack(...args) {
     return poseEnemyAttackOf(this, ...args);
   }
@@ -702,15 +709,12 @@ export class World {
           if (event.stage === 'tremor') this.burst(event.x, ground, event.z, 0xc9a07a, reduceMotion ? 3 : 10, 2.6);
           if (event.stage === 'arrive') this.burst(event.x, event.y, event.z, 0xffb38a, reduceMotion ? 20 : 70, 6);
           if (event.stage === 'ability') this.burst(event.x, event.y, event.z, 0xffd9a0, reduceMotion ? 8 : 26, 4);
-          if (event.stage === 'defeated') {
-            this.explosions.explode(event.x, event.y, event.z, 9, reduceMotion);
-            this.burst(event.x, event.y, event.z, 0xffa070, reduceMotion ? 30 : 120, 9);
-          }
+          // A defeated boss's convulsions and final blast play out in death-fx.mjs.
         }
-        if (event.type === 'nest' && event.stage === 'destroyed') this.burst(event.x, event.y, event.z, 0xffb347, reduceMotion ? 20 : 90, 7);
         if (event.type === 'nest' && event.stage === 'hatch') this.burst(event.x, event.y + .6, event.z, 0xe07a5a, 14, 2.4);
         if (event.type === 'cache' && event.stage === 'collect') this.burst(event.x, event.y, event.z, 0x8dffd9, 46, 3.6);
-        if (event.type === 'kill') this.burst(event.x, event.y, event.z, SPECIES_COLORS[event.enemyType] || 0xff9c60, 40, 4.9);
+        // Pathogens that die out of view (no model was ever posed) still leave a spray.
+        if (event.type === 'kill' && !this.deaths.dying(event.id)) this.burst(event.x, event.y, event.z, SPECIES_COLORS[event.enemyType] || 0xff9c60, 40, 4.9);
         if (event.type === 'repair') {
           this.burst(event.x, event.y + .15, event.z, 0x83ffca, event.complete ? 62 : 38, event.complete ? 4.8 : 3.6);
         }
@@ -783,7 +787,9 @@ export class World {
     if (sim.valve) this.heart.update(sim.valve, dt, reduceMotion, this.quality === 'low');
     this.updateTissue(sim, dt, reduceMotion);
     if (this.area === 'junction') this.updateJunctionField(sim, dt, reduceMotion);
+    this.deaths.note(sim.events, player);
     this.updateEnemies(sim.enemies, dt, reduceMotion);
+    this.deaths.update(dt, reduceMotion);
     this.updateProjectiles(sim.projectiles ?? [], reduceMotion);
     this.updatePickups(sim.pickups ?? [], reduceMotion);
     this.teammateView.update(sim.players, player.id, floorHeight, dt, reduceMotion);

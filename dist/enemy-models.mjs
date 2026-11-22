@@ -23,6 +23,8 @@ export const ENEMY_MODELS = Object.freeze({
   rogue: { size: 1.15, glow: 0x46120e },
   // Hard-surface medical drone, built and texture-baked in Blender.
   'rogue-bot': { size: 1, glow: 0xffffff },
+  // Its eight-legged ground sibling (tools/enemies/build_crawler.py); legs are separate nodes.
+  crawler: { size: 1, glow: 0xffffff },
   // The brood nest (field-objectives.mjs) is modelled in Blender by tools/enemies/build_nest.py.
   nest: { size: 1, glow: 0x4a1608 },
   // Level bosses (level-bosses.mjs), sculpted by tools/enemies/build_bosses.py.

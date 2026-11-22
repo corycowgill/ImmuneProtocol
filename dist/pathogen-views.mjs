@@ -24,13 +24,54 @@ const ATTACK_GLOW = {
   amoeba: new THREE.Color(0x9f96ff),
   rogue: new THREE.Color(0xff4d3d),
   'rogue-bot': new THREE.Color(0xff5b35),
+  crawler: new THREE.Color(0xff6a2a),
 };
+
+// The Crawler runs on eight legs. Each leg is its own node pivoted at the hip; two alternating
+// sets of four (an insect's tetrapod gait) swing and lift with the distance it covers, and the
+// body crouches and splays its legs while it locks its laser.
+function updateCrawlerView(world, enemy, view, dt, reduceMotion, charge) {
+  view.legs ??= view.model.getObjectByName('crawler-leg-L-0') ? Array.from({ length: 8 }, (_, i) => {
+    const side = i < 4 ? -1 : 1, index = i % 4;
+    return { node: view.model.getObjectByName(`crawler-leg-${side < 0 ? 'L' : 'R'}-${index}`), side, set: (index + (side > 0 ? 1 : 0)) % 2 };
+  }).filter(leg => leg.node) : [];
+  const last = view.lastPosition ??= new THREE.Vector3(enemy.x, 0, enemy.z);
+  const dx = enemy.x - last.x, dz = enemy.z - last.z;
+  const moved = Math.hypot(dx, dz);
+  last.set(enemy.x, 0, enemy.z);
+  // Face the way it runs; while it holds a laser lock, face its aim.
+  if (enemy.laser || enemy.action?.startsWith('laser')) view.facing = enemy.heading ?? view.facing ?? 0;
+  else if (moved > .002 && moved < 2) {
+    const target = Math.atan2(dx, dz);
+    let turn = target - (view.facing ?? target);
+    turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+    view.facing = (view.facing ?? target) + turn * Math.min(1, dt * 12);
+  }
+  const speed = dt > 0 ? moved / dt : 0;
+  view.stride = THREE.MathUtils.damp(view.stride ?? 0, Math.min(1, speed / 4), 10, dt);
+  view.gait = (view.gait ?? view.phase) + moved * 4.2;
+  view.crouch = THREE.MathUtils.damp(view.crouch ?? 0, charge, 14, dt);
+  const ground = floorHeight(enemy.x, enemy.z);
+  const bob = reduceMotion ? 0 : Math.abs(Math.sin(view.gait)) * .05 * view.stride;
+  view.model.position.y = enemy.y + ground - view.crouch * .14 + bob;
+  view.model.rotation.set(reduceMotion ? 0 : -view.crouch * .12 + view.stride * .05, view.facing ?? enemy.heading ?? 0,
+    reduceMotion ? 0 : Math.sin(view.gait) * .035 * view.stride);
+  for (const leg of view.legs) {
+    const phase = view.gait + leg.set * Math.PI;
+    const idle = reduceMotion ? 0 : Math.sin(world.clock * 5 + leg.side * 1.3 + leg.node.position.z * 6) * .04 * (1 - view.stride);
+    const swing = (reduceMotion ? 0 : Math.sin(phase) * .42 * view.stride) + idle;
+    const lift = reduceMotion ? 0 : Math.max(0, Math.cos(phase)) * .38 * view.stride;
+    leg.node.rotation.set(0, swing * leg.side, leg.side * (lift - view.crouch * .22));
+  }
+}
 
 function updateBotView(world, enemy, view, dt, reduceMotion) {
   view.hit = Math.max(0, view.hit - dt * 7);
-  view.model.rotation.set(0, enemy.heading || 0, reduceMotion ? 0 : Math.sin(world.clock * 1.7 + view.phase) * .025);
+  const crawler = enemy.type === 'crawler';
+  if (!crawler) view.model.rotation.set(0, enemy.heading || 0, reduceMotion ? 0 : Math.sin(world.clock * 1.7 + view.phase) * .025);
   view.model.scale.setScalar(1 + view.hit * .025);
   const charge = enemy.action === 'laser-windup' ? enemy.actionProgress : enemy.action === 'laser-fire' ? 1 : 0;
+  if (crawler) updateCrawlerView(world, enemy, view, dt, reduceMotion, charge);
   if (!reduceMotion) animatePathogen(view.motion, dt, enemy.action === 'laser-fire' ? 1 : charge * .25);
   if (view.attackMembrane) view.attackMembrane.emissiveIntensity = view.membraneIntensity + charge * 1.6 + view.hit;
   if (!view.laser) {
@@ -96,6 +137,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       if (view) {
         view.model.visible = view.shadow.visible = true;
         view.hit = view.strike = view.clench = 0;
+        view.lastPosition = view.facing = null;
         view.phase = world.random() * TAU;
         view.motion?.mixer?.setTime(0);
         world.enemyViews.set(enemy.id, view);
@@ -126,10 +168,11 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       world.enemyViews.set(enemy.id, view);
     }
     view.present = true;
+    view.enemy = enemy;
     view.shadow.visible = true;
     if (view.tethers) for (const tether of view.tethers) tether.visible = !!enemy.latched;
     view.model.position.set(enemy.x, enemy.y, enemy.z);
-    if (enemy.type === 'rogue-bot') { updateBotView(world, enemy, view, dt, reduceMotion); continue; }
+    if (enemy.type === 'rogue-bot' || enemy.type === 'crawler') { updateBotView(world, enemy, view, dt, reduceMotion); continue; }
     if (enemy.type === 'colony') {
       view.hit = Math.max(0, view.hit - dt * 7);
       const throb = reduceMotion ? 0 : Math.sin(world.clock * 3.1) * .025;
@@ -209,25 +252,30 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
     view.shadow.scale.setScalar((enemy.radius || .9) * 1.4);
   }
   for (const [id, view] of world.enemyViews) {
-    if (!view.present) {
-      let pool = world.enemyPool.get(view.type);
-      if (!pool) world.enemyPool.set(view.type, pool = []);
-      if (pool.length < 12) {
-        view.model.visible = view.shadow.visible = false;
-        if (view.laser) view.laser.visible = false;
-        if (view.tethers) for (const tether of view.tethers) tether.visible = false;
-        pool.push(view);
-      } else {
-        world.scene.remove(view.model, view.shadow);
-        if (view.tethers) world.scene.remove(...view.tethers);
-        view.clonedMembrane?.dispose();
-        view.motion?.mixer?.uncacheRoot(view.model);
-        if (view.laser) {
-          world.scene.remove(view.laser);
-          for (const mesh of view.laser.children) mesh.material.dispose();
-        }
-      }
-      world.enemyViews.delete(id);
+    if (view.present) continue;
+    world.enemyViews.delete(id);
+    // A pathogen that was killed plays its death before its model goes back to the pool.
+    if (!world.deaths?.claim(id, view)) releaseEnemyView(world, view);
+  }
+}
+
+// Returns a view's model to its species pool, or frees it when the pool is full.
+export function releaseEnemyView(world, view) {
+  let pool = world.enemyPool.get(view.type);
+  if (!pool) world.enemyPool.set(view.type, pool = []);
+  if (pool.length < 12) {
+    view.model.visible = view.shadow.visible = false;
+    if (view.laser) view.laser.visible = false;
+    if (view.tethers) for (const tether of view.tethers) tether.visible = false;
+    pool.push(view);
+  } else {
+    world.scene.remove(view.model, view.shadow);
+    if (view.tethers) world.scene.remove(...view.tethers);
+    view.clonedMembrane?.dispose();
+    view.motion?.mixer?.uncacheRoot(view.model);
+    if (view.laser) {
+      world.scene.remove(view.laser);
+      for (const mesh of view.laser.children) mesh.material.dispose();
     }
   }
 }

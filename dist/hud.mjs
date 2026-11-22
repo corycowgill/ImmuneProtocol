@@ -804,11 +804,6 @@ function drawFieldMarkers(top, width, height, occupied) {
     });
   }
   for (const enemy of session.sim.enemies) {
-    if (enemy.type === 'rogue-bot' && enemy.laser?.stage === 'warning' &&
-        (enemy.actionPlayerId == null || enemy.actionPlayerId === session.sim.player.id)) {
-      targets.push({ key: 'laser' + enemy.id, kind: 'laser', label: 'LASER LOCK', x: enemy.x,
-        y: enemy.y + enemy.radius + .5, z: enemy.z, detail: 'STEP ASIDE · ' + enemy.laser.remaining.toFixed(1) + 's' });
-    }
     if (enemy.nest) targets.push({ key: 'nest' + enemy.id, kind: 'nest', label: 'BROOD NEST', x: enemy.x, y: enemy.y + enemy.radius + .5, z: enemy.z,
       detail: Math.ceil(100 * enemy.health / enemy.maxHealth) + '%' });
   }
@@ -890,11 +885,7 @@ function worldMarkerBottom(height, fraction) {
 export function drawAttackers() {
   bossTelegraphs.update(session.sim, session.world, floorHeight);
   const active = new Set();
-  const captions = [];
-  // Player attack warnings take the caption slots before routine tissue attackers.
-  const priority = enemy => Number(!!enemy.warning || enemy.action.endsWith('-windup')) * 2 + Number(enemy.actionTarget === 'player');
-  const enemies = compact ? [...session.sim.enemies].sort((a, b) => priority(b) - priority(a)) : session.sim.enemies;
-  for (const enemy of enemies) {
+  for (const enemy of session.sim.enemies) {
     const telegraph = enemy.type + '-windup';
     const warning = enemy.tutorial ? '' : enemy.warning || (enemy.action.endsWith('-windup') ?
       attackWarnings[telegraph] ?? attackWarnings[enemy.action] : '');
@@ -905,22 +896,14 @@ export function drawAttackers() {
     let icon = attackerMarkers.get(enemy.id);
     if (!icon) {
       icon = document.createElement('div');
-      icon.className = 'attacker-marker';
-      const label = document.createElement('strong');
+      icon.className = 'attacker-marker compact';
       if (enemy.branch) icon.dataset.branch = enemy.branch;
-      icon.append(label, document.createElement('span'));
+      icon.append(document.createElement('span'));
       attackerMarkers.set(enemy.id, icon);
       tissueAttackers.append(icon);
     }
-    const node = session.sim.nodes.find(node => node.id === enemy.nodeId);
-    const label = (enemy.latched ? 'LATCHED · ' : 'ATTACKING · ') + (node?.name.toUpperCase() ?? 'TISSUE');
-    const text = enemy.warning || (warning && enemy.actionTarget === 'player' ? warning + ' · MOVE' : warning || label);
+    // Only a small chevron marks an attacker: no text names what the pathogen is doing.
     icon.classList.toggle('winding-up', !!warning);
-    setText(icon.firstElementChild, text);
-    const showCaption = (!compact || captions.length < 2) && point.x >= 65 && point.x <= window.innerWidth - 65 &&
-      !captions.some(other => Math.abs(other.x - point.x) < 125 && Math.abs(other.y - point.y) < 24);
-    icon.classList.toggle('compact', !showCaption);
-    if (showCaption) captions.push(point);
     icon.style.left = point.x + 'px';
     icon.style.top = point.y + 'px';
   }

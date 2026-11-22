@@ -4,7 +4,7 @@ import { AIWorld } from './tactical-ai.mjs';
 import { clearSegment } from './ai-navigation.mjs';
 import { bossDamageThreat, telegraph } from './boss-tactics.mjs';
 import { planEncounters, stepEncounters, ENCOUNTER_RULES } from './encounters.mjs';
-import { ROGUE_BOT_SPEC, startBotLaser, stepRogueBot } from './rogue-bot.mjs';
+import { CRAWLER_SPEC, ROGUE_BOT_SPEC, startBotLaser, stepRogueBot } from './rogue-bot.mjs';
 import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-objectives.mjs';
 import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
@@ -59,6 +59,8 @@ export const JUNCTION_GASH_SITES = Object.freeze({
   left: Object.freeze({ x: grow(-15) - 3.4, y: 0.95, z: grow(-9) - 4.6 }),
   right: Object.freeze({ x: grow(15) + 3.4, y: 0.95, z: grow(-9) - 4.6 }),
 });
+// The solid core of a tissue node that stops player fire (its lobes are about this size).
+export const TISSUE_BLOCK_RADIUS = 1.15;
 export const HEART_VALVE = Object.freeze({ x: 0, y: 2, z: -10.7, radius: 3.65 });
 
 export const RULES = Object.freeze({
@@ -86,6 +88,7 @@ export const SPECIES = {
   amoeba: { behavior: 'bacillus', radius: 1.2, y: 1.25, health: 126, speed: 1.22, tissueDamage: 9, period: 1.95, score: 205 },
   rogue: { behavior: 'bacillus', radius: 1.2, y: 1.3, health: 128, speed: 1.5, tissueDamage: 11, period: 1.8, score: 225 },
   'rogue-bot': ROGUE_BOT_SPEC,
+  crawler: CRAWLER_SPEC,
 };
 
 const FRAGMENT = { radius: .55, y: 1.35, health: 24, speed: 4.05, suitDamage: 5, tissueDamage: 2, score: 55 };
@@ -100,8 +103,8 @@ const MISSIONS = [
   { cadence: 1.55, species: ['virus', 'virus', 'virus', 'spore', 'virus', 'virus', 'spore', 'virus', 'virus'] },
   { cadence: 1.30, species: ['virus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'bacillus', 'virus', 'virus', 'spore', 'virus', 'bacillus', 'spore'] },
   { cadence: 1.05, species: ['spore', 'virus', 'bacillus', 'virus', 'rogue-bot', 'spore', 'bacillus', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'virus', 'bacillus'] },
-  { cadence: 0.90, species: ['virus', 'bacillus', 'spore', 'spore', 'bacillus', 'virus', 'phage', 'bacillus', 'spore', 'filovirus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'phage', 'spore', 'bacillus', 'virus'] },
-  { cadence: 0.76, species: ['bacillus', 'spore', 'virus', 'filovirus', 'spore', 'phage', 'bacillus', 'rogue-bot', 'bacillus', 'virus', 'spore', 'filovirus', 'spore', 'bacillus', 'phage', 'spore', 'virus', 'bacillus', 'virus', 'blister', 'bacillus', 'virus'] },
+  { cadence: 0.90, species: ['virus', 'bacillus', 'spore', 'spore', 'bacillus', 'crawler', 'phage', 'bacillus', 'spore', 'filovirus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'phage', 'spore', 'bacillus', 'virus'] },
+  { cadence: 0.76, species: ['bacillus', 'spore', 'virus', 'filovirus', 'spore', 'phage', 'bacillus', 'rogue-bot', 'bacillus', 'virus', 'spore', 'filovirus', 'spore', 'bacillus', 'phage', 'spore', 'crawler', 'bacillus', 'virus', 'blister', 'bacillus', 'virus'] },
 ];
 
 for (const mission of MISSIONS) mission.species = extendRoster(mission.species);
@@ -1332,6 +1335,25 @@ export class Simulation {
       critical = offsetSquared <= radiusSquared * (aiming ? weapon.aimCritical : weapon.hipCritical);
     }
 
+    // Tissue nodes are solid: a pathogen behind one needs a clear shot around it.
+    for (const node of this.nodes ?? []) {
+      const x = node.x - player.x;
+      const y = node.y - player.y;
+      const z = node.z - player.z;
+      const forward = x * dx + y * dy + z * dz;
+      const centerSquared = x * x + y * y + z * z;
+      const radiusSquared = TISSUE_BLOCK_RADIUS * TISSUE_BLOCK_RADIUS;
+      // A suit pressed into a node (repairing it) still shoots outward.
+      if (forward <= 0 || centerSquared <= radiusSquared) continue;
+      const offsetSquared = centerSquared - forward * forward;
+      if (offsetSquared > radiusSquared) continue;
+      const entry = forward - Math.sqrt(radiusSquared - offsetSquared);
+      if (entry >= distance) continue;
+      distance = entry;
+      target = undefined;
+      critical = false;
+    }
+
     if (this.valve && dz < 0) {
       const crossing = (HEART_VALVE.z - player.z) / dz;
       if (crossing < distance) {
@@ -1456,6 +1478,7 @@ export class Simulation {
     this.creditPlayer(suit, score + (critical ? 35 : 0), true);
     this.events.push({
       type: 'kill', id: target.id, enemyType: target.type, source, x: target.x, y: target.y, z: target.z,
+      ...(target.boss ? { boss: target.boss } : target.segmentOf ? { segment: true } : target.nest ? { nest: true } : {}),
     });
     if (target.boss) {
       this.events.push({ type: 'levelBoss', stage: 'defeated', boss: target.boss, name: target.name, id: target.id, x: target.x, y: target.y, z: target.z });
@@ -1652,7 +1675,7 @@ export class Simulation {
   }
 
   damageTarget(enemy, target, amount, origin = enemy, playerId = enemy.actionPlayerId, node = enemy.node) {
-    if (enemy.type === 'rogue-bot' && target !== 'player') return;
+    if (enemy.behavior === 'laser' && target !== 'player') return;
     const player = target === 'player' ? this.attackPlayer(playerId) : null;
     if (target === 'player') {
       if (!player || player.health <= 0) return;

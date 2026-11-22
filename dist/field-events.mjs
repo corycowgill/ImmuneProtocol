@@ -33,6 +33,13 @@ export function applyEvents() {
         }
         continue;
       }
+      if (event.type === 'kill' && Number.isFinite(event.x)) {
+        // A teammate's kill skips the confirmation tick but the pathogen still dies audibly.
+        const { x, z, yaw } = session.sim.player;
+        const dx = event.x - x, dz = event.z - z, distance = Math.hypot(dx, dz);
+        session.audio.play({ ...event, teammate: true, distance, pan: (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / Math.max(1, distance) });
+        continue;
+      }
       if (['dry', 'reload', 'hit', 'kill', 'repairStart', 'repairStop', 'swap'].includes(event.type) ||
         (event.type === 'damage' && event.target === 'player')) continue;
     }
@@ -55,7 +62,7 @@ export function applyEvents() {
         : isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
       session.audio.play({ type: 'wave', stage: 'start' });
     }
-    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss', 'airway', 'gastric', 'explosion'].includes(event.type) && Number.isFinite(event.x)) {
+    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss', 'levelBoss', 'airway', 'gastric', 'explosion'].includes(event.type) && Number.isFinite(event.x)) {
       const { x, z, yaw } = session.sim.player;
       const dx = event.x - x;
       const dz = event.z - z;

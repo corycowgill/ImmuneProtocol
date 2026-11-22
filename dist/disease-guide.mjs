@@ -19,6 +19,16 @@ export const PATHOGENS = [
     ],
   },
   {
+    type: 'crawler', name: 'Crawler', family: 'Compromised surgical nanodrone', inspiration: 'Robotic spiders (fictional)',
+    description: 'An NMD-11 surgical crawler from the same hijacked fleet as the Rogue Bot. Eight jointed titanium legs carry its ceramic body across the floor at a sprint, and a short surgical laser sits under a cluster of red camera eyes.',
+    tactics: 'It runs in close and circles before it fires. Its red aiming line is brief and short, so keep your distance or step across the line, and shoot it while it recovers. Like the Rogue Bot, it ignores tissue and hunts suits.',
+    facts: [
+      'It was built to walk the inside of an artery and stitch tears. Now it stitches nothing.',
+      'Eight legs means it never stumbles over a clot. It goes around, fast.',
+      'Its laser reaches only a few metres. Distance is the safest armour you have.',
+    ],
+  },
+  {
     type: 'virus', name: 'Crown Virus', family: 'Enveloped RNA virus', inspiration: 'Coronavirus',
     description: 'The rank and file of every infection. A fatty envelope studded with red spike proteins that it uses like grappling hooks to dock with cells, and with you.',
     tactics: 'Coils before it lunges at a fixed landing point. Step sideways during the windup and it sails past.',

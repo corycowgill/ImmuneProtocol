@@ -1,0 +1,92 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Pathogen death check</title>
+<style>body{margin:20px;background:#131918;color:#dff2d9;font:14px/1.5 monospace}canvas{width:960px;height:540px;max-width:100%}button,select{margin:5px;padding:8px}</style>
+<h1>Pathogen deaths — every species, nest and boss</h1><p id="status">Loading the arena and models…</p>
+<select id="type"></select><button id="kill">Kill</button><button id="respawn">Respawn</button><label><input id="slow" type="checkbox">Slow motion</label>
+<canvas id="world"></canvas>
+<script type="module">
+// Spawns one pathogen in front of a fixed camera and kills it with a real simulation hit, so the
+// death in death-fx.mjs plays from the same kill event the game sends. window.deaths drives it
+// frame by frame for screenshots.
+import { World } from './world.mjs';
+import { Simulation } from './simulation.mjs';
+import { LEVEL_BOSSES } from './level-bosses.mjs';
+import { NEST } from './field-objectives.mjs';
+const status = document.querySelector('#status'), select = document.querySelector('#type');
+const SPECIES = ['virus', 'spore', 'bacillus', 'splitter', 'guard', 'phage', 'flagellate', 'blister', 'filovirus', 'amoeba', 'rogue', 'rogue-bot', 'crawler', 'colony', 'nest',
+  ...Object.values(LEVEL_BOSSES).map(boss => 'boss:' + boss.id), 'segments', 'devour'];
+for (const type of SPECIES) select.add(new Option(type, type));
+try {
+  const world = new World(document.querySelector('#world'));
+  if (new URL(location.href).searchParams.has('low')) world.setQuality('low');
+  await world.prepareAll(['artery']);
+  let sim, target, last = 0, auto = true;
+  function spawn(type) {
+    sim?.ai.dispose(); sim = new Simulation('artery', { ai: { seed: 7 }, encounterSeed: 7 }); sim.start();
+    Object.assign(sim.player, { x: 0, z: 34, yaw: 0, pitch: 0, y: 1.7, health: 100 });
+    sim.enemies = [];
+    const boss = type.startsWith('boss:') ? Object.values(LEVEL_BOSSES).find(design => design.id === type.slice(5)) : null;
+    if (boss || type === 'segments') {
+      const design = boss ?? LEVEL_BOSSES.intestines;
+      target = sim.createEnemy(design.model, 0, 16, sim.nodes[0], design);
+      Object.assign(target, { boss: design.id, behavior: 'boss', name: design.name, scale: design.scale, score: design.score, state: 'hunt', damageScale: 1, warning: '', hidden: false, heading: .5 });
+      sim.enemies.push(target);
+      if (type === 'segments') for (let order = 1; order <= 4; order++) {
+        const segment = sim.createEnemy(design.model, order * 3.2, 16 + order * 1.5, sim.nodes[0], { health: 360, radius: 1.25, y: 1.3 });
+        Object.assign(segment, { segmentOf: target.id, order, behavior: 'boss-segment', scale: 2.3 * (1 - order * .035) });
+        sim.enemies.push(segment);
+      }
+    } else if (type === 'nest') {
+      target = sim.createEnemy(NEST.model, 0, 22, sim.nodes[0], NEST);
+      Object.assign(target, { nest: true, behavior: 'nest', scale: NEST.scale });
+      sim.enemies.push(target);
+    } else if (type === 'devour') {
+      target = sim.createEnemy('virus', 1.5, 26, sim.nodes[0]);
+      sim.enemies.push(target);
+    } else {
+      target = sim.createEnemy(type, 0, 27, sim.nodes[0]);
+      target.heading = .4;
+      if (type === 'colony') target.y = 2.2;
+      sim.enemies.push(target);
+    }
+    // Frame the pathogen: close for ordinary species, further back for nests and bosses.
+    const reach = target.boss || target.segmentOf != null ? 15 : target.nest ? 11 : 5.5;
+    Object.assign(sim.player, { x: target.x + reach * .25, z: target.z + reach, pitch: -.08 });
+    sim.player.yaw = Math.atan2(sim.player.x - target.x, sim.player.z - target.z);
+    sim.events = [];
+    for (let i = 0; i < 4; i++) world.render(sim, 1 / 60, { moveX: 0, moveZ: 0, lookX: 0, lookY: 0 }, false);
+  }
+  function kill() {
+    sim.events = [];
+    if (select.value === 'devour') {
+      sim.enemies.splice(sim.enemies.indexOf(target), 1);
+      sim.events.push({ type: 'levelBoss', stage: 'ability', ability: 'devour', prey: target.id, x: -1, y: 2.6, z: 22 });
+    } else sim.hitEnemy(target, 1e6, false, { x: target.x, y: target.y, z: target.z }, 'carbine', null);
+  }
+  function step(dt) {
+    world.render(sim, dt, { moveX: 0, moveZ: 0, lookX: 0, lookY: 0 }, false);
+    sim.events = [];
+  }
+  window.deaths = {
+    ready: true, types: SPECIES,
+    get sim() { return sim; }, get target() { return target; },
+    // Moves the pathogen sideways a little each frame so a runner's gait can be seen.
+    walk(frames = 1, speed = 4) { for (let i = 0; i < frames; i++) { target.x += speed / 60; step(1 / 60); } },
+    spawn(type) { select.value = type; auto = false; spawn(type); },
+    kill() { kill(); },
+    step(frames = 1) { for (let i = 0; i < frames; i++) step(1 / 60); },
+    stats() { const d = world.deaths; return { corpses: d.corpses.length, chunks: d.chunks.length, splats: d.splats.length, chunkPool: d.chunkPool.length, splatPool: d.splatPool.length, views: world.enemyViews.size, scene: world.scene.children.length }; },
+  };
+  select.onchange = () => spawn(select.value);
+  document.querySelector('#respawn').onclick = () => spawn(select.value);
+  document.querySelector('#kill').onclick = kill;
+  spawn(select.value);
+  function frame(at) {
+    requestAnimationFrame(frame);
+    if (!auto) return;
+    const dt = Math.min(.05, (at - (last || at)) / 1000) * (document.querySelector('#slow').checked ? .25 : 1); last = at;
+    step(dt);
+  }
+  requestAnimationFrame(frame);
+  status.textContent = 'Ready: choose a pathogen and press Kill.';
+} catch (error) { status.textContent = 'FAIL: ' + error.message; console.error(error); }
+</script></html>

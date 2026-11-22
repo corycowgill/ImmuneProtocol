@@ -587,7 +587,7 @@ const BEHAVIOURS = {
       sim.ai?.emit('death', prey, { owner: prey.id, radius: 22 });
       sim.ai?.remove(prey.id);
       boss.health = Math.min(boss.maxHealth, boss.health + boss.maxHealth * .035);
-      emit(sim, boss, 'ability', { ability: 'devour' });
+      emit(sim, boss, 'ability', { ability: 'devour', prey: prey.id, preyType: prey.type });
     }
     if (boss.state === 'hunt') {
       const suit = nearestSuit(sim, boss);

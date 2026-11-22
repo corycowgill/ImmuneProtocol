@@ -14,7 +14,7 @@ export const ENCOUNTER_PATTERNS = Object.freeze([
     cue: 'The fast rush is a diversion. Tissue attackers follow at the other marked node.' },
   { id: 'siege', name: 'Tissue Siege', needs: [tissue, tissue, ranged, [...mobile, 'guard']], fronts: 1,
     cue: 'A colony and a spitter focus one node. Intercept the tissue attackers.' },
-  { id: 'hunters', name: 'Predator Pack', needs: [mobile, mobile, mobile, [...ranged, 'rogue-bot']], fronts: 2,
+  { id: 'hunters', name: 'Predator Pack', needs: [mobile, mobile, mobile, [...ranged, 'rogue-bot', 'crawler']], fronts: 2,
     cue: 'Hunters pressure your suit while ranged support takes another angle. Keep moving.' },
 ].map(p => Object.freeze({ ...p, needs: Object.freeze(p.needs.map(n => Object.freeze(n))) })));
 

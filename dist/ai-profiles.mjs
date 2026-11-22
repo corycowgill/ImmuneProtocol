@@ -34,6 +34,11 @@ export const AI_PROFILES = Object.freeze({
     playerPriority: 1.8, preferredDistance: 13, sight: 40, fov: 3.8, biologicalRange: 0,
     sophistication: .8, reaction: .28, evasion: .35, teamwork: .55, hearing: 30,
     actions: ['patrol', 'pursue', 'investigate', 'flank', 'strafe', 'retreat', 'cover', 'evade', 'idle'] }),
+  // The Crawler skitters in close on the floor, circles its target and darts away after it fires.
+  skitter: profile({ family: 'mechanical', name: 'Hacked crawler drone', courage: .8, aggression: .95, tissuePriority: 0,
+    playerPriority: 2, preferredDistance: 5, sight: 34, fov: 4.2, biologicalRange: 0,
+    sophistication: .75, reaction: .2, evasion: .75, teamwork: .45, hearing: 34, decisionInterval: .24,
+    actions: ['patrol', 'pursue', 'investigate', 'flank', 'strafe', 'evade', 'idle'] }),
 });
 
 // Species map to a local tactical profile; attack execution remains in the simulation.
@@ -41,7 +46,7 @@ export const SPECIES_AI = Object.freeze({
   virus: 'swarm', phage: 'swarm', flagellate: 'fast', splitter: 'fast',
   spore: 'harasser', blister: 'harasser', bacillus: 'colony', filovirus: 'colony',
   guard: 'tank', amoeba: 'territorial', rogue: 'territorial',
-  'rogue-bot': 'drone',
+  'rogue-bot': 'drone', crawler: 'skitter',
 });
 export const AI_DIFFICULTY = Object.freeze({
   easy: Object.freeze({ reaction: 1.5, decision: 1.25, pressure: 3, teamwork: .6, accuracy: .8 }),

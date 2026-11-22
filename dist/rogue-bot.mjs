@@ -2,7 +2,17 @@ import { clearSegment } from './ai-navigation.mjs';
 
 export const ROGUE_BOT_SPEC = Object.freeze({ behavior: 'laser', radius: 1.08, y: 2.15,
   health: 88, speed: 3.4, suitDamage: 16, tissueDamage: 0, score: 240 });
-export const LASER_RULES = Object.freeze({ range: 28, minimumRange: 4, windup: .95, flash: .16, recovery: .5, cooldown: 2.2, radius: .61 });
+export const LASER_RULES = Object.freeze({ range: 28, minimumRange: 4, windup: .95, flash: .16, recovery: .5, cooldown: 2.2, radius: .61,
+  muzzle: 1.1, muzzleHeight: -.02, hover: .07 });
+
+// The Crawler (NMD-11): a fast eight-legged ground drone with a short surgical laser. It has to
+// close in to fire, its lock is brief, and it is soon ready again, so it is fought on the move.
+export const CRAWLER_LASER = Object.freeze({ range: 9, minimumRange: 1.4, windup: .5, flash: .12, recovery: .3, cooldown: 1.25, radius: .5,
+  muzzle: 1, muzzleHeight: .04, hover: 0 });
+export const CRAWLER_SPEC = Object.freeze({ behavior: 'laser', radius: .95, y: .7,
+  health: 62, speed: 5.4, suitDamage: 8, tissueDamage: 0, score: 210 });
+const LASERS = { 'rogue-bot': LASER_RULES, crawler: CRAWLER_LASER };
+export const laserRules = enemy => LASERS[enemy.type] ?? LASER_RULES;
 
 // The same conservative obstacle footprints as ordinary attacks. Clip the visible beam
 // before it can reach cover, including cover a suit moves behind during the warning.
@@ -23,19 +33,20 @@ export function clipLaser(obstacles, from, to) {
 
 export function startBotLaser(sim, enemy, target, targetName) {
   const c = sim.ai.controllers.get(enemy.id);
+  const rules = laserRules(enemy);
   const range = target ? Math.hypot(target.x - enemy.x, target.z - enemy.z) : Infinity;
   if (targetName !== 'player' || !target || target.health <= 0 || sim.attackPlayer(target.id) !== target ||
       !c?.targetKey?.startsWith('player:') || c.attackTarget() !== target ||
-      range > LASER_RULES.range || range < LASER_RULES.minimumRange ||
+      range > rules.range || range < rules.minimumRange ||
       !clearSegment(sim.obstacles, enemy, target)) return false;
   enemy.heading = Math.atan2(target.x - enemy.x, target.z - enemy.z);
-  const from = { x: enemy.x + Math.sin(enemy.heading) * 1.1, y: enemy.y - .02, z: enemy.z + Math.cos(enemy.heading) * 1.1 };
+  const from = { x: enemy.x + Math.sin(enemy.heading) * rules.muzzle, y: enemy.y + rules.muzzleHeight, z: enemy.z + Math.cos(enemy.heading) * rules.muzzle };
   if (!clearSegment(sim.obstacles, enemy, from, .04) || !sim.ai.director.acquire(enemy, 'player', 1.9)) return false;
   const length = Math.max(.001, Math.hypot(target.x - from.x, target.y - from.y, target.z - from.z));
-  const to = { x: from.x + (target.x - from.x) / length * LASER_RULES.range,
-    y: from.y + (target.y - from.y) / length * LASER_RULES.range, z: from.z + (target.z - from.z) / length * LASER_RULES.range };
+  const to = { x: from.x + (target.x - from.x) / length * rules.range,
+    y: from.y + (target.y - from.y) / length * rules.range, z: from.z + (target.z - from.z) / length * rules.range };
   enemy.actionTarget = 'player'; enemy.actionPlayerId = target.id;
-  enemy.laser = { from, aim: to, to: clipLaser(sim.obstacles, from, to), stage: 'warning', remaining: LASER_RULES.windup };
+  enemy.laser = { from, aim: to, to: clipLaser(sim.obstacles, from, to), stage: 'warning', remaining: rules.windup };
   sim.setEnemyAction(enemy, 'laser-windup'); sim.attackEvent(enemy, 'windup', 'player');
   return true;
 }
@@ -45,6 +56,7 @@ function cancel(sim, enemy) {
 }
 
 function fire(sim, enemy, spec) {
+  const rules = laserRules(enemy);
   const beam = enemy.laser;
   beam.to = clipLaser(sim.obstacles, beam.from, beam.aim);
   const dx = beam.to.x - beam.from.x, dy = beam.to.y - beam.from.y, dz = beam.to.z - beam.from.z;
@@ -54,7 +66,7 @@ function fire(sim, enemy, spec) {
     if (player.health <= 0 || !length) continue;
     const x = player.x - beam.from.x, y = player.y - beam.from.y, z = player.z - beam.from.z;
     const t = (x * dx + y * dy + z * dz) / length;
-    if (t < 0 || t > 1 || t >= first || Math.hypot(x - dx * t, y - dy * t, z - dz * t) > LASER_RULES.radius ||
+    if (t < 0 || t > 1 || t >= first || Math.hypot(x - dx * t, y - dy * t, z - dz * t) > rules.radius ||
         !clearSegment(sim.obstacles, beam.from, player)) continue;
     first = t; hit = player;
   }
@@ -64,32 +76,33 @@ function fire(sim, enemy, spec) {
     sim.damageTarget(enemy, 'player', spec.suitDamage, beam.to, hit.id);
     sim.attackEvent(enemy, 'impact', 'player', beam.to, hit.id);
   } else sim.attackEvent(enemy, 'miss', 'player', beam.to);
-  beam.stage = 'fire'; beam.remaining = LASER_RULES.flash;
+  beam.stage = 'fire'; beam.remaining = rules.flash;
   sim.setEnemyAction(enemy, 'laser-fire');
 }
 
 export function stepRogueBot(sim, enemy, dt, spec, speedFactor, controller) {
+  const rules = laserRules(enemy);
   enemy.attackingTissue = false;
   if (enemy.action === 'laser-windup') {
     if (!(sim.attackPlayer(enemy.actionPlayerId)?.health > 0) || controller.action === 'evade') { cancel(sim, enemy); return; }
-    const ready = sim.advanceAction(enemy, dt, LASER_RULES.windup);
-    enemy.laser.remaining = Math.max(0, LASER_RULES.windup - enemy.actionElapsed);
+    const ready = sim.advanceAction(enemy, dt, rules.windup);
+    enemy.laser.remaining = Math.max(0, rules.windup - enemy.actionElapsed);
     if (ready) fire(sim, enemy, spec);
     return;
   }
   if (enemy.action === 'laser-fire') {
-    enemy.laser.remaining = Math.max(0, LASER_RULES.flash - enemy.actionElapsed - dt);
-    if (sim.advanceAction(enemy, dt, LASER_RULES.flash)) { enemy.laser = null; sim.setEnemyAction(enemy, 'laser-recover'); }
+    enemy.laser.remaining = Math.max(0, rules.flash - enemy.actionElapsed - dt);
+    if (sim.advanceAction(enemy, dt, rules.flash)) { enemy.laser = null; sim.setEnemyAction(enemy, 'laser-recover'); }
     return;
   }
   if (enemy.action === 'laser-recover') {
-    if (sim.advanceAction(enemy, dt, LASER_RULES.recovery)) {
-      enemy.attackCooldown = LASER_RULES.cooldown; sim.setEnemyAction(enemy, 'idle'); sim.ai.director.release(enemy.id);
+    if (sim.advanceAction(enemy, dt, rules.recovery)) {
+      enemy.attackCooldown = rules.cooldown; sim.setEnemyAction(enemy, 'idle'); sim.ai.director.release(enemy.id);
     }
     return;
   }
   enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
-  enemy.y = spec.y + Math.sin(sim.clock * 2 + enemy.id) * .07;
+  enemy.y = spec.y + Math.sin(sim.clock * 2 + enemy.id) * rules.hover;
   const target = controller.targetKey?.startsWith('player:') ? controller.attackTarget() : null;
   const defensive = ['retreat', 'cover', 'evade', 'investigate', 'idle', 'patrol'].includes(controller.action);
   if (!defensive && target && enemy.attackCooldown === 0 && startBotLaser(sim, enemy, target, 'player')) return;

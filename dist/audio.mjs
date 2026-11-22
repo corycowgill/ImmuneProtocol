@@ -14,6 +14,14 @@ const ENEMY_CUES = {
   laser: { windup: ['field/laser-charge', .4], release: ['field/laser-fire', .55] },
   bacillus: { windup: ['field/bacillus-windup', .43] },
 };
+// Which death each pathogen dies (see death-fx.mjs), by species.
+const DEATH_VOICES = {
+  virus: ['death/pop', .5, 1], phage: ['death/pop', .46, 1.18], splitter: ['death/pop', .48, .9], rogue: ['death/squelch', .54, .86],
+  blister: ['death/splat', .55, 1], flagellate: ['death/whip', .48, 1], spore: ['death/puff', .5, 1],
+  bacillus: ['death/squelch', .5, 1], filovirus: ['death/squelch', .48, 1.12], amoeba: ['death/squelch', .52, .8],
+  guard: ['death/crack', .55, 1], 'rogue-bot': ['death/bot', .6, 1], crawler: ['death/bot', .55, 1.22], colony: ['death/nest', .66, .85], nest: ['death/nest', .62, 1],
+  segment: ['death/splat', .55, .7],
+};
 const ORGAN_CUES = {
   lungs: ['field/virus-pounce', 'field/valve-open', .66],
   stomach: ['field/spore-windup', 'field/valve-open', .69],
@@ -83,6 +91,66 @@ const SYNTHESIZED = {
   'weapon/swap': [.32, (t, noise) => {
     const click = (at, gain) => t < at ? 0 : noise(3500) * gain * Math.exp(-(t - at) * 60);
     return click(0, .7) + click(.11, .5) + click(.2, .9) + Math.sin(2 * Math.PI * 900 * t) * .08 * Math.exp(-t * 20);
+  }],
+  // Pathogen deaths, one voice per way of dying (see death-fx.mjs): a capsid's wet pop, a slime
+  // mold's splash, a sporangium's hiss, a bacterium's gurgling tear, a shell's crack, a whiptail's
+  // falling squeal, a drone's shorting buzz and blast, a nest tearing open, and a boss's long
+  // convulsing groan that ends in a burst timed to its final explosion.
+  'death/pop': [.5, (t, noise) => {
+    const pop = Math.sin(2 * Math.PI * (430 * t - 380 * t * t)) * Math.exp(-t * 18);
+    const wet = noise(2400) * Math.exp(-t * 32) * .9;
+    const squelch = noise(650) * Math.exp(-t * 8) * (.55 + .45 * Math.sin(2 * Math.PI * 31 * t)) * .7;
+    return (pop * .8 + wet + squelch) * Math.min(1, t / .002) * .62;
+  }],
+  'death/splat': [.85, (t, noise) => {
+    const burst = noise(1900) * Math.exp(-t * 20) * 1.1;
+    const thump = Math.sin(2 * Math.PI * (95 * t - 40 * t * t)) * Math.exp(-t * 11);
+    const patter = noise(3200) * Math.exp(-Math.max(0, t - .1) * 6) * Math.max(0, Math.sin(2 * Math.PI * 23 * t)) ** 6 * (t > .1 ? 1 : 0);
+    return (burst + thump + patter * .8) * Math.min(1, t / .002) * .6;
+  }],
+  'death/puff': [.9, (t, noise) => {
+    const hiss = noise(5200) * Math.min(1, t / .02) * Math.exp(-t * 4.5) * .8;
+    const pop = Math.sin(2 * Math.PI * (320 * t - 200 * t * t)) * Math.exp(-t * 24) * .6;
+    const flutter = noise(1400) * Math.exp(-t * 6) * (.5 + .5 * Math.sin(2 * Math.PI * 17 * t)) * .4;
+    return (hiss + pop + flutter) * .58;
+  }],
+  'death/squelch': [1.2, (t, noise) => {
+    const tear = noise(1100) * Math.exp(-t * 9) * 1.1;
+    const gurgle = noise(520) * (.5 + .5 * Math.sin(2 * Math.PI * (11 + 16 * t) * t)) * Math.min(1, t / .08) * Math.exp(-t * 2.6);
+    const groan = Math.sin(2 * Math.PI * (150 * t - 38 * t * t)) * Math.exp(-t * 3.2) * .35;
+    return (tear + gurgle * .9 + groan) * Math.min(1, t / .003) * .55;
+  }],
+  'death/crack': [1, (t, noise) => {
+    const crack = (at, gain) => t < at ? 0 : noise(6500) * gain * Math.exp(-(t - at) * 48);
+    const shell = Math.sin(2 * Math.PI * 1250 * t) * Math.exp(-t * 26) * .3;
+    const body = noise(800) * Math.exp(-Math.max(0, t - .12) * 6) * (t > .1 ? .6 : 0) * (.5 + .5 * Math.sin(2 * Math.PI * 14 * t));
+    return (crack(0, 1.2) + crack(.05, .8) + crack(.11, .6) + shell + body) * .58;
+  }],
+  'death/whip': [.6, (t, noise) => {
+    const squeal = Math.sin(2 * Math.PI * (1500 * t - 1150 * t * t + 6 * Math.sin(2 * Math.PI * 21 * t) / (2 * Math.PI))) * Math.exp(-t * 6) * .45;
+    const pop = t < .2 ? 0 : (noise(2200) * 1.1 + Math.sin(2 * Math.PI * (300 * (t - .2)) ) * .5) * Math.exp(-(t - .2) * 20);
+    return (squeal * Math.min(1, t / .01) + pop) * .58;
+  }],
+  'death/bot': [1.4, (t, noise) => {
+    const stutter = Math.sin(2 * Math.PI * 9 * t) > -.2 ? 1 : .15;
+    const buzz = Math.sign(Math.sin(2 * Math.PI * (120 - 60 * t) * t)) * .25 * stutter * (t < .85 ? Math.min(1, t / .01) * (1 - t / .85 * .5) : 0);
+    const crackle = noise(6000) * .35 * (t < .85 ? stutter : 0) * Math.max(0, Math.sin(2 * Math.PI * 37 * t)) ** 4;
+    const blastAt = Math.max(0, t - .86);
+    const blast = t < .86 ? 0 : (noise(2400) * Math.exp(-blastAt * 22) * 1.2 + (Math.sin(2 * Math.PI * (70 * blastAt)) * 1.1 + noise(220)) * Math.exp(-blastAt * 5)) * Math.min(1, blastAt / .002);
+    return (buzz + crackle + blast) * .55;
+  }],
+  'death/nest': [1.7, (t, noise) => {
+    const groan = (Math.sin(2 * Math.PI * (68 * t - 9 * t * t)) * .6 + noise(240) * .8) * Math.min(1, t / .1) * Math.exp(-t * 1.4);
+    const sac = at => t < at ? 0 : (noise(1800) + Math.sin(2 * Math.PI * 260 * (t - at)) * .6) * Math.exp(-(t - at) * 22);
+    return (groan + sac(0) + sac(.2) * .8 + sac(.42) * .7 + sac(.66) * .8 + sac(.9) * .6 + sac(1.18) * .9 + sac(1.4) * 1.2) * .5;
+  }],
+  'death/boss': [3.6, (t, noise) => {
+    const groan = (Math.sin(2 * Math.PI * (58 * t - 5 * t * t + .8 * Math.sin(2 * Math.PI * 3 * t))) * .7 + noise(180) * .9) *
+      Math.min(1, t / .15) * (t < 2 ? 1 : Math.exp(-(t - 2) * 6));
+    const rupture = Math.max(0, Math.sin(2 * Math.PI * (4 + 3 * t) * t)) ** 12 * noise(1600) * (t < 2 ? 1.1 : 0);
+    const at = Math.max(0, t - 2);
+    const blast = t < 2 ? 0 : (noise(3000) * Math.exp(-at * 24) * 1.3 + (Math.sin(2 * Math.PI * (48 * at - 8 * at * at)) * 1.3 + noise(140) * 1.7) * Math.exp(-at * 2.1)) * Math.min(1, at / .002);
+    return (groan * .7 + rupture + blast) * .66;
   }],
   'field/macrophage': [1.4, (t, noise) => (Math.sin(2 * Math.PI * (55 * t - 6.5 * t * t)) * .45 + noise(400) * .6) *
     (.6 + .4 * Math.sin(t * 2 * Math.PI * 1.7)) * Math.min(1, t / .2) * Math.min(1, (1.4 - t) / .5)],
@@ -362,6 +430,24 @@ export class GameAudio {
     return event.branch === 'left' ? -0.72 : event.branch === 'right' ? 0.72 : 0;
   }
 
+  // The pathogen's own death, quieter with distance. Bosses get theirs from 'levelBoss'.
+  playDeath(event) {
+    if (event.boss) return;
+    const voice = DEATH_VOICES[event.segment ? 'segment' : event.nest ? 'nest' : event.enemyType] ?? DEATH_VOICES.virus;
+    const [name, volume, rate] = voice;
+    const now = this.context.currentTime;
+    // A rocket that kills a crowd still sounds like a crowd, not a wall of identical pops.
+    this.deathAt ??= new Map();
+    const recent = this.deathAt.get(name) ?? { at: -Infinity, count: 0 };
+    const count = now - recent.at < .09 ? recent.count + 1 : 0;
+    if (count > 2) return;
+    this.deathAt.set(name, { at: now, count });
+    const attenuation = 1 / (1 + Math.max(0, (event.distance ?? 0) - 4) * .07);
+    this.playSample(name, volume * attenuation * (event.teammate ? .8 : 1) / (1 + count * .5), {
+      pan: this.spatialPan(event), rate: rate * (.92 + Math.random() * .16),
+    });
+  }
+
   play(event) {
     if (this.context?.state !== 'running') return;
     switch (event.type) {
@@ -407,7 +493,14 @@ export class GameAudio {
         break;
       case 'kill':
         if (event.source === 'immune') this.playSample('field/engulf', .5, { pan: this.spatialPan(event), rate: .9 + Math.random() * .2 });
-        else this.playSample('weapon/kill', event.source === 'turret' ? .25 : .45, { pan: this.spatialPan(event) });
+        else if (!event.teammate) this.playSample('weapon/kill', event.source === 'turret' ? .25 : .45, { pan: this.spatialPan(event) });
+        this.playDeath(event);
+        break;
+      case 'levelBoss':
+        if (event.stage === 'defeated') this.playSample('death/boss', .9, { pan: this.spatialPan(event) * .6, bus: this.master });
+        else if (event.stage === 'ability' && event.ability === 'devour') {
+          this.playSample('field/engulf', .45, { pan: this.spatialPan(event), rate: .75 + Math.random() * .1 });
+        }
         break;
       case 'outro':
         this.playSample('field/outro-start', .42);
@@ -431,11 +524,13 @@ export class GameAudio {
         const cue = ENEMY_CUES[family]?.[event.stage];
         if (!cue) break;
         const [name, volume] = cue;
+        // The Crawler's short lock charges in about half the Rogue Bot's time, at a higher pitch.
+        const rate = event.enemyType === 'crawler' ? (event.stage === 'windup' ? 1.85 : 1.3) : 1;
         const now = this.context.currentTime;
         if (now - (this.enemyCueAt.get(name) ?? -Infinity) < .14) break;
         const distance = event.distance ?? 0;
         const attenuation = 1 / (1 + Math.max(0, distance - 3) * .085);
-        if (this.playSample(name, volume * attenuation, { pan: this.spatialPan(event) })) {
+        if (this.playSample(name, volume * attenuation, { pan: this.spatialPan(event), rate })) {
           this.enemyCueAt.set(name, now);
         }
         break;
