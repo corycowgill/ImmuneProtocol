@@ -59,8 +59,8 @@ export class CanvasUiRenderer {
   }
   image(key, r, cover = false, alpha = 1) {
     const image = this.resource(key);
-    if (!image || !(image.naturalWidth ?? image.width) || image.complete === false) return;
-    const iw = image.naturalWidth || image.width, ih = image.naturalHeight || image.height;
+    if (!image || !(image.videoWidth ?? image.naturalWidth ?? image.width) || image.complete === false) return;
+    const iw = image.videoWidth || image.naturalWidth || image.width, ih = image.videoHeight || image.naturalHeight || image.height;
     if (!iw || !ih) return;
     const scale = cover ? Math.max(r.w / iw, r.h / ih) : Math.min(r.w / iw, r.h / ih);
     const c = this.c; c.save(); c.beginPath(); c.rect(r.x, r.y, r.w, r.h); c.clip(); c.globalAlpha *= alpha;
@@ -75,6 +75,7 @@ export class CanvasUiRenderer {
       const shade = c.createLinearGradient(0, 0, this.w, this.h); shade.addColorStop(0, '#080e13ef'); shade.addColorStop(.48, scene.type === 'menu' ? '#0b131b9c' : '#0b131be6'); shade.addColorStop(1, '#080e1338');
       c.fillStyle = shade; c.fillRect(0, 0, this.w, this.h);
     } else if (scene.modal) { c.fillStyle = '#080e13e8'; c.fillRect(0, 0, this.w, this.h); }
+    else if (scene.type === 'intro') { c.fillStyle = '#000'; c.fillRect(0, 0, this.w, this.h); }
     for (const item of scene.draw) {
       const visible = item.clip ? intersect(item.rect, item.clip) : item.rect;
       if (visible.w <= 0 || visible.h <= 0 || visible.y > this.h || visible.y + visible.h < 0) continue;

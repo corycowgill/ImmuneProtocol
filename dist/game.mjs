@@ -27,6 +27,7 @@ import { createDiseaseGuide } from './disease-guide.mjs';
 import { createUpgradeCards, drawIntel, drawLoadout, drawOperatorCard } from './deployment.mjs';
 import './interface-setup.mjs';
 import { session } from './session.mjs';
+import { playCampaignBriefing } from './campaign-briefing.mjs';
 import { byId, isTouch, reducedMotion, pad, clamp, setText } from './dom.mjs';
 import { bestKey, muteKey, junctionKey, heartKey, tutorialKey, sensitivityKey, qualityKey, checkpointKey, unlockedKey, practiceLoadoutKey, weaponLoadoutKey, weaponModKey, weaponFinishKey, coopNameKey, megaVirusKey, musicVolumeKey, effectsVolumeKey, readSetting, writeSetting } from './settings-store.mjs';
 import { campaignAreas, missions, missionName, nextMission } from './mission-text.mjs';
@@ -860,7 +861,8 @@ function returnFromResult() {
   }
 }
 
-function startCampaign() {
+async function startCampaign() {
+  await playCampaignBriefing();
   openDeployment('campaign', { results: [], upgrade: null });
 }
 

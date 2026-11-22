@@ -130,6 +130,7 @@ export class BrowserUiBindings {
   activate(id) {
     if (id === '@back') return this.back();
     if (id === 'intro:skip') return this.get('studio-intro').close();
+    if (id === 'briefing:skip') return this.get('campaign-briefing').close();
     if (id === 'loading:retry') return this.get('startup-retry').click();
     const el = this.actions.get(id); if (!el || !this.shown(el) || el.disabled) return;
     this.error = '';
@@ -149,6 +150,7 @@ export class BrowserUiBindings {
     const root = this.active(); if (!root) return null;
     const id = root.id;
     if (id === 'studio-intro') return { id, type: 'intro', src: this.resource(root.querySelector('canvas')) };
+    if (id === 'campaign-briefing') return { id, type: 'intro', src: this.resource(root.querySelector('video')), skip: 'briefing:skip', skipLabel: 'Skip briefing' };
     if (id === 'startup-load') return { id, type: 'loading', background: 'assets/loading-patrol.webp', title: this.value('loading-title'), detail: this.value('loading-detail'), eyebrow: this.value('loading-mode'), progress: Number(this.get('startup-progress').value), quote: this.value('loading-quote'), status: this.value('startup-status'), failed: this.shown(this.get('startup-retry')) };
     if (id === 'game') return this.combat(root);
     if (id === 'menu') return { id, type: 'menu', brand: this.control(root.querySelector('.brand')), notices: ['menu-error', 'controller-audio-hint'].map(key => this.shown(this.get(key)) ? this.value(key) : '').filter(Boolean), detail: this.text(root.querySelector('.summary')), buttons: this.controls('.menu-navigation button', root), mute: this.control(root.querySelector('[data-mute]')), settings: this.control(root.querySelector('[data-settings]')), operator: { progress: this.value('operator-progress-value'), best: this.value('operator-best'), difficulty: this.value('operator-difficulty'), primary: this.value('operator-primary'), secondary: this.value('operator-secondary') }, status: [] };

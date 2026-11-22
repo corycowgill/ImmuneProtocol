@@ -34,7 +34,8 @@ export function buildUiScreen(model, size, safe, state, measure) {
   const scene = { type: model.type, background: model.type === 'combat' || model.type === 'intro' || model.background === false ? null : model.background ?? 'assets/hero.webp', modal: model.type === 'dialog', draw: ui.draw, hits: ui.hits, panes: ui.panes, scope: model.id };
   if (model.type === 'intro') {
     ui.add({ kind: 'image', src: model.src }, full);
-    ui.add(button('intro:skip', 'Skip intro', { variant: 'ghost', icon: 'arrow' }), { x: w - right - 144, y: h - bottom - 48, w: 144, h: 48 });
+    const skipWidth = model.skipLabel ? 172 : 144;
+    ui.add(button(model.skip ?? 'intro:skip', model.skipLabel ?? 'Skip intro', { variant: 'ghost', icon: 'arrow' }), { x: w - right - skipWidth, y: h - bottom - 48, w: skipWidth, h: 48 });
   } else if (model.type === 'loading') {
     const compact = h < 500, width = Math.min(650, area.w), y = top + (compact ? 10 : h * .14);
     ui.add({ kind: 'icon', icon: 'shield', color: T.green }, { x, y, w: 26, h: 26 });
