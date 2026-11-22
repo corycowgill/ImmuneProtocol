@@ -60,6 +60,8 @@ Every mission ends with a boss. Once the final wave has sent its last pathogen t
 
 Each new boss is its own model, sculpted in Blender by `tools/enemies/build_bosses.py` with the helpers in `tools/enemies/sculpt.py` and baked by `blender -b -P tools/enemies/process.py -- boss-thrombus` (and so on) like the brood nest. The logic is in `dist/level-bosses.mjs`.
 
+Boss attacks now show committed danger footprints and warning/recovery countdowns. Ground bosses route around terrain; clots can stop the Titan's charge, cover can break the Macrophage's pull, and the Screamer stays still during its pulse warning. Major attacks leave fewer simultaneous attack slots for minions. Half-health phases change pressure while preserving readable windups, and the Drill, Colossus and Screamer leave clear punish windows. The Heart colony warns before tearing; Mega Virus rockets must still reach the exposed core they were aimed at. See the [boss logic review, encounter changes and validation](docs/boss-battles.md). Run `npm run test:bosses` for regressions or open `/__bosses` with `npm run profile` to inspect each fight.
+
 ## Weapons
 
 You carry two weapons, a primary and a secondary, from the first mission. Pick any two different weapons in the **Armory**. Switch between them with **1** and **2**, the mouse wheel, **Y** on a controller, or the **Swap** button on touchscreens. Each weapon keeps its own magazine when you switch. Drawing a weapon takes a moment, and you can't fire until it's up.

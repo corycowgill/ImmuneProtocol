@@ -13,11 +13,11 @@ export function clearSegment(obstacles, from, to, clearance = 0) {
 }
 
 export class NavigationSystem {
-  constructor(obstacles, area, bounds = { x: 55, z: 77 }) {
+  constructor(obstacles, area, bounds = { x: 55, z: 77 }, clearance = .85) {
     this.obstacles = obstacles;
     this.area = area;
     this.bounds = bounds;
-    this.clearance = .85;
+    this.clearance = clearance;
     this.points = [];
     // A reusable visibility graph suits the small, static, circular obstacle sets.
     for (const [x, z, radius] of obstacles) {

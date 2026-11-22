@@ -1,3 +1,4 @@
+import { BOSS_TUNING, bossSuit, moveBoss, telegraph, segmentCircle, moveCharge, chargeReach, canSummon } from './boss-tactics.mjs';
 // Level bosses. Each mission ends with its own apex pathogen, which arrives once the final wave's
 // roster has finished spawning and must die before the wave can clear. A boss is an ordinary
 // enemy record (so shots, rockets, the turret, markers and co-op snapshots all work on it) with
@@ -44,20 +45,9 @@ const SEGMENT = Object.freeze({ health: 360, radius: 1.25, y: 1.3, scale: 2.3, s
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const livingSuits = sim => sim.activeSuits().filter(({ player }) => player.health > 0);
 
-function nearestSuit(sim, boss, reach = Infinity) {
-  let best = null;
-  let gap = reach;
-  for (const suit of livingSuits(sim)) {
-    const d = distance(suit.player, boss);
-    if (d < gap) {
-      best = suit;
-      gap = d;
-    }
-  }
-  return best;
-}
+const nearestSuit = bossSuit;
 
-const weakestNode = sim => [...sim.nodes].sort((a, b) => a.health - b.health)[0];
+const weakestNode = sim => [...sim.nodes].filter(n => n.health > 0).sort((a, b) => a.health - b.health)[0] ?? sim.objective;
 
 function emit(sim, boss, stage, extra = {}) {
   sim.events.push({ type: 'levelBoss', stage, boss: boss.boss, name: boss.name, id: boss.id, x: boss.x, y: boss.y, z: boss.z, ...extra });
@@ -69,26 +59,17 @@ function setNode(boss, node) {
 }
 
 // Walks toward a point and reports whether it has arrived.
-function approach(sim, boss, x, z, speed, dt, stop = .2) {
-  const dx = x - boss.x;
-  const dz = z - boss.z;
-  const gap = Math.hypot(dx, dz);
-  if (gap <= stop) return true;
-  const travel = Math.min(gap - stop, speed * dt);
-  boss.x += dx / gap * travel;
-  boss.z += dz / gap * travel;
-  boss.heading = Math.atan2(dx, dz);
-  return gap - travel <= stop + 1e-6;
-}
+const approach = moveBoss;
 
 function warn(boss, text) {
   boss.action = text ? 'boss-windup' : 'idle';
   boss.warning = text ?? '';
+  if (!text) boss.telegraph = null;
 }
 
 function hurtSuits(sim, boss, radius, damage) {
   for (const { player } of livingSuits(sim)) {
-    if (distance(player, boss) <= radius) sim.damageTarget(boss, 'player', damage, boss, player.id);
+    if (distance(player, boss) <= radius && clearLine(sim, boss, player)) sim.damageTarget(boss, 'player', damage, boss, player.id);
   }
 }
 
@@ -96,8 +77,12 @@ function blast(sim, x, y, z, radius) {
   sim.events.push({ type: 'explosion', radius, x, y, z });
 }
 
-function minion(sim, type, x, z, node, spec) {
+function minion(sim, boss, type, x, z, node, spec) {
+  if (!canSummon(sim, boss)) return null;
+  const position = sim.ai.navigation.project({ x, z });
+  x = position.x; z = position.z;
   const enemy = sim.createEnemy(type, x, z, node, spec);
+  enemy.summonedBy = boss.id;
   if (spec) enemy.fragment = true;
   sim.confineToArena(enemy);
   sim.enemies.push(enemy);
@@ -105,14 +90,16 @@ function minion(sim, type, x, z, node, spec) {
 }
 
 // Fires one slow, dodgeable globule from the boss at a point near a suit or at its node.
-function spit(sim, boss, suit, spread = 0) {
-  const target = suit ? suit.player : boss.node;
+function spit(sim, boss, suit, spread = 0, lockedPoint = null) {
+  const target = lockedPoint ?? (suit ? suit.player : boss.node);
+  if (!target || (suit && suit.player.health <= 0) || !clearLine(sim, boss, target)) return false;
   boss.actionTarget = suit ? 'player' : 'tissue';
   boss.actionPlayerId = suit ? suit.player.id ?? null : null;
   const angle = sim.clock * 7.3 + boss.shots * 2.4;
   boss.shots++;
   boss.attackPoint = { x: target.x + Math.cos(angle) * spread, y: target.y, z: target.z + Math.sin(angle) * spread };
   sim.launchSpore(boss);
+  return true;
 }
 
 // True when a straight line between two points on the floor misses every obstacle.
@@ -154,12 +141,17 @@ export function spawnLevelBoss(sim) {
   boss.health = boss.maxHealth = Math.round(boss.health * strength);
   Object.assign(boss, {
     boss: design.id, behavior: 'boss', name: design.name, hint: design.hint, scale: design.scale, score: design.score,
-    state: 'enter', timer: 0, cooldown: 4, shots: 0, damageTaken: 0, damageScale: 1, warning: '', hidden: false, strikeAt: 0,
+    state: 'enter', phase: 1, telegraph: null, timer: 0, cooldown: 4, shots: 0, damageTaken: 0, damageScale: 1, warning: '', hidden: false, strikeAt: 0,
   });
   sim.enemies.push(boss);
   if (design.id === 'tapeworm') {
     boss.damageScale = .08;
-    sim.bossTrail = [{ x, z }];
+    const angle = Math.atan2(z / sim.constructor.arena.z, x / sim.constructor.arena.x);
+    sim.bossTrail = Array.from({ length: 100 }, (_, i) => ({
+      x: Math.cos(angle + i * .007) * sim.constructor.arena.x * .86,
+      z: Math.sin(angle + i * .007) * sim.constructor.arena.z * .86,
+    }));
+    boss.x = sim.bossTrail[0].x; boss.z = sim.bossTrail[0].z;
     for (let order = 1; order <= SEGMENTS; order++) {
       const segment = sim.createEnemy(design.model, x, z - order * .1, boss.node, SEGMENT);
       Object.assign(segment, { segmentOf: boss.id, order, behavior: 'boss-segment', scale: SEGMENT.scale * (1 - order * .035), score: SEGMENT.score });
@@ -196,9 +188,10 @@ const BEHAVIOURS = {
       const atNode = approach(sim, boss, node.x, node.z, 2.3, dt, 4.2);
       boss.attackingTissue = atNode;
       if (atNode && sim.clock >= boss.strikeAt) {
-        boss.strikeAt = sim.clock + 2.4;
-        sim.damageTarget(boss, 'tissue', 36);
-        sim.attackEvent(boss, 'impact', 'tissue');
+        boss.state = 'crush'; boss.timer = .85;
+        warn(boss, 'TISSUE CRUSH · INTERRUPT ITS APPROACH');
+        telegraph(boss, 'crush', .85, 5);
+        return;
       }
       boss.cooldown -= dt;
       const suit = nearestSuit(sim, boss, 75);
@@ -207,16 +200,22 @@ const BEHAVIOURS = {
         boss.timer = 1.15;
         boss.chargeX = suit.player.x - boss.x;
         boss.chargeZ = suit.player.z - boss.z;
+        boss.chargeTargetId = suit.player.id ?? null;
+        boss.chargeSpeed = boss.phase > 1 ? 20.5 : 19;
         boss.attackingTissue = false;
         warn(boss, 'CHARGING · SIDESTEP');
+        telegraph(boss, 'charge', 1.15, boss.radius + .9, { toX: boss.x + boss.chargeX, toZ: boss.z + boss.chargeZ, length: chargeReach(sim, boss) });
         emit(sim, boss, 'ability', { ability: 'charge' });
       }
     } else if (boss.state === 'aim') {
       // Tracks its target until the last third of the wind-up, then commits.
-      const suit = nearestSuit(sim, boss, 60);
+      const suit = livingSuits(sim).find(({ player }) => (player.id ?? null) === boss.chargeTargetId && clearLine(sim, boss, player));
       if (suit && boss.timer > .4) {
         boss.chargeX = suit.player.x - boss.x;
         boss.chargeZ = suit.player.z - boss.z;
+        boss.telegraph.toX = boss.x + boss.chargeX;
+        boss.telegraph.toZ = boss.z + boss.chargeZ;
+        boss.telegraph.length = chargeReach(sim, boss);
       }
       boss.heading = Math.atan2(boss.chargeX, boss.chargeZ);
       boss.timer -= dt;
@@ -230,32 +229,37 @@ const BEHAVIOURS = {
         warn(boss, '');
       }
     } else if (boss.state === 'charge') {
-      boss.x += boss.chargeX * 19 * dt;
-      boss.z += boss.chargeZ * 19 * dt;
+      const sweep = moveCharge(sim, boss, dt, boss.chargeSpeed ?? 19);
       if (!boss.struck) {
         for (const { player } of livingSuits(sim)) {
-          if (distance(player, boss) > boss.radius + .9) continue;
+          if (!Number.isFinite(segmentCircle(sweep.from, sweep.to, player.x, player.z, boss.radius + .9)) || !clearLine(sim, sweep.from, player)) continue;
           sim.damageTarget(boss, 'player', 75, boss, player.id);
           boss.struck = true;
+          break;
         }
       }
-      const before = { x: boss.x, z: boss.z };
-      sim.confineToArena(boss);
       boss.timer -= dt;
-      if (Math.hypot(before.x - boss.x, before.z - boss.z) > .01 || boss.timer <= 0) {
+      if (sweep.collided || boss.timer <= 0) {
         boss.state = 'stunned';
         boss.timer = 4.2;
         boss.damageScale = 1.7;
+        boss.warning = 'STUNNED · UNLOAD';
         blast(sim, boss.x, boss.y, boss.z, 5);
         emit(sim, boss, 'ability', { ability: 'stunned' });
-        for (const side of [-1, 0, 1]) minion(sim, 'virus', boss.x + side * 2.4, boss.z + 2, weakestNode(sim), sim.constructor.fragment);
+        for (const side of [-1, 0, 1]) minion(sim, boss, 'virus', boss.x + side * 2.4, boss.z + 2, weakestNode(sim), sim.constructor.fragment);
+      }
+    } else if (boss.state === 'crush') {
+      boss.timer -= dt;
+      if (boss.timer <= 0) {
+        if (distance(boss, boss.node) < 5.2 && clearLine(sim, boss, boss.node)) sim.damageTarget(boss, 'tissue', 36);
+        boss.strikeAt = sim.clock + 2.4; boss.state = 'stalk'; warn(boss, '');
       }
     } else {
       boss.timer -= dt;
       boss.warning = 'STUNNED · UNLOAD';
       if (boss.timer <= 0) {
         boss.state = 'stalk';
-        boss.cooldown = 6.5;
+        boss.cooldown = boss.phase > 1 ? 5.5 : 6.5;
         boss.damageScale = .4;
         boss.warning = '';
       }
@@ -271,21 +275,26 @@ const BEHAVIOURS = {
     }
     if (boss.state === 'slither') {
       boss.latched = boss.attackingTissue = false;
-      if (approach(sim, boss, boss.node.x, boss.node.z, 5.4, dt, 2.6)) {
-        boss.state = 'drain';
-        boss.timer = 10;
+      if (approach(sim, boss, boss.node.x, boss.node.z, boss.phase > 1 ? 6 : 5.4, dt, 2.6)) {
+        boss.state = 'latch';
+        boss.timer = .8;
         boss.damageTaken = 0;
-        boss.strikeAt = sim.clock + .6;
+        warn(boss, 'LATCHING · SHOOT IT OFF');
+        telegraph(boss, 'latch', .8, 3);
         emit(sim, boss, 'ability', { ability: 'latch', nodeName: boss.node.name });
+      }
+    } else if (boss.state === 'latch') {
+      boss.timer -= dt;
+      if (boss.damageTaken >= boss.maxHealth * .13) {
+        boss.state = 'reel'; boss.timer = 2.2; boss.damageScale = 1.5;
+        warn(boss, ''); boss.warning = 'KNOCKED LOOSE'; emit(sim, boss, 'ability', { ability: 'knocked' });
+      } else if (boss.timer <= 0) {
+        boss.state = 'drain'; boss.timer = boss.phase > 1 ? 8 : 10;
+        boss.strikeAt = sim.clock + .6; warn(boss, '');
       }
     } else if (boss.state === 'drain') {
       boss.latched = boss.attackingTissue = true;
       boss.warning = 'DRAINING · SHOOT IT OFF';
-      boss.health = Math.min(boss.maxHealth, boss.health + boss.maxHealth * .012 * dt);
-      if (sim.clock >= boss.strikeAt) {
-        boss.strikeAt = sim.clock + .6;
-        sim.damageTarget(boss, 'tissue', 6);
-      }
       boss.timer -= dt;
       if (boss.damageTaken >= boss.maxHealth * .13 || boss.timer <= 0) {
         const knocked = boss.timer > 0;
@@ -295,6 +304,12 @@ const BEHAVIOURS = {
         boss.latched = boss.attackingTissue = false;
         boss.warning = knocked ? 'KNOCKED LOOSE' : '';
         if (knocked) emit(sim, boss, 'ability', { ability: 'knocked' });
+        return;
+      }
+      boss.health = Math.min(boss.maxHealth, boss.health + boss.maxHealth * .012 * dt);
+      if (sim.clock >= boss.strikeAt) {
+        boss.strikeAt = sim.clock + .6;
+        sim.damageTarget(boss, 'tissue', 6);
       }
     } else {
       boss.timer -= dt;
@@ -323,33 +338,38 @@ const BEHAVIOURS = {
     setNode(boss, weakestNode(sim));
     boss.cooldown -= dt;
     if (boss.state === 'orbit' && boss.cooldown <= 0) {
+      const suit = nearestSuit(sim, boss, 70);
+      if (!suit) { boss.cooldown = .5; return; }
       boss.state = 'volley';
       boss.timer = 1.1;
       boss.volley = 0;
+      boss.volleyTargetId = suit.player.id ?? null;
+      boss.volleyPoint = { x: suit.player.x, y: suit.player.y, z: suit.player.z };
       warn(boss, 'SPORE VOLLEY · KEEP MOVING');
+      telegraph(boss, 'volley', 1.1, 3, boss.volleyPoint);
       emit(sim, boss, 'ability', { ability: 'volley' });
     } else if (boss.state === 'volley') {
       boss.timer -= dt;
       if (boss.timer <= 0 && boss.volley < 6) {
         boss.timer = .22;
         boss.volley++;
-        const suit = nearestSuit(sim, boss, 70);
-        if (suit) spit(sim, boss, suit, 2.4);
+        const suit = livingSuits(sim).find(({ player }) => (player.id ?? null) === boss.volleyTargetId);
+        if (suit) spit(sim, boss, suit, boss.phase > 1 ? 3 : 2.4, boss.volleyPoint);
       }
       if (boss.volley >= 6) {
         boss.state = 'orbit';
-        boss.cooldown = 4.6;
+        boss.cooldown = boss.phase > 1 ? 4 : 4.6;
         warn(boss, '');
       }
     }
-    if (sim.clock >= boss.lobAt) {
+    if (boss.state === 'orbit' && sim.clock >= boss.lobAt) {
       boss.lobAt = sim.clock + 8;
       for (let i = 0; i < 3; i++) spit(sim, boss, null, 1.5);
     }
-    if (sim.clock >= boss.seedAt) {
+    if (boss.state === 'orbit' && sim.clock >= boss.seedAt && canSummon(sim, boss)) {
       boss.seedAt = sim.clock + 16;
       emit(sim, boss, 'ability', { ability: 'seed' });
-      for (let i = 0; i < 3; i++) minion(sim, 'spore', boss.x + Math.cos(i * 2.1) * 4, boss.z + Math.sin(i * 2.1) * 4, weakestNode(sim));
+      for (let i = 0; i < 3; i++) minion(sim, boss, 'spore', boss.x + Math.cos(i * 2.1) * 4, boss.z + Math.sin(i * 2.1) * 4, weakestNode(sim));
     }
   },
 
@@ -373,8 +393,9 @@ const BEHAVIOURS = {
       }
       if (boss.timer <= 0) {
         boss.state = 'burrowed';
-        boss.timer = 4;
+        boss.timer = boss.phase > 1 ? 3.5 : 4;
         boss.hidden = true;
+        boss.damageScale = 1;
         boss.tremorAt = 0;
         // Alternates between going for tissue and going for a suit.
         const hunt = boss.eruptions % 2 === 1 && suit;
@@ -382,6 +403,8 @@ const BEHAVIOURS = {
         setNode(boss, weakestNode(sim));
         boss.goalX = goal.x + (hunt ? 0 : 3.5);
         boss.goalZ = goal.z + (hunt ? 0 : 3.5);
+        const reachable = sim.ai.navigation.project({ x: boss.goalX, z: boss.goalZ });
+        boss.goalX = reachable.x; boss.goalZ = reachable.z;
         emit(sim, boss, 'ability', { ability: 'burrow' });
       }
     } else if (boss.state === 'burrowed') {
@@ -394,7 +417,9 @@ const BEHAVIOURS = {
       if (boss.timer <= 0) {
         boss.state = 'erupting';
         boss.timer = 1;
+        Object.assign(boss, sim.ai.navigation.project(boss));
         warn(boss, 'ERUPTING · GET CLEAR');
+        telegraph(boss, 'eruption', 1, 7);
       }
     } else {
       boss.timer -= dt;
@@ -406,6 +431,7 @@ const BEHAVIOURS = {
         boss.state = 'surfaced';
         boss.hidden = false;
         boss.timer = 7;
+        boss.damageScale = 1.25;
         boss.cooldown = 1.2;
         boss.eruptions++;
         warn(boss, '');
@@ -417,7 +443,7 @@ const BEHAVIOURS = {
           sim.damageTarget(boss, 'tissue', 22);
         }
         if (boss.eruptions % 3 === 0) {
-          for (const side of [-1, 1]) minion(sim, 'flagellate', boss.x + side * 3, boss.z, weakestNode(sim));
+          for (const side of [-1, 1]) minion(sim, boss, 'flagellate', boss.x + side * 3, boss.z, weakestNode(sim));
         }
         emit(sim, boss, 'ability', { ability: 'erupt' });
       }
@@ -438,23 +464,32 @@ const BEHAVIOURS = {
       boss.warning = 'HEAD EXPOSED';
       emit(sim, boss, 'ability', { ability: 'exposed' });
     }
-    const speed = 5.2 + (SEGMENTS - segments.length) * .42;
+    const speed = 5.2 + (SEGMENTS - segments.length) * .42 + (boss.phase > 1 ? .5 : 0);
     // Swings wide of each node rather than stopping on it.
     const swing = sim.clock * .9;
-    const reached = approach(sim, boss, boss.node.x + Math.cos(swing) * 3.2, boss.node.z + Math.sin(swing) * 3.2, speed, dt, 1.2);
-    if (distance(boss, boss.node) < 6 && sim.clock >= boss.strikeAt) {
-      boss.strikeAt = sim.clock + 3;
-      sim.damageTarget(boss, 'tissue', 30);
-      sim.attackEvent(boss, 'impact', 'tissue');
+    let reached = false;
+    if (boss.biteWindup) {
+      boss.biteWindup.remaining -= dt;
+      if (boss.biteWindup.remaining <= 0) {
+        if (boss.biteWindup.nodeId) {
+          const node = sim.nodes.find(n => n.id === boss.biteWindup.nodeId);
+          if (node?.health > 0 && distance(boss, node) < 6 && clearLine(sim, boss, node)) sim.damageTarget(boss, 'tissue', 30, boss, null, node);
+          boss.strikeAt = sim.clock + (boss.phase > 1 ? 2.6 : 3);
+        } else { hurtSuits(sim, boss, boss.radius + .8, 45); boss.biteAt = sim.clock + (boss.phase > 1 ? 1.3 : 1.5); }
+        boss.biteWindup = null; warn(boss, '');
+      }
+    } else {
+      reached = approach(sim, boss, boss.node.x + Math.cos(swing) * 3.2, boss.node.z + Math.sin(swing) * 3.2, speed, dt, 1.2);
+      const atNode = distance(boss, boss.node) < 6 && sim.clock >= boss.strikeAt && clearLine(sim, boss, boss.node);
+      const suit = nearestSuit(sim, boss, boss.radius + 1.8);
+      if (atNode || (suit && sim.clock >= (boss.biteAt ?? 0))) {
+        boss.biteWindup = { remaining: .65, nodeId: atNode ? boss.nodeId : null };
+        warn(boss, atNode ? 'TISSUE BITE' : 'BITE · STEP BACK'); telegraph(boss, 'bite', .65, atNode ? 6 : boss.radius + .8);
+      }
     }
     if (reached) {
       boss.lap++;
       setNode(boss, sim.nodes[boss.lap % sim.nodes.length]);
-    }
-    for (const { player } of livingSuits(sim)) {
-      if (distance(player, boss) > boss.radius + .8 || sim.clock < (boss.biteAt ?? 0)) continue;
-      boss.biteAt = sim.clock + 1.5;
-      sim.damageTarget(boss, 'player', 45, boss, player.id);
     }
     const trail = sim.bossTrail ??= [{ x: boss.x, z: boss.z }];
     if (distance(trail[0], boss) > .35) trail.unshift({ x: boss.x, z: boss.z });
@@ -496,13 +531,14 @@ const BEHAVIOURS = {
     const regrowing = sim.clock - boss.lastHurt > 5 && boss.health < boss.maxHealth;
     if (regrowing) boss.health = Math.min(boss.maxHealth, boss.health + boss.maxHealth * .009 * dt);
     const threshold = 1 - (boss.splits + 1) * .25;
-    if (boss.splits < 3 && boss.health <= boss.maxHealth * threshold) {
+    if (boss.splits < 3 && boss.health <= boss.maxHealth * threshold && sim.clock >= (boss.nextSplitAt ?? 0)) {
       boss.splits++;
+      boss.nextSplitAt = sim.clock + 3;
       boss.scale *= .9;
       boss.radius *= .93;
       emit(sim, boss, 'ability', { ability: 'split' });
-      for (const side of [-1, 1]) minion(sim, 'amoeba', boss.x + side * 4, boss.z + 1, weakestNode(sim));
-      for (let i = 0; i < 3; i++) minion(sim, 'virus', boss.x + Math.cos(i * 2.1) * 3.4, boss.z + Math.sin(i * 2.1) * 3.4, weakestNode(sim), sim.constructor.fragment);
+      for (const side of [-1, 1]) minion(sim, boss, 'amoeba', boss.x + side * 4, boss.z + 1, weakestNode(sim));
+      for (let i = 0; i < 3; i++) minion(sim, boss, 'virus', boss.x + Math.cos(i * 2.1) * 3.4, boss.z + Math.sin(i * 2.1) * 3.4, weakestNode(sim), sim.constructor.fragment);
     }
     if (boss.state === 'advance') {
       const node = weakestNode(sim);
@@ -510,25 +546,31 @@ const BEHAVIOURS = {
       const atNode = approach(sim, boss, node.x, node.z, 1.9, dt, 4.6);
       boss.attackingTissue = atNode;
       boss.warning = regrowing ? 'REGROWING · KEEP FIRING' : '';
-      if (atNode && sim.clock >= boss.strikeAt) {
-        boss.strikeAt = sim.clock + 2.2;
-        sim.damageTarget(boss, 'tissue', 20);
-        sim.attackEvent(boss, 'impact', 'tissue');
-      }
       boss.cooldown -= dt;
       if (boss.cooldown <= 0 && nearestSuit(sim, boss, 10)) {
         boss.state = 'slam';
         boss.timer = 1.15;
         warn(boss, 'SLAM · BACK AWAY');
+        telegraph(boss, 'slam', 1.15, 9);
         emit(sim, boss, 'ability', { ability: 'slam' });
+      } else if (atNode && sim.clock >= boss.strikeAt) {
+        boss.state = 'crush'; boss.timer = .85;
+        warn(boss, 'TISSUE CRUSH'); telegraph(boss, 'crush', .85, 5.5);
       }
+    } else if (boss.state === 'recover') {
+      boss.timer -= dt;
+      if (boss.timer <= 0) { boss.state = 'advance'; boss.damageScale = 1; boss.warning = ''; }
     } else {
       boss.timer -= dt;
       if (boss.timer <= 0) {
-        blast(sim, boss.x, 1, boss.z, 9);
-        hurtSuits(sim, boss, 9, 40);
-        boss.state = 'advance';
-        boss.cooldown = 6;
+        if (boss.state === 'slam') {
+          blast(sim, boss.x, 1, boss.z, 9); hurtSuits(sim, boss, 9, 40);
+          boss.state = 'recover'; boss.timer = 1.15; boss.damageScale = 1.2;
+          boss.cooldown = boss.phase > 1 ? 5 : 6;
+        } else {
+          if (distance(boss, boss.node) < 5.5 && clearLine(sim, boss, boss.node)) sim.damageTarget(boss, 'tissue', 20);
+          boss.strikeAt = sim.clock + 2.2; boss.state = 'advance';
+        }
         warn(boss, '');
       }
     }
@@ -550,26 +592,29 @@ const BEHAVIOURS = {
     if (boss.state === 'hunt') {
       const suit = nearestSuit(sim, boss);
       if (suit) approach(sim, boss, suit.player.x, suit.player.z, 2.6, dt, boss.radius + 1.2);
+      else if (boss.lastSeen && sim.clock - boss.lastSeen.time < BOSS_TUNING.memory) approach(sim, boss, boss.lastSeen.x, boss.lastSeen.z, 2.6, dt, 2);
       boss.cooldown -= dt;
       if (suit && distance(suit.player, boss) < boss.radius + 2 && sim.clock >= boss.strikeAt) {
-        boss.strikeAt = sim.clock + 1.6;
-        sim.damageTarget(boss, 'player', 30, boss, suit.player.id);
+        boss.state = 'swipe'; boss.timer = .65;
+        warn(boss, 'ENGULFING STRIKE · BACK AWAY'); telegraph(boss, 'swipe', .65, boss.radius + 2);
+        return;
       }
       const victim = nearestSuit(sim, boss, 32);
       if (boss.cooldown <= 0 && victim && distance(victim.player, boss) > boss.radius + 4) {
-        boss.state = 'pull';
-        boss.timer = 3.4;
+        boss.state = 'pull-windup';
+        boss.timer = .9;
         boss.damageTaken = 0;
         boss.victim = victim.player.id ?? null;
         warn(boss, 'ENGULFING · SHOOT TO BREAK FREE');
+        telegraph(boss, 'pull', .9, 1.5, { toX: victim.player.x, toZ: victim.player.z });
         emit(sim, boss, 'ability', { ability: 'pull' });
       }
-    } else if (boss.state === 'pull') {
+    } else if (boss.state === 'pull' || boss.state === 'pull-windup') {
       const suit = livingSuits(sim).find(({ player }) => (player.id ?? null) === boss.victim);
       boss.timer -= dt;
-      if (!suit || boss.timer <= 0) {
+      if (!suit || !clearLine(sim, boss, suit.player) || (boss.timer <= 0 && boss.state === 'pull')) {
         boss.state = 'hunt';
-        boss.cooldown = 7;
+        boss.cooldown = boss.phase > 1 ? 6 : 7;
         warn(boss, '');
       } else if (boss.damageTaken >= boss.maxHealth * .05) {
         boss.state = 'reel';
@@ -578,6 +623,11 @@ const BEHAVIOURS = {
         warn(boss, '');
         boss.warning = 'PULL BROKEN';
         emit(sim, boss, 'ability', { ability: 'broken' });
+      } else if (boss.state === 'pull-windup') {
+        if (boss.timer <= 0) {
+          boss.state = 'pull'; boss.timer = 3.4; boss.telegraph = null;
+          boss.warning = 'PULLING · SHOOT OR BREAK LINE OF SIGHT';
+        }
       } else {
         const { player } = suit;
         const gap = distance(player, boss);
@@ -589,16 +639,22 @@ const BEHAVIOURS = {
         if (gap <= boss.radius + 1.1) {
           sim.damageTarget(boss, 'player', 60, boss, player.id);
           boss.state = 'hunt';
-          boss.cooldown = 7;
+          boss.cooldown = boss.phase > 1 ? 6 : 7;
           warn(boss, '');
           emit(sim, boss, 'ability', { ability: 'engulf' });
         }
+      }
+    } else if (boss.state === 'swipe') {
+      boss.timer -= dt;
+      if (boss.timer <= 0) {
+        hurtSuits(sim, boss, boss.radius + 2, 30); boss.strikeAt = sim.clock + 1.6;
+        boss.state = 'hunt'; warn(boss, '');
       }
     } else {
       boss.timer -= dt;
       if (boss.timer <= 0) {
         boss.state = 'hunt';
-        boss.cooldown = 6;
+        boss.cooldown = boss.phase > 1 ? 5.5 : 6;
         boss.damageScale = 1;
         boss.warning = '';
       }
@@ -622,7 +678,8 @@ const BEHAVIOURS = {
       emit(sim, boss, 'ability', { ability: 'enrage' });
     }
     const [sx, sz] = spots[boss.spot % spots.length];
-    approach(sim, boss, sx * sim.constructor.arena.x, sz * sim.constructor.arena.z, 5, dt);
+    // A pulse's origin is committed for the full warning, so cover stays trustworthy.
+    if (boss.state === 'hum') approach(sim, boss, sx * sim.constructor.arena.x, sz * sim.constructor.arena.z, 5, dt);
     boss.y = LEVEL_BOSSES.ear.y + Math.sin(sim.clock * 1.3) * .35;
     setNode(boss, weakestNode(sim));
     if (boss.state === 'hum') {
@@ -636,8 +693,12 @@ const BEHAVIOURS = {
         boss.state = 'charge';
         boss.timer = 2.4;
         warn(boss, 'SONIC PULSE · GET BEHIND COVER');
+        telegraph(boss, 'pulse', 2.4, 12);
         emit(sim, boss, 'ability', { ability: 'pulse-warning' });
       }
+    } else if (boss.state === 'recover') {
+      boss.timer -= dt;
+      if (boss.timer <= 0) { boss.state = 'hum'; boss.damageScale = 1; }
     } else {
       boss.timer -= dt;
       if (boss.timer <= 0) {
@@ -646,11 +707,12 @@ const BEHAVIOURS = {
           if (clearLine(sim, boss, player)) sim.damageTarget(boss, 'player', 68, boss, player.id);
         }
         for (const node of sim.nodes) {
+          if (!clearLine(sim, boss, node)) continue;
           setNode(boss, node);
           sim.damageTarget(boss, 'tissue', 12);
         }
         emit(sim, boss, 'ability', { ability: 'pulse' });
-        boss.state = 'hum';
+        boss.state = 'recover'; boss.timer = 1.2; boss.damageScale = 1.2;
         boss.cooldown = enraged ? 6 : 8.5;
         if (enraged) boss.spot++;
         warn(boss, '');
@@ -661,6 +723,13 @@ const BEHAVIOURS = {
 
 export function stepLevelBoss(sim, boss, dt) {
   if (boss.behavior === 'boss-segment') return; // Placed by the head.
+  if (boss.health <= 0) return;
+  const phase = boss.health <= boss.maxHealth * .5 ? 2 : 1;
+  if (phase > (boss.phase ?? 1)) {
+    boss.phase = phase;
+    emit(sim, boss, 'phase', { phase });
+  }
+  if (boss.telegraph) boss.telegraph.remaining = Math.max(0, boss.telegraph.remaining - dt);
   boss.attackingTissue = false;
   BEHAVIOURS[boss.boss](sim, boss, dt);
   if (boss.attackingTissue) boss.node.underAttack = true;
@@ -674,7 +743,8 @@ export function levelBossStatus(sim) {
   const segments = sim.enemies.filter(enemy => enemy.segmentOf === boss.id).length;
   return {
     name: boss.name, health: boss.health, maxHealth: boss.maxHealth, hint: boss.hint, warning: boss.warning,
+    phase: boss.phase ?? 1, remaining: boss.telegraph?.remaining ?? (boss.damageScale > 1 ? boss.timer : 0),
     state: boss.hidden ? 'hidden' : boss.damageScale > 1 ? 'exposed' : boss.damageScale < 1 ? 'sealed' : 'warning',
-    detail: segments ? segments + (segments === 1 ? ' segment left' : ' segments left') : '',
+    detail: segments ? segments + (segments === 1 ? ' segment left' : ' segments left') : 'Phase ' + (boss.phase ?? 1) + ' / 2',
   };
 }

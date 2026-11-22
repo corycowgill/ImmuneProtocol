@@ -322,7 +322,7 @@ test('both co-op suits can complete organ-specific objectives', () => {
   brain.wave = brain.waves - 1;
   brain.beginWave();
   for (let phase = 1; phase <= 3; phase++) {
-    for (let tick = 0; tick < 300 && brain.boss.state !== 'exposed'; tick++) {
+    for (let tick = 0; tick < 300 && (brain.boss.state !== 'exposed' || brain.boss.openness <= .36); tick++) {
       brain.enemies.length = 0;
       brain.step(1 / 30);
     }
@@ -440,6 +440,7 @@ test('difficulty reshapes solo missions and leaves scripted encounters intact', 
   assert.ok(brain.missions.at(-1).boss);
   brain.wave = brain.missions.length - 1;
   brain.beginWave();
+  brain.boss.state = 'exposed'; brain.boss.openness = 1;
   const health = brain.boss.health;
   hitBrainBoss(brain, { vulnerable: true }, brain.boss.weakPoint);
   assert.equal(health - brain.boss.health, Math.round(28 / DIFFICULTIES.hard.enemyHealth));

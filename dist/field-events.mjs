@@ -87,6 +87,7 @@ export function applyEvents() {
       if (event.stage === 'counterattack') announce('PATHOGENS INBOUND', event.name, 2);
     }
     if (event.type === 'levelBoss') {
+      if (event.stage === 'phase') announce(event.name.toUpperCase() + ' · PHASE ' + event.phase, 'ITS PATTERN IS ACCELERATING · KEEP WATCHING THE WINDUPS', 2.5);
       if (event.stage === 'arrive') {
         session.audio.play({ type: 'boss', stage: 'phase', x: event.x, z: event.z });
         announce(event.name.toUpperCase(), event.hint, 4.2);

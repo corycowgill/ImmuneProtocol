@@ -2,6 +2,7 @@ import { ORGAN_MISSIONS } from './organs.mjs';
 import { grow, growPoint } from './arena-scale.mjs';
 import { AIWorld } from './tactical-ai.mjs';
 import { clearSegment } from './ai-navigation.mjs';
+import { bossDamageThreat, telegraph } from './boss-tactics.mjs';
 import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-objectives.mjs';
 import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
@@ -989,7 +990,7 @@ export class Simulation {
   // Patrolling immune cells digest any pathogen caught inside the hazard zone.
   engulfPathogens(dt, zone, damagePerSecond) {
     for (const enemy of [...this.enemies]) {
-      if (enemy.type === 'colony' || !withinHazard(enemy, zone)) continue;
+      if (enemy.type === 'colony' || enemy.hidden || !withinHazard(enemy, zone)) continue;
       enemy.health -= damagePerSecond * dt;
       if (enemy.health <= 0) {
         enemy.health = .001;
@@ -1034,7 +1035,7 @@ export class Simulation {
 
     valve.phase = phase;
     this.events.push({ type: 'valve', stage: phase, x: HEART_VALVE.x, y: HEART_VALVE.y, z: HEART_VALVE.z });
-    if (open && this.colony) this.colony.attackCooldown = 0;
+    if (open && this.colony) this.colony.attackCooldown = .65;
   }
 
   advanceColony(dt) {
@@ -1042,11 +1043,20 @@ export class Simulation {
     if (!colony) return;
 
     colony.attackingTissue = this.valve.exposed;
-    if (!colony.attackingTissue) return;
+    if (!colony.attackingTissue) {
+      colony.telegraph = null; colony.warning = ''; this.setEnemyAction(colony, 'idle'); return;
+    }
     colony.node.underAttack = true;
     colony.attackCooldown = Math.max(0, colony.attackCooldown - dt);
+    if (colony.attackCooldown <= .65 && !colony.telegraph) {
+      telegraph(colony, 'tear', colony.attackCooldown, 3.5, { x: HEART_VALVE.x, z: HEART_VALVE.z });
+      colony.warning = 'COLONY TEAR · FIRE THROUGH THE OPEN VALVE';
+      this.attackEvent(colony, 'windup', 'tissue', HEART_VALVE);
+    }
+    if (colony.telegraph) colony.telegraph.remaining = colony.attackCooldown;
     if (colony.attackCooldown > 0) return;
     colony.attackCooldown = SPECIES.colony.period;
+    colony.telegraph = null; colony.warning = ''; this.setEnemyAction(colony, 'idle');
     this.damageTarget(colony, 'tissue', SPECIES.colony.tissueDamage, HEART_VALVE);
   }
 
@@ -1345,7 +1355,7 @@ export class Simulation {
         suit.fireCooldown = Math.max(suit.fireCooldown, DEFAULT_WEAPON_STATS.interval);
       }
       this.events.push({ type: 'shot', weapon: kind, pellet, hit: bossHit.vulnerable, crit: bossHit.vulnerable, ...impact });
-      hitBrainBoss(this, bossHit, impact, weapon.bodyDamage * falloff / DEFAULT_WEAPON_STATS.bodyDamage);
+      hitBrainBoss(this, bossHit, impact, weapon.bodyDamage * falloff / DEFAULT_WEAPON_STATS.bodyDamage, suit);
       return;
     }
     if (target?.type === 'guard' && guardFaces(target, player)) {
@@ -1382,9 +1392,9 @@ export class Simulation {
     this.ai.emit('explosion', impact, { radius: 46 });
     const radius = weapon.splashRadius;
     this.events.push({ type: 'explosion', radius, ...impact });
-    if (bossHit?.vulnerable && this.boss?.state === 'exposed') {
-      this.events.push({ type: 'shot', weapon: 'launcher', blast: true, hit: true, crit: true, ...impact });
-      hitBrainBoss(this, bossHit, impact, (weapon.bodyDamage + weapon.splashDamage) / DEFAULT_WEAPON_STATS.bodyDamage);
+    if (bossHit?.vulnerable && this.boss) {
+      const accepted = hitBrainBoss(this, bossHit, impact, (weapon.bodyDamage + weapon.splashDamage) / DEFAULT_WEAPON_STATS.bodyDamage, owner);
+      if (accepted) this.events.push({ type: 'shot', weapon: 'launcher', blast: true, hit: true, crit: true, ...impact });
     }
     // Splash ignores Shellback armour; the pathogen it struck takes the direct hit too.
     for (const enemy of [...this.enemies]) {
@@ -1412,9 +1422,11 @@ export class Simulation {
   }
 
   hitEnemy(target, damage, critical, impact, source, suit = null) {
+    if (target.health <= 0 || target.hidden) return;
     // Bosses shrug off or soak up fire depending on what they are doing.
     damage *= target.damageScale ?? 1;
     if (target.boss) target.damageTaken += damage;
+    if (target.boss) bossDamageThreat(target, suit?.player, damage, this.clock);
     target.health -= damage;
     this.ai.damage(target, suit?.player);
     const lethal = target.health <= 0;

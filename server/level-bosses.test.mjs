@@ -169,6 +169,11 @@ test('Biofilm Colossus and Rogue Macrophage: regrowth, splits, the pull and its 
   Object.assign(sim.player, { x: boss.x + 18, z: boss.z });
   const seen = fight(sim, 14, { each: events => { sim.player.health = 100; return !abilities(events).includes('pull'); } });
   assert.ok(abilities(seen).includes('pull'));
+  assert.equal(boss.state, 'pull-windup');
+  const waiting = Math.hypot(sim.player.x - boss.x, sim.player.z - boss.z);
+  fight(sim, .6);
+  assert.ok(Math.abs(Math.hypot(sim.player.x - boss.x, sim.player.z - boss.z) - waiting) < .01, 'the warning gives time to react before dragging');
+  fight(sim, .4);
   const gap = Math.hypot(sim.player.x - boss.x, sim.player.z - boss.z);
   for (let i = 0; i < 15; i++) sim.step(STEP, {});
   assert.ok(Math.hypot(sim.player.x - boss.x, sim.player.z - boss.z) < gap - 1, 'the suit is dragged in');

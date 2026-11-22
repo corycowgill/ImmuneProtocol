@@ -7,11 +7,14 @@ import { JUNCTION_INLETS, RULES } from './simulation.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { drawWeaponHud, weaponName } from './arsenal-ui.mjs';
 import { levelBossStatus } from './level-bosses.mjs';
+import { BossTelegraphView } from './boss-telegraphs.mjs';
+import { floorHeight } from './arena-scene.mjs';
 import { session } from './session.mjs';
 import { byId, isTouch, reducedMotion, pad, clamp, setText } from './dom.mjs';
 import { missionName } from './mission-text.mjs';
 
 export const game = byId('game');
+const bossTelegraphs = new BossTelegraphView(game);
 const scoreboard = byId('scoreboard');
 const reticle = byId('reticle');
 export const hitMarker = byId('hit-marker');
@@ -334,7 +337,8 @@ function drawBossHud() {
     }
     setText(bossStatus, levelBoss.warning || (levelBoss.state === 'hidden' ? 'Burrowed' : levelBoss.state === 'exposed' ? 'Exposed' : levelBoss.state === 'sealed' ? 'Armoured' : percent + '%'));
     setText(bossStatusDetail, levelBoss.hint);
-    bossTime.hidden = true;
+    bossTime.hidden = !(levelBoss.remaining > 0);
+    setText(bossTime, Math.max(0, levelBoss.remaining).toFixed(1) + 's');
     return;
   }
   if (!boss) return;
@@ -837,6 +841,7 @@ function worldMarkerTop(defaultTop) {
 }
 
 export function drawAttackers() {
+  bossTelegraphs.update(session.sim, session.world, floorHeight);
   const active = new Set();
   const captions = [];
   for (const enemy of session.sim.enemies) {

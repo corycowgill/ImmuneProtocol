@@ -1,0 +1,306 @@
+{
+  "runtime": "v22.16.0",
+  "cpu": "13th Gen Intel(R) Core(TM) i9-13900F",
+  "rendering": false,
+  "rows": [
+    {
+      "area": "artery",
+      "players": 1,
+      "seconds": 90,
+      "p95Ms": 0.064,
+      "peakMs": 1.158,
+      "maxEnemies": 9,
+      "warnings": 483,
+      "damageEvents": 51,
+      "states": [
+        "stalk",
+        "aim",
+        "charge",
+        "stunned"
+      ]
+    },
+    {
+      "area": "junction",
+      "players": 1,
+      "seconds": 90,
+      "p95Ms": 0.002,
+      "peakMs": 0.183,
+      "maxEnemies": 1,
+      "warnings": 276,
+      "damageEvents": 72,
+      "states": [
+        "slither",
+        "latch",
+        "drain",
+        "reel"
+      ]
+    },
+    {
+      "area": "lungs",
+      "players": 1,
+      "seconds": 90,
+      "p95Ms": 0.042,
+      "peakMs": 0.833,
+      "maxEnemies": 9,
+      "warnings": 901,
+      "damageEvents": 124,
+      "states": [
+        "orbit",
+        "volley"
+      ]
+    },
+    {
+      "area": "stomach",
+      "players": 1,
+      "seconds": 90,
+      "p95Ms": 0.012,
+      "peakMs": 0.239,
+      "maxEnemies": 5,
+      "warnings": 420,
+      "damageEvents": 46,
+      "states": [
+        "surfaced",
+        "burrowed",
+        "erupting"
+      ]
+    },
+    {
+      "area": "intestines",
+      "players": 1,
+      "seconds": 90,
+      "p95Ms": 0.016,
+      "peakMs": 0.45,
+      "maxEnemies": 8,
+      "warnings": 351,
+      "damageEvents": 9,
+      "states": [
+        "circuit"
+      ]
+    },
+    {
+      "area": "colon",
+      "players": 1,
+      "seconds": 90,
+      "p95Ms": 0.023,
+      "peakMs": 1.023,
+      "maxEnemies": 9,
+      "warnings": 1365,
+      "damageEvents": 119,
+      "states": [
+        "advance",
+        "slam",
+        "recover",
+        "crush"
+      ]
+    },
+    {
+      "area": "lymph",
+      "players": 1,
+      "seconds": 90,
+      "p95Ms": 0.004,
+      "peakMs": 0.657,
+      "maxEnemies": 1,
+      "warnings": 432,
+      "damageEvents": 0,
+      "states": [
+        "hunt",
+        "pull-windup",
+        "pull"
+      ]
+    },
+    {
+      "area": "ear",
+      "players": 1,
+      "seconds": 90,
+      "p95Ms": 0.002,
+      "peakMs": 0.169,
+      "maxEnemies": 1,
+      "warnings": 1160,
+      "damageEvents": 16,
+      "states": [
+        "hum",
+        "charge",
+        "recover"
+      ]
+    },
+    {
+      "area": "heart",
+      "players": 1,
+      "seconds": 90,
+      "p95Ms": 0.001,
+      "peakMs": 0.366,
+      "maxEnemies": 1,
+      "warnings": 924,
+      "damageEvents": 24,
+      "states": [
+        "closed",
+        "open"
+      ]
+    },
+    {
+      "area": "brain",
+      "players": 1,
+      "seconds": 90,
+      "p95Ms": 0.021,
+      "peakMs": 0.383,
+      "maxEnemies": 6,
+      "warnings": 1216,
+      "damageEvents": 57,
+      "states": [
+        "sealed",
+        "warning",
+        "exposed"
+      ]
+    },
+    {
+      "area": "artery",
+      "players": 3,
+      "seconds": 90,
+      "p95Ms": 0.037,
+      "peakMs": 0.797,
+      "maxEnemies": 9,
+      "warnings": 503,
+      "damageEvents": 47,
+      "states": [
+        "stalk",
+        "aim",
+        "charge",
+        "stunned",
+        "crush"
+      ]
+    },
+    {
+      "area": "junction",
+      "players": 3,
+      "seconds": 90,
+      "p95Ms": 0.002,
+      "peakMs": 0.193,
+      "maxEnemies": 1,
+      "warnings": 276,
+      "damageEvents": 72,
+      "states": [
+        "slither",
+        "latch",
+        "drain",
+        "reel"
+      ]
+    },
+    {
+      "area": "lungs",
+      "players": 3,
+      "seconds": 90,
+      "p95Ms": 0.033,
+      "peakMs": 0.261,
+      "maxEnemies": 9,
+      "warnings": 901,
+      "damageEvents": 71,
+      "states": [
+        "orbit",
+        "volley"
+      ]
+    },
+    {
+      "area": "stomach",
+      "players": 3,
+      "seconds": 90,
+      "p95Ms": 0.011,
+      "peakMs": 0.142,
+      "maxEnemies": 5,
+      "warnings": 420,
+      "damageEvents": 35,
+      "states": [
+        "surfaced",
+        "burrowed",
+        "erupting"
+      ]
+    },
+    {
+      "area": "intestines",
+      "players": 3,
+      "seconds": 90,
+      "p95Ms": 0.015,
+      "peakMs": 1.216,
+      "maxEnemies": 8,
+      "warnings": 468,
+      "damageEvents": 10,
+      "states": [
+        "circuit"
+      ]
+    },
+    {
+      "area": "colon",
+      "players": 3,
+      "seconds": 90,
+      "p95Ms": 0.018,
+      "peakMs": 0.318,
+      "maxEnemies": 9,
+      "warnings": 1365,
+      "damageEvents": 116,
+      "states": [
+        "advance",
+        "slam",
+        "recover",
+        "crush"
+      ]
+    },
+    {
+      "area": "lymph",
+      "players": 3,
+      "seconds": 90,
+      "p95Ms": 0.005,
+      "peakMs": 0.127,
+      "maxEnemies": 1,
+      "warnings": 432,
+      "damageEvents": 0,
+      "states": [
+        "hunt",
+        "pull-windup",
+        "pull"
+      ]
+    },
+    {
+      "area": "ear",
+      "players": 3,
+      "seconds": 90,
+      "p95Ms": 0.002,
+      "peakMs": 0.107,
+      "maxEnemies": 1,
+      "warnings": 1160,
+      "damageEvents": 26,
+      "states": [
+        "hum",
+        "charge",
+        "recover"
+      ]
+    },
+    {
+      "area": "heart",
+      "players": 3,
+      "seconds": 90,
+      "p95Ms": 0.001,
+      "peakMs": 0.525,
+      "maxEnemies": 1,
+      "warnings": 924,
+      "damageEvents": 24,
+      "states": [
+        "closed",
+        "open"
+      ]
+    },
+    {
+      "area": "brain",
+      "players": 3,
+      "seconds": 90,
+      "p95Ms": 0.018,
+      "peakMs": 0.631,
+      "maxEnemies": 6,
+      "warnings": 1216,
+      "damageEvents": 13,
+      "states": [
+        "sealed",
+        "warning",
+        "exposed"
+      ]
+    }
+  ]
+}

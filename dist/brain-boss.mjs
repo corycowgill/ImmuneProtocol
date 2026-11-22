@@ -56,6 +56,7 @@ function spawnBrood(sim) {
   const focus = Number(boss.targetNodeId === nodes[1].id);
   const pattern = PHASES[boss.phase - 1].spawn;
   for (const [index, species] of pattern.entries()) {
+    if (sim.enemies.length >= 6) break;
     const lane = (focus + index) % 2;
     const lobe = BRAIN_BOSS_LOBES[lane * 2];
     const enemy = sim.createEnemy(species, lobe.x + (lane === 0 ? -1.7 : 1.7), lobe.z + 1.2 + index * 1.3, nodes[lane]);
@@ -130,35 +131,41 @@ export function traceBrainBoss(boss, origin, ray, limit) {
     const distance = vulnerability ? weak : shell;
     if (distance >= nearest) continue;
     nearest = distance;
-    hit = { distance, vulnerable: vulnerability };
+    hit = { distance, vulnerable: vulnerability, weakPointId: weakPoint.id, phase: boss.phase, cycle: boss.cycle };
   }
   return hit;
 }
 
 // `power` is the hit's damage relative to a standard carbine round.
-export function hitBrainBoss(sim, hit, impact, power = 1) {
+export function hitBrainBoss(sim, hit, impact, power = 1, suit = null) {
   const { boss } = sim;
-  if (!hit.vulnerable) {
+  if (!boss || boss.state === 'defeated') return false;
+  if (!hit.vulnerable || boss.state !== 'exposed' || boss.openness <= .36 ||
+      (hit.phase !== undefined && hit.phase !== boss.phase) ||
+      (hit.cycle !== undefined && hit.cycle !== boss.cycle) ||
+      (hit.weakPointId !== undefined && hit.weakPointId !== boss.weakPoint.id)) {
     emit(sim, 'block', impact);
-    return;
+    return false;
   }
   const pattern = PHASES[boss.phase - 1];
   // Difficulty scales the boss's effective health by changing how much each hit removes.
   const damage = Math.round(HIT_DAMAGE * power / (sim.enemyHealthScale ?? 1));
   boss.health = Math.max(pattern.health, boss.health - damage);
   emit(sim, 'hit', impact);
-  if (boss.health > pattern.health) return;
+  if (boss.health > pattern.health) return true;
   if (boss.phase === 3) {
     setState(boss, 'defeated', COLLAPSE_TIME);
     sim.organ.phase = 'recovery';
     sim.organ.repairBlocked = false;
     sim.score += 3000;
     sim.kills++;
+    sim.creditPlayer(suit, 3000, true);
     emit(sim, 'defeated');
-    return;
+    return true;
   }
   boss.phase++;
   boss.cycle = 0;
   startCycle(sim);
   emit(sim, 'phase');
+  return true;
 }

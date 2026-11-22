@@ -1,0 +1,95 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Boss battle verification</title></head>
+<body style="margin:0;background:#111;color:#f5dec0;font:13px monospace">
+<div style="position:fixed;left:10px;top:10px;z-index:90;background:#171018e8;padding:12px;max-width:55vw">
+<strong>Boss battle verification</strong> <span id="status">Preparing…</span><br>
+<label>Arena <select id="area"></select></label> <button id="reset" disabled>Restart fight</button>
+<button id="ability" disabled>Show main attack</button> <button id="phase" disabled>Phase two</button>
+<button id="pause">Pause</button><pre id="report"></pre>
+Health is restored for this verification encounter.</div><canvas id="world" style="width:100vw;height:100vh;display:block"></canvas>
+<script type="module">
+import { World } from './world.mjs';
+import { Simulation } from './simulation.mjs';
+import { LEVEL_BOSSES, spawnLevelBoss, clearLine } from './level-bosses.mjs';
+import { createBrainBoss, stepBrainBoss } from './brain-boss.mjs';
+import { telegraph } from './boss-tactics.mjs';
+import { BossTelegraphView } from './boss-telegraphs.mjs';
+import { NavigationSystem } from './ai-navigation.mjs';
+import { floorHeight } from './arena-scene.mjs';
+const $ = id => document.getElementById(id), query = new URLSearchParams(location.search);
+const areas = [...Object.keys(LEVEL_BOSSES), 'heart', 'brain'];
+for (const area of areas) $('area').add(new Option(LEVEL_BOSSES[area]?.name ?? area, area));
+$('area').value = query.get('area') ?? 'colon';
+let sim, boss, active = false, paused = false, elapsed = [], attacks = 0, frames = 0, stateChanges = new Set();
+const world = new World($('world')); world.setQuality('low');
+const tells = new BossTelegraphView(document.body);
+const status = $('status'), report = $('report');
+function pose() {
+  if (!boss) return;
+  for (let i = 0; i < 12; i++) {
+    const angle = i * Math.PI / 6;
+    const p = sim.ai.navigation.project({ x: boss.x + Math.sin(angle) * 15, z: boss.z + Math.cos(angle) * 15 });
+    if (clearLine(sim, boss, p)) { Object.assign(sim.player, p); break; }
+  }
+}
+async function reset() {
+  active = false; $('reset').disabled = $('ability').disabled = $('phase').disabled = true;
+  const area = $('area').value; status.textContent = 'Preparing ' + area;
+  const next = new Simulation(area);
+  await world.prepareAll([area], () => {}); await world.prepareMission(next, () => {});
+  sim?.ai.dispose(); sim = next; sim.start(); sim.enemies = sim.enemies.filter(e => e.type === 'colony');
+  boss = LEVEL_BOSSES[area] ? spawnLevelBoss(sim) : null;
+  if (boss) {
+    const nav = new NavigationSystem(sim.obstacles, area, sim.constructor.arena, boss.radius);
+    Object.assign(boss, nav.project({ x: 0, z: 0 })); pose();
+  }
+  if (area === 'brain') createBrainBoss(sim);
+  elapsed = []; attacks = 0; frames = 0; stateChanges = new Set(); active = true; paused = false;
+  $('pause').textContent = 'Pause'; $('reset').disabled = $('ability').disabled = $('phase').disabled = false;
+  status.textContent = 'Running';
+}
+$('reset').onclick = () => reset().catch(fail);
+$('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? 'Resume' : 'Pause'; };
+$('phase').onclick = () => { if (boss) boss.health = boss.maxHealth * .4; };
+$('ability').onclick = () => {
+  if (boss) {
+    const nav = new NavigationSystem(sim.obstacles, sim.area, sim.constructor.arena, boss.radius);
+    Object.assign(boss, nav.project({ x: 0, z: 0 })); pose();
+    boss.cooldown = 0; boss.strikeAt = sim.clock + 99;
+    boss.state = { thrombus: 'stalk', leech: 'slither', bloom: 'orbit', drill: 'burrowed', tapeworm: 'circuit', colossus: 'advance', macrophage: 'hunt', screamer: 'hum' }[boss.boss];
+    boss.orbit ??= 0; boss.spot ??= 0; boss.shardAt = boss.seedAt = boss.lobAt = sim.clock + 99;
+    if (boss.boss === 'colossus') { sim.player.x = boss.x; sim.player.z = boss.z + 8; }
+    if (boss.boss === 'drill') { boss.hidden = true; boss.timer = .01; boss.goalX = boss.x; boss.goalZ = boss.z; boss.tremorAt = 0; }
+    if (boss.boss === 'tapeworm') { boss.biteWindup = { remaining: .65, nodeId: null }; telegraph(boss, 'bite', .65, boss.radius + .8); boss.warning = 'BITE · STEP BACK'; }
+  } else if (sim.valve) { sim.clock = 4.2; sim.updateValve(); }
+};
+function fail(e) { status.textContent = 'FAIL: ' + e.message; console.error(e); active = false; }
+await reset().catch(fail);
+let previous = performance.now();
+function frame(now) {
+  try {
+    const dt = Math.min(.05, (now - previous) / 1000); previous = now;
+    if (active) {
+      const at = performance.now();
+      if (!paused) {
+        sim.clock += dt; sim.events = []; sim.player.health = 100; for (const n of sim.nodes) n.health = 100;
+        if (sim.valve) { sim.updateValve(); sim.advanceColony(dt); }
+        if (sim.boss) stepBrainBoss(sim, dt);
+        sim.advanceEnemies(dt); sim.advanceProjectiles(dt);
+        elapsed.push(performance.now() - at); if (elapsed.length > 300) elapsed.shift();
+        attacks += sim.events.filter(e => e.type === 'damage').length;
+        stateChanges.add(boss?.state ?? sim.boss?.state ?? sim.valve?.phase);
+      }
+      const target = boss ?? sim.boss?.weakPoint ?? sim.colony;
+      if (target) { sim.player.yaw = Math.atan2(sim.player.x - target.x, sim.player.z - target.z); sim.player.pitch = Math.atan2(target.y - sim.player.y, Math.hypot(target.x - sim.player.x, target.z - sim.player.z)); }
+      world.render(sim, paused ? 0 : dt, {}, true); tells.update(sim, world, floorHeight);
+      if (++frames % 10 === 0 || paused) {
+        const t = boss?.telegraph ?? sim.colony?.telegraph;
+        const sorted = [...elapsed].sort((a, b) => a - b);
+        report.textContent = `${boss?.name ?? sim.area} · phase ${boss?.phase ?? sim.boss?.phase ?? 1}\n${boss?.warning ?? sim.boss?.state ?? sim.valve?.phase}\n${boss?.state ?? ''} · warning ${t?.remaining.toFixed(2) ?? '—'}s · damage events ${attacks}\nCPU p95 ${sorted[Math.floor(sorted.length * .95)]?.toFixed(2) ?? '0'}ms · ${sim.enemies.length} enemies\nStates: ${[...stateChanges].join(', ')}`;
+      }
+    }
+  } catch (e) { fail(e); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script></body></html>

@@ -101,6 +101,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       view.hit = Math.max(0, view.hit - dt * 7);
       const throb = reduceMotion ? 0 : Math.sin(world.clock * 3.1) * .025;
       view.model.scale.set(1 + throb + view.hit * .07, 1 - throb - view.hit * .06, 1);
+      if (view.attackMembrane) view.attackMembrane.emissiveIntensity = view.membraneIntensity + (enemy.telegraph ? .8 : 0) + view.hit * .5;
       if (!reduceMotion) animatePathogen(view.motion, dt);
       view.shadow.visible = false;
       continue;

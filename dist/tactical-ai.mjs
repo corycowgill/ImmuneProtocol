@@ -5,6 +5,7 @@ const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const playerKey = player => 'player:' + (player.id ?? 'solo');
 const point = p => ({ x: p.x, y: p.y ?? 1.7, z: p.z });
+const majorBossAttacks = new Set(['charge', 'slam', 'eruption', 'pull', 'pulse']);
 const ordinary = e => !e.boss && !e.segmentOf && !e.nest && !e.tutorial && e.type !== 'colony';
 
 export class EnemyMemory {
@@ -56,7 +57,14 @@ export class EncounterDirector {
   acquire(enemy, target, duration = 1.5) {
     const now = this.world.sim.clock;
     if (this.pressure.has(enemy.id)) return true;
-    const scripted = this.world.sim.enemies.filter(e => (e.boss || e.type === 'colony') && e.health > 0).length + Number(!!this.world.sim.boss);
+    let scripted = 0;
+    for (const e of this.world.sim.enemies) {
+      if (!(e.boss || e.type === 'colony') || e.health <= 0) continue;
+      const active = (e.boss === 'thrombus' && e.state === 'charge') || (e.boss === 'macrophage' && e.state === 'pull');
+      scripted += active || (e.telegraph?.remaining > 0 && majorBossAttacks.has(e.telegraph.kind)) ? 2 : 1;
+    }
+    const brain = this.world.sim.boss;
+    if (brain && brain.state !== 'defeated') scripted += brain.state === 'warning' ? 2 : 1;
     const tissue = [...this.pressure.values()].filter(s => s.target === 'tissue').length;
     if (now < this.nextAttack || this.pressure.size + Math.min(2, scripted) >= this.limit ||
         (target === 'tissue' && tissue >= this.tissueLimit)) return false;
