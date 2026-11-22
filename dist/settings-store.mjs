@@ -18,6 +18,7 @@ export const coopNameKey = 'immune-protocol.coop-name';
 export const megaVirusKey = 'immune-protocol.mega-virus-reached';
 export const musicVolumeKey = 'immune-protocol.music-volume';
 export const effectsVolumeKey = 'immune-protocol.effects-volume';
+export const briefingsSeenKey = 'immune-protocol.briefings-seen';
 
 export function readSetting(key) {
   try { return localStorage.getItem(key); } catch { return null; }
