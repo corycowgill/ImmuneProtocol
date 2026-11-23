@@ -28,7 +28,7 @@ function placement(random, nodes, obstacles, floorHeight) {
   const clear = (x, z, gap) => !nodes.some(node => Math.hypot(node.x - x, node.z - z) < 4.5 + gap) &&
     !obstacles.some(([ox, oz, radius]) => Math.hypot(ox - x, oz - z) < radius + .6 + gap);
   return {
-    floorHeight,
+    floorHeight, nodes, obstacles,
     // A floor point clear of nodes and obstacles, or null.
     inside(gap = 0, reach = .96) {
       for (let attempt = 0; attempt < 40; attempt++) {
@@ -527,18 +527,204 @@ function colon(root, random, place, time) {
   }, { rise: 1, height: 5, size: .22, speed: .14, style: 'bubble', color: 0xe8f0b0, opacity: .6 });
 }
 
+// ---------------------------------------------------------------- ground decals and edge debris
+
+// Decal colours per arena: vessels, bruises, healed scars and glossy mucus film. The Heart Valve's
+// small scripted chamber keeps its own dressing.
+const DECALS = {
+  artery: { vein: 0x4a0a10, bruise: 0x5a1820, scar: 0xe8b4a8, film: 0xfff0e0, debris: ['red-cell', 0x8a2a28] },
+  junction: { vein: 0x4a0a10, bruise: 0x5a1820, scar: 0xe8b4a8, film: 0xfff0e0, debris: ['red-cell', 0x8a2a28] },
+  lungs: { vein: 0x9a3a52, bruise: 0xb06478, scar: 0xfff0f4, film: 0xffffff, debris: ['leukocyte', 0xe0b0bc] },
+  stomach: { vein: 0x6a2a18, bruise: 0x8a5a28, scar: 0xf8e0b8, film: 0xf4f0b0, debris: ['mucosa', 0xb07848] },
+  intestines: { vein: 0x7a2228, bruise: 0x9a4a48, scar: 0xffe0d8, film: 0xfff4e8, debris: ['mucosa', 0xc07870] },
+  colon: { vein: 0x4a3014, bruise: 0x5a6028, scar: 0xf0e0b8, film: 0xe8f0b0, debris: ['biofilm', 0x7a6a38] },
+  lymph: { vein: 0x5a4a8a, bruise: 0x7a7aa8, scar: 0xf4f4ff, film: 0xf0f4ff, debris: ['leukocyte', 0xc8c4dc] },
+  ear: { vein: 0x3a5a8a, bruise: 0x6a7aa0, scar: 0xf0f8ff, film: 0xe8f8ff, debris: ['leukocyte', 0xb8c0d8] },
+  brain: { vein: 0x4a2a7a, bruise: 0x6a4a90, scar: 0xf0e8ff, film: 0xf4ecff, debris: ['neural', 0x9a80b8] },
+};
+
+// One soft-edged white decal shape on a small canvas; colour comes from the material.
+function decalTexture(kind) {
+  const size = 256, canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  let seed = kind.length * 977;
+  const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+  ctx.lineCap = ctx.lineJoin = 'round';
+  if (kind === 'vein') {
+    const branch = (x, y, angle, width, length, depth) => {
+      ctx.lineWidth = width;
+      ctx.strokeStyle = `rgba(255,255,255,${.5 + depth * .1})`;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      for (let i = 0; i < 6; i++) {
+        angle += (random() - .5) * .6;
+        x += Math.cos(angle) * length / 6;
+        y += Math.sin(angle) * length / 6;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      if (depth > 0) {
+        branch(x, y, angle - .5 - random() * .5, width * .65, length * .7, depth - 1);
+        branch(x, y, angle + .5 + random() * .5, width * .65, length * .7, depth - 1);
+      }
+    };
+    for (let i = 0; i < 3; i++) branch(size / 2, size / 2, i / 3 * Math.PI * 2 + random(), 7, 46, 3);
+  } else if (kind === 'scar') {
+    ctx.strokeStyle = 'rgba(255,255,255,.85)';
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.moveTo(30, size / 2);
+    ctx.bezierCurveTo(90, size / 2 - 30, 160, size / 2 + 30, 226, size / 2);
+    ctx.stroke();
+    ctx.lineWidth = 3;
+    for (let x = 46; x < 220; x += 16) {
+      ctx.beginPath();
+      ctx.moveTo(x, size / 2 - 14);
+      ctx.lineTo(x + 4, size / 2 + 14);
+      ctx.stroke();
+    }
+  } else {
+    for (let i = 0; i < (kind === 'bruise' ? 16 : 10); i++) {
+      const a = random() * Math.PI * 2, d = random() * size * .22;
+      const x = size / 2 + Math.cos(a) * d, y = size / 2 + Math.sin(a) * d, r = size * (.1 + random() * .16);
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
+      gradient.addColorStop(0, `rgba(255,255,255,${kind === 'bruise' ? .5 : .6})`);
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+    }
+  }
+  // Fade every shape out before the edge so no decal shows a square border.
+  ctx.globalCompositeOperation = 'destination-in';
+  const edge = ctx.createRadialGradient(size / 2, size / 2, size * .3, size / 2, size / 2, size * .5);
+  edge.addColorStop(0, 'rgba(0,0,0,1)');
+  edge.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = edge;
+  ctx.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+// Flat decals, each a small grid laid onto the uneven floor, merged into one mesh per kind.
+function groundDecals(root, random, place, area) {
+  if (typeof document === 'undefined') return;
+  const palette = DECALS[area] ?? DECALS.artery;
+  const spots = { vein: [], bruise: [], scar: [], film: [] };
+  for (const node of place.nodes) {
+    for (let i = 0; i < 26; i++) {
+      const a = random() * TAU, r = 4.6 + random() * 7;
+      spots.vein.push([node.x + Math.cos(a) * r, node.z + Math.sin(a) * r, 1.6 + random() * 2.6]);
+    }
+    for (let i = 0; i < 6; i++) {
+      const a = random() * TAU, r = 4.6 + random() * 3;
+      spots.bruise.push([node.x + Math.cos(a) * r, node.z + Math.sin(a) * r, 2 + random() * 2.5]);
+    }
+  }
+  for (const [x, z, radius] of place.obstacles) {
+    for (let i = 0; i < 5; i++) {
+      const a = random() * TAU, r = radius + .4 + random() * 2.2;
+      spots.bruise.push([x + Math.cos(a) * r, z + Math.sin(a) * r, 1.6 + random() * 2.4]);
+    }
+  }
+  for (let i = 0; i < 70; i++) {
+    const spot = place.inside(-1);
+    if (spot) spots.vein.push([...spot, 1.2 + random() * 2.4]);
+  }
+  for (let i = 0; i < 50; i++) {
+    const [x, z] = place.rim(.86, .96);
+    spots.scar.push([x, z, 1.2 + random() * 2.2]);
+  }
+  for (let i = 0; i < 60; i++) {
+    const spot = place.inside(-1.5);
+    if (spot) spots.film.push([...spot, 1 + random() * 3]);
+  }
+  const grid = 6;
+  for (const [kind, list] of Object.entries(spots)) {
+    if (!list.length) continue;
+    const positions = [], uvs = [], normals = [], colors = [], index = [];
+    for (const [x, z, size] of list) {
+      const angle = random() * TAU, cos = Math.cos(angle), sin = Math.sin(angle);
+      const shade = .8 + random() * .4;
+      const base = positions.length / 3;
+      for (let j = 0; j <= grid; j++) {
+        for (let i = 0; i <= grid; i++) {
+          const u = i / grid, v = j / grid, lx = (u - .5) * size, lz = (v - .5) * size;
+          const wx = x + lx * cos - lz * sin, wz = z + lx * sin + lz * cos;
+          positions.push(wx, place.floorHeight(wx, wz) + .028, wz);
+          uvs.push(u, v);
+          normals.push(0, 1, 0);
+          colors.push(shade, shade, shade);
+          if (i < grid && j < grid) {
+            const k = base + j * (grid + 1) + i;
+            index.push(k, k + grid + 1, k + 1, k + 1, k + grid + 1, k + grid + 2);
+          }
+        }
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setIndex(index);
+    const material = new THREE.MeshStandardMaterial({
+      map: decalTexture(kind), color: palette[kind], vertexColors: true, transparent: true, depthWrite: false,
+      opacity: kind === 'film' ? .5 : kind === 'scar' ? .55 : .75, roughness: kind === 'film' ? .05 : .55,
+      metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = 'ground-decals-' + kind;
+    mesh.renderOrder = 1;
+    root.add(mesh);
+  }
+}
+
+// Debris drifted against things the way real sediment collects: around obstacle bases, in a
+// ring just outside each node's clear zone, and along the foot of the walls.
+function edgeDebris(root, random, place, area) {
+  const [texture, base] = (DECALS[area] ?? DECALS.artery).debris;
+  const material = bioMaterial(texture, [1, 1], { color: base, roughness: .3, clearcoat: .8, clearcoatRoughness: .2 });
+  const items = [];
+  const add = (x, z, scale) => items.push({ x, y: place.floorHeight(x, z) - scale * .25, z, rx: random() * TAU, ry: random() * TAU,
+    rz: random() * TAU, sx: scale, sy: scale * (.5 + random() * .4), sz: scale * (.7 + random() * .5), color: tint(random, 1.05, .35) });
+  for (const [x, z, radius] of place.obstacles) {
+    const count = Math.round(radius * 16);
+    for (let i = 0; i < count; i++) {
+      const a = random() * TAU, r = radius + .15 + Math.pow(random(), 2) * 1.8;
+      add(x + Math.cos(a) * r, z + Math.sin(a) * r, .08 + Math.pow(random(), 2) * .32 * (1 - (r - radius) / 2.2));
+    }
+  }
+  for (const node of place.nodes) {
+    for (let i = 0; i < 40; i++) {
+      const a = random() * TAU, r = 4.7 + Math.pow(random(), 1.5) * 2.4;
+      add(node.x + Math.cos(a) * r, node.z + Math.sin(a) * r, .06 + random() * .16);
+    }
+  }
+  for (let i = 0; i < 520; i++) {
+    const [x, z] = place.rim(.88, .99);
+    add(x, z, .1 + Math.pow(random(), 2) * .45);
+  }
+  return instanced(root, lumpySphere(0, .4, 71), material, items, { name: 'edge-debris', cell: 21 });
+}
+
 const DETAILS = { artery: bloodstream, junction: bloodstream, lungs, stomach, ear, lymph, brain, intestines, colon };
 
 // Adds an arena's dressing to `root`. Returns a setQuality(high) function.
 export function addLevelDetails(area, root, { random, time, nodes = [], obstacles = [], floorHeight = () => 0 }) {
-  const build = DETAILS[area];
-  if (!build) return () => {};
+  if (!DECALS[area]) return () => {};
   const group = new THREE.Group();
   group.name = 'level-details-' + area;
   root.add(group);
   const place = placement(random, nodes, obstacles, floorHeight);
   keepClear = (x, z) => place.clear(x, z, -.5);
-  const quality = build(group, random, place, time);
+  const quality = DETAILS[area]?.(group, random, place, time);
+  groundDecals(group, random, place, area);
+  const debris = edgeDebris(group, random, place, area);
   keepClear = () => true;
-  return typeof quality === 'function' ? quality : () => {};
+  return high => {
+    if (typeof quality === 'function') quality(high);
+    debris?.setFraction(high ? 1 : .5);
+  };
 }

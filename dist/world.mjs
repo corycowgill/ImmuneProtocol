@@ -4,7 +4,8 @@ import { COOP_SUITS, loadSuitModels } from './suits.mjs';
 import { ExplosionFX } from './explosions.mjs';
 import { DeathFX } from './death-fx.mjs';
 import { PostFX } from './post-fx.mjs';
-import { addCaustics, addTissueSheen } from './surface-fx.mjs';
+import { addTissueSheen } from './surface-fx.mjs';
+import { paintGround, patchGround } from './ground-fx.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve } from './heart-valve.mjs';
 import { createTurret } from './turret.mjs';
@@ -154,6 +155,8 @@ export class World {
     this.baseShellMaterials = [this.room.floor.material, this.room.wall.material, this.room.canopy.material];
     // The bloodstream arenas share the base floor; each organ gets its own patched clone below.
     this.surfaceTime = { value: 0 };
+    // Close-range ground detail and the second blended tissue; off on Low quality.
+    this.groundDetail = { value: LOW_MEMORY ? 0 : 1 };
     addTissueSheen(this.room.wall.material, 0xffc4b4, .2, 'blood-wall');
     addTissueSheen(this.room.canopy.material, 0xffc4b4, .15, 'blood-canopy');
     this.causticFloors = new Map();
@@ -328,7 +331,7 @@ export class World {
         material.normalScale.setScalar(index === 0 ? .32 : .53);
         material.roughness = index === 0 ? .83 : .76;
         material.clearcoat = index === 0 ? .29 : .37;
-        if (index === 0) return addCaustics(material, this.surfaceTime, area);
+        if (index === 0) return this.dressGround(material, area);
         const sheen = new THREE.Color(profile.back ?? profile.accent).lerp(new THREE.Color(0xffffff), .5);
         return addTissueSheen(material, sheen, index === 1 ? .2 : .15, area + '-' + index);
       });
@@ -354,7 +357,7 @@ export class World {
     [floor.material, wall.material, canopy.material] = this.organEnvironment?.shell ?? this.baseShellMaterials;
     if (!this.organEnvironment) {
       // Artery, junction and heart share the base floor's look but each has its own caustic tint.
-      if (!this.causticFloors.has(this.area)) this.causticFloors.set(this.area, addCaustics(this.baseShellMaterials[0].clone(), this.surfaceTime, this.area));
+      if (!this.causticFloors.has(this.area)) this.causticFloors.set(this.area, this.dressGround(this.baseShellMaterials[0].clone(), this.area));
       floor.material = this.causticFloors.get(this.area);
     }
     canopy.scale.y = heart ? .54 : junction ? .63 : profile ? .85 : 1;
@@ -458,12 +461,20 @@ export class World {
     }
   }
 
+  // Gives an arena's floor its unique painted ground, blended tissue, wetness and caustics.
+  dressGround(material, area) {
+    const maps = paintGround(area, { nodes: TISSUE_NODES[area] ?? [], obstacles: arenaObstacles(area), size: LOW_MEMORY ? 1024 : 2048 });
+    if (maps) for (const texture of [maps.macro, maps.mask]) texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    return patchGround(material, { time: this.surfaceTime, area, maps, detail: this.groundDetail });
+  }
+
   setQuality(quality) {
     const low = quality === 'low';
     const next = low ? 'low' : 'high';
     if (next === this.quality) return;
     this.quality = next;
     this.renderer.shadowMap.enabled = !low;
+    if (this.groundDetail) this.groundDetail.value = low ? 0 : 1;
     this.weaponKey.castShadow = !low;
     this.weaponKey.shadow.needsUpdate = !low;
     const { growths, cilia } = this.room;

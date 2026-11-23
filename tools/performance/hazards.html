@@ -2,7 +2,7 @@
 <style>body{margin:20px;background:#131918;color:#dff2d9;font:14px/1.5 monospace}canvas{width:960px;height:540px;max-width:100%}button,select{margin:5px;padding:8px}</style>
 <h1>Organ hazards and set dressing</h1><p id="status">Loading…</p>
 <select id="area"></select><select id="phase"><option>active</option><option>warning</option><option>recovery</option></select>
-<select id="view"><option>hazard</option><option>overview</option><option>floor</option></select>
+<select id="view"><option>hazard</option><option>overview</option><option>floor</option><option>ground</option></select>
 <canvas id="world"></canvas>
 <script type="module">
 // Loads one organ arena, holds its hazard in a chosen phase (moving hazards sweep on their own
@@ -49,10 +49,12 @@ try {
     const back = Math.max(13, reach * 1.7);
     if (view === 'hazard') Object.assign(player, { x: state.x + back * .45, y: 3.4 + reach * .2, z: state.z + back });
     else if (view === 'overview') Object.assign(player, { x: 10, y: 6, z: 40 });
+    // A long stretch of open floor at standing height, where repetition shows most.
+    else if (view === 'ground') Object.assign(player, { x: 14, y: 1.7, z: 44 });
     else Object.assign(player, { x: state.x - 2, y: 1.7, z: state.z + reach + 6 });
-    const look = view === 'overview' ? { x: 0, z: -6 } : state;
+    const look = view === 'overview' ? { x: 0, z: -6 } : view === 'ground' ? { x: -4, z: 8 } : state;
     player.yaw = Math.atan2(player.x - look.x, player.z - look.z);
-    player.pitch = -Math.atan2(player.y - 1.2, Math.hypot(player.x - look.x, player.z - look.z));
+    player.pitch = view === 'ground' ? -.32 : -Math.atan2(player.y - 1.2, Math.hypot(player.x - look.x, player.z - look.z));
   }
   function step(dt) {
     clock += dt; sim.clock = clock;
