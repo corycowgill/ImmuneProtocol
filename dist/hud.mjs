@@ -7,8 +7,6 @@ import { JUNCTION_INLETS, RULES } from './simulation.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { drawWeaponHud, weaponName } from './arsenal-ui.mjs';
 import { levelBossStatus } from './level-bosses.mjs';
-import { BossTelegraphView } from './boss-telegraphs.mjs';
-import { EncounterView } from './encounter-ui.mjs';
 import { compactHud, shortNodeName, importantNode, fieldTargets } from './hud-layout.mjs';
 import { floorHeight } from './arena-scene.mjs';
 import { session } from './session.mjs';
@@ -16,8 +14,6 @@ import { byId, isTouch, reducedMotion, pad, clamp, setText } from './dom.mjs';
 import { missionName } from './mission-text.mjs';
 
 export const game = byId('game');
-const bossTelegraphs = new BossTelegraphView(game);
-const encounterView = new EncounterView(game);
 let compact = false, layoutKey = '';
 function syncHudLayout() {
   const width = window.innerWidth, height = window.innerHeight;
@@ -347,18 +343,18 @@ function drawBossHud() {
   setText(byId('boss-name'), name);
   if (bossHealth.getAttribute('aria-label') !== name + ' health') bossHealth.setAttribute('aria-label', name + ' health');
   if (levelBoss) {
-    // The same bar serves every level boss: its name, health, and what it is doing right now.
-    bossHud.dataset.state = levelBoss.warning ? 'warning' : levelBoss.state === 'hidden' ? 'sealed' : levelBoss.state;
-    setText(bossPhase, levelBoss.detail);
+    // The same bar serves every level boss: its name and health. What it is doing shows only in
+    // the boss itself.
+    bossHud.dataset.state = 'warning';
+    setText(bossPhase, '');
     const percent = Math.ceil(levelBoss.health * 100 / levelBoss.maxHealth);
     if (bossHealth.getAttribute('aria-valuenow') !== String(percent)) {
       bossHealth.setAttribute('aria-valuenow', percent);
       bossHealthFill.style.width = percent + '%';
     }
-    setText(bossStatus, levelBoss.warning || (levelBoss.state === 'hidden' ? 'Burrowed' : levelBoss.state === 'exposed' ? 'Exposed' : levelBoss.state === 'sealed' ? 'Armoured' : percent + '%'));
-    setText(bossStatusDetail, levelBoss.hint);
-    bossTime.hidden = !(levelBoss.remaining > 0);
-    setText(bossTime, Math.max(0, levelBoss.remaining).toFixed(1) + 's');
+    setText(bossStatus, percent + '%');
+    setText(bossStatusDetail, '');
+    bossTime.hidden = true;
     return;
   }
   if (!boss) return;
@@ -527,7 +523,6 @@ export function drawPlayerScores(results, complete) {
 
 export function drawHud() {
   syncHudLayout();
-  encounterView.update(session.sim);
   const { player, tissue, wave, waves, remaining, phase, intermission, valve } = session.sim;
   drawScoreboard();
   const suitPercent = Math.ceil(player.health);
@@ -797,12 +792,6 @@ const fieldMarkers = new Map();
 function drawFieldMarkers(top, width, height, occupied) {
   const targets = [];
   const encounter = session.sim.encounter;
-  if (encounter && ['warning', 'holding'].includes(encounter.stage) && session.sim.phase === 'combat' && !session.sim.enemies.some(e => e.boss)) {
-    for (const [index, approach] of encounter.approaches.entries()) targets.push({
-      key: `encounter-${encounter.id}-${index}`, kind: 'encounter', label: approach.label,
-      x: approach.x, y: 2.5, z: approach.z, detail: `${encounter.name} · ${Math.ceil(encounter.remaining)}s`,
-    });
-  }
   for (const enemy of session.sim.enemies) {
     if (enemy.nest) targets.push({ key: 'nest' + enemy.id, kind: 'nest', label: 'BROOD NEST', x: enemy.x, y: enemy.y + enemy.radius + .5, z: enemy.z,
       detail: Math.ceil(100 * enemy.health / enemy.maxHealth) + '%' });
@@ -882,36 +871,11 @@ function worldMarkerBottom(height, fraction) {
   return compact ? height - 170 : height * fraction;
 }
 
+// Pathogens are read from the pathogens themselves: no icon, text or overlay marks what one is
+// doing. Clears anything a previous build left on screen.
 export function drawAttackers() {
-  bossTelegraphs.update(session.sim, session.world, floorHeight);
-  const active = new Set();
-  for (const enemy of session.sim.enemies) {
-    const telegraph = enemy.type + '-windup';
-    const warning = enemy.tutorial ? '' : enemy.warning || (enemy.action.endsWith('-windup') ?
-      attackWarnings[telegraph] ?? attackWarnings[enemy.action] : '');
-    if (!enemy.attackingTissue && !warning) continue;
-    const point = session.world.project(enemy.x, enemy.y + enemy.radius + .17, enemy.z);
-    if (!point.visible || point.y < worldMarkerTop(105) || point.x < 17 || point.x > window.innerWidth - 17) continue;
-    active.add(enemy.id);
-    let icon = attackerMarkers.get(enemy.id);
-    if (!icon) {
-      icon = document.createElement('div');
-      icon.className = 'attacker-marker compact';
-      if (enemy.branch) icon.dataset.branch = enemy.branch;
-      icon.append(document.createElement('span'));
-      attackerMarkers.set(enemy.id, icon);
-      tissueAttackers.append(icon);
-    }
-    // Only a small chevron marks an attacker: no text names what the pathogen is doing.
-    icon.classList.toggle('winding-up', !!warning);
-    icon.style.left = point.x + 'px';
-    icon.style.top = point.y + 'px';
-  }
-  for (const [id, icon] of attackerMarkers) {
-    if (active.has(id)) continue;
-    icon.remove();
-    attackerMarkers.delete(id);
-  }
+  for (const icon of attackerMarkers.values()) icon.remove();
+  attackerMarkers.clear();
 }
 
 export function drawBranches() {

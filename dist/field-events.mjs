@@ -71,10 +71,7 @@ export function applyEvents() {
       session.audio.play({ ...event, pan, distance });
     } else if (event.type !== 'mission') session.audio.play(event);
     if (event.type === 'boss') {
-      if (event.stage === 'phase' && event.phase > 1) {
-        const text = event.phase === 2 ? 'THE SIGNAL IS JUMPING BETWEEN CORES' : 'SHELLBACKS AND SPLITTERS INBOUND';
-        announce('MEGA VIRUS · PHASE ' + event.phase, text, 2.5);
-      } else if (event.stage === 'defeated') {
+      if (event.stage === 'defeated') {
         announce('MEGA VIRUS DOWN', 'CLEAR SURVIVING PATHOGENS', 2.5);
       }
     }
@@ -84,17 +81,13 @@ export function applyEvents() {
       if (event.stage === 'blocked') announce(event.name.toUpperCase() + ' BLOCKED', 'REOPEN IT TO RESTART THE BREATH', 2.6);
       if (event.stage === 'hold') announce('BOTH BRONCHI OPEN', 'HOLD THROUGH ONE FULL BREATH', 2.8);
       if (event.stage === 'secured') announce('AIRFLOW RESTORED', session.sim.enemies.length ? 'CLEAR SURVIVING PATHOGENS' : '', 2.4);
-      if (event.stage === 'incoming') announce('PATHOGENS INBOUND', event.name.toUpperCase(), 1.9);
     }
     if (event.type === 'gastric') {
       if (event.stage === 'start') announce('CLOSE THE INTAKE', 'HOLD REPAIR AT THE WEST BANK', 2.8);
       if (event.stage === 'intake-closed') announce('INTAKE CLOSED', 'ACID REROUTED · HEAD TO THE DRAIN', 2.7);
       if (event.stage === 'draining') announce('DRAIN OPEN', 'WATCH THE LOWER PASSAGE', 2.5);
-      if (event.stage === 'flank') announce('FLANK ATTACK', 'DEFEND BOTH TISSUE NODES', 2.5);
-      if (event.stage === 'counterattack') announce('PATHOGENS INBOUND', event.name, 2);
     }
     if (event.type === 'levelBoss') {
-      if (event.stage === 'phase') announce(event.name.toUpperCase() + ' · PHASE ' + event.phase, 'ITS PATTERN IS ACCELERATING · KEEP WATCHING THE WINDUPS', 2.5);
       if (event.stage === 'arrive') {
         session.audio.play({ type: 'boss', stage: 'phase', x: event.x, z: event.z });
         announce(event.name.toUpperCase(), event.hint, 4.2);
@@ -103,12 +96,6 @@ export function applyEvents() {
         session.audio.play({ type: 'boss', stage: 'defeated', x: event.x, z: event.z });
         announce(event.name.toUpperCase() + ' DOWN', session.sim.enemies.length ? 'CLEAR WHAT IS LEFT' : '+2,500 SCORE', 3);
       }
-      const opening = {
-        stunned: ['STUNNED', 'ITS ARMOUR IS DOWN · UNLOAD'], knocked: ['KNOCKED LOOSE', 'HIT IT BEFORE IT LATCHES AGAIN'],
-        broken: ['PULL BROKEN', 'IT IS REELING · UNLOAD'], exposed: ['HEAD EXPOSED', 'EVERY SEGMENT IS GONE'],
-        split: ['IT SPLIT', 'BROOD INBOUND'], enrage: ['IT IS MOVING', 'PULSES COME FASTER NOW'],
-      }[event.ability];
-      if (event.stage === 'ability' && opening) announce(...opening, 2.2);
       if (event.stage === 'ability' && ['charge', 'slam', 'pull', 'pulse-warning', 'burrow', 'volley'].includes(event.ability)) {
         session.audio.play({ type: 'boss', stage: 'warning', x: event.x, z: event.z });
       }
@@ -178,7 +165,7 @@ export function applyEvents() {
         const pattern = session.sim.junctionWave;
         const lane = pattern && branches[pattern.lane]?.name;
         const support = session.sim.events.find(item => item.type === 'junctionSupply')?.choice;
-        let detail = lane ? lane + ' INLET' : 'PATHOGENS INBOUND';
+        let detail = lane ? lane + ' INLET' : '';
         if (session.sim.boss) detail = 'WATCH FOR THE PULSING CORE';
         else if (session.sim.overtime) detail = 'TEAL BREACH · AMBER SPORE PRESSURE';
         else if (support === 'ammo') detail = 'MAGAZINES LOADED';
