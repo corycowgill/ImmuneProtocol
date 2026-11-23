@@ -66,9 +66,9 @@ export function updateWeapon(world, sim, dt, input, aiming, reduceMotion) {
     const strike = feel.bash > 0 ? smoothstep(t, .14, .3) * (1 - smoothstep(t, .42, 1)) : 0;
     const toss = Math.sin(Math.min(1, 1 - feel.throw) * Math.PI) * (feel.throw > 0 ? 1 : 0);
     model.position.x += wind * .05 - strike * .16 - feel.side * feel.rush * .06;
-    model.position.y += strike * .07 - toss * .3 + feel.dip * .35;
+    model.position.y += strike * .07 - toss * .16 + feel.dip * .35;
     model.position.z += wind * .1 - strike * .34 + feel.rush * Math.max(0, feel.forward) * .05;
-    model.rotation.x += -wind * .25 + strike * .12 - toss * .55;
+    model.rotation.x += -wind * .25 + strike * .12 - toss * .3;
     model.rotation.y += strike * .95 - wind * .2;
     model.rotation.z += strike * .55 + toss * .4 + feel.side * feel.rush * .12;
   }

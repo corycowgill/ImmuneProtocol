@@ -156,7 +156,7 @@ export class AbilityFX {
     }
     if (event.type === 'melee' && event.hits) {
       for (const target of event.targets ?? []) {
-        this.ring(target.x, target.y, target.z, 0xfff1c9, 1.1, .22, false).facing = true;
+        this.ring(target.x, target.y, target.z, 0xffc98a, .65, .18, false).facing = true;
       }
     }
     if (event.type === 'throw' && event.stage === 'bounce' && !reduceMotion) {
