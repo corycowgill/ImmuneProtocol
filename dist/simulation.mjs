@@ -9,6 +9,7 @@ import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-o
 import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
+import { abilityState, dodges, knockBack, moveAbilities, restockThrowables, throwItems, updateThrowables, useMelee } from './abilities.mjs';
 import {
   DEFAULT_WEAPON_STATS, WEAPON_SLOTS, TURRET_BASE, legacyWeaponLoadout, normalizeTurretBuild, turretStats, loadoutInSlot, magazineCapacity, normalizeWeaponLoadout,
   otherSlot, weaponStats,
@@ -508,6 +509,7 @@ export class Simulation {
     this.enemies = [];
     this.nextProjectileId = 1;
     this.projectiles = [];
+    this.throwables = [];
     this.turretCharges = 1;
     this.turret = null;
     this.patrolIndex = 0;
@@ -569,6 +571,7 @@ export class Simulation {
     planFieldObjectives(this);
     planEncounters(this);
     this.applyJunctionSupply();
+    for (const suit of this.activeSuits()) restockThrowables(suit);
     this.events.push({ type: 'wave', wave: this.wave, stage: 'start' });
   }
 
@@ -656,6 +659,8 @@ export class Simulation {
     for (const node of this.nodes) node.health = checkpoint.nodes[node.id] ?? node.health;
     this.turretCharges = checkpoint.turretCharges;
     this.turret = checkpoint.turret ? { ...checkpoint.turret, cooldown: .6, targetId: null } : null;
+    this.throwables = [];
+    for (const suit of this.activeSuits()) restockThrowables(suit);
     this.junctionSupply = checkpoint.junctionSupply;
     this.junctionSupplyLocked = checkpoint.junctionSupplyLocked;
     if (checkpoint.overtime) {
@@ -735,6 +740,8 @@ export class Simulation {
   actSuits(dt, input) {
     if (input.deploy) this.deployTurret();
     this.carryTurret(!!input.carry);
+    useMelee(this, this, input, dt);
+    throwItems(this, this, input, dt);
     const repairing = this.updateRepair(dt, input.repair);
     this.updateRifle(dt, input, repairing);
   }
@@ -773,6 +780,7 @@ export class Simulation {
     }
     this.actSuits(dt, input);
     this.updateTurret(dt);
+    updateThrowables(this, dt);
 
     if (this.valve) {
       this.advanceEnemies(dt);
@@ -1106,6 +1114,11 @@ export class Simulation {
     player.yaw -= (input.lookX || 0) * sensitivity;
     player.pitch = clamp(player.pitch - (input.lookY || 0) * sensitivity, -1.46, 1.46);
 
+    // A dash carries the suit on its own; it still cannot pass through scenery.
+    if (moveAbilities(this, suit, input, dt)) {
+      this.confineToArena(player, true);
+      return;
+    }
     const strafe = input.moveX || 0;
     const forward = input.moveZ || 0;
     const diagonal = Math.max(1, Math.hypot(strafe, forward));
@@ -1114,6 +1127,7 @@ export class Simulation {
     if (this.organ?.phase === 'active' && this.organMission.hazard.slow && withinHazard(player, this.organ)) {
       speed *= this.organMission.hazard.slow;
     }
+    if (abilityState(suit).airborne) speed *= 1.05;
     const travel = speed * dt / diagonal;
     const sin = Math.sin(player.yaw);
     const cos = Math.cos(player.yaw);
@@ -1734,6 +1748,8 @@ export class Simulation {
     const boss = !!(enemy.boss || enemy.segmentOf);
     if (target === 'player') {
       if (!player || player.health <= 0) return;
+      // A dash's guard window turns the hit into a dodge.
+      if (dodges(this, player, origin)) return;
       const scale = boss ? BOSS_SUIT_DAMAGE : WAVE_SUIT_DAMAGE;
       player.health = Math.max(0, player.health - amount * scale);
       this.ai.director.recentDamage += amount * scale;
@@ -1769,6 +1785,13 @@ export class Simulation {
       if (enemy.type === 'colony') continue;
       if (enemy.nest) { advanceNest(this, enemy, dt, FRAGMENT); continue; }
       if (enemy.boss || enemy.segmentOf) { stepLevelBoss(this, enemy, dt); continue; }
+      // Stunned (stun charge, a bash) pathogens hang in place and do nothing until it wears off.
+      if (enemy.stunRemaining > 0) {
+        knockBack(this, enemy, dt);
+        enemy.stunRemaining = Math.max(0, enemy.stunRemaining - dt);
+        enemy.slowRemaining = Math.max(0, (enemy.slowRemaining ?? 0) - dt);
+        continue;
+      }
       const spec = enemy.fragment ? FRAGMENT : SPECIES[enemy.type];
       const reinforced = !!this.reinforcement && this.reinforcement.branch === enemy.branch;
       const speedFactor = (reinforced ? REINFORCED_SPEED : 1) * (enemy.slowRemaining > 0 ? TURRET_SLOW_FACTOR : 1);

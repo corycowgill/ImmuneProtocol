@@ -1,5 +1,5 @@
 const EDGE_BUTTONS = {
-  confirm: 0, back: 1, pause: 9, reload: 2, swap: 3, deploy: 5,
+  confirm: 0, back: 1, pause: 9, reload: 2, swap: 3, deploy: 5, melee: 11,
   up: 12, down: 13, left: 14, right: 15,
 };
 

@@ -4,6 +4,9 @@ import { attachLobby } from './coop-lobby.mjs';
 import { savedSuit } from './suits.mjs';
 import { COOP_PATH, COOP_HEALTH_PATH, COOP_PROTOCOL_VERSION, COOP_RECONNECT_MS, COOP_SERVICE, COOP_TICK_RATE } from './coop-protocol.mjs';
 
+// One-frame presses held until the next input packet, so a quick tap is never lost.
+const TAPS = ['jump', 'dash', 'melee', 'grenade', 'stun'];
+
 export const PUBLIC_COOP_ORIGIN = 'https://immune-protocol-coop.onrender.com';
 
 const INPUT_TICK = 1 / COOP_TICK_RATE;
@@ -257,6 +260,7 @@ export class CoopClient extends EventTarget {
       reload: this.buffer.reload || input.reload,
       deploy: this.buffer.deploy || input.deploy,
       swap: this.buffer.swap || input.swap,
+      ...Object.fromEntries(TAPS.map(tap => [tap, !!(this.buffer[tap] || input[tap])])),
     };
     this.elapsed += dt;
     while (this.elapsed >= INPUT_TICK) {
@@ -266,7 +270,7 @@ export class CoopClient extends EventTarget {
         this.pending.push(packet);
         if (this.pending.length > MAX_PENDING) this.pending.shift();
       }
-      this.buffer = { ...input, lookX: 0, lookY: 0, deploy: false, swap: false };
+      this.buffer = { ...input, lookX: 0, lookY: 0, deploy: false, swap: false, ...Object.fromEntries(TAPS.map(tap => [tap, false])) };
     }
   }
 
@@ -280,7 +284,9 @@ export class CoopClient extends EventTarget {
     const player = { ...state.player };
     if (this.connected && this.room?.phase === 'playing' && !this.room.reconnectDeadline && !player.downed) {
       const { weapon, valve, organ, organMission } = state;
-      const movement = { player, weapon, valve, organ, organMission, confineToArena: Simulation.prototype.confineToArena };
+      // The suit's dash and jump state rides along so prediction carries a dash through to its end.
+      const movement = { player, weapon, valve, organ, organMission, events: [], clock: state.clock,
+        ability: state.ability ? { ...state.ability } : undefined, confineToArena: Simulation.prototype.confineToArena };
       for (const packet of this.pending) Simulation.prototype.movePlayer.call(movement, INPUT_TICK, packet.input);
       Simulation.prototype.movePlayer.call(movement, this.elapsed, this.buffer);
     }
@@ -290,6 +296,7 @@ export class CoopClient extends EventTarget {
       players: blendActors(state.players, older?.players, ratio),
       enemies: blendActors(state.enemies, older?.enemies, ratio),
       projectiles: blendActors(state.projectiles, older?.projectiles, ratio),
+      throwables: blendActors(state.throwables ?? [], older?.throwables, ratio),
       events,
     });
     return this.view;

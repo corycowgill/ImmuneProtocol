@@ -174,7 +174,7 @@ export class PostFX {
     this.finish = shader(/* glsl */ `
       uniform sampler2D tInput, tBloom;
       uniform vec2 resolution;
-      uniform float time, exposure, bloom, saturation, contrast, vignette, aberration, grain;
+      uniform float time, exposure, bloom, saturation, contrast, vignette, aberration, grain, rush, focus;
       uniform vec3 tint, lift, gain;
       varying vec2 vUv;
       vec3 RRTAndODTFit(vec3 v) {
@@ -198,6 +198,13 @@ export class PostFX {
         // A faint lens fringe that grows toward the corners.
         vec2 shift = centered * edge * aberration * 40.;
         vec3 color = vec3(texture2D(tInput, vUv - shift).r, texture2D(tInput, vUv).g, texture2D(tInput, vUv + shift).b);
+        // A dash smears the frame outward from the centre: a short radial blur that spares the middle.
+        if (rush > .001) {
+          vec3 streak = color;
+          float reach = rush * .055 * smoothstep(.02, .3, edge);
+          for (int i = 1; i <= 6; i++) streak += texture2D(tInput, vUv - centered * reach * float(i) / 6.).rgb;
+          color = streak / 7.;
+        }
         color += texture2D(tBloom, vUv).rgb * bloom;
         color *= tint;
         color = aces(color);
@@ -205,7 +212,9 @@ export class PostFX {
         float luma = dot(color, vec3(.2126, .7152, .0722));
         color = mix(vec3(luma), color, saturation);
         color = (color - .5) * contrast + .5;
-        color *= 1. - vignette * smoothstep(.12, .62, edge * 1.6);
+        // A dodged hit: the world drains toward cold steel for a moment, the centre stays sharp.
+        color = mix(color, vec3(luma) * vec3(.82, .96, 1.12), focus * .7 * smoothstep(.0, .25, edge));
+        color *= 1. - (vignette + focus * .35) * smoothstep(.12, .62, edge * 1.6);
         color = clamp(color, 0., 1.);
         vec3 display = toSRGB(color);
         display += (hash(gl_FragCoord.xy + fract(time * 37.) * 311.) - .5) * grain;
@@ -214,7 +223,7 @@ export class PostFX {
     `, {
       tInput: { value: null }, tBloom: { value: null }, resolution: { value: new THREE.Vector2() },
       time: { value: 0 }, exposure: { value: 1 }, bloom: { value: .5 }, saturation: { value: 1 }, contrast: { value: 1 },
-      vignette: { value: .3 }, aberration: { value: 0 }, grain: { value: 0 },
+      vignette: { value: .3 }, aberration: { value: 0 }, grain: { value: 0 }, rush: { value: 0 }, focus: { value: 0 },
       tint: { value: new THREE.Vector3(1, 1, 1) }, lift: { value: new THREE.Vector3() }, gain: { value: new THREE.Vector3(1, 1, 1) },
     });
   }
@@ -320,6 +329,8 @@ export class PostFX {
     finish.vignette.value = options.vignette === false ? 0 : look.vignette;
     finish.aberration.value = reduceMotion || options.aberration === false ? 0 : look.aberration;
     finish.grain.value = reduceMotion || options.grain === false ? 0 : look.grain;
+    finish.rush.value = reduceMotion ? 0 : this.rush ?? 0;
+    finish.focus.value = this.focus ?? 0;
     finish.tint.value.set(...look.tint);
     finish.lift.value.set(...look.lift);
     finish.gain.value.set(...look.gain);

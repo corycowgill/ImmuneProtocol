@@ -10,6 +10,7 @@ import { levelBossStatus } from './level-bosses.mjs';
 import { compactHud, shortNodeName, importantNode, fieldTargets } from './hud-layout.mjs';
 import { floorHeight } from './arena-scene.mjs';
 import { session } from './session.mjs';
+import { ABILITIES } from './abilities.mjs';
 import { byId, isTouch, reducedMotion, pad, clamp, setText } from './dom.mjs';
 import { missionName } from './mission-text.mjs';
 
@@ -302,6 +303,21 @@ function drawNodeHud() {
   }
 }
 
+const abilityHud = byId('ability-hud');
+// The suit's throwables and how soon its dash and bash are ready (read by the canvas HUD).
+export function drawAbilityHud() {
+  const state = session.sim.ability;
+  abilityHud.hidden = !state || !!session.sim.tutorial;
+  if (abilityHud.hidden) return;
+  const gamepad = session.usingGamepad;
+  const set = (key, value) => { if (abilityHud.dataset[key] !== value) abilityHud.dataset[key] = value; };
+  set('grenades', String(state.grenades));
+  set('stuns', String(state.stuns));
+  set('dash', (1 - state.dashCooldown / ABILITIES.dash.cooldown).toFixed(2));
+  set('bash', (1 - state.meleeCooldown / ABILITIES.melee.cooldown).toFixed(2));
+  set('keys', gamepad ? 'D-pad up|D-pad down|B|RS' : isTouch ? '|||' : 'G|T|C|V');
+}
+
 export function drawTurretHud() {
   turretStatus.hidden = !!session.sim.tutorial;
   const turret = session.sim.turret;
@@ -525,6 +541,7 @@ export function drawHud() {
   drawNodeHud();
   drawWaveOutro();
   drawTurretHud();
+  drawAbilityHud();
   drawOrganHazard();
   drawBossHud();
   drawAirwayHud();

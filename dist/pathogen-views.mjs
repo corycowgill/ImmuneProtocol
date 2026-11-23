@@ -131,7 +131,11 @@ export function dressGuardModel(world) {
 
 export function updateEnemies(world, enemies, dt, reduceMotion = false) {
   for (const view of world.enemyViews.values()) view.present = false;
+  const frameDt = dt;
   for (const enemy of enemies) {
+    // A stunned pathogen's own motion all but stops while it twitches in place.
+    const stunned = enemy.stunRemaining > 0;
+    dt = stunned ? frameDt * .07 : frameDt;
     let view = world.enemyViews.get(enemy.id);
     // A fresh simulation restarts its ids: a view left from another species is not reused.
     if (view && view.type !== enemy.type) {
@@ -180,6 +184,11 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
     view.shadow.visible = true;
     if (view.tethers) for (const tether of view.tethers) tether.visible = !!enemy.latched;
     view.model.position.set(enemy.x, enemy.y, enemy.z);
+    if (stunned && !reduceMotion) {
+      view.model.position.x += (world.random() - .5) * .07;
+      view.model.position.y += (world.random() - .5) * .05;
+      view.model.position.z += (world.random() - .5) * .07;
+    }
     if (enemy.type === 'rogue-bot' || enemy.type === 'crawler') { updateBotView(world, enemy, view, dt, reduceMotion); continue; }
     if (enemy.type === 'colony') {
       view.hit = Math.max(0, view.hit - dt * 7);

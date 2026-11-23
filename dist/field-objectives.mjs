@@ -6,6 +6,8 @@
 // players off their node and across the full chamber.
 // The model spans two units across its roots and stands 0.7 tall; at this scale the mound is
 // about 4.4 m wide and 2.4 m high, resting on the floor with its centre at y.
+import { ABILITIES, abilityState } from './abilities.mjs';
+
 export const NEST = Object.freeze({
   model: 'nest', health: 640, radius: 1.95, y: 1.2, scale: 3.4,
   firstHatch: 5, hatchEvery: 6.5, hatchLimit: 8, score: 600,
@@ -109,6 +111,9 @@ export function stepFieldObjectives(sim, dt, arena) {
       player.health = Math.min(100, player.health + CACHE.heal);
       player.ammo = suit.magazineSize;
       suit.reloading = 0;
+      // A cache also packs one antibody grenade.
+      const kit = abilityState(suit);
+      kit.grenades = Math.min(ABILITIES.grenade.max, kit.grenades + 1);
       sim.score += CACHE.score;
       sim.creditPlayer(suit, CACHE.score);
       const event = { type: 'cache', stage: 'collect', id: cache.id, x: cache.x, y: cache.y, z: cache.z };

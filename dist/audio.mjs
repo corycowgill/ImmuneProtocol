@@ -45,6 +45,35 @@ const EFFECTS = [
 // Short procedural cues for the colon, lymph node and wave countdown, rendered once at load.
 const SYNTH_RATE = 44100;
 const SYNTHESIZED = {
+  // The suit's moves: dash whoosh, jump servo, landing thud, the shimmer of a perfect dodge, the
+  // bash's swing and crunch, the throw, a throwable's clink, and the stun charge's discharge.
+  'suit/dash': [.36, (t, noise) => {
+    const swell = Math.sin(Math.PI * Math.min(1, t / .36)) ** 2;
+    return noise(900 + 5200 * swell) * swell * .9 + Math.sin(2 * Math.PI * (72 * t)) * Math.exp(-t * 20) * .55;
+  }],
+  'suit/jump': [.2, (t, noise) => noise(2600) * Math.exp(-t * 15) * .45 +
+    Math.sin(2 * Math.PI * (170 * t + 320 * t * t)) * Math.exp(-t * 16) * .3],
+  'suit/land': [.32, (t, noise) => Math.sin(2 * Math.PI * (62 * t - 40 * t * t)) * Math.exp(-t * 13) +
+    noise(420) * Math.exp(-t * 17) * .7],
+  'suit/dodge': [.85, (t, noise) => {
+    const rise = Math.sin(2 * Math.PI * (380 * t + 760 * t * t)) * .22 * Math.min(1, t / .3) * Math.exp(-Math.max(0, t - .3) * 6);
+    const chime = t < .06 ? 0 : (Math.sin(2 * Math.PI * 1760 * (t - .06)) * .2 + Math.sin(2 * Math.PI * 2640 * (t - .06)) * .1) * Math.exp(-(t - .06) * 5);
+    return rise + chime + noise(7000) * .18 * Math.sin(Math.PI * Math.min(1, t / .5));
+  }],
+  'suit/bash-swing': [.2, (t, noise) => noise(1600 + 5000 * t / .2) * Math.sin(Math.PI * t / .2) * .75],
+  'suit/bash-hit': [.42, (t, noise) => Math.sin(2 * Math.PI * (92 * t - 70 * t * t)) * Math.exp(-t * 10) * 1.05 +
+    noise(1300) * Math.exp(-t * 24) * .95 + noise(5000) * Math.exp(-t * 60) * .35],
+  'suit/throw': [.28, (t, noise) => noise(3200) * Math.sin(Math.PI * t / .28) ** 2 * .55 +
+    Math.sin(2 * Math.PI * 2900 * t) * Math.exp(-t * 110) * .3],
+  'suit/bounce': [.15, (t, noise) => Math.sin(2 * Math.PI * 2280 * t) * Math.exp(-t * 34) * .38 +
+    Math.sin(2 * Math.PI * 3460 * t) * Math.exp(-t * 44) * .22 + noise(5200) * Math.exp(-t * 90) * .3],
+  'suit/stun': [1.15, (t, noise) => {
+    const crackle = noise(8200) * (Math.sin(2 * Math.PI * 41 * t) * Math.sin(2 * Math.PI * 67 * t) > .1 ? 1 : .2) * Math.exp(-t * 2.6) * .8;
+    const boom = Math.sin(2 * Math.PI * 52 * t) * Math.exp(-t * 7) * .85;
+    const whine = Math.sin(2 * Math.PI * (1250 * t - 420 * t * t)) * Math.exp(-t * 3.2) * .22;
+    return crackle + boom + whine;
+  }],
+  'suit/empty': [.16, t => (t < .06 || t > .09 ? Math.sin(2 * Math.PI * 520 * t) * .25 : 0) * Math.exp(-t * 6)],
   'field/laser-charge': [.95, t => (Math.sin(2 * Math.PI * (320 * t + 420 * t * t)) +
     .25 * Math.sin(2 * Math.PI * 1600 * t)) * Math.min(1, t / .03) * (.05 + .17 * t) * Math.min(1, (.95 - t) / .03)],
   'field/laser-fire': [.22, (t, noise) => (Math.sin(2 * Math.PI * (2600 * t - 4000 * t * t)) * .65 + noise(7000) * .2) *
@@ -462,6 +491,30 @@ export class GameAudio {
   play(event) {
     if (this.context?.state !== 'running') return;
     switch (event.type) {
+      case 'dash':
+        this.playSample('suit/dash', event.teammate ? .3 : .62, { pan: event.teammate ? this.spatialPan(event) : -event.side * .25, rate: .95 + Math.random() * .1 });
+        break;
+      case 'jump':
+        if (!event.teammate) this.playSample('suit/jump', .42, { rate: .95 + Math.random() * .1 });
+        break;
+      case 'land':
+        if (!event.teammate) this.playSample('suit/land', Math.min(.75, .25 + event.speed * .07), { rate: .9 + Math.random() * .15 });
+        break;
+      case 'dodge':
+        if (!event.teammate) this.playSample('suit/dodge', .7, { bus: this.master });
+        break;
+      case 'melee':
+        this.playSample('suit/bash-swing', event.teammate ? .25 : .5, { pan: event.teammate ? this.spatialPan(event) : 0, rate: .95 + Math.random() * .12 });
+        if (event.hits) this.playSample('suit/bash-hit', event.teammate ? .4 : .85, { pan: event.teammate ? this.spatialPan(event) : 0, rate: .9 + Math.random() * .15 });
+        break;
+      case 'throw':
+        if (event.stage === 'release') this.playSample('suit/throw', event.teammate ? .3 : .55, { pan: this.spatialPan(event) });
+        else if (event.stage === 'bounce') this.playSample('suit/bounce', .4 / (1 + (event.distance ?? 0) * .06), { pan: this.spatialPan(event), rate: event.kind === 'stun' ? .8 : 1.05 });
+        else if (event.stage === 'empty' && !event.teammate) this.playSample('suit/empty', .5);
+        break;
+      case 'stun':
+        this.playSample('suit/stun', .95 / (1 + (event.distance ?? 0) * .03), { pan: this.spatialPan(event) });
+        break;
       case 'shot': {
         // Shotgun pellets and rocket bursts share one report per trigger pull.
         if (event.pellet || event.blast) break;

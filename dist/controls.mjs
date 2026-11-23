@@ -14,6 +14,8 @@ import { turretStatus, junctionSupply, supplyButtons, drawJunctionStatus, drawTu
 export const controls = {
   leftButton: false, rightButton: false,
   fireTap: false, reloadTap: false, deployTap: false, swapTap: false,
+  // One-frame ability presses: jump, dash, melee and the two throwables.
+  jumpTap: false, dashTap: false, meleeTap: false, grenadeTap: false, stunTap: false,
   lookPointer: null, stickPointer: null,
   // The controller's state this frame, or null when it is not in use during play.
   xboxState: null,
@@ -37,8 +39,9 @@ const xbox = new GamepadInput();
 const xboxMenus = new GamepadMenu({ main: byId('menu'), onBack: backFromControllerMenu });
 export const keys = new Set();
 export const touch = { fire: false, repair: false, reload: false, carry: false, x: 0, z: 0 };
-export const input = { moveX: 0, moveZ: 0, lookX: 0, lookY: 0, fire: false, reload: false, repair: false, deploy: false, carry: false, sprint: false, aim: false, swap: false };
-const controlKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyR', 'KeyQ', 'KeyP', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'Escape']);
+export const input = { moveX: 0, moveZ: 0, lookX: 0, lookY: 0, fire: false, reload: false, repair: false, deploy: false, carry: false, sprint: false, aim: false, swap: false,
+  jump: false, dash: false, melee: false, grenade: false, stun: false };
+const controlKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyR', 'KeyQ', 'KeyP', 'Space', 'KeyC', 'KeyV', 'KeyF', 'KeyG', 'KeyT', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'Escape']);
 const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo' };
 const supplyPad = { left: 'left', right: 'right', up: 'ammo' };
 const supplyPadLabels = { left: '←', right: '→', ammo: '↑', turret: '↓' };
@@ -60,6 +63,7 @@ gameUi.bindControls({
   tap(name) {
     if (!playing()) return;
     if (name === 'swap' && !session.sim.tutorial) controls.swapTap = true;
+    if (['jump', 'dash', 'melee', 'grenade', 'stun'].includes(name)) controls[name + 'Tap'] = true;
     if (name === 'turret' && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
   },
   stick(value) { touch.x = value.x; touch.z = value.z; },
@@ -102,6 +106,7 @@ export function clearControls() {
   controls.fireTap = false;
   controls.reloadTap = false;
   controls.deployTap = false;
+  for (const tap of ['jumpTap', 'dashTap', 'meleeTap', 'grenadeTap', 'stunTap']) controls[tap] = false;
   controls.keyCarry = false;
   controls.padCarry = false;
   controls.swapTap = false;
@@ -174,6 +179,14 @@ export function controllerFrame(now) {
   if (current.pressed.deploy) controls.padCarry = !!session.sim.turret;
   if (!current.deploy) controls.padCarry = false;
   if (current.pressed.swap && !session.sim.tutorial) controls.swapTap = true;
+  // A jumps, B dashes, the right stick bashes; the D-pad throws (up: grenade, down: stun charge).
+  controls.jumpTap ||= current.pressed.confirm;
+  controls.dashTap ||= current.pressed.back;
+  controls.meleeTap ||= current.pressed.melee;
+  if (junctionSupply.hidden) {
+    controls.grenadeTap ||= current.pressed.up;
+    controls.stunTap ||= current.pressed.down;
+  }
   if (!junctionSupply.hidden) {
     const direction = Object.keys(supplyPad).find(key => current.pressed[key]);
     if (direction) supplyButtons.find(button => button.dataset.junctionSupply === supplyPad[direction])?.click();
@@ -238,7 +251,11 @@ window.addEventListener('keydown', event => {
     commands.pause();
     return;
   }
-  if (!event.repeat && event.code === 'Space') controls.fireTap = true;
+  if (!event.repeat && event.code === 'Enter') controls.fireTap = true;
+  if (!event.repeat) {
+    const tap = { Space: 'jumpTap', KeyC: 'dashTap', KeyV: 'meleeTap', KeyF: 'meleeTap', KeyG: 'grenadeTap', KeyT: 'stunTap' }[event.code];
+    if (tap) controls[tap] = true;
+  }
   if (!event.repeat && event.code === 'KeyR') controls.reloadTap = true;
   if (!event.repeat && event.code === 'KeyQ' && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
   // Holding Q on a placed turret drags it; the press that deploys one does not also pick it up.

@@ -223,6 +223,7 @@ export async function prepareArea(world, sim, warmTextures) {
   world.render(sim, .24, PRELOAD_INPUT, false, false);
   world.deaths?.warm(true, { x: start.x, y: 0, z: start.z - 6 });
   world.impacts?.warm(true, { x: start.x, y: 0, z: start.z - 5 });
+  world.abilityFx?.warm(true, { x: start.x, y: 1, z: start.z - 4 });
   for (const suit of LOW_MEMORY ? [null] : COOP_SUITS) {
     for (const teammate of sim.players.slice(1)) teammate.suit = suit;
     world.teammateView.update(sim.players, start.id, floorHeight, 0, false);
@@ -233,6 +234,7 @@ export async function prepareArea(world, sim, warmTextures) {
   }
   world.deaths?.warm(false);
   world.impacts?.warm(false);
+  world.abilityFx?.warm(false);
   world.explosions.clear();
 }
 

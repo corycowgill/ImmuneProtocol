@@ -29,7 +29,7 @@ test('maps the Xbox layout with rising edges for buttons and held combat actions
   pad.axes[0] = -1;
   const current = input.poll();
   assert.deepEqual(current.pressed, {
-    confirm: true, back: true, pause: true, reload: true, swap: false, deploy: true,
+    confirm: true, back: true, pause: true, reload: true, swap: false, deploy: true, melee: false,
     up: true, down: false, left: false, right: true,
   });
   assert.equal(current.moveX, -1);

@@ -137,6 +137,7 @@ let lastFrame = 0;
 let animation = 0;
 // Toggle-aim state: the latched aim and whether the aim control was down last frame.
 let aimLatched = false;
+const timeWarp = { until: 0, scale: 1 };
 let aimWasHeld = false;
 const fpsCounter = byId('fps-counter');
 let fpsFrames = 0;
@@ -1092,6 +1093,9 @@ function frame(now) {
   countFrame(now);
   const dt = lastFrame ? Math.min((now - lastFrame) / 1000, 0.05) : 0;
   lastFrame = now;
+  // Solo play slows time for a beat on a perfect dodge and holds it for a few frames when a bash
+  // connects. Input still reads at real speed so aiming never feels sluggish.
+  const simDt = dt * (!session.onlineRun && timeWarp.until > now ? timeWarp.scale : 1);
   if (!session.paused) {
     const controller = controls.xboxState;
     input.moveX = clamp(Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + touch.x + (controller?.moveX ?? 0), -1, 1);
@@ -1100,7 +1104,12 @@ function frame(now) {
     input.lookY += (Number(keys.has('ArrowDown')) - Number(keys.has('ArrowUp'))) * dt * 650;
     input.lookX += (controller?.lookX ?? 0) * dt * 1150 * session.sensitivity * session.options['controller-sensitivity'];
     input.lookY += (controller?.lookY ?? 0) * dt * 920 * session.sensitivity * session.options['controller-sensitivity'];
-    input.fire = controls.fireTap || controls.leftButton || touch.fire || keys.has('Space') || !!controller?.fire;
+    input.fire = controls.fireTap || controls.leftButton || touch.fire || keys.has('Enter') || !!controller?.fire;
+    input.jump = controls.jumpTap;
+    input.dash = controls.dashTap;
+    input.melee = controls.meleeTap;
+    input.grenade = controls.grenadeTap;
+    input.stun = controls.stunTap;
     input.reload = controls.reloadTap || keys.has('KeyR') || touch.reload;
     input.repair = keys.has('KeyE') || touch.repair || !!controller?.repair;
     input.deploy = controls.deployTap;
@@ -1130,7 +1139,13 @@ function frame(now) {
       const colonyDefeated = session.sim.valve?.colonyDefeated;
       const enemiesActive = session.sim.enemies.length > 0;
       if (session.onlineRun) session.sim = coopClient.frame(dt, input, now) ?? session.sim;
-      else session.sim.step(dt, input);
+      else session.sim.step(simDt, input);
+      if (!session.onlineRun && !session.reduceMotion) {
+        for (const event of session.sim.events) {
+          if (event.type === 'dodge') Object.assign(timeWarp, { until: now + 380, scale: .3 });
+          else if (event.type === 'melee' && event.hits && timeWarp.until < now) Object.assign(timeWarp, { until: now + 60, scale: .08 });
+        }
+      }
       if (!session.onlineRun && !megaVirusReached && session.sim.boss && !practice?.bossPractice) {
         megaVirusReached = true;
         writeSetting(megaVirusKey, 'true');
@@ -1142,9 +1157,10 @@ function frame(now) {
       controls.reloadTap = false;
       controls.deployTap = false;
       controls.swapTap = false;
+      controls.jumpTap = controls.dashTap = controls.meleeTap = controls.grenadeTap = controls.stunTap = false;
       touch.reload = false;
     }
-    const aiming = session.world.render(session.sim, dt, input, session.reduceMotion);
+    const aiming = session.world.render(session.sim, simDt, input, session.reduceMotion);
     aiDebug.update(session.sim, now, session.running);
     input.lookX = 0;
     input.lookY = 0;

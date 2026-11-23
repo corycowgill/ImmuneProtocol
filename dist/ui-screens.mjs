@@ -254,6 +254,22 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     ui.add({ ...text(d.turret, 10, '#8fe4dd'), align: 'right' }, { x: ammoX, y: ammoY + ammoH - 20, w: ammoW - 10, h: 16 });
     ui.add(text(d.weaponStrip, 11), { x: ammoX + 8, y: ammoY - 26, w: ammoW - 16, h: 24 });
   } else if (!model.touch) ui.add({ ...text(d.turret, 9, '#8fe4dd'), align: 'right' }, { x: ammoX, y: ammoY - 18, w: ammoW, h: 16 });
+  if (d.abilities) {
+    // Above the suit panel: grenades and stun charges as pips, dash and bash as charge bars.
+    const a = d.abilities, [gKey, sKey, dKey, bKey] = a.keys ?? [];
+    const pw = compact ? 104 : 180, py = h - bottom - healthH - (compact ? 30 : 50);
+    ui.add({ kind: 'panel', color: '#141411a0' }, { x, y: py, w: pw, h: compact ? 26 : 44 });
+    const pips = (n, max) => '◆'.repeat(Math.max(0, n)) + '◇'.repeat(Math.max(0, max - n));
+    const label = (key, name) => (key && !compact ? key + ' ' : '') + name;
+    ui.add(text(label(gKey, 'GRN') + ' ' + pips(a.grenades, Math.max(2, a.grenades)), compact ? 8 : 10, a.grenades ? '#9dffd2' : '#7d8a80'), { x: x + 6, y: py + 3, w: pw / 2 - 6, h: 14 });
+    ui.add(text(label(sKey, 'STN') + ' ' + pips(a.stuns, Math.max(1, a.stuns)), compact ? 8 : 10, a.stuns ? '#a9e6ff' : '#7d8a80'), { x: x + pw / 2, y: py + 3, w: pw / 2 - 6, h: 14 });
+    if (!compact) {
+      ui.add(text(label(dKey, 'DASH'), 9, a.dash >= 1 ? '#e5f4cb' : '#8a9488'), { x: x + 6, y: py + 19, w: 60, h: 12 });
+      ui.add({ kind: 'meter', value: a.dash * 100, color: a.dash >= 1 ? '#c8f794' : '#6f8064', text: '', detail: '' }, { x: x + 6, y: py + 31, w: pw / 2 - 12, h: 8 });
+      ui.add(text(label(bKey, 'BASH'), 9, a.bash >= 1 ? '#e5f4cb' : '#8a9488'), { x: x + pw / 2, y: py + 19, w: 60, h: 12 });
+      ui.add({ kind: 'meter', value: a.bash * 100, color: a.bash >= 1 ? '#ffd27a' : '#806a4a', text: '', detail: '' }, { x: x + pw / 2, y: py + 31, w: pw / 2 - 6, h: 8 });
+    }
+  }
   const allyY = compact ? (portrait ? nodeTop + (d.hazard ? 76 : 39) : top + 37) : nodeTop + nodeHeight + 8;
   if (d.ally) ui.add(text(d.ally, 10, '#b2e8ff'), { x, y: allyY, w: nodeWidth, h: 28 });
   let hazardY = 0;
@@ -279,7 +295,8 @@ function buildCombat(ui, model, area, full, size, state, measure) {
   if (model.touch) {
     const by = h - bottom - 95, bx = w - right - 166;
     ui.add({ kind: 'stick', id: 'game:stick', action: 'game:stick' }, { x: x + 5, y: h - bottom - 141, w: 92, h: 92 });
-    for (const [name, xx, yy] of [['swap', 0, 0], ['turret', 51, 0], ['reload', 0, 51], ['repair', 51, 51]]) {
+    for (const [name, xx, yy] of [['swap', 0, 0], ['turret', 51, 0], ['reload', 0, 51], ['repair', 51, 51],
+      ['jump', 0, -51], ['dash', 51, -51], ['melee', 102, -51], ['grenade', 51, -102], ['stun', 102, -102]]) {
       const source = act[name]; if (!source) continue;
       ui.add({ ...source, kind: ['reload', 'repair', 'turret'].includes(name) ? 'hold' : 'button', text: source.text || name, size: 9, round: true }, { x: bx + xx, y: by + yy, w: 44, h: 44 });
     }

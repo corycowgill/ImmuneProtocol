@@ -261,7 +261,7 @@ export class BrowserUiBindings {
       special = { title: this.text(panel.querySelector('h2')), detail: [t(prefix + '-status'), visibleText(prefix + '-time'), ...[...panel.querySelectorAll('.airway-port,.gastric-valve')].map(e => this.text(e))].filter(Boolean).join(' · '), phase: t('boss-phase'), health: prefix === 'boss' ? Number(this.get('boss-health').getAttribute('aria-valuenow')) : null };
     }
     const actions = { mute: { ...this.control(root.querySelector('[data-mute]')), text: '', icon: root.querySelector('[data-mute]')?.getAttribute('aria-pressed') === 'true' ? 'muted' : 'volume', iconOnly: true }, pause: { ...this.control(this.get('pause')), icon: 'pause', iconOnly: true } };
-    for (const name of ['swap', 'turret', 'reload', 'repair']) {
+    for (const name of ['swap', 'turret', 'reload', 'repair', 'jump', 'dash', 'melee', 'grenade', 'stun']) {
       const el = root.querySelector(`[data-touch="${name}"]`);
       const control = this.control(el); if (control) actions[name] = { ...control, id: 'game:' + name, action: 'game:' + name, color: name === 'turret' ? el.dataset.state === 'jammed' ? '#ff977d' : '#b2e8ff' : undefined };
     }
@@ -269,6 +269,7 @@ export class BrowserUiBindings {
       nodes, markers, paths, special, health: parseFloat(t('health-value')), ammo: t('ammo-value'), weapon: t('equipment-label'), mode: t('wave-mode'), wave: t('wave-value'), threats: t('threats'), ammoState: t('reload-state'), reload: this.shown(this.get('reload-progress')) ? Number(this.get('reload-progress').value) : 0,
       repair: this.shown(this.get('repair-meter')) ? Number(this.get('repair-meter').getAttribute('aria-valuenow')) : 0,
       ally: visibleText('coop-match-status') || visibleText('coop-hud'), hazard: visibleText('organ-hazard') ? [t('organ-hazard-label'), visibleText('organ-hazard-time')].filter(Boolean).join(' · ') : '', notice: visibleText('encounter-card'), training: visibleText('training-hint'), alert: visibleText('game-alert') || visibleText('wave-outro'), surge: visibleText('junction-surge'), prompt: visibleText('action-prompt'), score: t('scoreboard'), turret: t('turret-status-value'), weaponStrip: t('weapon-strip'),
+      abilities: this.shown(this.get('ability-hud')) ? (({ grenades, stuns, dash, bash, keys }) => ({ grenades: +grenades, stuns: +stuns, dash: +dash, bash: +bash, keys: (keys ?? '').split('|') }))(this.get('ability-hud').dataset) : null,
       supply: this.shown(this.get('junction-supply')) ? this.controls('[data-junction-supply]') : [], supplyNote: t('junction-supply-note'),
       scope: this.get('scope-overlay')?.dataset.visible === 'true', hit: Number(this.get('hit-marker')?.style.opacity) > 0,
       aiming: this.get('reticle')?.classList.contains('aim'),

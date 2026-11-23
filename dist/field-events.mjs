@@ -62,13 +62,13 @@ export function applyEvents() {
         : isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
       session.audio.play({ type: 'wave', stage: 'start' });
     }
-    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss', 'levelBoss', 'airway', 'gastric', 'explosion'].includes(event.type) && Number.isFinite(event.x)) {
+    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss', 'levelBoss', 'airway', 'gastric', 'explosion', 'stun', 'throw', 'melee', 'dash', 'jump', 'land', 'dodge'].includes(event.type) && Number.isFinite(event.x)) {
       const { x, z, yaw } = session.sim.player;
       const dx = event.x - x;
       const dz = event.z - z;
       const distance = Math.hypot(dx, dz);
       const pan = (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / Math.max(1, distance);
-      session.audio.play({ ...event, pan, distance });
+      session.audio.play({ ...event, pan, distance, teammate: !!teammate });
     } else if (event.type !== 'mission') session.audio.play(event);
     if (event.type === 'boss') {
       if (event.stage === 'defeated') {
@@ -118,7 +118,7 @@ export function applyEvents() {
       if (event.stage === 'collect') {
         session.audio.play({ type: 'repair', complete: true });
         const collector = session.onlineRun ? session.sim.players?.find(player => player.id === event.playerId) : null;
-        announce('ANTIBODY CACHE SECURED', collector && collector.id !== session.sim.player.id ? 'COLLECTED BY ' + (collector.name || 'TEAMMATE').toUpperCase() : 'SUIT PATCHED · MAGAZINE FULL · +250', 2.2);
+        announce('ANTIBODY CACHE SECURED', collector && collector.id !== session.sim.player.id ? 'COLLECTED BY ' + (collector.name || 'TEAMMATE').toUpperCase() : 'SUIT PATCHED · MAGAZINE FULL · +1 GRENADE · +250', 2.2);
       }
     }
     if (event.type === 'turret') {

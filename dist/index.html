@@ -376,6 +376,7 @@
             <progress id="reload-progress" max="100" value="0" aria-label="Reload progress" hidden></progress>
           </div>
           <div id="campaign-equipped" class="campaign-equipped" hidden></div>
+          <div id="ability-hud" class="ability-hud" data-grenades="2" data-stuns="1" data-dash="1" data-bash="1" hidden><span id="ability-grenades">Grenade ×2</span> <span id="ability-stuns">Stun ×1</span></div>
           <div id="turret-status" class="turret-status" hidden><kbd aria-hidden="true">Q</kbd><span id="turret-status-value">TURRET READY</span></div>
         </div>
         <div id="field-hint" class="field-hint">WASD MOVE <span></span> R RELOAD <span></span> E REPAIR</div>
@@ -388,6 +389,11 @@
           <button type="button" data-touch="repair">Repair</button>
           <button type="button" data-touch="fire" class="touch-fire">Fire</button>
           <button id="touch-turret" type="button" data-touch="turret" aria-label="Deploy auto turret" disabled>Turret</button>
+          <button type="button" data-touch="jump">Jump</button>
+          <button type="button" data-touch="dash">Dash</button>
+          <button type="button" data-touch="melee">Bash</button>
+          <button id="touch-grenade" type="button" data-touch="grenade">Grenade</button>
+          <button id="touch-stun" type="button" data-touch="stun">Stun</button>
         </div>
       </div>
     </section>
@@ -571,7 +577,12 @@
           <dl class="controls-list">
             <div><dt>Move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dd></div>
             <div><dt>Look</dt><dd><kbd>Mouse</kbd><kbd>Arrow keys</kbd></dd></div>
-            <div><dt>Fire</dt><dd><kbd>Left click</kbd><kbd>Space</kbd></dd></div>
+            <div><dt>Fire</dt><dd><kbd>Left click</kbd><kbd>Enter</kbd></dd></div>
+            <div><dt>Jump</dt><dd><kbd>Space</kbd></dd></div>
+            <div><dt>Dash (dodges hits)</dt><dd><kbd>C</kbd></dd></div>
+            <div><dt>Bash</dt><dd><kbd>V</kbd><kbd>F</kbd></dd></div>
+            <div><dt>Antibody grenade</dt><dd><kbd>G</kbd></dd></div>
+            <div><dt>Stun charge</dt><dd><kbd>T</kbd></dd></div>
             <div><dt>Aim down sights</dt><dd><kbd>Hold right click</kbd></dd></div>
             <div><dt>Sprint</dt><dd><kbd>Shift</kbd></dd></div>
             <div><dt>Reload</dt><dd><kbd>R</kbd></dd></div>

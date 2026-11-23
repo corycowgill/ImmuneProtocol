@@ -57,6 +57,21 @@ export function updateWeapon(world, sim, dt, input, aiming, reduceMotion) {
     lerp(.18, 0, aim) + reloadTilt * .19 - pose.swayX,
     lerp(-.06, 0, aim) + walk * .035 + reloadTilt * .55 - pose.lowered * .25,
   );
+  // The suit's moves: a rifle-butt bash, a throw that dips the weapon out of the way, a dash that
+  // drags it against the direction of travel, and a landing that drops it.
+  const feel = world.feel;
+  if (feel && !reduceMotion) {
+    const t = 1 - feel.bash;
+    const wind = feel.bash > 0 ? smoothstep(t, 0, .16) * (1 - smoothstep(t, .16, .3)) : 0;
+    const strike = feel.bash > 0 ? smoothstep(t, .14, .3) * (1 - smoothstep(t, .42, 1)) : 0;
+    const toss = Math.sin(Math.min(1, 1 - feel.throw) * Math.PI) * (feel.throw > 0 ? 1 : 0);
+    model.position.x += wind * .05 - strike * .16 - feel.side * feel.rush * .06;
+    model.position.y += strike * .07 - toss * .3 + feel.dip * .35;
+    model.position.z += wind * .1 - strike * .34 + feel.rush * Math.max(0, feel.forward) * .05;
+    model.rotation.x += -wind * .25 + strike * .12 - toss * .55;
+    model.rotation.y += strike * .95 - wind * .2;
+    model.rotation.z += strike * .55 + toss * .4 + feel.side * feel.rush * .12;
+  }
   magazine.position.copy(world.magazineRest);
   magazine.position.x -= magazineTurn * .067;
   magazine.position.y -= magazineTravel * .196;

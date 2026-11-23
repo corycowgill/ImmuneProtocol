@@ -247,7 +247,12 @@ git subtree push --prefix=dist origin gh-pages
 | --- | --- | --- |
 | Move | WASD | Left stick |
 | Look | Mouse or arrow keys | Right stick |
-| Fire | Left click or Space | Hold RT |
+| Fire | Left click or Enter | Hold RT |
+| Jump | Space | A |
+| Dash (dodges hits during the first 0.3 s) | C | B |
+| Bash | V or F | Click the right stick |
+| Antibody grenade | G | D-pad up |
+| Stun charge | T | D-pad down |
 | Aim | Hold right click | Hold LT |
 | Sprint | Shift | Click the left stick |
 | Reload | R | X |
@@ -256,6 +261,16 @@ git subtree push --prefix=dist origin gh-pages
 | Drag the placed turret to a new spot | Hold Q | Hold RB |
 | Switch weapon | 1 / 2 or mouse wheel | Y |
 | Pause | Esc or P | Menu ☰ |
+
+### Suit abilities
+
+- **Dash** throws the suit about 5 m in the direction you are moving (backwards if you are standing still). Any hit that lands in the first 0.3 s is dodged outright: in solo play time slows for a beat and the view drains to steel while you reposition. It recharges in 1.1 s. A pathogen winding up is the moment to dash.
+- **Jump** clears about a metre: hop a crawler or a spore's burst. You keep steering in the air.
+- **Bash** swings the weapon butt in front of you. It deals 36 damage, knocks pathogens back several metres and staggers them, and tears off any pathogen latched onto a tissue node within 4 m, even behind you. It recharges in 0.7 s.
+- **Antibody grenade** arcs where you aim, bounces, and bursts after 1.5 s or on contact with a pathogen: 150 damage in a 6 m blast that also throws smaller pathogens off the tissue they held. You carry two, restocked at every wave start, and each antibody cache adds one (up to three).
+- **Stun charge** sticks to the first pathogen it touches or rests where it lands, then discharges: every pathogen within 7 m freezes for 3.2 s and drops its attack. Bosses and nests are only slowed. You carry one, restocked every wave (up to two).
+
+The grenade and stun counts and the dash and bash charge bars sit above your suit integrity. In co-op each suit has its own abilities.
 
 When mouse capture is unavailable, drag the view to look. On touchscreens, move with the joystick, drag to look, and use the action buttons.
 

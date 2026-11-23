@@ -1,5 +1,6 @@
 import { RULES, Simulation } from './simulation.mjs';
 import { magazineCapacity, normalizeWeaponLoadout, weaponStats } from './weapon-mods.mjs';
+import { snapshotThrowables, throwItems, useMelee } from './abilities.mjs';
 import { COOP_MIN_PLAYERS, COOP_MAX_PLAYERS, COOP_SUITS, DEFAULT_COOP_SUIT } from './coop-protocol.mjs';
 
 const normalizeSuit = suit => COOP_SUITS.includes(suit) ? suit : DEFAULT_COOP_SUIT;
@@ -164,6 +165,8 @@ export class CoopSimulation extends Simulation {
     const eventStart = this.events.length;
     if (input.deploy) this.deployTurret(suit);
     this.carryTurret(!!input.carry, suit);
+    useMelee(this, suit, input, dt);
+    throwItems(this, suit, input, dt);
     const repairing = this.updateRepair(dt, input.repair, suit);
     this.updateRifle(dt, input, repairing, suit);
     player.aiming = Boolean(input.aim && !repairing && !suit.reloading);
@@ -230,6 +233,8 @@ export class CoopSimulation extends Simulation {
       objective: nodeCopy(this.objective), objectiveId: this.objective.id,
       failedNode: nodeCopy(this.failedNode), failedNodeId: this.failedNode?.id ?? null,
       turret: this.turret ? { ...this.turret } : null,
+      ability: suit.ability ? { ...suit.ability } : null,
+      throwables: snapshotThrowables(this),
       turretPlacement: player.downed ? null : this.turretPlacementFor(player),
       turretCharges: this.turretCharges, canRedeployTurret: this.canRedeployTurret,
       nodes,

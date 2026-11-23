@@ -8,6 +8,7 @@ import { ImpactFX } from './impact-fx.mjs';
 import { paintGround, patchGround, patchShell } from './ground-fx.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve } from './heart-valve.mjs';
+import { AbilityFX } from './ability-fx.mjs';
 import { createTurret } from './turret.mjs';
 import { createGuardCarapace, createOrganEnvironment, organProfile } from './organ-world.mjs';
 import { createMegaVirus } from './mega-virus.mjs';
@@ -167,6 +168,9 @@ export class World {
     ];
     this.junctionField = makeJunctionField(this.room.junctionDetails, this.tissueViews[0], this.glow);
     this.turretView = createTurret(this.glow);
+    this.abilityFx = new AbilityFX(this.scene, this.glow, this.random);
+    // How the suit's own moves feel through the camera and the weapon (see applyFeel).
+    this.feel = { rush: 0, side: 0, forward: 0, dip: 0, dipV: 0, focus: 0, bash: 0, throw: 0 };
     this.scene.add(this.turretView.model);
     this.turretMuzzle = new THREE.Vector3();
     this.leakTime = 0;
@@ -425,6 +429,8 @@ export class World {
     }
     this.toolStream.visible = false;
     this.turretView.reset();
+    this.abilityFx.reset();
+    Object.assign(this.feel, { rush: 0, side: 0, forward: 0, dip: 0, dipV: 0, focus: 0, bash: 0, throw: 0 });
     this.camera.fov = 61;
     this.camera.updateProjectionMatrix();
     this.syncLights();
@@ -494,6 +500,41 @@ export class World {
       bloom: options.bloom, ao: options['ambient-occlusion'], vignette: options.vignette,
       grain: options['film-grain'], aberration: options['chromatic-aberration'],
     };
+  }
+
+  // Reads this suit's dash, jump, landing, dodge, bash and throw events once per simulation step
+  // and eases the camera and weapon responses: lean, FOV punch, landing dip, dodge focus.
+  applyFeel(sim, dt, reduceMotion) {
+    const feel = this.feel;
+    const id = sim.player.id;
+    if (sim.events !== this.feelEvents) {
+      this.feelEvents = sim.events;
+      for (const event of sim.events) {
+        if (event.playerId != null && event.playerId !== id) continue;
+        if (event.type === 'dash') Object.assign(feel, { rush: 1, side: event.side, forward: event.forward });
+        if (event.type === 'jump') feel.dipV -= .35;
+        if (event.type === 'land') feel.dipV -= Math.min(2.6, .35 + event.speed * .3);
+        if (event.type === 'dodge') feel.focus = 1;
+        if (event.type === 'melee') {
+          feel.bash = 1;
+          if (event.hits && !reduceMotion) this.explosions.shake = Math.min(1, this.explosions.shake + .2);
+        }
+        if (event.type === 'throw' && event.stage === 'release') feel.throw = 1;
+      }
+    }
+    feel.rush = Math.max(0, feel.rush - dt * 4.2);
+    feel.focus = Math.max(0, feel.focus - dt * 1.5);
+    feel.bash = Math.max(0, feel.bash - dt / .42);
+    feel.throw = Math.max(0, feel.throw - dt / .5);
+    // The landing dip is a stiff spring back to eye height.
+    const step = Math.min(dt, .05);
+    feel.dipV += (-feel.dip * 110 - feel.dipV * 15) * step;
+    feel.dip = reduceMotion ? 0 : THREE.MathUtils.clamp(feel.dip + feel.dipV * step, -.32, .1);
+    if (this.post) {
+      this.post.rush = feel.rush;
+      this.post.focus = reduceMotion ? feel.focus * .4 : feel.focus;
+    }
+    return feel;
   }
 
   setQuality(quality) {
@@ -758,6 +799,7 @@ export class World {
           this.explosions.explode(event.x, event.y, event.z, event.radius, reduceMotion);
           this.impacts.blast(new THREE.Vector3(event.x, event.y, event.z), event.radius);
         }
+        if (['stun', 'explosion', 'melee', 'throw'].includes(event.type)) this.abilityFx.note(event, reduceMotion);
         if (event.type === 'turret' && event.stage === 'fire') this.addTurretShot(event, reduceMotion);
         if (event.type === 'turret' && (event.stage === 'deployed' || event.stage === 'redeployed') && !reduceMotion) {
           this.burst(event.x, floorHeight(event.x, event.z) + .11, event.z, 0xb78079, 15, 1.2);
@@ -841,15 +883,19 @@ export class World {
     this.lastRender = now;
     if (resizeViewport) this.resize(rescaled);
     const { player } = sim;
-    this.camera.position.set(player.x, player.y, player.z);
-    this.camera.rotation.set(player.pitch, player.yaw, 0);
+    const feel = this.applyFeel(sim, dt, reduceMotion);
+    this.camera.position.set(player.x, player.y + feel.dip, player.z);
+    // A sideways dash leans the view into it.
+    this.camera.rotation.set(player.pitch, player.yaw, reduceMotion ? 0 : -feel.side * .085 * Math.sin(Math.min(1, feel.rush) * Math.PI * .5));
     const aiming = input.aim && !sim.reloading && !sim.repairing;
     // Each weapon and optic zooms by its own amount; the Lancet scope zooms furthest.
     // Aim zoom keeps each optic's magnification relative to the chosen field of view.
     const baseFov = this.fieldOfView ?? 61;
-    const targetFov = aiming ? (sim.weapon.zoom ?? 48) * baseFov / 61 : baseFov;
+    // A dash punches the field of view out and lets it settle back.
+    const dashFov = reduceMotion ? 0 : 11 * feel.rush * Math.max(.35, feel.forward + .6);
+    const targetFov = (aiming ? (sim.weapon.zoom ?? 48) * baseFov / 61 : baseFov) + dashFov;
     if (Math.abs(targetFov - this.camera.fov) > .04) {
-      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1, dt * 12));
+      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1, dt * (feel.rush > .5 ? 30 : 12)));
       this.camera.updateProjectionMatrix();
     }
     this.surfaceTime.value = reduceMotion ? 0 : this.clock;
@@ -873,6 +919,7 @@ export class World {
     this.teammateView.update(sim.players, player.id, floorHeight, dt, reduceMotion);
     const { turret } = sim;
     this.turretView.update(turret, turret ? floorHeight(turret.x, turret.z) : 0, dt, reduceMotion);
+    this.abilityFx.update(sim, this.camera, dt, reduceMotion, this.enemyViews);
     const { weaponLoadout, tutorial } = sim;
     if (weaponLoadout !== this.weaponSource || tutorial !== this.weaponTutorial) {
       this.setWeaponLoadout(tutorial ? {

@@ -1,0 +1,57 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Suit abilities check</title>
+<style>body{margin:20px;background:#131918;color:#dff2d9;font:14px/1.5 monospace}canvas{width:960px;height:540px;max-width:100%}button{margin:5px;padding:8px}</style>
+<h1>Suit abilities — dash, jump, bash, antibody grenade, stun charge</h1><p id="status">Loading the arena…</p>
+<button data-act="dash">Dash</button><button data-act="jump">Jump</button><button data-act="melee">Bash</button><button data-act="grenade">Grenade</button><button data-act="stun">Stun</button><button id="reset">Reset</button>
+<canvas id="world"></canvas>
+<script type="module">
+// Runs the real simulation and renderer with a few pathogens in front of the suit, so each ability
+// plays exactly as in a mission. window.abilities drives it frame by frame for screenshots.
+import { World } from './world.mjs';
+import { Simulation } from './simulation.mjs';
+import { updateThrowables } from './abilities.mjs';
+const status = document.querySelector('#status');
+try {
+  const world = new World(document.querySelector('#world'));
+  if (new URL(location.href).searchParams.has('low')) world.setQuality('low');
+  await world.prepareAll(['artery']);
+  let sim;
+  const idle = () => ({ moveX: 0, moveZ: 0, lookX: 0, lookY: 0 });
+  function reset() {
+    sim?.ai.dispose();
+    sim = new Simulation('artery', { ai: { seed: 7 }, encounterSeed: 7 });
+    sim.start();
+    sim.tutorial = null;
+    sim.phase = 'combat';
+    sim.spawnCountdown = 1e9;
+    sim.obstacles = [];
+    sim.enemies = [];
+    Object.assign(sim.player, { x: 0, z: 34, yaw: 0, pitch: -.12, health: 100 });
+    for (const [type, x, z] of [['virus', -2.5, 25], ['bacillus', 2, 24], ['spore', 0, 21], ['crawler', 1, 30.5], ['phage', -1.2, 30.8]]) {
+      const enemy = sim.createEnemy(type, x, z, sim.nodes[0]);
+      enemy.heading = Math.PI;
+      sim.enemies.push(enemy);
+    }
+    for (let i = 0; i < 4; i++) step(idle());
+  }
+  function step(input, dt = 1 / 60) {
+    sim.events = [];
+    sim.clock += dt;
+    sim.movePlayer(dt, input);
+    sim.actSuits(dt, input);
+    sim.advanceEnemies(dt);
+    sim.updateTurret(dt);
+    updateThrowables(sim, dt);
+    world.render(sim, dt, { ...idle(), ...input }, false);
+  }
+  window.abilities = {
+    world, get sim() { return sim; }, reset,
+    act(name, extra = {}) { step({ ...idle(), [name]: true, ...extra }); },
+    step(frames = 1, input = {}) { for (let i = 0; i < frames; i++) step({ ...idle(), ...input }); },
+  };
+  reset();
+  for (const button of document.querySelectorAll('[data-act]')) button.onclick = () => window.abilities.act(button.dataset.act);
+  document.querySelector('#reset').onclick = reset;
+  if (new URL(location.href).searchParams.has('live')) (function loop() { step(idle()); requestAnimationFrame(loop); })();
+  status.textContent = 'Ready';
+} catch (error) { status.textContent = 'FAIL: ' + error.message; console.error(error); }
+</script></html>
