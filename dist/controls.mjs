@@ -245,7 +245,7 @@ window.addEventListener('keydown', event => {
     return;
   }
   if (!controlKeys.has(event.code)) return;
-  if (event.code === 'Space' && event.target instanceof HTMLButtonElement) return;
+  // In play every control key belongs to the game, even if a hidden menu button still holds focus.
   event.preventDefault();
   if ((event.code === 'Escape' || event.code === 'KeyP') && !event.repeat) {
     commands.pause();
