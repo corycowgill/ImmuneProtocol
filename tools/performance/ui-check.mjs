@@ -38,6 +38,7 @@ try {
     else if (target) $(target).click();
   }
   document.documentElement.dataset.uiFixture = scenario;
+  window.__session = session;
 } catch (error) {
   document.documentElement.dataset.uiFixture = 'FAIL: ' + error.message;
   console.error('UI fixture failed', error);
