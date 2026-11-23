@@ -4,8 +4,7 @@ import { COOP_SUITS, loadSuitModels } from './suits.mjs';
 import { ExplosionFX } from './explosions.mjs';
 import { DeathFX } from './death-fx.mjs';
 import { PostFX } from './post-fx.mjs';
-import { addTissueSheen } from './surface-fx.mjs';
-import { paintGround, patchGround } from './ground-fx.mjs';
+import { paintGround, patchGround, patchShell } from './ground-fx.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve } from './heart-valve.mjs';
 import { createTurret } from './turret.mjs';
@@ -157,8 +156,6 @@ export class World {
     this.surfaceTime = { value: 0 };
     // Close-range ground detail and the second blended tissue; off on Low quality.
     this.groundDetail = { value: LOW_MEMORY ? 0 : 1 };
-    addTissueSheen(this.room.wall.material, 0xffc4b4, .2, 'blood-wall');
-    addTissueSheen(this.room.canopy.material, 0xffc4b4, .15, 'blood-canopy');
     this.causticFloors = new Map();
     this.tissueViews = [
       makeTissue(this.scene, this.glow, normal, this.random),
@@ -321,7 +318,7 @@ export class World {
     if (this.heart) this.heart.group.visible = heart;
     if (profile && !this.organEnvironments.has(area)) {
       const environment = createOrganEnvironment(area, {
-        membraneMaps, floorHeight, glow: this.glow, nodes: TISSUE_NODES[area],
+        membraneMaps, floorHeight, glow: this.glow, nodes: TISSUE_NODES[area], detail: this.groundDetail,
       });
       environment.shell = this.baseShellMaterials.map((source, index) => {
         const material = source.clone();
@@ -332,8 +329,8 @@ export class World {
         material.roughness = index === 0 ? .83 : .76;
         material.clearcoat = index === 0 ? .29 : .37;
         if (index === 0) return this.dressGround(material, area);
-        const sheen = new THREE.Color(profile.back ?? profile.accent).lerp(new THREE.Color(0xffffff), .5);
-        return addTissueSheen(material, sheen, index === 1 ? .2 : .15, area + '-' + index);
+        const sheenTint = new THREE.Color(profile.back ?? profile.accent).lerp(new THREE.Color(0xffffff), .5);
+        return patchShell(material, { area, kind: index === 1 ? 'wall' : 'canopy', detail: this.groundDetail, sheenTint, sheenStrength: index === 1 ? .2 : .15 });
       });
       this.organEnvironments.set(area, environment);
     }
@@ -356,9 +353,16 @@ export class World {
     if (this.organEnvironment) this.scene.add(this.organEnvironment.root);
     [floor.material, wall.material, canopy.material] = this.organEnvironment?.shell ?? this.baseShellMaterials;
     if (!this.organEnvironment) {
-      // Artery, junction and heart share the base floor's look but each has its own caustic tint.
-      if (!this.causticFloors.has(this.area)) this.causticFloors.set(this.area, this.dressGround(this.baseShellMaterials[0].clone(), this.area));
-      floor.material = this.causticFloors.get(this.area);
+      // Artery, junction and heart share the base shell's look, each with its own ground, vessels and caustics.
+      if (!this.causticFloors.has(this.area)) {
+        const [baseFloor, baseWall, baseCanopy] = this.baseShellMaterials;
+        this.causticFloors.set(this.area, [
+          this.dressGround(baseFloor.clone(), this.area),
+          patchShell(baseWall.clone(), { area: this.area, kind: 'wall', detail: this.groundDetail, sheenStrength: .2 }),
+          patchShell(baseCanopy.clone(), { area: this.area, kind: 'canopy', detail: this.groundDetail, sheenStrength: .15 }),
+        ]);
+      }
+      [floor.material, wall.material, canopy.material] = this.causticFloors.get(this.area);
     }
     canopy.scale.y = heart ? .54 : junction ? .63 : profile ? .85 : 1;
     this.scene.background.setHex(profile?.background ?? (heart ? 0x26181f : junction ? 0x1d1115 : 0x230f11));

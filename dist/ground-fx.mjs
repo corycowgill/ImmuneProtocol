@@ -345,3 +345,140 @@ export function patchGround(material, { time, area, maps, detail }) {
   material.needsUpdate = true;
   return material;
 }
+
+// ---------------------------------------------------------------- walls and canopy
+
+// The curved walls and the canopy overhead get the same treatment as the floor, worked out in 3D
+// world space (no painted map, so no seam where the wall closes on itself): repetition-free
+// sampling, a second tissue blended in by height, broad colour variation, relief that changes
+// across the surface, vessels climbing the walls and crossing the canopy (glowing in the brain and
+// inner ear), wet streaks running down the walls, a contact shadow where the walls meet the floor,
+// and the translucent-tissue rim glow (surface-fx.mjs addTissueSheen) on top.
+const SHELL_GLSL = /* glsl */ `
+  varying vec3 vShellWorld;
+  uniform sampler2D shellSecondMap;
+  uniform vec3 shellSecond, shellVein, shellGlow, sheenTint;
+  uniform float shellWall, shellDetail, sheenStrength;
+  float groundHash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+  float groundNoise(vec2 p) {
+    vec2 i = floor(p), f = fract(p), u = f * f * (3. - 2. * f);
+    return mix(mix(groundHash(i), groundHash(i + vec2(1., 0.)), u.x), mix(groundHash(i + vec2(0., 1.)), groundHash(i + vec2(1., 1.)), u.x), u.y);
+  }
+  vec4 textureNoTile(sampler2D samp, vec2 uv) {
+    float k = groundNoise(uv * .35);
+    vec2 dx = dFdx(uv), dy = dFdy(uv);
+    float l = k * 8.;
+    float f = fract(l);
+    float ia = floor(l), ib = ia + 1.;
+    vec4 a = textureGrad(samp, uv + sin(vec2(3., 7.) * ia), dx, dy);
+    vec4 b = textureGrad(samp, uv + sin(vec2(3., 7.) * ib), dx, dy);
+    return mix(a, b, smoothstep(.2, .8, f - .1 * dot(a - b, vec4(1.))));
+  }
+  float shellHash(vec3 p) { p = fract(p * .3183099 + .1); p *= 17.; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+  float shellNoise(vec3 x) {
+    vec3 i = floor(x), f = fract(x);
+    f = f * f * (3. - 2. * f);
+    return mix(mix(mix(shellHash(i), shellHash(i + vec3(1., 0., 0.)), f.x), mix(shellHash(i + vec3(0., 1., 0.)), shellHash(i + vec3(1., 1., 0.)), f.x), f.y),
+               mix(mix(shellHash(i + vec3(0., 0., 1.)), shellHash(i + vec3(1., 0., 1.)), f.x), mix(shellHash(i + vec3(0., 1., 1.)), shellHash(i + vec3(1., 1., 1.)), f.x), f.y), f.z);
+  }
+  float shellFbm(vec3 p) {
+    float v = 0., a = .5;
+    for (int i = 0; i < 4; i++) { v += a * shellNoise(p); p = p * 2.07 + vec3(13.1, 7.3, 3.7); a *= .5; }
+    return v;
+  }
+  // Branching vessels: the crest lines of warped noise, kept to some stretches of the surface.
+  float shellVessels(vec3 p) {
+    vec3 warp = vec3(shellNoise(p * .5), shellNoise(p * .5 + 17.), shellNoise(p * .5 + 31.)) - .5;
+    float ridge = 1. - abs(shellNoise(p + warp * 2.2) * 2. - 1.);
+    float fine = 1. - abs(shellNoise(p * 2.3 + warp * 3. + 5.) * 2. - 1.);
+    float present = smoothstep(.42, .62, shellNoise(p * .23 + 41.));
+    return (smoothstep(.93, .985, ridge) + smoothstep(.95, .99, fine) * .55) * present;
+  }
+`;
+
+const SHELL_MAP = /* glsl */ `
+  float shellWet = 0., shellBlend = 0., shellVesselMask = 0.;
+  #ifdef USE_MAP
+    vec3 sw = vShellWorld;
+    vec4 baseTex = textureNoTile(map, vMapUv);
+    vec4 secondTex = shellDetail > .5 ? textureNoTile(shellSecondMap, mat2(.8, -.6, .6, .8) * vMapUv * .7 + vec2(.2, .53)) : baseTex;
+    float baseHeight = dot(baseTex.rgb, vec3(.333)), secondHeight = dot(secondTex.rgb, vec3(.333));
+    shellBlend = smoothstep(.0, .22, shellFbm(sw * .045) + (secondHeight - baseHeight) * .9 - .42) * step(.5, shellDetail);
+    vec3 albedo = mix(baseTex.rgb, secondTex.rgb * shellSecond, shellBlend);
+    // Broad blotches of lighter and darker tissue.
+    albedo *= .68 + .62 * shellFbm(sw * .028 + 3.);
+    // Vessels: on the walls they run mostly upward; on the canopy they spread across it.
+    vec3 vesselSpace = shellWall > .5 ? sw * vec3(.16, .07, .16) : sw * vec3(.14, .3, .14);
+    shellVesselMask = shellVessels(vesselSpace);
+    albedo = mix(albedo, albedo * shellVein, min(1., shellVesselMask) * .85);
+    if (shellWall > .5) {
+      // Wet streaks running down the walls: long in height, narrow around the chamber.
+      float streak = shellNoise(vec3(sw.x * .55, sw.y * .035, sw.z * .55)) * .7 + shellNoise(vec3(sw.x * 1.6, sw.y * .09, sw.z * 1.6)) * .3;
+      shellWet = smoothstep(.56, .78, streak) * smoothstep(19., 4., sw.y);
+      // Where the wall meets the floor it sits in shadow.
+      albedo *= mix(.45, 1., smoothstep(-.3, 3.2, sw.y));
+    } else {
+      // Moisture gathers in drips across the canopy.
+      shellWet = smoothstep(.62, .82, shellNoise(sw * vec3(.3, .3, .3) + 9.)) * .8;
+    }
+    albedo *= mix(1., .7, shellWet);
+    diffuseColor *= vec4(albedo, baseTex.a);
+  #endif
+`;
+
+const SHELL_NORMAL = /* glsl */ `
+  #ifdef USE_NORMALMAP_TANGENTSPACE
+    vec3 mapN = textureNoTile(normalMap, vNormalMapUv).xyz * 2. - 1.;
+    float relief = mix(.35, 1.3, shellNoise(vShellWorld * .05 + 7.)) * mix(1., .5, shellBlend) * mix(1., .45, shellWet);
+    mapN.xy *= normalScale * relief;
+    normal = normalize(tbn * mapN);
+  #else
+    #include <normal_fragment_maps>
+  #endif
+`;
+
+// Patches a wall ('wall') or canopy ('canopy') material in place. `detail` is a shared { value }.
+export function patchShell(material, { area, kind, detail, sheenTint = 0xffc4b4, sheenStrength = .2 }) {
+  const palette = GROUND[area] ?? GROUND.artery;
+  const second = typeof document === 'undefined' ? null : bioTexture(palette.surface ?? 'neural', [1, 1]);
+  if (second) second.wrapS = second.wrapT = THREE.RepeatWrapping;
+  const uniforms = {
+    shellSecondMap: { value: second }, shellDetail: detail,
+    shellWall: { value: kind === 'wall' ? 1 : 0 },
+    shellSecond: { value: new THREE.Vector3(...palette.second) },
+    shellVein: { value: new THREE.Vector3(...palette.vein) },
+    shellGlow: { value: new THREE.Vector3(...(palette.glow ?? [0, 0, 0])) },
+    sheenTint: { value: new THREE.Color(sheenTint) }, sheenStrength: { value: sheenStrength },
+  };
+  material.userData.shell = uniforms;
+  material.onBeforeCompile = shader => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = 'varying vec3 vShellWorld;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+      #ifdef USE_INSTANCING
+        vShellWorld = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+      #else
+        vShellWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
+      #endif`);
+    shader.fragmentShader = SHELL_GLSL + shader.fragmentShader
+      .replace('#include <map_fragment>', SHELL_MAP)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+        roughnessFactor = mix(roughnessFactor, .12, shellWet);`)
+      .replace('#include <normal_fragment_maps>', SHELL_NORMAL)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        totalEmissiveRadiance += shellGlow * min(1., shellVesselMask);`)
+      .replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
+        #ifdef USE_CLEARCOAT
+          material.clearcoat = mix(material.clearcoat, 1., shellWet);
+          material.clearcoatRoughness = mix(material.clearcoatRoughness, .05, shellWet);
+        #endif`)
+      .replace('#include <aomap_fragment>', `#include <aomap_fragment>
+        {
+          // Translucent tissue: light scattering through thin membranes glows along turned edges.
+          float facing = clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0);
+          totalEmissiveRadiance += diffuseColor.rgb * sheenTint * pow(1.0 - facing, 2.6) * sheenStrength;
+        }`);
+  };
+  material.customProgramCacheKey = () => 'shell-' + kind + '-' + area;
+  material.needsUpdate = true;
+  return material;
+}

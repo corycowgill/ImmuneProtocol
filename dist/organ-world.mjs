@@ -3,6 +3,7 @@ import { chunkInstances } from './decor-chunks.mjs';
 import { ARENA_GROWTH } from './arena-scale.mjs';
 import { GASTRIC_PASSAGE, GASTRIC_VALVES } from './gastric.mjs';
 import { createHazardFX } from './hazard-fx.mjs';
+import { patchShell } from './ground-fx.mjs';
 
 const TAU = 2 * Math.PI;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -743,7 +744,7 @@ const BUILDERS = {
 // Anatomy was authored for the original 29 x 41 m arenas; stretch it to the enlarged chambers.
 const ANATOMY_SCALE = [1.45 * ARENA_GROWTH, 1.22 * (1 + (ARENA_GROWTH - 1) / 2), 1.45 * ARENA_GROWTH];
 
-export function createOrganEnvironment(area, { membraneMaps, floorHeight, glow, nodes }) {
+export function createOrganEnvironment(area, { membraneMaps, floorHeight, glow, nodes, detail = { value: 1 } }) {
   const profile = PROFILES[area];
   const root = new THREE.Group();
   const maps = membraneMaps(profile.seed, profile.tissue);
@@ -761,6 +762,17 @@ export function createOrganEnvironment(area, { membraneMaps, floorHeight, glow, 
   const updateHazard = createHazardFX(area, root, floorHeight);
   const updateAirways = area === 'lungs' ? makeBronchialPorts(root, skin, lobe, glow, floorHeight, nodes) : null;
   const updateGastric = area === 'stomach' ? makeGastricValves(root, skin, lobe, glow, floorHeight) : null;
+  // The organ's own walls, folds and lobes are most of what the player sees around the arena, so
+  // every textured tissue surface gets the shell treatment (ground-fx.mjs): no visible tile, a
+  // second blended tissue, varied colour and relief, vessels, wet streaks and the rim glow.
+  const sheenTint = new THREE.Color(profile.back ?? profile.accent).lerp(new THREE.Color(0xffffff), .5);
+  const patched = new Set();
+  root.traverse(object => {
+    const material = object.material;
+    if (!material?.isMeshPhysicalMaterial || !material.map || patched.has(material) || material.transparent) return;
+    patched.add(material);
+    patchShell(material, { area, kind: 'wall', detail, sheenTint, sheenStrength: .18 });
+  });
   return {
     root, maps, updateAirways, updateGastric,
     update(state, time, reduced, gastric, camera) {
