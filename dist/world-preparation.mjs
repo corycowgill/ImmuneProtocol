@@ -18,6 +18,21 @@ import { LOW_MEMORY } from './asset-loading.mjs';
 
 const PRELOAD_INPUT = Object.freeze({ moveX: 0, moveZ: 0, lookX: 0, lookY: 0 });
 
+// Shaders bake in whether they draw to the screen (tone mapped there) or into an HDR target, so
+// they are compiled against the target the game will actually draw into: the post-processing
+// pipeline's on High quality, the screen on Low.
+async function compileFor(world, scene, camera, kind) {
+  const post = world.post && world.quality !== 'low' ? world.post : null;
+  if (post && post.width < 2) post.setSize(160, 90);
+  const previous = world.renderer.getRenderTarget();
+  world.renderer.setRenderTarget(post ? (kind === 'weapon' ? post.weaponTarget : post.sceneTarget) : null);
+  try {
+    await world.renderer.compileAsync(scene, camera);
+  } finally {
+    world.renderer.setRenderTarget(previous);
+  }
+}
+
 export function prepareAll(world, areas, onProgress = () => {}) {
   if (!world.preparation) {
     world.preparation = world.prepareScenes(areas, onProgress).catch(error => {
@@ -66,7 +81,7 @@ export async function prepareScenes(world, areas, onProgress) {
   try {
     for (const shot of world.tracerPool) shot.line.visible = true;
     world.syncLights();
-    await world.renderer.compileAsync(world.scene, world.camera);
+    await compileFor(world, world.scene, world.camera, 'scene');
     world.renderer.render(world.scene, world.camera);
     for (const shot of world.tracerPool) shot.line.visible = false;
     warmTextures(world.weaponScene);
@@ -88,7 +103,7 @@ export async function prepareScenes(world, areas, onProgress) {
       world.weaponKey.castShadow = enabled;
       for (const loadout of LOW_MEMORY ? [DEFAULT_WEAPON_LOADOUT] : warmupBuilds) {
         world.setWeaponLoadout(loadout);
-        await world.renderer.compileAsync(world.weaponScene, world.weaponCamera);
+        await compileFor(world, world.weaponScene, world.weaponCamera, 'weapon');
         world.renderer.render(world.weaponScene, world.weaponCamera);
       }
     }
@@ -212,7 +227,7 @@ export async function prepareArea(world, sim, warmTextures) {
     world.teammateView.update(sim.players, start.id, floorHeight, 0, false);
     warmTextures(world.scene);
     world.syncLights();
-    await world.renderer.compileAsync(world.scene, world.camera);
+    await compileFor(world, world.scene, world.camera, 'scene');
     world.renderer.render(world.scene, world.camera);
   }
   world.deaths?.warm(false);
@@ -238,7 +253,7 @@ export async function prepareMission(world, sim, onProgress = () => {}) {
       world.setWeaponLoadout({ ...sim.weaponLoadout, slot });
       world.carbine.flash.visible = true;
       world.warmTextures(world.weaponScene);
-      await world.renderer.compileAsync(world.weaponScene, world.weaponCamera);
+      await compileFor(world, world.weaponScene, world.weaponCamera, 'weapon');
       world.renderer.render(world.weaponScene, world.weaponCamera);
       await nextTask();
     }
@@ -249,8 +264,8 @@ export async function prepareMission(world, sim, onProgress = () => {}) {
     world.resize(true);
   }
   world.render(sim, 0, PRELOAD_INPUT, false);
-  await world.renderer.compileAsync(world.scene, world.camera);
-  await world.renderer.compileAsync(world.weaponScene, world.weaponCamera);
+  await compileFor(world, world.scene, world.camera, 'scene');
+  await compileFor(world, world.weaponScene, world.weaponCamera, 'weapon');
   // Wait for the pre-rendered frame and uploads to actually finish on the GPU.
   const gl = world.renderer.getContext();
   const fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);

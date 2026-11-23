@@ -3,6 +3,8 @@ import { createArsenalView, weaponModelsReady, prepareWeaponCosmetics } from './
 import { COOP_SUITS, loadSuitModels } from './suits.mjs';
 import { ExplosionFX } from './explosions.mjs';
 import { DeathFX } from './death-fx.mjs';
+import { PostFX } from './post-fx.mjs';
+import { addCaustics, addTissueSheen } from './surface-fx.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve } from './heart-valve.mjs';
 import { createTurret } from './turret.mjs';
@@ -99,6 +101,8 @@ export class World {
     this.scene.add(this.shotLight);
     this.explosions = new ExplosionFX(this.scene, { floorHeight, burst: (...args) => this.burst(...args) });
     this.deaths = new DeathFX(this);
+    // The HDR finishing pipeline (bloom, mist, grade); High quality only.
+    this.post = LOW_MEMORY ? null : new PostFX(this.renderer);
 
     this.weaponScene = new THREE.Scene();
     this.weaponScene.environment = this.scene.environment;
@@ -148,6 +152,11 @@ export class World {
     this.organEnvironments = new Map();
     this.levelProps = new Map();
     this.baseShellMaterials = [this.room.floor.material, this.room.wall.material, this.room.canopy.material];
+    // The bloodstream arenas share the base floor; each organ gets its own patched clone below.
+    this.surfaceTime = { value: 0 };
+    addTissueSheen(this.room.wall.material, 0xffc4b4, .2, 'blood-wall');
+    addTissueSheen(this.room.canopy.material, 0xffc4b4, .15, 'blood-canopy');
+    this.causticFloors = new Map();
     this.tissueViews = [
       makeTissue(this.scene, this.glow, normal, this.random),
       makeTissue(this.scene, this.glow, normal, randomSource(327113), true),
@@ -319,7 +328,9 @@ export class World {
         material.normalScale.setScalar(index === 0 ? .32 : .53);
         material.roughness = index === 0 ? .83 : .76;
         material.clearcoat = index === 0 ? .29 : .37;
-        return material;
+        if (index === 0) return addCaustics(material, this.surfaceTime, area);
+        const sheen = new THREE.Color(profile.back ?? profile.accent).lerp(new THREE.Color(0xffffff), .5);
+        return addTissueSheen(material, sheen, index === 1 ? .2 : .15, area + '-' + index);
       });
       this.organEnvironments.set(area, environment);
     }
@@ -341,6 +352,11 @@ export class World {
     this.organEnvironment = this.organEnvironments.get(this.area);
     if (this.organEnvironment) this.scene.add(this.organEnvironment.root);
     [floor.material, wall.material, canopy.material] = this.organEnvironment?.shell ?? this.baseShellMaterials;
+    if (!this.organEnvironment) {
+      // Artery, junction and heart share the base floor's look but each has its own caustic tint.
+      if (!this.causticFloors.has(this.area)) this.causticFloors.set(this.area, addCaustics(this.baseShellMaterials[0].clone(), this.surfaceTime, this.area));
+      floor.material = this.causticFloors.get(this.area);
+    }
     canopy.scale.y = heart ? .54 : junction ? .63 : profile ? .85 : 1;
     this.scene.background.setHex(profile?.background ?? (heart ? 0x26181f : junction ? 0x1d1115 : 0x230f11));
     this.scene.fog.color.setHex(profile?.fog ?? (heart ? 0x3c2228 : junction ? 0x332528 : 0x462524));
@@ -362,6 +378,7 @@ export class World {
     motes.material.color.setHex(profile?.atmosphere ?? 0xffffff);
     clouds.forEach(({ cloud }, index) => cloud.material.color.setHex(profile?.atmosphere ?? (index > 4 ? 0xb77266 : 0xfac597)));
     this.deaths?.clear();
+    this.post?.setArea(this.area);
     this.updateEnemies([], 0);
     this.updateProjectiles([], false);
     for (const shot of this.shots) {
@@ -776,6 +793,7 @@ export class World {
       this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1, dt * 12));
       this.camera.updateProjectionMatrix();
     }
+    this.surfaceTime.value = reduceMotion ? 0 : this.clock;
     this.explosions.update(dt, reduceMotion ? null : this.camera);
     this.camera.updateMatrixWorld();
     this.updateAtmosphere(dt);
@@ -809,12 +827,17 @@ export class World {
     this.scene.updateMatrixWorld();
     this.syncLights();
     cullDecor(this.camera, this.scene.fog);
-    this.renderer.render(this.scene, this.camera);
-    // Give the close-up model its own depth buffer without clearing the artery.
-    this.renderer.autoClear = false;
-    this.renderer.clearDepth();
-    this.renderer.render(this.weaponScene, this.weaponCamera);
-    this.renderer.autoClear = true;
+    if (this.post && this.quality !== 'low') {
+      this.post.render(this.scene, this.camera, this.weaponScene, this.weaponCamera, this.clock, reduceMotion);
+    } else {
+      this.renderer.setRenderTarget(null);
+      this.renderer.render(this.scene, this.camera);
+      // Give the close-up model its own depth buffer without clearing the artery.
+      this.renderer.autoClear = false;
+      this.renderer.clearDepth();
+      this.renderer.render(this.weaponScene, this.weaponCamera);
+      this.renderer.autoClear = true;
+    }
     return this.weaponPose.aim > .94;
   }
 }
