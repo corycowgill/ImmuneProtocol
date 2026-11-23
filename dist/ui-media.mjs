@@ -14,6 +14,10 @@ export function publishUiFrame(source) {
   const scale = Math.min(1, maximum / Math.max(source.width, source.height));
   const width = Math.max(1, Math.round(source.width * scale)), height = Math.max(1, Math.round(source.height * scale));
   if (frame.width !== width || frame.height !== height) { frame.width = width; frame.height = height; }
-  frame.getContext('2d').drawImage(source, 0, 0, width, height);
+  const context = frame.getContext('2d');
+  // The 3D previews render with a transparent background, so the last frame must be wiped first
+  // or every earlier pose stays visible through it.
+  context.clearRect(0, 0, width, height);
+  context.drawImage(source, 0, 0, width, height);
 }
 export function uiFrame(source) { return frames.get(source) ?? source; }
