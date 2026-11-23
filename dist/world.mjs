@@ -779,7 +779,7 @@ export class World {
     this.explosions.update(dt, reduceMotion ? null : this.camera);
     this.camera.updateMatrixWorld();
     this.updateAtmosphere(dt);
-    this.organEnvironment?.update(sim.organ, this.clock, reduceMotion, sim.gastric);
+    this.organEnvironment?.update(sim.organ, this.clock, reduceMotion, sim.gastric, this.camera);
     this.organEnvironment?.updateAirways?.(sim, this.clock, dt, reduceMotion);
     this.organEnvironment?.updateGastric?.(sim, this.clock, dt, reduceMotion);
     this.megaVirus?.update(sim.boss, this.clock, dt, reduceMotion);

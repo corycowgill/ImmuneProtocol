@@ -176,6 +176,20 @@ export class DeathFX {
     return true;
   }
 
+  // Shows one debris chunk and one puddle (or hides them again) so their shaders compile while
+  // the arena is being prepared rather than on the first kill.
+  warm(on, at = { x: 0, y: 0, z: 0 }) {
+    const chunk = this.chunkPool[0], splat = this.splatPool[0];
+    if (!chunk || !splat) return;
+    chunk.mesh.visible = splat.mesh.visible = on;
+    if (on) {
+      chunk.mesh.position.set(at.x, at.y + .4, at.z);
+      chunk.mesh.scale.setScalar(.2);
+      splat.mesh.position.set(at.x, at.y + .04, at.z);
+      splat.mesh.scale.set(1, 1, 1);
+    }
+  }
+
   dying(id) {
     return this.corpses.some(corpse => corpse.id === id);
   }

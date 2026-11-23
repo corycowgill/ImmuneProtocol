@@ -206,6 +206,7 @@ export async function prepareArea(world, sim, warmTextures) {
   sim.repairTarget = sim.nodes[0];
   for (const teammate of sim.players.slice(1)) teammate.repairing = true;
   world.render(sim, .24, PRELOAD_INPUT, false, false);
+  world.deaths?.warm(true, { x: start.x, y: 0, z: start.z - 6 });
   for (const suit of LOW_MEMORY ? [null] : COOP_SUITS) {
     for (const teammate of sim.players.slice(1)) teammate.suit = suit;
     world.teammateView.update(sim.players, start.id, floorHeight, 0, false);
@@ -214,6 +215,7 @@ export async function prepareArea(world, sim, warmTextures) {
     await world.renderer.compileAsync(world.scene, world.camera);
     world.renderer.render(world.scene, world.camera);
   }
+  world.deaths?.warm(false);
   world.explosions.clear();
 }
 

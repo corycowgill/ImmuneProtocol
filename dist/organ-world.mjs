@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import { chunkInstances } from './decor-chunks.mjs';
 import { ARENA_GROWTH } from './arena-scale.mjs';
 import { GASTRIC_PASSAGE, GASTRIC_VALVES } from './gastric.mjs';
+import { createHazardFX } from './hazard-fx.mjs';
 
 const TAU = 2 * Math.PI;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -29,13 +30,13 @@ const PROFILES = {
     surfaces: ['biofilm', 'mucosa', 'mucosa'],
     seed: 33719, tissue: [196, 150, 118], floor: 0xc99472, wall: 0xd99a86, ceiling: 0xc98074,
     background: 0x1f1810, fog: 0x4b3a22, density: .031, back: 0xffc58a, key: 0xb9e08b,
-    low: 0x5a3324, accent: 0xd8a06a, atmosphere: 0xd9c78f, hazard: 0xffa45c, hazardStyle: 2,
+    low: 0x5a3324, accent: 0xd8a06a, atmosphere: 0xd9c78f, hazard: 0xffa45c,
   },
   lymph: {
     surfaces: ['leukocyte', 'leukocyte', 'neural'],
     seed: 64151, tissue: [214, 196, 200], floor: 0xc7a7b0, wall: 0xd8bcc6, ceiling: 0xc6a8ba,
     background: 0x16192a, fog: 0x3a4058, density: .026, back: 0xd6e4ff, key: 0x9fe4d2,
-    low: 0x4a3b5c, accent: 0xf0d6e0, atmosphere: 0xcfe6ff, hazard: 0xbff7e2, hazardStyle: 3,
+    low: 0x4a3b5c, accent: 0xf0d6e0, atmosphere: 0xcfe6ff, hazard: 0xbff7e2,
   },
   ear: {
     surfaces: ['leukocyte', 'leukocyte', 'leukocyte'],
@@ -742,84 +743,6 @@ const BUILDERS = {
 // Anatomy was authored for the original 29 x 41 m arenas; stretch it to the enlarged chambers.
 const ANATOMY_SCALE = [1.45 * ARENA_GROWTH, 1.22 * (1 + (ARENA_GROWTH - 1) / 2), 1.45 * ARENA_GROWTH];
 
-function hazardSurface(area, root, profile, floorHeight) {
-  const circle = area === 'stomach' || area === 'ear' || area === 'brain' || area === 'lymph';
-  const geometry = new THREE.PlaneGeometry(2, 2, 24, 24);
-  geometry.rotateX(-Math.PI / 2);
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      tint: { value: new THREE.Color(profile.hazard) }, time: { value: 0 }, intensity: { value: 0 },
-      shape: { value: circle ? 1 : 0 },
-      style: { value: profile.hazardStyle ?? ['lungs', 'stomach', 'intestines', 'ear', 'brain'].indexOf(area) },
-    },
-    vertexShader: `
-      varying vec2 uvLocal;
-      void main() {
-        uvLocal = uv * 2.0 - 1.0;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 tint;
-      uniform float time, intensity;
-      uniform int shape, style;
-      varying vec2 uvLocal;
-      void main() {
-        float radial = length(uvLocal);
-        float boundary = shape == 1 ? radial : max(abs(uvLocal.x), abs(uvLocal.y));
-        float coverage = 1.0 - smoothstep(0.96, 1.00, boundary);
-        float rim = smoothstep(0.91, 0.95, boundary);
-        float layer;
-        if (style == 0) {
-          layer = pow(0.5 + 0.5 * sin(49.0 * uvLocal.x + sin(24.0 * uvLocal.y + time) * 1.5), 9.0);
-          layer *= 0.38 + 0.62 * sin(20.0 * uvLocal.y + time * 9.0) * sin(20.0 * uvLocal.y + time * 9.0);
-        } else if (style == 1) {
-          float curl = sin(uvLocal.x * 19.0 + sin(uvLocal.y * 11.0 + time) * 2.0);
-          layer = 0.46 + 0.48 * pow(0.5 + 0.5 * sin(uvLocal.y * 15.0 + curl * 2.2 - time * 1.3), 4.0);
-        } else if (style == 2) {
-          layer = pow(0.5 + 0.5 * sin(11.0 * uvLocal.y + sin(uvLocal.x * 12.0) * 0.34 + time * 5.0), 4.0);
-        } else {
-          layer = pow(0.5 + 0.5 * cos(radial * 28.0 - time * 9.0 + (style == 4 ? sin(uvLocal.x * 24.0) : 0.0)), 9.0);
-        }
-        float strength = (rim * 0.65 + layer * (style == 1 ? 0.78 : 0.39)) * coverage * intensity;
-        gl_FragColor = vec4(tint * (0.64 + layer * 0.75), strength);
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-      }
-    `,
-    side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3,
-  });
-  const field = place(root, geometry, material, 0, 0, 0);
-  field.frustumCulled = false;
-  const positions = geometry.attributes.position;
-  const coords = Float32Array.from(positions.array);
-  let previous = [Infinity, Infinity, Infinity, Infinity];
-  return (state, time, reduced, gastric) => {
-    const draining = gastric?.stage === 'draining';
-    const visible = !!state && gastric?.stage !== 'drained' && (state.phase !== 'recovery' || draining);
-    field.visible = visible;
-    if (!visible) return;
-    const level = gastric?.level ?? 1;
-    const width = circle ? state.radius : state.width / 2;
-    const depth = circle ? state.radius : state.depth / 2;
-    if (![state.x, state.z, width, depth].every(Number.isFinite) || width <= 0 || depth <= 0) {
-      field.visible = false;
-      return;
-    }
-    if (state.x !== previous[0] || state.z !== previous[1] || width !== previous[2] || depth !== previous[3]) {
-      for (let i = 0; i < positions.count; i++) {
-        const x = state.x + coords[i * 3] * width;
-        const z = state.z + coords[i * 3 + 2] * depth;
-        positions.setXYZ(i, x, floorHeight(x, z) + .059, z);
-      }
-      positions.needsUpdate = true;
-      previous = [state.x, state.z, width, depth];
-    }
-    material.uniforms.time.value = reduced ? 0 : time;
-    material.uniforms.intensity.value = draining ? .25 + .69 * level / .68 : state.phase === 'warning' ? .49 : .94;
-  };
-}
-
 export function createOrganEnvironment(area, { membraneMaps, floorHeight, glow, nodes }) {
   const profile = PROFILES[area];
   const root = new THREE.Group();
@@ -835,14 +758,14 @@ export function createOrganEnvironment(area, { membraneMaps, floorHeight, glow, 
   anatomy.scale.set(...ANATOMY_SCALE);
   root.add(anatomy);
   const updateAnatomy = BUILDERS[area](anatomy, skin, lobe, seedRandom(profile.seed), glow);
-  const updateHazard = hazardSurface(area, root, profile, floorHeight);
+  const updateHazard = createHazardFX(area, root, floorHeight);
   const updateAirways = area === 'lungs' ? makeBronchialPorts(root, skin, lobe, glow, floorHeight, nodes) : null;
   const updateGastric = area === 'stomach' ? makeGastricValves(root, skin, lobe, glow, floorHeight) : null;
   return {
     root, maps, updateAirways, updateGastric,
-    update(state, time, reduced, gastric) {
+    update(state, time, reduced, gastric, camera) {
       updateAnatomy(reduced ? 0 : time, !reduced && state?.phase === 'active', gastric);
-      updateHazard(state, time, reduced, gastric);
+      updateHazard(state, time, reduced, gastric, camera);
     },
   };
 }

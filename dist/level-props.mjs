@@ -6,6 +6,7 @@ import { ARENA_GROWTH } from './arena-scale.mjs';
 const FLOOR_X = 42 * ARENA_GROWTH;
 const FLOOR_Z = 59 * ARENA_GROWTH;
 import { bioTexture } from './bio-textures.mjs';
+import { addLevelDetails } from './level-details.mjs';
 
 // Large-scale set dressing and ambient VFX for every arena: blood-cell rivers and a pumping valve
 // gate in the bloodstream, patrolling white blood cells, the villus forest of the small intestine,
@@ -14,7 +15,7 @@ import { bioTexture } from './bio-textures.mjs';
 
 const TAU = Math.PI * 2;
 
-function seeded(seed) {
+export function seeded(seed) {
   return () => {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
     return seed / 4294967296;
@@ -26,7 +27,7 @@ export function bioSurface(name) {
   return { map: bioTexture(name), normalMap: bioTexture(name, [1, 1], true), roughnessMap: null };
 }
 
-function bioMaterial(name, repeat, options = {}) {
+export function bioMaterial(name, repeat, options = {}) {
   return new THREE.MeshPhysicalMaterial({
     map: bioTexture(name, repeat), normalMap: bioTexture(name, repeat, true),
     normalScale: new THREE.Vector2(.8, .8), roughness: .42, clearcoat: .6, clearcoatRoughness: .25,
@@ -35,7 +36,7 @@ function bioMaterial(name, repeat, options = {}) {
 }
 
 // Bends geometry with height (local y >= 0) so instanced fingers, rods and fronds sway in the current.
-function addSway(material, time, amount, speed, key) {
+export function addSway(material, time, amount, speed, key) {
   material.onBeforeCompile = shader => {
     shader.uniforms.swayTime = time;
     shader.vertexShader = 'uniform float swayTime;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
@@ -55,7 +56,7 @@ function addSway(material, time, amount, speed, key) {
 }
 
 // Soft-body wobble with a pseudopod that stretches toward `reach` (object space).
-function addMembrane(material, time, reach, key) {
+export function addMembrane(material, time, reach, key) {
   material.onBeforeCompile = shader => {
     shader.uniforms.blobTime = time;
     shader.uniforms.blobReach = reach;
@@ -71,7 +72,7 @@ function addMembrane(material, time, reach, key) {
   return material;
 }
 
-function lumpySphere(detail, strength, seed) {
+export function lumpySphere(detail, strength, seed) {
   // A UV sphere (not an icosphere) so tiled textures wrap without a zig-zag seam.
   const segments = 8 * (detail + 1);
   const geometry = new THREE.SphereGeometry(1, segments * 2, segments);
@@ -89,7 +90,7 @@ function lumpySphere(detail, strength, seed) {
   return geometry;
 }
 
-function fingerGeometry(rows = 20, radial = 20) {
+export function fingerGeometry(rows = 20, radial = 20) {
   // Unit-height villus: flared foot, slightly knobbly shaft, rounded tip. Height runs along +y.
   const profile = [];
   for (let i = 0; i <= rows; i++) {
@@ -104,13 +105,13 @@ function fingerGeometry(rows = 20, radial = 20) {
 
 // The rivers carry hundreds of cells overhead and beyond the walls, each a few pixels wide, so
 // the biconcave disc keeps its silhouette with a coarse profile.
-function redCellGeometry() {
+export function redCellGeometry() {
   const profile = [[0, -.085], [.4, -.125], [.74, -.215], [.97, -.11], [1, 0],
     [.97, .11], [.74, .215], [.4, .125], [0, .085]];
   return new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 14);
 }
 
-function mergeGeometries(parts) {
+export function mergeGeometries(parts) {
   const arrays = parts.map(geometry => geometry.index ? geometry.toNonIndexed() : geometry);
   const merged = new THREE.BufferGeometry();
   for (const name of ['position', 'normal', 'uv']) {
@@ -128,13 +129,13 @@ function mergeGeometries(parts) {
   return merged;
 }
 
-function tube(points, radius, segments = 24, radial = 7) {
+export function tube(points, radius, segments = 24, radial = 7) {
   return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map(point => new THREE.Vector3(...point))),
     segments, radius, radial, false);
 }
 
 // Tube whose radius tapers from r0 at the start to r1 at the end, like a dendrite or a villus.
-function taperedTube(points, r0, r1, segments = 30, radial = 9) {
+export function taperedTube(points, r0, r1, segments = 30, radial = 9) {
   const curve = new THREE.CatmullRomCurve3(points.map(point => Array.isArray(point) ? new THREE.Vector3(...point) : point));
   const geometry = new THREE.TubeGeometry(curve, segments, 1, radial, false);
   const position = geometry.attributes.position;
@@ -1075,6 +1076,7 @@ export function createLevelProps(area, { glow, floorHeight, nodes = [], obstacle
   const updates = [];
   let quality = true;
   const shaftTime = lightShafts(root, SHAFT_COLORS[area] ?? 0xffffff, area === 'brain' ? 4 : 7, random);
+  const detailQuality = addLevelDetails(area, root, { random, time, nodes, obstacles, floorHeight });
   const heartbeat = () => {
     const phase = (time.value / 1.15) % 1;
     return phase < .38 ? Math.sin(phase / .38 * Math.PI) : 0;
@@ -1152,6 +1154,7 @@ export function createLevelProps(area, { glow, floorHeight, nodes = [], obstacle
     setQuality(high) {
       quality = high;
       updates.quality?.(high);
+      detailQuality(high);
     },
     update(sim, clock, dt, reduced) {
       const step = reduced ? 0 : dt;
