@@ -2,7 +2,7 @@
 reports any build whose weapon or attachment points fall outside the picture, or whose part card is blank. --><pre id="report" style="margin:4px 8px"></pre><div id="sheets"></div><script type="module">
 import * as THREE from './vendor/three.module.js';
 import { prepareArmoryArt } from './armory-art.mjs';
-import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon, loadoutWithBuild, loadoutInSlot } from './weapon-mods.mjs';
+import { DEFAULT_WEAPON_LOADOUT, TURRET_SLOTS, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon, loadoutWithBuild, loadoutInSlot, normalizeTurretBuild } from './weapon-mods.mjs';
 const query = new URLSearchParams(location.search);
 const status = document.querySelector('#status'), report = document.querySelector('#report');
 const problems = [];
@@ -11,6 +11,28 @@ try {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const art = await prepareArmoryArt(renderer);
+  // ?weapons=turret renders the auto-turret with each part and a few dressed builds.
+  if (query.get('weapons') === 'turret') {
+    const builds = [['stock', {}]];
+    for (const [slot, { options }] of Object.entries(TURRET_SLOTS)) for (const option of Object.keys(options)) if (option !== 'standard') builds.push([slot + ':' + option, { [slot]: option }]);
+    builds.push(['tiger + flames + star', { skin: 'tiger', decal: 'flames', sticker: 'star', charm: 'star', accent: 'amber' }]);
+    builds.push(['cyberpunk + circuit', { skin: 'cyberpunk', decal: 'circuit', sticker: 'skull', charm: 'skull', finish: 'obsidian', accent: 'violet', barrel: 'heavy-barrel', sensor: 'long-range-sensor', receiver: 'shock-receiver' }]);
+    builds.push(['crimson finish', { finish: 'crimson', accent: 'ice', receiver: 'cryo-receiver', charm: 'clover' }]);
+    const W = 480, H = 300;
+    const sheet = document.createElement('canvas');
+    sheet.width = W * 3; sheet.height = H * Math.ceil(builds.length / 3);
+    const c = sheet.getContext('2d');
+    c.font = 'bold 14px monospace';
+    for (const [index, [label, build]] of builds.entries()) {
+      const picture = art.render({ weapon: 'turret', ...normalizeTurretBuild(build) }, { yaw: .7, pitch: .15 });
+      const x = (index % 3) * W, y = Math.floor(index / 3) * H;
+      c.drawImage(picture, x, y, W, H);
+      c.fillStyle = '#fff'; c.fillText(label, x + 6, y + 16);
+    }
+    document.querySelector('#sheets').append(sheet);
+    status.textContent = 'DONE: turret';
+    throw Object.assign(new Error('turret only'), { done: true });
+  }
   const weapons = query.get('weapons')?.split(',') ?? WEAPON_ORDER;
   const W = 320, H = 200;
   // How much of the picture changes when the weapon is turned: nothing moves if it is not there.
@@ -70,5 +92,5 @@ try {
     await new Promise(requestAnimationFrame);
   }
   status.textContent = problems.length ? 'PROBLEMS: ' + problems.length : 'DONE: every build is in frame';
-} catch (error) { status.textContent = 'FAIL: ' + error.message; console.error(error); }
+} catch (error) { if (!error.done) { status.textContent = 'FAIL: ' + error.message; console.error(error); } }
 </script></body></html>

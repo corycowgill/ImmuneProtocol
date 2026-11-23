@@ -599,6 +599,8 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .turret-status[data-state="blocked"]{color:#ffbd7e}
 .turret-status[data-state="engaging"]{color:#b8f4ed}
 .turret-status[data-state="moving"]{color:#ffe08a}
+.fps-counter{position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:60;padding:2px 8px;border-radius:4px;background:#050b10b0;color:#c9f6d8;font:600 12px/1.4 ui-monospace,monospace;pointer-events:none}
+.fps-counter[hidden]{display:none}
 .turret-status:is([data-state="online"],[data-state="engaging"]) kbd{display:none}
 .field-hint{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);padding:7px 13px;background:#211514a9;white-space:nowrap;display:flex;align-items:center;gap:11px;font-size:9px;color:#eadfcc}
 .field-hint span{width:3px;height:3px;border-radius:50%;background:var(--green)}

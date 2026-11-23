@@ -1,4 +1,7 @@
 import * as THREE from './vendor/three.module.js';
+import { WEAPON_ACCENTS, WEAPON_FINISHES, normalizeTurretBuild } from './weapon-mods.mjs';
+import { decalTexture, dressShell, makeSkinnable } from './weapon-skins.mjs';
+import { createCharms, stickerTexture } from './arsenal-models.mjs';
 
 const Y = new THREE.Vector3(0, 1, 0);
 
@@ -144,11 +147,15 @@ export function createTurret(glow) {
     part(recoil, new THREE.BoxGeometry(.075, .007, .003), rubber, 0, -.025 + i * .024, -.502);
   }
   cylinder(recoil, frame, .094, .094, .40, 0, -.013, .29, true, 12);
-  cylinder(recoil, barrel, .061, .078, .54, 0, -.012, .48, true);
-  cylinder(recoil, edge, .087, .076, .10, 0, -.012, .724, true, 12);
-  cylinder(recoil, barrel, .088, .092, .09, 0, -.012, .786, true, 12);
-  part(recoil, new THREE.RingGeometry(.04, .08, 20), edge, 0, -.012, .833);
-  part(recoil, new THREE.CircleGeometry(.064, 16), muzzleInterior, 0, -.012, .832);
+  // The gun tube from the shroud forward; barrel parts stretch and thicken it.
+  const tube = new THREE.Group();
+  tube.position.set(0, -.012, .21);
+  recoil.add(tube);
+  cylinder(tube, barrel, .061, .078, .54, 0, 0, .27, true);
+  cylinder(tube, edge, .087, .076, .10, 0, 0, .514, true, 12);
+  cylinder(tube, barrel, .088, .092, .09, 0, 0, .576, true, 12);
+  part(tube, new THREE.RingGeometry(.04, .08, 20), edge, 0, 0, .623);
+  part(tube, new THREE.CircleGeometry(.064, 16), muzzleInterior, 0, 0, .622);
   for (let i = 0; i < 5; i++) {
     part(recoil, new THREE.BoxGeometry(.024, .024, .025), rubber, -.078, -.009, .42 + i * .032);
     part(recoil, new THREE.BoxGeometry(.024, .024, .025), rubber, .078, -.009, .42 + i * .032);
@@ -165,14 +172,85 @@ export function createTurret(glow) {
       vent.rotation.x = -.32;
     }
   }
-  cylinder(recoil, edge, .067, .074, .082, .128, .078, .272, true);
-  cylinder(recoil, rubber, .05, .05, .029, .128, .078, .321, true);
-  part(recoil, new THREE.SphereGeometry(.039, 18, 10), lens, .128, .078, .327).scale.z = .32;
+  // The sensor pod: sensor parts lengthen it into a scope or open it into a wide dish.
+  const sensor = new THREE.Group();
+  sensor.position.set(.128, .078, .272);
+  recoil.add(sensor);
+  cylinder(sensor, edge, .067, .074, .082, 0, 0, 0, true);
+  cylinder(sensor, rubber, .05, .05, .029, 0, 0, .049, true);
+  part(sensor, new THREE.SphereGeometry(.039, 18, 10), lens, 0, 0, .055).scale.z = .32;
+  // Receiver coils: frost for the cryo receiver, amber for the shock receiver.
+  const coilMaterial = new THREE.MeshStandardMaterial({ color: 0x9fe8ff, emissive: 0x6fd8ff, emissiveIntensity: .8, metalness: .4, roughness: .3 });
+  const coils = new THREE.Group();
+  for (let i = 0; i < 3; i++) {
+    const coil = part(coils, new THREE.TorusGeometry(.098, .016, 8, 24), coilMaterial, 0, -.012, .53 + i * .06);
+    coil.rotation.x = Math.PI / 2;
+  }
+  coils.visible = false;
+  recoil.add(coils);
   part(recoil, new THREE.BoxGeometry(.075, .015, .068), diode, -.094, .193, -.175);
 
   const muzzle = new THREE.Object3D();
-  muzzle.position.set(0, -.012, .86);
-  recoil.add(muzzle);
+  muzzle.position.set(0, 0, .65);
+  tube.add(muzzle);
+
+  // Cosmetics: side decals on the receiver covers, a sticker on top, and a hanging charm.
+  const decalMaterial = new THREE.MeshStandardMaterial({ transparent: true, roughness: .55, metalness: .1, polygonOffset: true, polygonOffsetFactor: -4 });
+  const decals = [-1, 1].map(side => {
+    // Along the sides of the top housing, above the yoke arms.
+    const decal = part(recoil, new THREE.PlaneGeometry(.46, .075), decalMaterial, side * .214, .152, -.15);
+    decal.rotation.y = side * Math.PI / 2;
+    decal.visible = false;
+    return decal;
+  });
+  const stickerMaterial = new THREE.MeshStandardMaterial({ transparent: true, roughness: .5, polygonOffset: true, polygonOffsetFactor: -4 });
+  const sticker = part(recoil, new THREE.PlaneGeometry(.15, .15), stickerMaterial, .06, .206, -.3);
+  sticker.rotation.x = -Math.PI / 2;
+  sticker.visible = false;
+  const { pivot: charmPivot, charms } = createCharms();
+  charmPivot.scale.setScalar(4.2);
+  charmPivot.position.set(.17, .14, -.43);
+  recoil.add(charmPivot);
+  let charmSwing = 0;
+
+  makeSkinnable(armor);
+  const plainArmor = armor.map;
+  const factoryArmor = armor.color.getHex();
+  const factoryAccent = accent.color.getHex();
+  let dressed = '';
+  // Applies a turret build (normalizeTurretBuild): parts change the silhouette, cosmetics the paint.
+  function setBuild(value) {
+    const build = normalizeTurretBuild(value);
+    const key = Object.values(build).join('|');
+    if (key === dressed) return;
+    dressed = key;
+    const finish = build.finish === 'factory' ? factoryArmor : new THREE.Color(WEAPON_FINISHES[build.finish].color).getHex();
+    const hadMap = !!armor.map;
+    dressShell(armor, build.skin, finish, plainArmor);
+    if (hadMap !== !!armor.map) armor.needsUpdate = true;
+    armor.roughnessMap = wear;
+    const accentColor = new THREE.Color(WEAPON_ACCENTS[build.accent].color);
+    accent.color.setHex(build.accent === 'factory' ? factoryAccent : accentColor.getHex());
+    diode.color.copy(accentColor);
+    diode.emissive.copy(accentColor);
+    tube.scale.set(...{ 'heavy-barrel': [1.5, 1.5, 1.25], 'short-barrel': [.9, .9, .62] }[build.barrel] ?? [1, 1, 1]);
+    sensor.scale.set(...{ 'long-range-sensor': [.85, .85, 3], 'close-in-sensor': [1.9, 1.9, .65] }[build.sensor] ?? [1, 1, 1]);
+    // The coils ride the gun tube, so a short barrel pulls them back with it.
+    coils.position.z = (tube.scale.z - 1) * .45;
+    coils.visible = build.receiver !== 'standard';
+    const coilColor = build.receiver === 'shock-receiver' ? 0xffc04d : 0x7fdcff;
+    coilMaterial.color.setHex(coilColor);
+    coilMaterial.emissive.setHex(coilColor);
+    for (const decal of decals) decal.visible = build.decal !== 'none';
+    if (build.decal !== 'none') decalMaterial.map = decalTexture(build.decal);
+    decalMaterial.needsUpdate = true;
+    sticker.visible = build.sticker !== 'none';
+    if (sticker.visible) stickerMaterial.map = stickerTexture(build.sticker);
+    stickerMaterial.needsUpdate = true;
+    for (const [id, charm] of Object.entries(charms)) charm.visible = id === build.charm;
+    charmPivot.visible = build.charm !== 'none';
+  }
+  setBuild(null);
   const flash = new THREE.Sprite(new THREE.SpriteMaterial({
     map: glow, color: 0xffb365, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
@@ -203,6 +281,9 @@ export function createTurret(glow) {
       emplacement = turret;
     }
     model.visible = true;
+    setBuild(turret.build);
+    charmSwing += dt;
+    charmPivot.rotation.z = reduceMotion ? 0 : Math.sin(charmSwing * 2.3) * .12 + recoilTime * 1.6;
     // A carried turret rides a little off the ground so it reads as picked up.
     lift += ((turret.carried ? .32 : 0) - lift) * Math.min(1, dt * 12);
     model.position.set(turret.x, turret.y + floor + lift, turret.z);
@@ -231,5 +312,5 @@ export function createTurret(glow) {
     flash.scale.set(.64, .49, 1);
   }
 
-  return { model, muzzle, reset, update, fire };
+  return { model, muzzle, reset, update, fire, setBuild };
 }

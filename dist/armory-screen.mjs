@@ -3,7 +3,8 @@
 // Gunsmith swaps parts, Customize handles finishes, skins, decals, stickers and charms. Stat bars
 // under the weapon show the build and preview whatever option the pointer or focus is on.
 import {
-  WEAPON_ORDER, WEAPON_SLOTS, WEAPON_TYPES, loadoutInSlot, loadoutWithBuild, loadoutWithWeapon, magazineCapacity, weaponStats,
+  TURRET_SLOTS, WEAPON_ORDER, WEAPON_SLOTS, WEAPON_TYPES, loadoutInSlot, loadoutWithBuild, loadoutWithTurret, loadoutWithWeapon,
+  magazineCapacity, turretStats, weaponStats,
 } from './weapon-mods.mjs';
 
 const degrees = radians => radians * 180 / Math.PI;
@@ -20,6 +21,20 @@ export const ARMORY_STATS = [
   { id: 'hip', name: 'Hip spread', low: 0, high: 5.2, better: -1, unit: '°', digits: 1, value: stats => degrees(stats.hipSpread) },
   { id: 'mobility', name: 'Mobility', low: 80, high: 115, better: 1, unit: '%', value: stats => Math.round(stats.moveSpeed * 100) },
 ];
+
+// The auto-turret's bars (turretStats numbers).
+export const TURRET_ARMORY_STATS = [
+  { id: 'turret-damage', name: 'Damage', low: 0, high: 40, better: 1, value: stats => Math.round(stats.damage) },
+  { id: 'turret-rate', name: 'Fire rate', low: 0, high: 300, better: 1, unit: ' RPM', value: stats => Math.round(60 / stats.interval) },
+  { id: 'turret-dps', name: 'Damage / s', low: 0, high: 120, better: 1, value: stats => Math.round(stats.damage / stats.interval) },
+  { id: 'turret-range', name: 'Range', low: 0, high: 30, better: 1, unit: ' m', value: stats => Math.round(stats.range) },
+  { id: 'turret-slow', name: 'Slow', low: 0, high: 3, better: 1, unit: ' s', digits: 1, value: stats => stats.slow },
+  { id: 'turret-stagger', name: 'Stagger every', low: 0, high: 2, better: -1, unit: ' s', digits: 1, value: stats => stats.stagger },
+];
+const TURRET_TYPE = {
+  name: 'Auto-turret', short: 'Turret', role: 'Sentry',
+  detail: 'Deploys on clear ground and fires on its own. Hold the turret control to drag it anywhere.',
+};
 
 // Where each attachment callout sits on the stage, as fractions of its width and height.
 const CALLOUT_SPOTS = {
@@ -60,9 +75,16 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
   const reset = byId('armory-reset');
 
   const state = { mode: 'gunsmith', editing: 'primary', part: Object.keys(WEAPON_SLOTS)[0], cosmetic: Object.keys(cosmetics)[0], preview: null };
-  const edited = () => loadoutInSlot(getLoadout(), state.editing);
-  const statsOf = loadout => weaponStats(loadout);
-  const withPart = (slot, option) => loadoutInSlot(loadoutWithBuild(getLoadout(), edited().weapon, { [slot]: option }), state.editing);
+  const turretEditing = () => state.editing === 'turret';
+  // The turret edits as a build tagged weapon 'turret'; the carried weapons as their loadouts.
+  const edited = () => turretEditing() ? { weapon: 'turret', ...getLoadout().arsenal.turret } : loadoutInSlot(getLoadout(), state.editing);
+  const statsOf = loadout => loadout.weapon === 'turret' ? turretStats(loadout) : weaponStats(loadout);
+  const statList_ = () => turretEditing() ? TURRET_ARMORY_STATS : ARMORY_STATS;
+  const partSlots = () => turretEditing() ? TURRET_SLOTS : WEAPON_SLOTS;
+  const withPart = (slot, option) => turretEditing() ? { ...edited(), [slot]: option }
+    : loadoutInSlot(loadoutWithBuild(getLoadout(), edited().weapon, { [slot]: option }), state.editing);
+  const equipPart = (slot, option) => equip(turretEditing() ? loadoutWithTurret(getLoadout(), { [slot]: option })
+    : loadoutWithBuild(getLoadout(), edited().weapon, { [slot]: option }));
 
   // --- mode tabs
   for (const [mode, label, hint] of MODES) {
@@ -89,7 +111,7 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
   });
 
   // --- stat bars
-  const bars = ARMORY_STATS.map(stat => {
+  const bars = [...ARMORY_STATS, ...TURRET_ARMORY_STATS].map(stat => {
     const row = element(document, 'div', 'gs-stat');
     const label = element(document, 'dt', '', stat.name);
     const value = element(document, 'dd');
@@ -111,7 +133,10 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
     const current = statsOf(edited());
     const candidate = state.preview ? statsOf(state.preview) : null;
     const capacity = baseCapacity();
+    const shownStats = statList_();
     for (const { stat, row, number, change, fill, delta } of bars) {
+      row.hidden = !shownStats.includes(stat);
+      if (row.hidden) continue;
       const now = stat.value(current, capacity);
       const next = candidate ? stat.value(candidate, capacity) : now;
       // A bar always fills toward "better", so reload and spread read the same way as damage.
@@ -135,7 +160,7 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
     const capacity = baseCapacity();
     const pros = [];
     const cons = [];
-    for (const stat of ARMORY_STATS) {
+    for (const stat of statList_()) {
       const difference = Number((stat.value(next, capacity) - stat.value(current, capacity)).toFixed(stat.digits ?? 0));
       if (!difference) continue;
       const text = (difference > 0 ? '+' : '−') + Math.abs(difference).toFixed(stat.digits ?? 0) + (stat.unit ?? '') + ' ' + stat.name.toLowerCase();
@@ -240,14 +265,14 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
   function weaponsPanel() {
     const loadout = getLoadout();
     setText(panelTitle, 'Loadout');
-    setText(panelNote, 'Two different weapons');
-    subtabs.replaceChildren(...['primary', 'secondary'].map(slot => {
-      const carried = WEAPON_TYPES[loadout.arsenal[slot]];
+    setText(panelNote, 'Two different weapons and your auto-turret');
+    subtabs.replaceChildren(...['primary', 'secondary', 'turret'].map(slot => {
+      const carried = slot === 'turret' ? TURRET_TYPE : WEAPON_TYPES[loadout.arsenal[slot]];
       const tab = element(document, 'button', 'gs-carried');
       tab.type = 'button';
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', String(slot === state.editing));
-      tab.append(element(document, 'span', '', (slot === 'primary' ? 'Primary' : 'Secondary') + ' · key ' + (slot === 'primary' ? 1 : 2)),
+      tab.append(element(document, 'span', '', slot === 'turret' ? 'Deployable · key Q' : (slot === 'primary' ? 'Primary' : 'Secondary') + ' · key ' + (slot === 'primary' ? 1 : 2)),
         element(document, 'strong', '', carried.name), element(document, 'small', '', carried.role));
       tab.addEventListener('click', () => {
         state.editing = slot;
@@ -255,8 +280,23 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
       });
       return tab;
     }));
-    const other = state.editing === 'primary' ? 'secondary' : 'primary';
     options.dataset.layout = 'rows';
+    if (turretEditing()) {
+      const go = (mode, label, text) => {
+        const card = element(document, 'button', 'gs-option gs-weapon');
+        card.type = 'button';
+        card.append(element(document, 'span', 'gs-option-kind', 'Auto-turret'), element(document, 'strong', '', label), element(document, 'small', '', text));
+        card.addEventListener('click', () => {
+          state.mode = mode;
+          draw();
+        });
+        return card;
+      };
+      options.replaceChildren(go('gunsmith', 'Gunsmith', 'Fit a barrel, receiver and sensor.'),
+        go('customize', 'Customize', 'Finish, accent, skin, decal, sticker and charm.'));
+      return;
+    }
+    const other = state.editing === 'primary' ? 'secondary' : 'primary';
     options.replaceChildren(...WEAPON_ORDER.map(weapon => {
       const type = WEAPON_TYPES[weapon];
       const equipped = loadout.arsenal[state.editing] === weapon;
@@ -278,11 +318,13 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
 
   function gunsmithPanel() {
     const current = edited();
+    const slots = partSlots();
+    if (!slots[state.part]) state.part = Object.keys(slots)[0];
     const slot = state.part;
-    const cards = art.thumbnailsFor?.(current.weapon) ?? art.thumbnails;
-    setText(panelTitle, WEAPON_SLOTS[slot].name);
-    setText(panelNote, Object.keys(WEAPON_SLOTS[slot].options).length + ' options');
-    subtabs.replaceChildren(...Object.entries(WEAPON_SLOTS).map(([id, { name }]) => {
+    const cards = turretEditing() ? {} : art.thumbnailsFor?.(current.weapon) ?? art.thumbnails;
+    setText(panelTitle, slots[slot].name);
+    setText(panelNote, Object.keys(slots[slot].options).length + ' options');
+    subtabs.replaceChildren(...Object.entries(slots).map(([id, { name }]) => {
       const tab = element(document, 'button', 'gs-chip', name);
       tab.type = 'button';
       tab.setAttribute('role', 'tab');
@@ -295,7 +337,7 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
       return tab;
     }));
     options.dataset.layout = 'rows';
-    options.replaceChildren(...Object.entries(WEAPON_SLOTS[slot].options).map(([id, option]) => {
+    options.replaceChildren(...Object.entries(slots[slot].options).map(([id, option]) => {
       const equipped = current[slot] === id;
       const card = element(document, 'button', 'gs-option gs-part');
       card.type = 'button';
@@ -306,10 +348,10 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
       const text = element(document, 'div');
       text.append(element(document, 'strong', '', option.name), element(document, 'small', '', option.detail),
         tradeoffList(withPart(slot, id), equipped));
-      card.append(picture, text);
+      card.append(...(picture.src ? [picture] : []), text);
       previewable(card, () => withPart(slot, id));
       card.addEventListener('click', () => {
-        if (!equipped) equip(loadoutWithBuild(getLoadout(), current.weapon, { [slot]: id }));
+        if (!equipped) equipPart(slot, id);
       });
       return card;
     }));
@@ -357,7 +399,7 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
         previewable(card, () => withPart(slot, id));
       } else if (equipped) card.append(element(document, 'em', 'gs-equipped', 'Equipped'));
       card.addEventListener('click', () => {
-        if (!equipped) equip(loadoutWithBuild(getLoadout(), current.weapon, { [slot]: id }));
+        if (!equipped) equipPart(slot, id);
       });
       return card;
     }));
@@ -366,9 +408,10 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
   function draw() {
     state.preview = null;
     const current = edited();
-    const type = WEAPON_TYPES[current.weapon];
+    const type = turretEditing() ? TURRET_TYPE : WEAPON_TYPES[current.weapon];
     dialog.dataset.mode = state.mode;
-    setText(kicker, (state.editing === 'primary' ? 'PRIMARY' : 'SECONDARY') + ' · ' + type.name.toUpperCase());
+    dialog.dataset.editing = state.editing;
+    setText(kicker, (turretEditing() ? 'DEPLOYABLE' : state.editing === 'primary' ? 'PRIMARY' : 'SECONDARY') + ' · ' + type.name.toUpperCase());
     setText(plate.role, type.role);
     setText(plate.name, type.name);
     setText(plate.detail, type.detail);
@@ -379,9 +422,9 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
       tab.tabIndex = active ? 0 : -1;
     }
     for (const [slot, { button, value }] of Object.entries(callouts)) {
-      button.hidden = state.mode !== 'gunsmith';
+      button.hidden = state.mode !== 'gunsmith' || turretEditing();
       button.setAttribute('aria-pressed', String(slot === state.part));
-      setText(value, WEAPON_SLOTS[slot].options[current[slot]].name);
+      if (!turretEditing()) setText(value, WEAPON_SLOTS[slot].options[current[slot]].name);
     }
     // Rebuilding the list would drop keyboard focus; put it back on the same option.
     const focused = [...options.children].indexOf(document.activeElement);

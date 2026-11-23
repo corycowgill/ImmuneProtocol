@@ -182,6 +182,8 @@ export class GameAudio {
     this.samples = new Map();
     this.shotIndex = 0;
     this.roomVoice = null;
+    this.masterLevel = 1;
+    this.ambienceLevel = 1;
     this.repairing = false;
     this.repairVoice = null;
     this.musicMode = 'drift';
@@ -204,7 +206,7 @@ export class GameAudio {
       this.context = new Audio();
       const context = this.context;
       this.master = context.createGain();
-      this.master.gain.value = this.muted ? 0 : 0.65;
+      this.master.gain.value = this.muted ? 0 : 0.65 * this.masterLevel;
       const limiter = context.createDynamicsCompressor();
       limiter.threshold.value = -14;
       limiter.ratio.value = 7;
@@ -228,7 +230,16 @@ export class GameAudio {
 
   setMuted(muted) {
     this.muted = muted;
-    if (this.context) this.master.gain.setTargetAtTime(muted ? 0 : 0.65, this.context.currentTime, 0.03);
+    if (this.context) this.master.gain.setTargetAtTime(muted ? 0 : 0.65 * this.masterLevel, this.context.currentTime, 0.03);
+  }
+
+  // Master scales everything; ambience scales the looping room bed under the combat mix.
+  setLevels(master, ambience) {
+    this.masterLevel = master;
+    this.ambienceLevel = ambience;
+    if (!this.context) return;
+    this.setMuted(this.muted);
+    this.syncRoom();
   }
 
   prepare() {
@@ -406,7 +417,7 @@ export class GameAudio {
     if (this.active && !this.roomVoice) {
       this.roomVoice = this.playSample('field/arterial-bed', 0, { loop: true, bus: this.master });
     }
-    this.roomVoice?.gain.gain.setTargetAtTime(this.active ? 0.29 : 0, this.context.currentTime, 0.14);
+    this.roomVoice?.gain.gain.setTargetAtTime(this.active ? 0.29 * this.ambienceLevel : 0, this.context.currentTime, 0.14);
   }
 
   syncRepair() {

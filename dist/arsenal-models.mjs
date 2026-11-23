@@ -743,7 +743,7 @@ export function drawSticker(context, size, id) {
   context.restore();
 }
 
-function stickerTexture(id) {
+export function stickerTexture(id) {
   if (stickerTextures[id]) return stickerTextures[id];
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 128;
@@ -755,7 +755,7 @@ function stickerTexture(id) {
 }
 
 // One mesh per charm, hung from a three-link chain that swings with the weapon.
-function createCharms() {
+export function createCharms() {
   const pivot = new THREE.Group();
   pivot.name = 'weapon-charm';
   const { mesh, group } = builder(pivot);

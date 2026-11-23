@@ -477,6 +477,25 @@ export class World {
     return patchGround(material, { time: this.surfaceTime, area, maps, detail: this.groundDetail });
   }
 
+  // Player options from the settings menu (game-settings.mjs).
+  applyOptions(options) {
+    if (!options) return;
+    this.renderer.toneMappingExposure = 1.18 * options.brightness;
+    this.fieldOfView = options['field-of-view'];
+    const fixed = options['resolution-scale'] === 'auto' ? null : Number(options['resolution-scale']);
+    if (fixed !== this.fixedScale) {
+      this.fixedScale = fixed;
+      this.renderScale.enabled = fixed == null;
+      this.renderScale.reset();
+      this.resize(true);
+    }
+    this.explosions.shakeScale = options['camera-shake'];
+    if (this.post) this.post.options = {
+      bloom: options.bloom, ao: options['ambient-occlusion'], vignette: options.vignette,
+      grain: options['film-grain'], aberration: options['chromatic-aberration'],
+    };
+  }
+
   setQuality(quality) {
     const low = quality === 'low';
     const next = low ? 'low' : 'high';
@@ -505,7 +524,7 @@ export class World {
     this.height = height;
     const low = this.quality === 'low';
     const pixelRatio = Math.min(window.devicePixelRatio || 1, low ? .87 : 1.45,
-      Math.sqrt((low ? 950000 : 2300000) / (width * height))) * this.renderScale.scale;
+      Math.sqrt((low ? 950000 : 2300000) / (width * height))) * (this.fixedScale ?? this.renderScale.scale);
     this.renderer.setPixelRatio(pixelRatio);
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
@@ -826,7 +845,9 @@ export class World {
     this.camera.rotation.set(player.pitch, player.yaw, 0);
     const aiming = input.aim && !sim.reloading && !sim.repairing;
     // Each weapon and optic zooms by its own amount; the Lancet scope zooms furthest.
-    const targetFov = aiming ? sim.weapon.zoom ?? 48 : 61;
+    // Aim zoom keeps each optic's magnification relative to the chosen field of view.
+    const baseFov = this.fieldOfView ?? 61;
+    const targetFov = aiming ? (sim.weapon.zoom ?? 48) * baseFov / 61 : baseFov;
     if (Math.abs(targetFov - this.camera.fov) > .04) {
       this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1, dt * 12));
       this.camera.updateProjectionMatrix();

@@ -2,7 +2,7 @@
 // the bench, and equipping what is chosen on armory-screen.mjs's tabs. Changes are saved at once;
 // game.mjs listens through `armoryEvents` (a changed loadout cancels a co-op ready).
 import { RULES } from './simulation.mjs';
-import { WEAPON_ACCENTS, WEAPON_FINISHES, WEAPON_TYPES, loadoutWithBuild, normalizeWeaponBuild, normalizeWeaponLoadout } from './weapon-mods.mjs';
+import { WEAPON_ACCENTS, WEAPON_FINISHES, WEAPON_TYPES, loadoutWithBuild, loadoutWithTurret, normalizeTurretBuild, normalizeWeaponBuild, normalizeWeaponLoadout } from './weapon-mods.mjs';
 import { COSMETIC_SLOTS, cosmeticArt } from './arsenal-ui.mjs';
 import { createArmoryScreen } from './armory-screen.mjs';
 import { session } from './session.mjs';
@@ -38,7 +38,7 @@ function drawArmory() {
   const edited = editedLoadout();
   const preview = session.armoryArt.render(edited, armoryView);
   preview.setAttribute('role', 'img');
-  preview.setAttribute('aria-label', WEAPON_TYPES[edited.weapon].name + ' in ' + WEAPON_FINISHES[edited.finish].name +
+  preview.setAttribute('aria-label', (WEAPON_TYPES[edited.weapon]?.name ?? 'Auto-turret') + ' in ' + WEAPON_FINISHES[edited.finish].name +
     ' with ' + WEAPON_ACCENTS[edited.accent].name + ' accents');
   if (armoryPreview.firstElementChild !== preview) armoryPreview.replaceChildren(preview);
   session.armoryScreen.draw();
@@ -61,7 +61,7 @@ function equipWeaponLoadout(loadout) {
 // The armory opens from the menus only: before deployment and between missions, never mid-mission.
 export function openArmory() {
   if (!session.ready || session.running || armoryDialog.open) return;
-  setText(armoryContext, 'Pick two weapons, fit parts at the bench, then finish them your way.');
+  setText(armoryContext, 'Pick two weapons, fit parts to them and your auto-turret, then finish them your way.');
   armoryDone.disabled = false;
   coopArmoryStatus.hidden = true;
   drawArmory();
@@ -144,5 +144,7 @@ armoryDialog.addEventListener('cancel', event => {
 });
 
 armoryReset.addEventListener('click', () => {
-  equipWeaponLoadout(loadoutWithBuild(session.weaponLoadout, editedLoadout().weapon, normalizeWeaponBuild({})));
+  const edited = editedLoadout();
+  equipWeaponLoadout(edited.weapon === 'turret' ? loadoutWithTurret(session.weaponLoadout, normalizeTurretBuild({}))
+    : loadoutWithBuild(session.weaponLoadout, edited.weapon, normalizeWeaponBuild({})));
 });

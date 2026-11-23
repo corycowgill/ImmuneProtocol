@@ -176,7 +176,7 @@ export class BrowserUiBindings {
       const parts = this.controls('#armory-subtabs button');
       const selected = parts.find(p => p.selected) ?? parts[0];
       model.contextKey = root.dataset.mode + ':' + selected?.action + ':' + this.value('armory-weapon-name');
-      model.body = [this.block(this.get('coop-armory-status')), parts.length ? { kind: 'choice', id: '@armory-part', action: '@armory-part', actionOptions: true, label: root.dataset.mode === 'gunsmith' ? 'ATTACHMENT SLOT' : root.dataset.mode === 'customize' ? 'FINISH CATEGORY' : 'WEAPON SLOT', value: selected?.action, options: parts.map((p, i) => ({ value: p.action, text: (root.dataset.mode === 'weapons' ? (i === 0 ? 'Primary · ' : 'Secondary · ') : '') + p.text, disabled: p.disabled })) } : heading(this.value('armory-panel-title')), this.block(this.get('armory-options')), this.block(root.querySelector('.armory-loadout'))].filter(Boolean);
+      model.body = [this.block(this.get('coop-armory-status')), parts.length ? { kind: 'choice', id: '@armory-part', action: '@armory-part', actionOptions: true, label: root.dataset.mode === 'gunsmith' ? 'ATTACHMENT SLOT' : root.dataset.mode === 'customize' ? 'FINISH CATEGORY' : 'WEAPON SLOT', value: selected?.action, options: parts.map((p, i) => ({ value: p.action, text: (root.dataset.mode === 'weapons' ? (['Primary · ', 'Secondary · ', 'Turret · '][i] ?? '') : '') + p.text, disabled: p.disabled })) } : heading(this.value('armory-panel-title')), this.block(this.get('armory-options')), this.block(root.querySelector('.armory-loadout'))].filter(Boolean);
     } else if (id === 'mission-dialog') {
       model.defaultFocus = this.id(this.get('deploy-practice'));
       model.sidebar = this.controls('#mission-gallery button').map(item => {
@@ -209,13 +209,19 @@ export class BrowserUiBindings {
       const copy = this.control(this.get('coop-copy')); if (copy) model.footer.unshift(copy);
     } else if (id === 'settings-dialog') {
       model.defaultFocus = this.id(this.get('look-sensitivity'));
-      model.body = [grid([this.control(this.get('look-sensitivity')), { kind: 'stack', children: [this.control(this.get('graphics-quality')), this.block(this.get('graphics-quality-detail'))].filter(Boolean) }, this.control(this.get('music-volume')), this.control(this.get('effects-volume'))], 280, 2)];
       model.footer.unshift(this.control(root.querySelector('[data-mute]')));
-      model.settingsGroups = [
-        { text: 'Controls', nodes: [this.control(this.get('look-sensitivity'))] },
-        { text: 'Video', nodes: [this.control(this.get('graphics-quality')), this.block(this.get('graphics-quality-detail'))] },
-        { text: 'Audio', nodes: [this.control(this.get('music-volume')), this.control(this.get('effects-volume'))] },
-      ];
+      // Every group heading and option row in the dialog, in order (game-settings.mjs adds most rows).
+      model.settingsGroups = [];
+      for (const node of root.querySelector('.settings-list').children) {
+        if (node.matches('h3.settings-group')) model.settingsGroups.push({ text: this.text(node), nodes: [] });
+        else if (model.settingsGroups.length && this.shown(node)) {
+          const items = node.matches('.setting-row')
+            ? [...node.querySelectorAll('input,select,button:not([data-mute]),small')].map(el => el.tagName === 'SMALL' ? this.block(el) : this.control(el))
+            : [this.block(node)];
+          model.settingsGroups.at(-1).nodes.push(...items.filter(Boolean));
+        }
+      }
+      model.body = [grid(model.settingsGroups.flatMap(group => group.nodes.filter(node => node.kind !== 'text')), 280, 2)];
     } else if (id === 'manual-dialog') {
       const controls = [...root.querySelector('.manual-controls').children].filter(el => el.tagName === 'DETAILS'), tactics = [...root.querySelector('.manual-tactics').children].filter(el => el.tagName === 'DETAILS');
       model.views = [{ id: 'controls', text: 'Controls', body: controls.map(el => this.block(el)) }, { id: 'tactics', text: 'Tactics', body: tactics.slice(0, 2).map(el => this.block(el)) }, { id: 'operations', text: 'Operations', body: tactics.slice(2).map(el => this.block(el)) }];

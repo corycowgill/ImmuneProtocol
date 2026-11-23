@@ -185,15 +185,19 @@ test('combat panels and touch targets stay separate at phone and desktop aspect 
   }
 });
 
-test('all four quick settings stay visible in short landscape viewports', () => {
+test('short landscape settings keep the first options visible and every option reachable', () => {
   const slider = id => ({ kind: 'slider', id, action: id, label: id, value: 1, min: 0, max: 2 });
   const quality = { kind: 'choice', id: 'quality', action: 'quality', label: 'Graphics quality', value: 'high', options: [{ value: 'high', text: 'High' }] };
   const model = { id: 'settings-dialog', type: 'dialog', title: 'Settings', body: [], footer: [btn('done')], settingsGroups: [{ text: 'Controls', nodes: [slider('sensitivity')] }, { text: 'Video', nodes: [quality, { kind: 'text', text: 'Use Low for smoother rendering on slower devices.' }] }, { text: 'Audio', nodes: [slider('music'), slider('effects')] }] };
   for (const size of [{ w: 852, h: 393 }, { w: 667, h: 375 }, { w: 568, h: 320 }]) {
     const scene = buildUiScreen(model, size, safe, state(), measure);
-    for (const id of ['sensitivity', 'quality', 'music', 'effects']) {
+    for (const id of ['sensitivity']) {
       const hit = scene.hits.find(item => item.id === id);
       assert.deepEqual(intersect(hit.rect, hit.clip), hit.rect, id + JSON.stringify(size));
+    }
+    for (const id of ['sensitivity', 'quality', 'music', 'effects']) {
+      const hit = scene.hits.find(item => item.id === id);
+      assert.ok(hit, id + ' is in the scrolling pane' + JSON.stringify(size));
       assert.ok(hit.rect.h >= 44);
     }
   }

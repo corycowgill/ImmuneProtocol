@@ -66,7 +66,7 @@ Boss attacks are read from the boss itself: its windup, glow and sound. The boss
 
 ## Weapons
 
-You carry two weapons, a primary and a secondary, from the first mission. Pick any two different weapons in the **Armory**. Switch between them with **1** and **2**, the mouse wheel, **Y** on a controller, or the **Swap** button on touchscreens. Each weapon keeps its own magazine when you switch. Drawing a weapon takes a moment, and you can't fire until it's up.
+You carry two weapons, a primary and a secondary, from the first mission. Pick any two different weapons in the **Armory**. The Armory's Weapons tab also lists your **Auto-turret**: select it to fit its own parts in Gunsmith (Barrel: heavy for damage or short for rate; Receiver: cryo for a longer slow or shock to stagger attacks every second; Sensor: long-range to 26 m or close-in for faster fire) and dress it in Customize with the same finishes, accents, skins, decals, stickers and charms as your guns. A charm's damage buff carries over to the turret. The turret you place uses your build, in co-op too. Switch between them with **1** and **2**, the mouse wheel, **Y** on a controller, or the **Swap** button on touchscreens. Each weapon keeps its own magazine when you switch. Drawing a weapon takes a moment, and you can't fire until it's up.
 
 | Weapon | Role | How it plays |
 | --- | --- | --- |
@@ -271,7 +271,14 @@ Connect an Xbox controller to your device and press a button with the game tab f
 
 Each node has its own integrity meter and direction marker. Losing any node ends the mission. You can deploy one turret per mission on clear ground ahead of you, or place it twice on Easy. Hold the turret control (Q, RB, or the touch Move button) at any time to pick it up: it slides along the clear ground in front of you and holds fire until you release. It fires on automatic at a third of the Needle Carbine's rate (22 damage about three times a second), at targets within 20 meters that it has a clear line to. It favours pathogens latched onto tissue, its hits slow pathogens, and it can knock a given pathogen out of an attack once every 1.6 seconds. Put it near an approach to the node you plan to leave.
 
-The pause screen shows the wave, score, tissue and objective, and offers **Restart mission**, Settings, the field manual, and **Quit to main menu**, which asks you to press it twice. Settings is available from the main menu and pause screen, with look sensitivity, graphics quality, and music and effects volume. Look sensitivity applies to mouse, touch, and the Xbox right stick. Low graphics reduces rendering load on slower devices. All settings are saved in the browser.
+The pause screen shows the wave, score, tissue and objective, and offers **Restart mission**, Settings, the field manual, and **Quit to main menu**, which asks you to press it twice. Settings is available from the main menu and pause screen. All settings are saved in the browser, and **Reset to defaults** restores every one.
+
+| Group | Options |
+| --- | --- |
+| Controls | Look sensitivity (mouse, touch and the right stick), invert vertical look, aim sensitivity (multiplies look speed while aiming down sights), controller look speed, and hold or toggle aim. |
+| Video | Graphics quality (Low reduces rendering load), brightness, field of view (55–90°; optics keep their relative zoom), resolution scale (Dynamic, or a fixed 100/85/70/50%), frame-rate limit (display rate, 144, 120, 60 or 30 FPS), bloom, ambient occlusion, vignette, film grain, chromatic aberration (these five apply on High), and an on-screen frame-rate counter. |
+| Audio | Master, music, effects and ambience volume, and mute all audio. |
+| Accessibility | Camera shake strength, damage flash strength, and reduce motion (match the system setting, or force it on or off). |
 
 Viruses coil before lunging toward a fixed landing point. Spores swell before spitting a slow projectile. Step sideways during the windup to evade either attack. Bacilli head straight for the tissue, brace, and tear until you dislodge them.
 

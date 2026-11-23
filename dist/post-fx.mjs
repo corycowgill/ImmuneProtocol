@@ -282,7 +282,8 @@ export class PostFX {
     combine.cameraFar.value = camera.far;
     combine.projectionScale.value = camera.projectionMatrix.elements[5] * .5;
     combine.aspect.value = camera.aspect;
-    combine.aoStrength.value = look.ao;
+    const options = this.options ?? {};
+    combine.aoStrength.value = options.ao === false ? 0 : look.ao;
     this.pass(this.combine, this.hdr);
 
     const pre = this.prefilter.uniforms;
@@ -313,12 +314,12 @@ export class PostFX {
     finish.resolution.value.set(this.width, this.height);
     finish.time.value = reduceMotion ? 0 : time;
     finish.exposure.value = renderer.toneMappingExposure;
-    finish.bloom.value = look.bloom / this.down.length;
+    finish.bloom.value = options.bloom === false ? 0 : look.bloom / this.down.length;
     finish.saturation.value = look.saturation;
     finish.contrast.value = look.contrast;
-    finish.vignette.value = look.vignette;
-    finish.aberration.value = reduceMotion ? 0 : look.aberration;
-    finish.grain.value = reduceMotion ? 0 : look.grain;
+    finish.vignette.value = options.vignette === false ? 0 : look.vignette;
+    finish.aberration.value = reduceMotion || options.aberration === false ? 0 : look.aberration;
+    finish.grain.value = reduceMotion || options.grain === false ? 0 : look.grain;
     finish.tint.value.set(...look.tint);
     finish.lift.value.set(...look.lift);
     finish.gain.value.set(...look.gain);

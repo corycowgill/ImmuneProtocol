@@ -52,6 +52,8 @@ export class ExplosionFX {
     this.rockets = [];
     this.lights = [];
     this.shake = 0;
+    // The Camera shake option scales every jolt (1 is full strength).
+    this.shakeScale = 1;
     for (let i = 0; i < 3; i++) {
       const light = new THREE.PointLight(0xffa255, 0, 26, 2);
       light.userData.remaining = 0;
@@ -265,7 +267,7 @@ export class ExplosionFX {
     }
     // Camera shake decays quickly; the caller adds the offset after positioning the camera.
     if (camera && this.shake > .001) {
-      const amount = this.shake * this.shake * .09;
+      const amount = this.shake * this.shake * .09 * this.shakeScale;
       camera.position.x += (Math.random() - .5) * amount;
       camera.position.y += (Math.random() - .5) * amount;
       camera.rotation.z += (Math.random() - .5) * amount * .4;

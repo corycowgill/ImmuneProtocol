@@ -10,7 +10,7 @@ import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
 import {
-  DEFAULT_WEAPON_STATS, WEAPON_SLOTS, legacyWeaponLoadout, loadoutInSlot, magazineCapacity, normalizeWeaponLoadout,
+  DEFAULT_WEAPON_STATS, WEAPON_SLOTS, TURRET_BASE, legacyWeaponLoadout, normalizeTurretBuild, turretStats, loadoutInSlot, magazineCapacity, normalizeWeaponLoadout,
   otherSlot, weaponStats,
 } from './weapon-mods.mjs';
 import {
@@ -238,12 +238,13 @@ const SPORE_RADIUS = 0.21;
 const SPORE_ARM_TIME = 0.12;
 // The auto-turret is a carbine on a tripod: carbine damage at a third of the Needle Carbine's rate
 // of fire, out to 20 m, so a placed turret helps hold an approach without carrying the fight.
-export const TURRET_RANGE = 20;
-export const TURRET_INTERVAL = .354;
-export const TURRET_DAMAGE = 22;
-// Its slow refreshes on every hit, but it can only interrupt a given pathogen's attack this often.
-const TURRET_STAGGER_INTERVAL = 1.6;
-const TURRET_SLOW_TIME = 1.4;
+export const TURRET_RANGE = TURRET_BASE.range;
+export const TURRET_INTERVAL = TURRET_BASE.interval;
+export const TURRET_DAMAGE = TURRET_BASE.damage;
+const DEFAULT_TURRET_STATS = Object.freeze(turretStats());
+// Its slow refreshes on every hit, but it can only interrupt a given pathogen's attack every
+// `stagger` seconds (turretStats).
+const TURRET_SLOW_TIME = TURRET_BASE.slow;
 const TURRET_SLOW_FACTOR = .48;
 
 function clamp(value, min, max) {
@@ -1247,7 +1248,9 @@ export class Simulation {
       this.events.push({ type: 'turret', stage: this.turretCharges || redeploying ? 'invalid' : 'empty', x, y, z });
       return false;
     }
-    this.turret = { ...point, yaw: Math.PI + player.yaw, pitch: 0, cooldown: .6, targetId: null };
+    // The placing suit's turret build sets its numbers and its look.
+    const build = normalizeTurretBuild(suit.weaponLoadout?.arsenal?.turret);
+    this.turret = { ...point, yaw: Math.PI + player.yaw, pitch: 0, cooldown: .6, targetId: null, build, stats: turretStats(build) };
     if (redeploying) this.junctionSupplyLocked = true;
     else this.turretCharges -= 1;
     this.events.push({ type: 'turret', stage: redeploying ? 'redeployed' : 'deployed', ...point });
@@ -1297,13 +1300,15 @@ export class Simulation {
       }
     }
     const origin = { x: turret.x, y: turret.y + 1.18, z: turret.z };
+    const stats = turret.stats ?? DEFAULT_TURRET_STATS;
+    const range = stats.range;
     let target = null;
     let targetScore = -Infinity;
     for (const enemy of this.enemies) {
       if (enemy.type === 'colony' || enemy.tutorial || enemy.hidden) continue;
       const distance = Math.hypot(enemy.x - origin.x, enemy.y - origin.y, enemy.z - origin.z);
-      if (distance > TURRET_RANGE || !clearSegment(this.obstacles, origin, enemy)) continue;
-      const score = TURRET_RANGE - distance + (enemy.latched ? 6 : enemy.attackingTissue ? 3 : 0) + (enemy.id === turret.targetId ? 2 : 0);
+      if (distance > range || !clearSegment(this.obstacles, origin, enemy)) continue;
+      const score = range - distance + (enemy.latched ? 6 : enemy.attackingTissue ? 3 : 0) + (enemy.id === turret.targetId ? 2 : 0);
       if (score > targetScore) {
         targetScore = score;
         target = enemy;
@@ -1318,24 +1323,24 @@ export class Simulation {
     turret.pitch = Math.atan2(dy, Math.hypot(dx, dz));
     if (turret.cooldown > 0) return;
 
-    turret.cooldown = TURRET_INTERVAL;
-    target.slowRemaining = this.turretSlowDuration;
+    turret.cooldown = stats.interval;
+    target.slowRemaining = this.turretSlowDuration * stats.slow / TURRET_SLOW_TIME;
     const stagger = this.clock >= (target.turretStaggerAt ?? -Infinity);
     if (target.boss || target.segmentOf || !stagger) {
       // A boss is too big to stagger; the turret only chips at it.
     } else if (!target.latched && target.action.endsWith('-windup')) {
       this.setEnemyAction(target, 'idle');
       target.attackCooldown = TURRET_SLOW_TIME * .6;
-      target.turretStaggerAt = this.clock + TURRET_STAGGER_INTERVAL;
+      target.turretStaggerAt = this.clock + stats.stagger;
     } else if (target.latched) {
       this.setEnemyAction(target, 'idle');
       target.attackCooldown = Math.max(target.attackCooldown, .85);
-      target.turretStaggerAt = this.clock + TURRET_STAGGER_INTERVAL;
+      target.turretStaggerAt = this.clock + stats.stagger;
     }
     const impact = { x: target.x, y: target.y, z: target.z };
     this.events.push({ type: 'turret', stage: 'fire', id: target.id, ...origin, impact });
     if (target.type === 'guard' && guardFaces(target, origin)) this.blockGuardHit(target, impact, 'turret');
-    else this.hitEnemy(target, TURRET_DAMAGE, false, impact, 'turret');
+    else this.hitEnemy(target, stats.damage, false, impact, 'turret');
   }
 
   shoot(aiming, suit = this) {

@@ -129,10 +129,13 @@ function buildDialog(ui, model, area, full, size, state, measure) {
     const groups = model.settingsGroups?.map(g => ({ ...g, nodes: g.nodes.map(polish) }));
     if (groups && short) {
       const compact = node => ({ ...node, compact: true });
-      const quality = groups[1].nodes[0], note = groups[1].nodes[1];
-      const fields = [compact(groups[0].nodes[0]), { kind: 'stack', children: [compact(quality), ...(h >= 350 && note ? [{ ...note, size: 12, height: 18, maxLines: 1 }] : [])] }, ...groups[2].nodes.map(compact)];
-      pane(ui, 'body', [grid(fields, 210, 2)], r);
-    } else if (groups && !phone) { const cw = (r.w - 24) / 2; pane(ui, 'body', groups.slice(0, 2).flatMap(g => [section(g.text), ...g.nodes]), { ...r, w: cw }); pane(ui, 'audio', [section(groups[2].text), ...groups[2].nodes], { ...r, x: x + cw + 24, w: cw }); }
+      pane(ui, 'body', groups.flatMap(g => [section(g.text), grid(g.nodes.filter(n => n.kind !== 'text').map(compact), 210, 2)]), r);
+    } else if (groups && !phone) {
+      // Controls and Video on the left; Audio, Accessibility and anything later on the right.
+      const cw = (r.w - 24) / 2, rows = g => [section(g.text), ...g.nodes.map(n => n.kind === 'text' ? { ...n, size: 12 } : n)];
+      pane(ui, 'body', groups.slice(0, 2).flatMap(rows), { ...r, w: cw });
+      pane(ui, 'audio', groups.slice(2).flatMap(rows), { ...r, x: x + cw + 24, w: cw });
+    }
     else pane(ui, 'body', groups ? groups.flatMap(g => [section(g.text), ...g.nodes]) : body, { ...r, x: x + Math.max(0, (r.w - 900) / 2), w: Math.min(900, r.w) });
   } else if (model.report) {
     const summary = [...model.report.summary.map(polish), button('@report-details', 'Full mission details', { height: 44, variant: 'ghost' })];

@@ -71,3 +71,31 @@ test('a placed turret can be dragged at any time and holds fire while carried', 
   run(sim, 1.5);
   assert.ok(virus.health < SPECIES.virus.health || !sim.enemies.includes(virus), 'it fires again once set down');
 });
+
+test('turret builds change its numbers and travel with the loadout', async () => {
+  const { TURRET_BASE, loadoutWithTurret, normalizeWeaponLoadout, turretStats } = await import('../dist/weapon-mods.mjs');
+  const stock = turretStats();
+  assert.equal(stock.damage, TURRET_BASE.damage);
+  assert.equal(stock.interval, TURRET_BASE.interval);
+  const heavy = turretStats({ barrel: 'heavy-barrel', charm: 'fang' });
+  assert.ok(heavy.damage > stock.damage * 1.3 && heavy.interval > stock.interval);
+  assert.ok(turretStats({ sensor: 'long-range-sensor' }).range > 25);
+  assert.ok(turretStats({ receiver: 'shock-receiver' }).stagger < 1.1);
+  const loadout = loadoutWithTurret(normalizeWeaponLoadout({}), { skin: 'tiger', barrel: 'short-barrel', bogus: 'x' });
+  assert.equal(loadout.arsenal.turret.skin, 'tiger');
+  assert.equal(loadout.arsenal.turret.barrel, 'short-barrel');
+  assert.equal(normalizeWeaponLoadout(JSON.parse(JSON.stringify(loadout))).arsenal.turret.skin, 'tiger', 'saved builds survive a reload');
+  assert.equal(normalizeWeaponLoadout({ arsenal: { turret: { skin: 'nope' } } }).arsenal.turret.skin, 'none');
+
+  const sim = new Simulation('artery', { ai: { seed: 9 }, weaponLoadout: loadout });
+  sim.start();
+  sim.tutorial = null;
+  sim.phase = 'combat';
+  sim.turretCharges = 1;
+  sim.enemies = [];
+  sim.obstacles = [];
+  Object.assign(sim.player, { x: 0, z: 6, yaw: 0 });
+  assert.ok(sim.deployTurret());
+  assert.equal(sim.turret.build.skin, 'tiger');
+  assert.ok(Math.abs(sim.turret.stats.interval - turretStats({ barrel: 'short-barrel' }).interval) < 1e-9);
+});

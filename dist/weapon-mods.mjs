@@ -248,6 +248,70 @@ export const WEAPON_TYPES = Object.freeze({
 });
 
 export const WEAPON_ORDER = Object.freeze(Object.keys(WEAPON_TYPES));
+
+// The auto-turret is built and dressed like a carried weapon, with its own three part slots.
+// Part changes are multipliers on the turret's base numbers (see turretStats).
+export const TURRET_BASE = Object.freeze({ damage: 22, interval: .354, range: 20, slow: 1.4, stagger: 1.6 });
+export const TURRET_SLOTS = {
+  barrel: {
+    name: 'Barrel',
+    options: {
+      standard: { name: 'Service barrel', detail: 'Standard damage and fire rate.' },
+      'heavy-barrel': { name: 'Heavy barrel', detail: 'Hits 25% harder. Fires 15% slower.', changes: { damage: .25, rate: -.15 } },
+      'short-barrel': { name: 'Short barrel', detail: 'Fires 20% faster. Each round deals 15% less.', changes: { damage: -.15, rate: .2 } },
+    },
+  },
+  receiver: {
+    name: 'Receiver',
+    options: {
+      standard: { name: 'Service receiver', detail: 'Standard slow and stagger.' },
+      'cryo-receiver': { name: 'Cryo receiver', detail: 'Hits slow pathogens 60% longer. Deals 10% less damage.', changes: { slow: .6, damage: -.1 } },
+      'shock-receiver': { name: 'Shock receiver', detail: 'Can knock a pathogen out of an attack every second instead of every 1.6. Fires 10% slower.', changes: { stagger: -.375, rate: -.1 } },
+    },
+  },
+  sensor: {
+    name: 'Sensor',
+    options: {
+      standard: { name: 'Service sensor', detail: 'Tracks targets out to 20 m.' },
+      'long-range-sensor': { name: 'Long-range sensor', detail: 'Tracks out to 26 m. Fires 8% slower.', changes: { range: .3, rate: -.08 } },
+      'close-in-sensor': { name: 'Close-in sensor', detail: 'Tracks out to 15 m only, but fires 18% faster.', changes: { range: -.25, rate: .18 } },
+    },
+  },
+};
+const TURRET_DEFAULTS = Object.freeze({
+  barrel: 'standard', receiver: 'standard', sensor: 'standard',
+  finish: 'factory', accent: 'factory', skin: 'none', decal: 'none', sticker: 'none', charm: 'none',
+});
+
+export function normalizeTurretBuild(value) {
+  const build = { ...TURRET_DEFAULTS };
+  if (!value || typeof value !== 'object') return build;
+  for (const [slot, { options }] of Object.entries(TURRET_SLOTS)) {
+    if (typeof value[slot] === 'string' && Object.hasOwn(options, value[slot])) build[slot] = value[slot];
+  }
+  for (const [key, options] of Object.entries(COSMETICS)) {
+    if (typeof value[key] === 'string' && Object.hasOwn(options, value[key])) build[key] = value[key];
+  }
+  return build;
+}
+
+// Damage per round, seconds between rounds, range in metres, slow seconds, and the seconds
+// between attack interruptions on one pathogen. A charm's damage buff carries over.
+export function turretStats(value) {
+  const build = normalizeTurretBuild(value);
+  const scale = { damage: 1, rate: 1, range: 1, slow: 1, stagger: 1 };
+  for (const [slot, { options }] of Object.entries(TURRET_SLOTS)) {
+    for (const [stat, delta] of Object.entries(options[build[slot]].changes ?? {})) scale[stat] += delta;
+  }
+  scale.damage *= 1 + (WEAPON_CHARMS[build.charm].buffs.damageScale ?? 0);
+  return {
+    damage: TURRET_BASE.damage * scale.damage,
+    interval: TURRET_BASE.interval / scale.rate,
+    range: TURRET_BASE.range * scale.range,
+    slow: TURRET_BASE.slow * scale.slow,
+    stagger: TURRET_BASE.stagger * scale.stagger,
+  };
+}
 export const ARSENAL_SLOTS = Object.freeze(['primary', 'secondary']);
 const BUILD_DEFAULTS = Object.freeze({
   barrel: 'standard', muzzle: 'standard', optic: 'standard', receiver: 'standard', magazine: 'standard',
@@ -295,7 +359,7 @@ export function normalizeWeaponLoadout(value) {
     // Top-level fields describe the weapon they name; they win over a stale stored build.
     builds[id] = normalizeWeaponBuild(id === flatOwner && (!storedBuilds[id] || source.weapon) ? source : storedBuilds[id]);
   }
-  return { weapon: active, slot, ...builds[active], arsenal: { primary, secondary, builds } };
+  return { weapon: active, slot, ...builds[active], arsenal: { primary, secondary, builds, turret: normalizeTurretBuild(arsenal.turret) } };
 }
 
 export const DEFAULT_WEAPON_LOADOUT = Object.freeze(normalizeWeaponLoadout({}));
@@ -324,6 +388,12 @@ export function loadoutWithBuild(loadout, id, changes) {
   const current = normalizeWeaponLoadout(loadout);
   const builds = { ...current.arsenal.builds, [id]: { ...current.arsenal.builds[id], ...changes } };
   return normalizeWeaponLoadout({ slot: current.slot, arsenal: { ...current.arsenal, builds } });
+}
+
+// Changes parts or cosmetics on the auto-turret.
+export function loadoutWithTurret(loadout, changes) {
+  const current = normalizeWeaponLoadout(loadout);
+  return normalizeWeaponLoadout({ slot: current.slot, arsenal: { ...current.arsenal, turret: { ...current.arsenal.turret, ...changes } } });
 }
 
 export function otherSlot(slot) {

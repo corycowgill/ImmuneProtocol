@@ -902,5 +902,5 @@ export function drawCombatFeedback(aiming) {
   reticle.classList.toggle('aim', aiming);
   drawWeaponHud(session.sim, aiming, session.world.weaponPose.aim > .86);
   hitMarker.style.opacity = String(clamp(session.hitTimer * 7, 0, 1));
-  damageFlash.style.opacity = String(session.damageTimer * (reducedMotion ? 0.42 : 1.6));
+  damageFlash.style.opacity = String(session.damageTimer * (session.reduceMotion ? 0.42 : 1.6) * (session.options?.['damage-flash'] ?? 1));
 }

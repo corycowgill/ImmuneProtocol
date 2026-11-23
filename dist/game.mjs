@@ -27,6 +27,7 @@ import { createDiseaseGuide } from './disease-guide.mjs';
 import { createUpgradeCards, drawIntel, drawLoadout, drawOperatorCard } from './deployment.mjs';
 import './interface-setup.mjs';
 import { session } from './session.mjs';
+import { createSettings } from './game-settings.mjs';
 import { briefingPlaying, playCampaignBriefing, playMissionBriefing } from './campaign-briefing.mjs';
 import { byId, isTouch, reducedMotion, pad, clamp, setText } from './dom.mjs';
 import { bestKey, muteKey, junctionKey, heartKey, tutorialKey, sensitivityKey, qualityKey, checkpointKey, unlockedKey, practiceLoadoutKey, weaponLoadoutKey, weaponModKey, weaponFinishKey, coopNameKey, megaVirusKey, musicVolumeKey, effectsVolumeKey, readSetting, writeSetting } from './settings-store.mjs';
@@ -122,6 +123,7 @@ const branchReadout = byId('branch-readout');
 const valveReadout = byId('valve-readout');
 session.audio = new GameAudio();
 
+
 // Menu, co-op and campaign state; what is shared with other modules is on `session`.
 let coopClient;
 let coopHost;
@@ -133,6 +135,47 @@ let practice = null;
 let loading = false;
 let lastFrame = 0;
 let animation = 0;
+// Toggle-aim state: the latched aim and whether the aim control was down last frame.
+let aimLatched = false;
+let aimWasHeld = false;
+const fpsCounter = byId('fps-counter');
+let fpsFrames = 0;
+let fpsSince = 0;
+function countFrame(now) {
+  if (fpsCounter.hidden) return;
+  fpsFrames++;
+  if (!fpsSince) fpsSince = now;
+  if (now - fpsSince >= 500) {
+    setText(fpsCounter, Math.round(fpsFrames * 1000 / (now - fpsSince)) + ' FPS');
+    fpsFrames = 0;
+    fpsSince = now;
+  }
+}
+
+// The wider options menu (game-settings.mjs). The World picks these up when it is created.
+function applyOptions(values) {
+  session.options = values;
+  session.reduceMotion = values['reduce-motion'] === 'system' ? reducedMotion : values['reduce-motion'] === 'on';
+  if (values['aim-mode'] !== 'toggle') aimLatched = false;
+  fpsCounter.hidden = !values['show-fps'];
+  fpsFrames = fpsSince = 0;
+  session.audio.setLevels(values['master-volume'], values['ambience-volume']);
+  session.world?.applyOptions(values);
+  if (session.paused && session.world) session.world.render(session.sim, 0, input, session.reduceMotion);
+}
+const options = createSettings(byId('settings-dialog'), applyOptions);
+byId('settings-reset').addEventListener('click', () => {
+  options.reset();
+  session.sensitivity = 1;
+  writeSetting(sensitivityKey, 1);
+  syncSettings();
+  for (const id of ['music-volume', 'effects-volume']) {
+    const control = byId(id);
+    control.value = 1;
+    control.dispatchEvent(new Event('input'));
+  }
+  if (session.muted) setMuted(false);
+});
 
 // Saved settings and progress.
 let bestScore = Number(readSetting(bestKey)) || 0;
@@ -284,6 +327,7 @@ async function prepareGame() {
   try {
     if (!session.world) session.world = new World(canvas);
     session.world.setQuality(graphicsQuality);
+    session.world.applyOptions(session.options);
     const upgradeArt = new Image();
     upgradeArt.src = FIELD_UPGRADE_ART;
     const titleArt = new Image();
@@ -1038,6 +1082,14 @@ function finish() {
 function frame(now) {
   animation = 0;
   if (!session.running) return;
+  // Frame-rate limit: skip display refreshes until the next frame is due (1 ms of slack absorbs
+  // refresh jitter so a 60 FPS cap on a 60 Hz display never drops to 30).
+  const limit = Number(session.options['frame-limit']);
+  if (limit > 0 && lastFrame && now - lastFrame < 1000 / limit - 1) {
+    animation = requestAnimationFrame(frame);
+    return;
+  }
+  countFrame(now);
   const dt = lastFrame ? Math.min((now - lastFrame) / 1000, 0.05) : 0;
   lastFrame = now;
   if (!session.paused) {
@@ -1046,8 +1098,8 @@ function frame(now) {
     input.moveZ = clamp(Number(keys.has('KeyW')) - Number(keys.has('KeyS')) + touch.z + (controller?.moveZ ?? 0), -1, 1);
     input.lookX += (Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft'))) * dt * 825;
     input.lookY += (Number(keys.has('ArrowDown')) - Number(keys.has('ArrowUp'))) * dt * 650;
-    input.lookX += (controller?.lookX ?? 0) * dt * 1150 * session.sensitivity;
-    input.lookY += (controller?.lookY ?? 0) * dt * 920 * session.sensitivity;
+    input.lookX += (controller?.lookX ?? 0) * dt * 1150 * session.sensitivity * session.options['controller-sensitivity'];
+    input.lookY += (controller?.lookY ?? 0) * dt * 920 * session.sensitivity * session.options['controller-sensitivity'];
     input.fire = controls.fireTap || controls.leftButton || touch.fire || keys.has('Space') || !!controller?.fire;
     input.reload = controls.reloadTap || keys.has('KeyR') || touch.reload;
     input.repair = keys.has('KeyE') || touch.repair || !!controller?.repair;
@@ -1055,7 +1107,17 @@ function frame(now) {
     input.carry = !!(controls.keyCarry || controls.padCarry || touch.carry) && !!session.sim.turret;
     input.swap = controls.swapTap;
     input.sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') || !!controller?.sprint;
-    input.aim = controls.rightButton || !!controller?.aim;
+    const aimHeld = controls.rightButton || !!controller?.aim;
+    if (session.options['aim-mode'] === 'toggle') {
+      if (aimHeld && !aimWasHeld) aimLatched = !aimLatched;
+      input.aim = aimLatched;
+    } else input.aim = aimHeld;
+    aimWasHeld = aimHeld;
+    if (input.aim) {
+      input.lookX *= session.options['aim-sensitivity'];
+      input.lookY *= session.options['aim-sensitivity'];
+    }
+    if (session.options['invert-y']) input.lookY = -input.lookY;
     session.hitTimer = Math.max(0, session.hitTimer - dt);
     session.damageTimer = Math.max(0, session.damageTimer - dt);
     if (session.announcementTimer > 0) {
@@ -1082,7 +1144,7 @@ function frame(now) {
       controls.swapTap = false;
       touch.reload = false;
     }
-    const aiming = session.world.render(session.sim, dt, input, reducedMotion);
+    const aiming = session.world.render(session.sim, dt, input, session.reduceMotion);
     aiDebug.update(session.sim, now, session.running);
     input.lookX = 0;
     input.lookY = 0;
@@ -1160,7 +1222,7 @@ qualityControl.addEventListener('change', () => {
   writeSetting(qualityKey, graphicsQuality);
   if (!session.world) return;
   session.world.setQuality(graphicsQuality);
-  if (session.paused) session.world.render(session.sim, 0, input, reducedMotion);
+  if (session.paused) session.world.render(session.sim, 0, input, session.reduceMotion);
 });
 menu.addEventListener('click', () => {
   if (!loading) session.audio.unlock().catch(() => {});
