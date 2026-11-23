@@ -236,10 +236,10 @@ const SPORE_RANGE = 8.2;
 const SPORE_SPEED = 7.3;
 const SPORE_RADIUS = 0.21;
 const SPORE_ARM_TIME = 0.12;
-// The auto-turret is a carbine on a tripod: sustained automatic fire at carbine damage, out to
-// 20 m, so a placed turret really holds an approach against the five-fold waves.
+// The auto-turret is a carbine on a tripod: carbine damage at half the Needle Carbine's rate of
+// fire, out to 20 m, so a placed turret helps hold an approach against the five-fold waves.
 export const TURRET_RANGE = 20;
-export const TURRET_INTERVAL = .125;
+export const TURRET_INTERVAL = .236;
 export const TURRET_DAMAGE = 22;
 // Its slow refreshes on every hit, but it can only interrupt a given pathogen's attack this often.
 const TURRET_STAGGER_INTERVAL = 1.6;

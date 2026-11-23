@@ -15,10 +15,11 @@ function field(obstacles = []) {
 }
 const run = (sim, seconds) => { for (let i = 0; i < Math.round(seconds / DT); i++) { sim.clock += DT; sim.updateTurret(DT); } };
 
-test('the turret fires like a carbine', () => {
+test('the turret fires carbine rounds at half the carbine\'s rate', () => {
+  assert.ok(Math.abs(TURRET_INTERVAL - DEFAULT_WEAPON_STATS.interval * 2) < .005);
   const dps = TURRET_DAMAGE / TURRET_INTERVAL;
   const carbine = DEFAULT_WEAPON_STATS.bodyDamage / DEFAULT_WEAPON_STATS.interval;
-  assert.ok(dps > carbine * .7 && dps < carbine * 1.2, `turret ${dps.toFixed(0)} dps vs carbine ${carbine.toFixed(0)} dps`);
+  assert.ok(dps > carbine * .4 && dps < carbine * .6, `turret ${dps.toFixed(0)} dps vs carbine ${carbine.toFixed(0)} dps`);
   assert.ok(TURRET_RANGE >= 18);
 });
 
