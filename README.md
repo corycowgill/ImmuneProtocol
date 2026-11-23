@@ -25,7 +25,7 @@ The title screen lists every mode in one menu and an operator card that shows yo
 | Fast Sealer | Restores 18 tissue points per repair pulse. |
 | Deep Magazine | Adds 12 rounds to the equipped magazine. |
 | Insulated Suit | Reduces suit damage from stomach acid, intestinal pressure waves, and haustral squeezes by 40%. |
-| Turret Stabilizer | Extends the turret's slow from 1.4 to 2.2 seconds. It still fires every 2.6 seconds. |
+| Turret Stabilizer | Extends the turret's slow from 1.4 to 2.2 seconds. |
 
 **Free Mode** opens the same deployment briefing with every mission available. Select a mission, set difficulty, field upgrade and loadout, then select **Deploy**. Free Mode runs leave your campaign checkpoint, mission progression, and best score intact. Reaching the Mega Virus in Neural Cortex in either mode unlocks **Practice Mega Virus**, which starts directly at Wave 3 with fresh supplies.
 
@@ -266,7 +266,7 @@ To check the layout locally, run `npm run profile` and open `http://127.0.0.1:80
 
 Connect an Xbox controller to your device and press a button with the game tab focused. Use the D-pad or left stick to navigate menus, **A** to select, and **B** to go back. In Capillary Junction, the D-pad chooses support during the wave break. Left reinforces Amber, right reinforces Teal, up selects Load magazines, and down selects turret redeployment. If your browser gates audio, click the game or press a keyboard key once to enable it. Enter co-op callsigns and room codes with your keyboard.
 
-Each node has its own integrity meter and direction marker. Losing any node ends the mission. You can deploy one turret per mission on clear ground ahead of you, or place it twice on Easy. It stays where you place it and fires one shot every 2.6 seconds at targets within about 12 meters. Hits damage and briefly slow pathogens. Put it near an approach to the node you plan to leave.
+Each node has its own integrity meter and direction marker. Losing any node ends the mission. You can deploy one turret per mission on clear ground ahead of you, or place it twice on Easy. It stays where you place it and fires on full automatic, like a Needle Carbine (22 damage about eight times a second), at targets within 20 meters that it has a clear line to. It favours pathogens latched onto tissue, its hits slow pathogens, and it can knock a given pathogen out of an attack once every 1.6 seconds. Put it near an approach to the node you plan to leave.
 
 The pause screen shows the wave, score, tissue and objective, and offers **Restart mission**, Settings, the field manual, and **Quit to main menu**, which asks you to press it twice. Settings is available from the main menu and pause screen, with look sensitivity, graphics quality, and music and effects volume. Look sensitivity applies to mouse, touch, and the Xbox right stick. Low graphics reduces rendering load on slower devices. All settings are saved in the browser.
 

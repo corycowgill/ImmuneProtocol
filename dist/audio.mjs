@@ -473,7 +473,8 @@ export class GameAudio {
           this.playSample('weapon/reload-complete', .48, { pan, rate: .78 });
         } else if (event.stage === 'fire') {
           const attenuation = 1 / (1 + (event.distance ?? 0) * .085);
-          this.playSample('weapon/shot-3', .48 * attenuation, { pan, rate: .81 + Math.random() * .08 });
+          // Automatic fire: quieter per shot than the old single slug, like a teammate's carbine.
+          this.playSample('weapon/shot-3', .3 * attenuation, { pan, rate: .86 + Math.random() * .1 });
         }
         break;
       }
