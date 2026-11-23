@@ -15,11 +15,11 @@ function field(obstacles = []) {
 }
 const run = (sim, seconds) => { for (let i = 0; i < Math.round(seconds / DT); i++) { sim.clock += DT; sim.updateTurret(DT); } };
 
-test('the turret fires carbine rounds at half the carbine\'s rate', () => {
-  assert.ok(Math.abs(TURRET_INTERVAL - DEFAULT_WEAPON_STATS.interval * 2) < .005);
+test('the turret fires carbine rounds at a third of the carbine\'s rate', () => {
+  assert.ok(Math.abs(TURRET_INTERVAL - DEFAULT_WEAPON_STATS.interval * 3) < .005);
   const dps = TURRET_DAMAGE / TURRET_INTERVAL;
   const carbine = DEFAULT_WEAPON_STATS.bodyDamage / DEFAULT_WEAPON_STATS.interval;
-  assert.ok(dps > carbine * .4 && dps < carbine * .6, `turret ${dps.toFixed(0)} dps vs carbine ${carbine.toFixed(0)} dps`);
+  assert.ok(dps > carbine * .28 && dps < carbine * .4, `turret ${dps.toFixed(0)} dps vs carbine ${carbine.toFixed(0)} dps`);
   assert.ok(TURRET_RANGE >= 18);
 });
 
@@ -50,4 +50,24 @@ test('rapid fire slows a pathogen but interrupts its attack only every 1.6 secon
   }
   assert.ok(bacillus.slowRemaining > 0);
   assert.equal(interrupts, 2, 'two interrupts in three seconds');
+});
+
+test('a placed turret can be dragged at any time and holds fire while carried', () => {
+  const sim = field();
+  const virus = sim.createEnemy('virus', 0, -10, sim.nodes[0]);
+  sim.enemies.push(virus);
+  Object.assign(sim.player, { x: 3, z: 4, yaw: 0 });
+  assert.equal(sim.carryTurret(true), true);
+  assert.ok(sim.turret.carried);
+  assert.ok(Math.abs(sim.turret.x - 3) < 1e-6 && Math.abs(sim.turret.z - 1.8) < 1e-6, 'it rides 2.2 m ahead of the suit');
+  run(sim, .5);
+  assert.equal(virus.health, SPECIES.virus.health, 'no shots while carried');
+  sim.player.x = 5;
+  sim.carryTurret(true);
+  assert.ok(Math.abs(sim.turret.x - 5) < 1e-6);
+  sim.carryTurret(false);
+  assert.equal(sim.turret.carried, false);
+  assert.ok(sim.events.some(event => event.type === 'turret' && event.stage === 'moved'));
+  run(sim, 1.5);
+  assert.ok(virus.health < SPECIES.virus.health || !sim.enemies.includes(virus), 'it fires again once set down');
 });

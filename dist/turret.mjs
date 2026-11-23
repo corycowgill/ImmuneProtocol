@@ -191,6 +191,7 @@ export function createTurret(glow) {
     emplacement = null;
   }
 
+  let lift = 0;
   function update(turret, floor, dt, reduceMotion) {
     if (!turret) {
       if (model.visible) reset();
@@ -202,7 +203,9 @@ export function createTurret(glow) {
       emplacement = turret;
     }
     model.visible = true;
-    model.position.set(turret.x, turret.y + floor, turret.z);
+    // A carried turret rides a little off the ground so it reads as picked up.
+    lift += ((turret.carried ? .32 : 0) - lift) * Math.min(1, dt * 12);
+    model.position.set(turret.x, turret.y + floor + lift, turret.z);
     deployedFor += dt;
     recoilTime = Math.max(0, recoilTime - dt);
     const yawDelta = turret.yaw - azimuth.rotation.y;

@@ -123,7 +123,7 @@ export function applyEvents() {
     }
     if (event.type === 'turret') {
       if (event.stage === 'deployed') announce('AUTO-TURRET ONLINE', 'COVERING THIS POSITION', 1.8);
-      if (event.stage === 'redeployed') announce('AUTO-TURRET REDEPLOYED', 'COVERING THE NEW POSITION', 1.8);
+      if (event.stage === 'redeployed' || event.stage === 'moved') announce('AUTO-TURRET REPOSITIONED', 'COVERING THE NEW POSITION', 1.5);
       if (event.stage === 'invalid') announce('PLACEMENT BLOCKED', 'FACE CLEAR GROUND AND TRY AGAIN', 1.8);
     }
     if (event.type === 'surge' && event.stage === 'arrival') {

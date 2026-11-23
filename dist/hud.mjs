@@ -240,14 +240,11 @@ export function drawJunctionStatus() {
     const option = button.dataset.junctionSupply;
     const pressed = String(option === choice);
     if (button.getAttribute('aria-pressed') !== pressed) button.setAttribute('aria-pressed', pressed);
-    const disabled = session.sim.junctionSupplyLocked || (option === 'turret' && !session.sim.turret);
+    const disabled = session.sim.junctionSupplyLocked;
     if (button.disabled !== disabled) button.disabled = disabled;
   }
   let note = 'Choose one support option.';
-  if (session.sim.junctionSupplyLocked) note = 'Turret moved. Support used for this wave.';
-  else if (choice === 'turret') note = session.usingGamepad ? 'Face clear ground and press RB to move the turret.'
-    : isTouch ? 'Face clear ground and tap Turret to move it.' : 'Face clear ground and press Q to move the turret.';
-  else if (choice === 'ammo') note = 'Magazines will be loaded at the start of the next wave.';
+  if (choice === 'ammo') note = 'Magazines will be loaded at the start of the next wave.';
   else if (choice) note = branches[choice].name + ' inlet reinforcement selected.';
   setText(junctionSupplyNote, note);
 }
@@ -308,18 +305,17 @@ function drawNodeHud() {
 export function drawTurretHud() {
   turretStatus.hidden = !!session.sim.tutorial;
   const turret = session.sim.turret;
-  const moving = session.sim.canRedeployTurret;
-  const ready = (session.sim.turretCharges > 0 || moving) && !session.sim.tutorial;
+  const ready = !turret && session.sim.turretCharges > 0 && !session.sim.tutorial;
   touchTurret.hidden = !!session.sim.tutorial;
-  touchTurret.disabled = !ready;
-  const state = ready ? (session.sim.turretPlacement ? 'ready' : 'blocked') :
+  touchTurret.disabled = !ready && !turret;
+  const state = ready ? (session.sim.turretPlacement ? 'ready' : 'blocked') : turret?.carried ? 'moving' :
     turret?.jammed ? 'jammed' : turret?.targetId == null ? 'online' : 'engaging';
   turretStatus.dataset.state = state;
   touchTurret.dataset.state = state;
-  setText(touchTurret, compact && !ready ? state === 'jammed' ? 'Jammed' : 'Online' : 'Turret');
+  setText(touchTurret, compact && turret ? state === 'jammed' ? 'Jammed' : 'Move' : 'Turret');
   setText(turretStatusValue, {
-    online: 'TURRET ONLINE', engaging: 'TURRET ENGAGING', jammed: 'TURRET JAMMED',
-    ready: moving || turret ? 'REDEPLOY READY' : 'TURRET READY', blocked: 'FIND CLEAR GROUND',
+    online: 'TURRET ONLINE', engaging: 'TURRET ENGAGING', jammed: 'TURRET JAMMED', moving: 'MOVING TURRET',
+    ready: 'TURRET READY', blocked: 'FIND CLEAR GROUND',
   }[state]);
 }
 

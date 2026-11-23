@@ -278,7 +278,7 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     ui.add({ kind: 'stick', id: 'game:stick', action: 'game:stick' }, { x: x + 5, y: h - bottom - 141, w: 92, h: 92 });
     for (const [name, xx, yy] of [['swap', 0, 0], ['turret', 51, 0], ['reload', 0, 51], ['repair', 51, 51]]) {
       const source = act[name]; if (!source) continue;
-      ui.add({ ...source, kind: ['reload', 'repair'].includes(name) ? 'hold' : 'button', text: source.text || name, size: 9, round: true }, { x: bx + xx, y: by + yy, w: 44, h: 44 });
+      ui.add({ ...source, kind: ['reload', 'repair', 'turret'].includes(name) ? 'hold' : 'button', text: source.text || name, size: 9, round: true }, { x: bx + xx, y: by + yy, w: 44, h: 44 });
     }
     ui.add({ kind: 'hold', id: 'game:fire', action: 'game:fire', text: 'FIRE', size: 12, primary: true, round: true }, { x: w - right - 64, y: by + 16, w: 64, h: 64 });
   }

@@ -252,7 +252,8 @@ git subtree push --prefix=dist origin gh-pages
 | Sprint | Shift | Click the left stick |
 | Reload | R | X |
 | Repair | Hold E near a damaged tissue node or open gash | Hold LB |
-| Deploy or redeploy auto-turret | Q | RB |
+| Deploy auto-turret | Q | RB |
+| Drag the placed turret to a new spot | Hold Q | Hold RB |
 | Switch weapon | 1 / 2 or mouse wheel | Y |
 | Pause | Esc or P | Menu ☰ |
 
@@ -266,9 +267,9 @@ Phones use a compact HUD in landscape and portrait: tissue bars across the top, 
 
 To check the layout locally, run `npm run profile` and open `http://127.0.0.1:8027/__hud`. The fixture uses the real HUD and renderer with selectable combat, boss, hazard, training and objective states. Check 852×393 and 667×375 landscape, 393×852 portrait, and 1280×720 desktop. Touch targets should remain at least 44×44 CSS pixels. This fixture is served only by the local performance server.
 
-Connect an Xbox controller to your device and press a button with the game tab focused. Use the D-pad or left stick to navigate menus, **A** to select, and **B** to go back. In Capillary Junction, the D-pad chooses support during the wave break. Left reinforces Amber, right reinforces Teal, up selects Load magazines, and down selects turret redeployment. If your browser gates audio, click the game or press a keyboard key once to enable it. Enter co-op callsigns and room codes with your keyboard.
+Connect an Xbox controller to your device and press a button with the game tab focused. Use the D-pad or left stick to navigate menus, **A** to select, and **B** to go back. In Capillary Junction, the D-pad chooses support during the wave break. Left reinforces Amber, right reinforces Teal, and up selects Load magazines. If your browser gates audio, click the game or press a keyboard key once to enable it. Enter co-op callsigns and room codes with your keyboard.
 
-Each node has its own integrity meter and direction marker. Losing any node ends the mission. You can deploy one turret per mission on clear ground ahead of you, or place it twice on Easy. It stays where you place it and fires on automatic at half the Needle Carbine's rate (22 damage about four times a second), at targets within 20 meters that it has a clear line to. It favours pathogens latched onto tissue, its hits slow pathogens, and it can knock a given pathogen out of an attack once every 1.6 seconds. Put it near an approach to the node you plan to leave.
+Each node has its own integrity meter and direction marker. Losing any node ends the mission. You can deploy one turret per mission on clear ground ahead of you, or place it twice on Easy. Hold the turret control (Q, RB, or the touch Move button) at any time to pick it up: it slides along the clear ground in front of you and holds fire until you release. It fires on automatic at a third of the Needle Carbine's rate (22 damage about three times a second), at targets within 20 meters that it has a clear line to. It favours pathogens latched onto tissue, its hits slow pathogens, and it can knock a given pathogen out of an attack once every 1.6 seconds. Put it near an approach to the node you plan to leave.
 
 The pause screen shows the wave, score, tissue and objective, and offers **Restart mission**, Settings, the field manual, and **Quit to main menu**, which asks you to press it twice. Settings is available from the main menu and pause screen, with look sensitivity, graphics quality, and music and effects volume. Look sensitivity applies to mouse, touch, and the Xbox right stick. Low graphics reduces rendering load on slower devices. All settings are saved in the browser.
 
@@ -278,7 +279,7 @@ Shellbacks guard their front. Aim for exposed tissue from the side or rear. Spli
 
 Capillary Junction has three waves with staggered attacks. The HUD names the next targeted node, the incoming pathogen, and the time until it enters. In Wave 3, an Amber virus rush arrives six seconds before the Teal bacillus breach.
 
-During each break, use **1** to reinforce Amber, **2** to reinforce Teal, **3** to start the next wave with a full magazine, or **4** to redeploy a turret you've already placed. You can also select the options on screen. Reinforcement starts when the first attacker enters the chosen inlet. After choosing redeploy, face clear ground and press **Q** or tap **Turret** before the next wave. A successful move uses your support choice for that break. The turret keeps its position until you find a valid new spot.
+During each break, use **1** to reinforce Amber, **2** to reinforce Teal, or **3** to start the next wave with a full magazine. You can also select the options on screen. Reinforcement starts when the first attacker enters the chosen inlet. Your turret no longer needs a support choice to move: hold **Q**, **RB** or the touch **Move** button at any time to drag it.
 
 In the breach wave, a bacillus tear can leave a gash that keeps draining tissue after the attacker dies. Move to the marked wound and hold Repair. Completed sealing pulses stay applied when you stop to fight or dodge. If a gash is still open after the last enemy falls, seal it to extract.
 

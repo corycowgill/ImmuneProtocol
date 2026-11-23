@@ -163,6 +163,7 @@ export class CoopSimulation extends Simulation {
     if (player.health <= 0) return;
     const eventStart = this.events.length;
     if (input.deploy) this.deployTurret(suit);
+    this.carryTurret(!!input.carry, suit);
     const repairing = this.updateRepair(dt, input.repair, suit);
     this.updateRifle(dt, input, repairing, suit);
     player.aiming = Boolean(input.aim && !repairing && !suit.reloading);

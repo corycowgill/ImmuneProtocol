@@ -13,7 +13,7 @@ const RESUME_KEY = 'immune-protocol.coop-session';
 
 const emptyInput = () => ({
   moveX: 0, moveZ: 0, lookX: 0, lookY: 0,
-  fire: false, repair: false, reload: false, deploy: false, sprint: false, aim: false,
+  fire: false, repair: false, reload: false, deploy: false, carry: false, sprint: false, aim: false,
 });
 
 function saveSession(session) {

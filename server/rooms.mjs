@@ -10,7 +10,7 @@ const RESULTS_IDLE_LIMIT = 20 * 60_000;
 const MAX_ROOMS = 24;
 const MAX_LOOK = 1200;
 const EMPTY_INPUT = Object.freeze({});
-const INPUT_FLAGS = ['fire', 'aim', 'sprint', 'repair', 'reload', 'deploy', 'swap'];
+const INPUT_FLAGS = ['fire', 'aim', 'sprint', 'repair', 'reload', 'deploy', 'carry', 'swap'];
 const INPUT_AXES = { moveX: 1, moveZ: 1, lookX: MAX_LOOK, lookY: MAX_LOOK };
 
 function clampAxis(value, limit) {

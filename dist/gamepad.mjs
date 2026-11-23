@@ -3,7 +3,7 @@ const EDGE_BUTTONS = {
   up: 12, down: 13, left: 14, right: 15,
 };
 
-const HELD_BUTTONS = { fire: 7, aim: 6, repair: 4, sprint: 10 };
+const HELD_BUTTONS = { fire: 7, aim: 6, repair: 4, sprint: 10, deploy: 5 };
 const BUTTONS = [...Object.values(EDGE_BUTTONS), ...Object.values(HELD_BUTTONS)];
 const EDGE_ENTRIES = Object.entries(EDGE_BUTTONS);
 const MOVE_DEAD_ZONE = .17;
@@ -14,7 +14,7 @@ const NO_BUTTON_EDGES = Object.freeze(Object.fromEntries(EDGE_ENTRIES.map(([acti
 const INACTIVE = Object.freeze({
   connected: false, disconnected: false, active: false,
   moveX: 0, moveZ: 0, lookX: 0, lookY: 0, menuX: 0, menuY: 0,
-  fire: false, aim: false, repair: false, sprint: false,
+  fire: false, aim: false, repair: false, sprint: false, deploy: false,
   pressed: NO_BUTTON_EDGES,
 });
 
@@ -121,6 +121,7 @@ export class GamepadInput {
       menuX: useDpad ? dpadX : move.x, menuY: useDpad ? dpadY : move.y,
       fire: hasButton(buttons, HELD_BUTTONS.fire), aim: hasButton(buttons, HELD_BUTTONS.aim),
       repair: hasButton(buttons, HELD_BUTTONS.repair), sprint: hasButton(buttons, HELD_BUTTONS.sprint),
+      deploy: hasButton(buttons, HELD_BUTTONS.deploy),
       pressed,
     };
   }

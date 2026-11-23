@@ -236,10 +236,10 @@ const SPORE_RANGE = 8.2;
 const SPORE_SPEED = 7.3;
 const SPORE_RADIUS = 0.21;
 const SPORE_ARM_TIME = 0.12;
-// The auto-turret is a carbine on a tripod: carbine damage at half the Needle Carbine's rate of
-// fire, out to 20 m, so a placed turret helps hold an approach against the five-fold waves.
+// The auto-turret is a carbine on a tripod: carbine damage at a third of the Needle Carbine's rate
+// of fire, out to 20 m, so a placed turret helps hold an approach without carrying the fight.
 export const TURRET_RANGE = 20;
-export const TURRET_INTERVAL = .236;
+export const TURRET_INTERVAL = .354;
 export const TURRET_DAMAGE = 22;
 // Its slow refreshes on every hit, but it can only interrupt a given pathogen's attack this often.
 const TURRET_STAGGER_INTERVAL = 1.6;
@@ -376,6 +376,11 @@ export class Simulation {
   turretPlacementFor(player) {
     if ((!this.turretCharges && !this.canRedeployTurret) || this.tutorial || this.extractionPending ||
       (this.phase !== 'combat' && this.phase !== 'intermission')) return null;
+    return this.turretGround(player);
+  }
+
+  // The clear ground 2.2 m in front of a suit, or null when it is blocked.
+  turretGround(player) {
     const { x, z, yaw } = player;
     const point = { x: x - Math.sin(yaw) * 2.2, y: 0, z: z - Math.cos(yaw) * 2.2 };
     if (this.valve && (Math.abs(point.x) > HEART_MAX_PLAYER_X - .65 ||
@@ -416,7 +421,7 @@ export class Simulation {
 
   selectJunctionSupply(choice) {
     if (this.phase !== 'intermission' || !this.junctionForecast || this.junctionSupplyLocked ||
-      !['left', 'right', 'ammo', 'turret'].includes(choice) || (choice === 'turret' && !this.turret)) return false;
+      !['left', 'right', 'ammo'].includes(choice)) return false;
     this.junctionSupply = choice;
     return true;
   }
@@ -728,6 +733,7 @@ export class Simulation {
 
   actSuits(dt, input) {
     if (input.deploy) this.deployTurret();
+    this.carryTurret(!!input.carry);
     const repairing = this.updateRepair(dt, input.repair);
     this.updateRifle(dt, input, repairing);
   }
@@ -1248,10 +1254,41 @@ export class Simulation {
     return true;
   }
 
+  // A placed turret can be picked up and dragged at any time: while the deploy control is held it
+  // slides along the clear ground in front of the carrier, holding fire, and it sets down where it
+  // last found clear ground when the control is released.
+  carryTurret(held, suit = this) {
+    const turret = this.turret;
+    if (!turret) return false;
+    const carrierId = suit.player.id ?? 'solo';
+    if (held && !this.tutorial && !this.extractionPending && suit.player.health > 0 &&
+      (!turret.carried || turret.carrierId === carrierId)) {
+      if (!turret.carried) {
+        turret.carried = true;
+        turret.carrierId = carrierId;
+        this.events.push({ type: 'turret', stage: 'lifted', x: turret.x, y: turret.y, z: turret.z });
+      }
+      const point = this.turretGround(suit.player);
+      if (point) Object.assign(turret, point);
+      turret.yaw = Math.PI + suit.player.yaw;
+      turret.pitch = 0;
+      turret.targetId = null;
+      return true;
+    }
+    if (turret.carried && (turret.carrierId === carrierId || !held)) {
+      turret.carried = false;
+      turret.carrierId = null;
+      turret.cooldown = Math.max(turret.cooldown, .4);
+      this.events.push({ type: 'turret', stage: 'moved', x: turret.x, y: turret.y, z: turret.z });
+    }
+    return false;
+  }
+
   updateTurret(dt) {
     const turret = this.turret;
     if (!turret) return;
     turret.cooldown = Math.max(0, turret.cooldown - dt);
+    if (turret.carried) return;
     if (this.area === 'ear') {
       turret.jammed = this.organ.phase === 'active' && withinHazard(turret, this.organ);
       if (turret.jammed) {

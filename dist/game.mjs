@@ -1052,6 +1052,7 @@ function frame(now) {
     input.reload = controls.reloadTap || keys.has('KeyR') || touch.reload;
     input.repair = keys.has('KeyE') || touch.repair || !!controller?.repair;
     input.deploy = controls.deployTap;
+    input.carry = !!(controls.keyCarry || controls.padCarry || touch.carry) && !!session.sim.turret;
     input.swap = controls.swapTap;
     input.sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') || !!controller?.sprint;
     input.aim = controls.rightButton || !!controller?.aim;
@@ -1328,7 +1329,7 @@ byId('resume').addEventListener('click', resume);
 extractNow.addEventListener('click', () => chooseExtraction('extract'));
 stayOvertime.addEventListener('click', () => chooseExtraction('stay'));
 touchTurret.addEventListener('click', () => {
-  if (session.running && !session.paused && !session.sim.extractionPending && !session.sim.tutorial && (session.sim.turretCharges > 0 || session.sim.canRedeployTurret)) controls.deployTap = true;
+  if (session.running && !session.paused && !session.sim.extractionPending && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
 });
 extractionDialog.addEventListener('cancel', event => event.preventDefault());
 pauseDialog.addEventListener('cancel', event => { event.preventDefault(); resume(); });

@@ -469,7 +469,9 @@ export class GameAudio {
       }
       case 'turret': {
         const pan = this.spatialPan(event);
-        if (event.stage === 'deployed' || event.stage === 'redeployed') {
+        if (event.stage === 'lifted') {
+          this.playSample('weapon/reload-complete', .32, { pan, rate: 1.18 });
+        } else if (event.stage === 'deployed' || event.stage === 'redeployed' || event.stage === 'moved') {
           this.playSample('weapon/reload-complete', .48, { pan, rate: .78 });
         } else if (event.stage === 'fire') {
           const attenuation = 1 / (1 + (event.distance ?? 0) * .085);

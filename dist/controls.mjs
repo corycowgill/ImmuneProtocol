@@ -36,11 +36,11 @@ export const touchControls = byId('touch-controls');
 const xbox = new GamepadInput();
 const xboxMenus = new GamepadMenu({ main: byId('menu'), onBack: backFromControllerMenu });
 export const keys = new Set();
-export const touch = { fire: false, repair: false, reload: false, x: 0, z: 0 };
-export const input = { moveX: 0, moveZ: 0, lookX: 0, lookY: 0, fire: false, reload: false, repair: false, deploy: false, sprint: false, aim: false, swap: false };
+export const touch = { fire: false, repair: false, reload: false, carry: false, x: 0, z: 0 };
+export const input = { moveX: 0, moveZ: 0, lookX: 0, lookY: 0, fire: false, reload: false, repair: false, deploy: false, carry: false, sprint: false, aim: false, swap: false };
 const controlKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyR', 'KeyQ', 'KeyP', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'Escape']);
-const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo', Digit4: 'turret' };
-const supplyPad = { left: 'left', right: 'right', up: 'ammo', down: 'turret' };
+const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo' };
+const supplyPad = { left: 'left', right: 'right', up: 'ammo' };
 const supplyPadLabels = { left: '←', right: '→', ammo: '↑', turret: '↓' };
 
 // The same actions serve canvas touch controls and any future platform host.
@@ -51,12 +51,16 @@ gameUi.bindControls({
   hold(name, down) {
     if (down && !playing()) return;
     if (['fire', 'repair', 'reload'].includes(name)) touch[name] = down;
+    if (name === 'turret') {
+      if (down && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
+      touch.carry = down && !!session.sim.turret;
+    }
     if (name === 'fire' && down) controls.fireTap = true;
   },
   tap(name) {
     if (!playing()) return;
     if (name === 'swap' && !session.sim.tutorial) controls.swapTap = true;
-    if (name === 'turret' && !session.sim.tutorial && (session.sim.turretCharges > 0 || session.sim.canRedeployTurret)) controls.deployTap = true;
+    if (name === 'turret' && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
   },
   stick(value) { touch.x = value.x; touch.z = value.z; },
   look(phase, point, id) {
@@ -98,11 +102,14 @@ export function clearControls() {
   controls.fireTap = false;
   controls.reloadTap = false;
   controls.deployTap = false;
+  controls.keyCarry = false;
+  controls.padCarry = false;
   controls.swapTap = false;
   controls.lookPointer = null;
   controls.stickPointer = null;
   touch.fire = false;
   touch.repair = false;
+  touch.carry = false;
   touch.reload = false;
   touch.x = 0;
   touch.z = 0;
@@ -162,7 +169,10 @@ export function controllerFrame(now) {
   }
   controls.xboxState = current;
   controls.reloadTap ||= current.pressed.reload;
-  if (current.pressed.deploy && !session.sim.tutorial && (session.sim.turretCharges > 0 || session.sim.canRedeployTurret)) controls.deployTap = true;
+  if (current.pressed.deploy && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
+  // Holding RB on a placed turret drags it; the press that deploys one does not also pick it up.
+  if (current.pressed.deploy) controls.padCarry = !!session.sim.turret;
+  if (!current.deploy) controls.padCarry = false;
   if (current.pressed.swap && !session.sim.tutorial) controls.swapTap = true;
   if (!junctionSupply.hidden) {
     const direction = Object.keys(supplyPad).find(key => current.pressed[key]);
@@ -230,11 +240,16 @@ window.addEventListener('keydown', event => {
   }
   if (!event.repeat && event.code === 'Space') controls.fireTap = true;
   if (!event.repeat && event.code === 'KeyR') controls.reloadTap = true;
-  if (!event.repeat && event.code === 'KeyQ' && !session.sim.tutorial && (session.sim.turretCharges > 0 || session.sim.canRedeployTurret)) controls.deployTap = true;
+  if (!event.repeat && event.code === 'KeyQ' && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
+  // Holding Q on a placed turret drags it; the press that deploys one does not also pick it up.
+  if (!event.repeat && event.code === 'KeyQ') controls.keyCarry = !!session.sim.turret;
   keys.add(event.code);
 });
 
-window.addEventListener('keyup', event => keys.delete(event.code));
+window.addEventListener('keyup', event => {
+  keys.delete(event.code);
+  if (event.code === 'KeyQ') controls.keyCarry = false;
+});
 
 window.addEventListener('wheel', event => {
   if (!session.running || session.paused || session.sim.extractionPending || session.sim.tutorial || !controls.locked || !event.deltaY) return;
