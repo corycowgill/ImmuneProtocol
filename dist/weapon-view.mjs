@@ -128,10 +128,11 @@ export function addShot(world, event, flashStrength, reduceMotion) {
   if (event.rocket) world.explosions.launch(start, end, event.travel, reduceMotion);
   else if (!event.blast) world.addTracer(start, end, world.shotMaterial, event.weapon === 'sniper' ? .12 : .064);
   if (!event.pellet) {
-    world.shotLight.intensity = 13 * flashStrength;
+    world.shotLight.intensity = (event.weapon === 'sniper' || event.weapon === 'shotgun' ? 70 : 42) * flashStrength;
     world.shotLight.position.copy(start);
   }
   if (event.hit) world.burst(end.x, end.y, end.z, event.crit ? 0xffc875 : 0xff765a, event.crit ? 18 : 9, 3);
+  else if (!event.rocket && !event.blast) world.impacts?.shotMiss(start, end, event.weapon, reduceMotion, event.pellet);
 }
 
 export function addTracer(world, start, end, material, remaining) {
@@ -153,6 +154,7 @@ export function addTeammateShot(world, event, reduceMotion) {
   if (event.rocket) world.explosions.launch(world.teammateMuzzle, end, event.travel, reduceMotion);
   else world.addTracer(world.teammateMuzzle, end, world.teammateShotMaterial, .074);
   if (event.hit) world.burst(end.x, end.y, end.z, event.crit ? 0xffc875 : 0xff765a, reduceMotion ? 4 : 8, 2.6);
+  else if (!event.rocket) world.impacts?.shotMiss(world.teammateMuzzle, end, event.weapon, reduceMotion, event.pellet);
 }
 
 export function addTurretShot(world, event, reduceMotion) {

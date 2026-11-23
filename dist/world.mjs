@@ -4,6 +4,7 @@ import { COOP_SUITS, loadSuitModels } from './suits.mjs';
 import { ExplosionFX } from './explosions.mjs';
 import { DeathFX } from './death-fx.mjs';
 import { PostFX } from './post-fx.mjs';
+import { ImpactFX } from './impact-fx.mjs';
 import { paintGround, patchGround, patchShell } from './ground-fx.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve } from './heart-valve.mjs';
@@ -97,10 +98,12 @@ export class World {
     const side = new THREE.PointLight(0xff7561, 53, 24, 2);
     side.position.set(11, 4.6, -11);
     this.scene.add(side);
-    this.shotLight = new THREE.PointLight(0xa8ffc4, 0, 8, 2);
+    // The muzzle flash lights the tissue around the suit.
+    this.shotLight = new THREE.PointLight(0xffc48a, 0, 15, 2);
     this.scene.add(this.shotLight);
     this.explosions = new ExplosionFX(this.scene, { floorHeight, burst: (...args) => this.burst(...args) });
     this.deaths = new DeathFX(this);
+    this.impacts = new ImpactFX(this);
     // The HDR finishing pipeline (bloom, mist, grade); High quality only.
     this.post = LOW_MEMORY ? null : new PostFX(this.renderer);
 
@@ -386,6 +389,8 @@ export class World {
     clouds.forEach(({ cloud }, index) => cloud.material.color.setHex(profile?.atmosphere ?? (index > 4 ? 0xb77266 : 0xfac597)));
     this.deaths?.clear();
     this.post?.setArea(this.area);
+    this.obstacles = arenaObstacles(this.area);
+    this.impacts?.setArea(this.area);
     this.updateEnemies([], 0);
     this.updateProjectiles([], false);
     for (const shot of this.shots) {
@@ -730,12 +735,26 @@ export class World {
           if (event.playerId == null || event.playerId === playerId) this.addShot(event, flashStrength, reduceMotion);
           else this.addTeammateShot(event, reduceMotion);
         }
-        if (event.type === 'explosion') this.explosions.explode(event.x, event.y, event.z, event.radius, reduceMotion);
+        if (event.type === 'explosion') {
+          this.explosions.explode(event.x, event.y, event.z, event.radius, reduceMotion);
+          this.impacts.blast(new THREE.Vector3(event.x, event.y, event.z), event.radius);
+        }
         if (event.type === 'turret' && event.stage === 'fire') this.addTurretShot(event, reduceMotion);
         if (event.type === 'turret' && (event.stage === 'deployed' || event.stage === 'redeployed') && !reduceMotion) {
           this.burst(event.x, floorHeight(event.x, event.z) + .11, event.z, 0xb78079, 15, 1.2);
         }
-        if (event.type === 'hit' && this.enemyViews.has(event.id)) this.enemyViews.get(event.id).hit = 1;
+        if (event.type === 'hit') {
+          // A lethal hit has already handed the pathogen's model to its death animation.
+          const view = this.enemyViews.get(event.id) ?? this.deaths.corpses.find(corpse => corpse.id === event.id)?.view;
+          if (view) {
+            view.hit = 1;
+            // Knocked back along the shot, harder by heavier rounds; bosses barely move.
+            const push = Math.min(.42, (event.damage ?? 20) / 150) / (view.enemy?.boss || view.enemy?.nest ? 6 : 1);
+            const dx = event.x - this.camera.position.x, dz = event.z - this.camera.position.z, length = Math.hypot(dx, dz) || 1;
+            (view.knock ??= new THREE.Vector3()).add(this.tempPosition.set(dx / length * push, push * .2, dz / length * push));
+          }
+          if (Number.isFinite(event.x)) this.impacts.enemyHit(view, event, this.camera.position, event.damage ?? 20, event.crit, reduceMotion);
+        }
         if (event.type === 'levelBoss') {
           const ground = floorHeight(event.x, event.z) + .2;
           if (event.stage === 'tremor') this.burst(event.x, ground, event.z, 0xc9a07a, reduceMotion ? 3 : 10, 2.6);
@@ -751,6 +770,10 @@ export class World {
           this.burst(event.x, event.y + .15, event.z, 0x83ffca, event.complete ? 62 : 38, event.complete ? 4.8 : 3.6);
         }
         if (event.type === 'gash' && event.stage === 'open') this.burst(event.x, event.y + .12, event.z + .33, 0xff7555, 22, 2.6);
+        // A hit on your own suit jolts the camera.
+        if (event.type === 'damage' && event.target === 'player' && (event.playerId == null || event.playerId === playerId) && !reduceMotion) {
+          this.explosions.shake = Math.min(1, this.explosions.shake + .22);
+        }
         if (event.type === 'damage' && event.target === 'tissue') {
           const attacker = this.enemyViews.get(event.id);
           if (attacker) attacker.strike = .23;
@@ -823,6 +846,7 @@ export class World {
     this.deaths.note(sim.events, player);
     this.updateEnemies(sim.enemies, dt, reduceMotion);
     this.deaths.update(dt, reduceMotion);
+    this.impacts.update(dt);
     this.updateProjectiles(sim.projectiles ?? [], reduceMotion);
     this.updatePickups(sim.pickups ?? [], reduceMotion);
     this.teammateView.update(sim.players, player.id, floorHeight, dt, reduceMotion);

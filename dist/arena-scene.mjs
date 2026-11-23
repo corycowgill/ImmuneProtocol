@@ -24,6 +24,14 @@ export function floorHeight(x, z) {
     + .075 * Math.cos(z * .98 - x * .24) + .035 * Math.sin(x * 2.8 + z * 1.7);
 }
 
+// How far inside the chamber wall a point is, as a fraction of the wall's reach at that angle and
+// height (positive inside, negative beyond the wall). Used to land shots on the wall.
+export function wallMargin(x, y, z) {
+  const angle = Math.atan2(z / CHAMBER_DEPTH, x / CHAMBER_WIDTH);
+  const reach = wallPosition(angle, y);
+  return Math.hypot(reach.x / CHAMBER_WIDTH, reach.z / CHAMBER_DEPTH) - Math.hypot(x / CHAMBER_WIDTH, z / CHAMBER_DEPTH);
+}
+
 function wallPosition(angle, height) {
   const ripple = 1 + Math.sin(angle * 7 + height * .23) * .044
     + Math.cos(angle * 13 - height * .28) * .018

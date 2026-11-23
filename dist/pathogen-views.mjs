@@ -10,6 +10,7 @@ import { membraneMaps } from './arena-textures.mjs';
 import { TAU, UP, floorHeight, addMesh } from './arena-scene.mjs';
 
 const FORWARD = new THREE.Vector3(0, 0, 1);
+const HIT_FLASH = new THREE.Color(0xfff0e0);
 
 const ATTACK_GLOW = {
   virus: new THREE.Color(0xde653b),
@@ -144,6 +145,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
         view.model.visible = view.shadow.visible = true;
         view.hit = view.strike = view.clench = 0;
         view.lastPosition = view.facing = null;
+        view.knock?.set(0, 0, 0);
         view.phase = world.random() * TAU;
         view.motion?.mixer?.setTime(0);
         world.enemyViews.set(enemy.id, view);
@@ -241,6 +243,11 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
     const pulse = 1 + (reduceMotion ? 0 : Math.sin(angle * 3) * .045 + view.hit * .13);
     view.model.scale.set(pulse, pulse - view.hit * .18, pulse);
     world.poseEnemyAttack(enemy, view, reduceMotion);
+    // A hit flashes the membrane white-hot for an instant.
+    if (view.hit > 0 && view.attackMembrane) {
+      view.attackMembrane.emissive.lerp(HIT_FLASH, view.hit * .45);
+      view.attackMembrane.emissiveIntensity += view.hit * 1.3;
+    }
     if (!reduceMotion) animatePathogen(view.motion, dt, view.clench);
     if (enemy.latched) world.updateTethers(enemy, view, angle, reduceMotion);
     if (view.guard && !enemy.latched) {
@@ -254,6 +261,10 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       });
     }
     if (enemy.fragment) view.model.scale.multiplyScalar(.62);
+    if (view.knock && !reduceMotion) {
+      view.model.position.add(view.knock);
+      view.knock.multiplyScalar(Math.exp(-dt * 9));
+    }
     view.shadow.position.set(enemy.x, floorHeight(enemy.x, enemy.z) + .1, enemy.z);
     view.shadow.scale.setScalar((enemy.radius || .9) * 1.4);
   }

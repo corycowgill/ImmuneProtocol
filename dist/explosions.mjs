@@ -161,8 +161,9 @@ export class ExplosionFX {
       const angle = Math.random() * Math.PI * 2;
       const spread = Math.random() * 1.6 * scale;
       this.sprite(this.smoke, { x: x + Math.cos(angle) * spread, y: y + Math.random() * scale, z: z + Math.sin(angle) * spread }, {
-        size: 1.6 * scale, grow: (2.4 + Math.random() * 2) * scale, life: 1.6 + Math.random() * 1.3, opacity: .78,
-        color: new THREE.Color().setHSL(.05, .25, .16 + Math.random() * .12), fadeIn: .15, delay: Math.random() * .12,
+        // Dark, warm smoke: pale grey read as a sheet over the dim, fogged arenas once drawn in HDR.
+        size: 1.6 * scale, grow: (2.4 + Math.random() * 2) * scale, life: 1.6 + Math.random() * 1.3, opacity: .7,
+        color: new THREE.Color().setHSL(.03, .4, .05 + Math.random() * .05), fadeIn: .15, delay: Math.random() * .12,
         vx: Math.cos(angle) * .9, vy: 1.1 + Math.random() * 1.3, vz: Math.sin(angle) * .9,
       });
     }
