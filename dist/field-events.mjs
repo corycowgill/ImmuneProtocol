@@ -6,6 +6,7 @@ import { session } from './session.mjs';
 import { byId, isTouch, pad } from './dom.mjs';
 import { tutorialKey, writeSetting } from './settings-store.mjs';
 import { hitMarker, branches, nodeHitUntil } from './hud.mjs';
+import { padActionKey } from './keybinds.mjs';
 
 export const alertBox = byId('game-alert');
 
@@ -59,7 +60,7 @@ export function applyEvents() {
     if (event.type === 'tutorial' && event.stage === 'complete') {
       session.trainingComplete = true;
       writeSetting(tutorialKey, true);
-      announce(session.sim.nodes.length > 2 ? 'DEFEND ALL THREE TISSUE NODES' : 'DEFEND BOTH TISSUE NODES', session.usingGamepad ? 'PRESS RB TO DEPLOY YOUR TURRET'
+      announce(session.sim.nodes.length > 2 ? 'DEFEND ALL THREE TISSUE NODES' : 'DEFEND BOTH TISSUE NODES', session.usingGamepad ? 'PRESS ' + padActionKey('turret').toUpperCase() + ' TO DEPLOY YOUR TURRET'
         : isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
       session.audio.play({ type: 'wave', stage: 'start' });
     }

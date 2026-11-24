@@ -1,4 +1,5 @@
-import { Simulation, JUNCTION_INLETS, RULES, TISSUE_NODES } from './simulation.mjs';
+import { Simulation, JUNCTION_INLETS, RULES, TISSUE_NODES, TURN_SENSITIVITY } from './simulation.mjs';
+import { AimAssist } from './aim-assist.mjs';
 import { AIDebugSystem } from './ai-debug.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
@@ -39,7 +40,7 @@ import { game, hitMarker, turretStatus, touchTurret, gashMarker, gashEdge, junct
 import { alertBox, announce, applyEvents } from './field-events.mjs';
 import {
   canvas, clearControls, commands, controllerFrame, controls, input, keys, pauseDialog, releaseMouse, requestMouse,
-  rumblePad, syncControllerAudioHint, touch, touchControls,
+  configureController, rumblePad, syncControllerAudioHint, touch, touchControls,
 } from './controls.mjs';
 import { Haptics } from './haptics.mjs';
 import { armoryDialog, armoryEvents, armoryOpen, openArmory, setupArmory } from './armory-menu.mjs';
@@ -143,6 +144,9 @@ let animation = 0;
 let aimLatched = false;
 const timeWarp = { until: 0, scale: 1 };
 let aimWasHeld = false;
+const aimAssist = new AimAssist();
+// Seconds the right stick has been held near full sideways tilt, for the turn boost.
+let turnHeld = 0;
 const fpsCounter = byId('fps-counter');
 let fpsFrames = 0;
 let fpsSince = 0;
@@ -161,6 +165,7 @@ function countFrame(now) {
 session.haptics = new Haptics(rumblePad);
 function applyOptions(values, changed) {
   session.options = values;
+  configureController(values);
   session.haptics.configure({ intensity: values['controller-vibration'], triggers: values['trigger-rumble'] });
   // Let the player feel the new strength while adjusting it with a controller.
   if ((changed === 'controller-vibration' || changed === 'trigger-rumble') && session.usingGamepad) {
@@ -1177,8 +1182,16 @@ function playFrame(now) {
     input.moveZ = clamp(Number(isDown(keys, 'forward')) - Number(isDown(keys, 'back')) + touch.z + (controller?.moveZ ?? 0), -1, 1);
     input.lookX += (Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft'))) * dt * 825;
     input.lookY += (Number(keys.has('ArrowDown')) - Number(keys.has('ArrowUp'))) * dt * 650;
-    input.lookX += (controller?.lookX ?? 0) * dt * 1150 * session.sensitivity * session.options['controller-sensitivity'];
-    input.lookY += (controller?.lookY ?? 0) * dt * 920 * session.sensitivity * session.options['controller-sensitivity'];
+    // The controller's look is kept apart until the end so it gets its own aim speed and assist.
+    let padX = 0, padY = 0;
+    if (controller) {
+      const speed = session.sensitivity * session.options['controller-sensitivity'];
+      // Turn boost: after a moment at full sideways tilt the turn speeds up, for quick about-faces.
+      turnHeld = Math.abs(controller.lookX) > .9 && !controller.aim ? turnHeld + dt : 0;
+      const boost = session.options['turn-boost'] ? 1 + .85 * clamp((turnHeld - .15) / .35, 0, 1) : 1;
+      padX = controller.lookX * dt * 1150 * speed * boost;
+      padY = controller.lookY * dt * 920 * speed * session.options['controller-vertical'];
+    } else turnHeld = 0;
     input.fire = controls.fireTap || controls.leftButton || touch.fire || isDown(keys, 'fire') || !!controller?.fire;
     input.jump = controls.jumpTap;
     input.dash = controls.dashTap;
@@ -1200,8 +1213,27 @@ function playFrame(now) {
     if (input.aim) {
       input.lookX *= session.options['aim-sensitivity'];
       input.lookY *= session.options['aim-sensitivity'];
+      padX *= session.options['controller-ads-sensitivity'];
+      padY *= session.options['controller-ads-sensitivity'];
     }
-    if (session.options['invert-y']) input.lookY = -input.lookY;
+    if (session.options['invert-y']) {
+      input.lookY = -input.lookY;
+      padY = -padY;
+    }
+    if (controller && dt > 0) {
+      const sim = session.sim;
+      const assisted = aimAssist.apply({
+        mode: session.options['aim-assist'], player: sim.player,
+        enemies: sim.tutorial === 'observe' ? [] : sim.enemies,
+        lookX: padX, lookY: padY, aiming: input.aim,
+        moving: Math.hypot(controller.moveX, controller.moveZ) > 0,
+        turn: TURN_SENSITIVITY * (input.aim ? sim.weapon?.aimSensitivity ?? 1 : 1),
+      });
+      padX = assisted.lookX;
+      padY = assisted.lookY;
+    } else if (!controller) aimAssist.reset();
+    input.lookX += padX;
+    input.lookY += padY;
     session.hitTimer = Math.max(0, session.hitTimer - dt);
     session.damageTimer = Math.max(0, session.damageTimer - dt);
     if (session.announcementTimer > 0) {

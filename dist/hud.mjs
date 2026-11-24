@@ -183,7 +183,7 @@ function drawTraining() {
     setText(trainingDetail, 'A pathogen is approaching the membrane.');
   } else if (stage === 'intercept') {
     setText(trainingTitle, 'Shoot the attached pathogen');
-    setText(trainingDetail, session.usingGamepad ? 'Aim with the right stick and hold RT.'
+    setText(trainingDetail, session.usingGamepad ? 'Aim with the right stick and hold ' + padActionKey('fire') + '.'
       : isTouch ? 'Drag to aim and hold Fire.' : 'Aim at the attacker and fire.');
   } else {
     setText(trainingTitle, 'Seal the wound');
@@ -601,7 +601,7 @@ export function drawHud() {
   const nearby = session.sim.nearNode;
   const repairingNode = session.sim.repairTarget;
   const restoringHere = !!nearby && session.restoredNode?.id === nearby.id && session.restoredNode.until > session.sim.clock && nearby.health === 100;
-  const repairKey = session.usingGamepad ? 'HOLD LB' : isTouch ? 'HOLD REPAIR' : 'HOLD E';
+  const repairKey = session.usingGamepad ? 'HOLD ' + padActionKey('repair').toUpperCase() : isTouch ? 'HOLD REPAIR' : 'HOLD E';
   const blockedPort = session.sim.airway?.ports.find(port => port.nodeId === nearby?.id && !port.open);
   const nearValve = session.sim.nearGastricValve;
   const valveTarget = currentGastricValve();
@@ -635,7 +635,7 @@ export function drawHud() {
   else if (valve?.exposed && !valve.colonyDefeated && player.ammo > 0) prompt = 'SHOOT THE EXPOSED COLONY';
   else if (session.sim.settling && tissue < 100) prompt = 'MOVE TO A DAMAGED NODE TO REPAIR';
   else if (player.ammo === 0) {
-    prompt = session.usingGamepad ? 'PRESS X TO RELOAD' : isTouch ? 'RELOAD CARBINE' : 'PRESS R TO RELOAD';
+    prompt = session.usingGamepad ? 'PRESS ' + padActionKey('reload').toUpperCase() + ' TO RELOAD' : isTouch ? 'RELOAD CARBINE' : 'PRESS R TO RELOAD';
   } else if (phase === 'intermission' && tissue < 100) {
     prompt = 'MOVE TO A DAMAGED NODE TO REPAIR';
   }

@@ -3,13 +3,13 @@
 // clears those each frame. The game hands over the few things input can trigger (pause, the
 // music mix, junction support) through `commands` when it starts.
 import './interface-setup.mjs';
-import { GamepadInput } from './gamepad.mjs';
+import { GamepadInput, SprintLatch } from './gamepad.mjs';
 import { GamepadMenu } from './gamepad-menu.mjs';
 import { session } from './session.mjs';
 import { byId, isTouch, setText } from './dom.mjs';
 import { gameUi } from './ui-browser.mjs';
 import { turretStatus, junctionSupply, supplyButtons, drawJunctionStatus, drawTurretHud } from './hud.mjs';
-import { actionFor, padButtonOf, padHeld, padPressed } from './keybinds.mjs';
+import { actionFor, padActionKey, padButtonOf, padFamilyOf, padHeld, padPressed, setPadFamily } from './keybinds.mjs';
 
 // What is held and what was tapped since the last frame, plus pointer and controller state.
 export const controls = {
@@ -37,6 +37,22 @@ export const pauseDialog = byId('pause-dialog');
 const joystick = byId('joystick');
 export const touchControls = byId('touch-controls');
 const xbox = new GamepadInput();
+// Controller tuning from Settings: stick dead zones, look curve and which button names to show.
+let promptSetting = 'auto';
+export function configureController(values) {
+  xbox.configure({ moveDeadZone: values['move-deadzone'], lookDeadZone: values['look-deadzone'], curve: values['look-curve'] });
+  promptSetting = values['button-prompts'] ?? 'auto';
+  syncPadFamily();
+}
+function syncPadFamily() {
+  if (setPadFamily(promptSetting === 'auto' ? padFamilyOf(xbox.id) : promptSetting)) syncPadPrompts();
+}
+function syncPadPrompts() {
+  if (session.usingGamepad) setText(turretStatus.querySelector('kbd'), padActionKey('turret'));
+}
+
+const sprint = new SprintLatch();
+
 // The pad that rumble goes to: only while the player is actually playing with a controller.
 export const rumblePad = () => session.usingGamepad ? xbox.currentPad() : null;
 const xboxMenus = new GamepadMenu({ main: byId('menu'), onBack: backFromControllerMenu });
@@ -104,6 +120,7 @@ export function clearControls() {
   xbox.reset();
   xboxMenus.reset();
   controls.xboxState = null;
+  sprint.reset();
   keys.clear();
   controls.leftButton = false;
   controls.rightButton = false;
@@ -140,7 +157,7 @@ function setGamepadMode(active) {
   byId('controller-field-hint').hidden = !active;
   byId('field-hint').hidden = active;
   if (session.running) touchControls.hidden = !isTouch || active;
-  setText(turretStatus.querySelector('kbd'), active ? 'RB' : 'Q');
+  setText(turretStatus.querySelector('kbd'), active ? padActionKey('turret') : 'Q');
   supplyButtons.forEach((button, index) => {
     setText(button.querySelector('kbd'), active ? supplyPadLabels[button.dataset.junctionSupply] : index + 1);
   });
@@ -153,6 +170,7 @@ function backFromControllerMenu(dialog, action) {
   if (dialog.dispatchEvent(new Event('cancel', { cancelable: true }))) dialog.close();
 }
 
+let lastPadId = '';
 export function controllerFrame(now) {
   requestAnimationFrame(controllerFrame);
   if (document.hidden || !document.hasFocus()) return;
@@ -165,6 +183,10 @@ export function controllerFrame(now) {
         : 'Controller disconnected. Reconnect it or resume with your other controls.');
       return;
     }
+  }
+  if (current.connected && current.id !== lastPadId) {
+    lastPadId = current.id;
+    syncPadFamily();
   }
   if (current.active) setGamepadMode(true);
   if (!session.running || session.paused || session.sim.extractionPending) {
@@ -180,7 +202,8 @@ export function controllerFrame(now) {
   }
   // Gameplay follows the player's controller bindings (keybinds.mjs); held actions are read from
   // the same bindings, so game.mjs sees fire/aim/repair/sprint exactly as bound.
-  Object.assign(current, { fire: padHeld(current, 'fire'), aim: padHeld(current, 'aim'), repair: padHeld(current, 'repair'), sprint: padHeld(current, 'sprint') });
+  Object.assign(current, { fire: padHeld(current, 'fire'), aim: padHeld(current, 'aim'), repair: padHeld(current, 'repair') });
+  current.sprint = sprint.update(current, session.options?.['sprint-mode'] ?? 'toggle', padHeld(current, 'sprint'), padPressed(current, 'sprint'));
   controls.xboxState = current;
   // During a Capillary Junction break the D-pad picks support, so D-pad bindings wait.
   const supplyOpen = !junctionSupply.hidden;

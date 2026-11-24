@@ -126,7 +126,7 @@
             </button>
           </nav>
           <p id="menu-error" class="menu-error" role="alert" hidden></p>
-          <p id="controller-menu-hint" class="controller-menu-hint" hidden><kbd>D-pad</kbd> Navigate <kbd>A</kbd> Select <kbd>B</kbd> Back</p>
+          <p id="controller-menu-hint" class="controller-menu-hint" hidden><kbd>D-pad</kbd> Navigate <kbd data-pad-button="0">A</kbd> Select <kbd data-pad-button="1">B</kbd> Back</p>
           <p id="controller-audio-hint" class="controller-menu-hint" hidden>Click or press a key once to enable browser audio.</p>
           <p id="high-score" class="high-score" hidden>Best score <strong id="high-score-value"></strong></p>
         </div>
@@ -150,7 +150,7 @@
       </div>
       <footer class="title-footer">
         <p class="input-hints input-hints-keyboard"><kbd>↑</kbd><kbd>↓</kbd> Navigate <kbd>Enter</kbd> Select <kbd>Esc</kbd> Back</p>
-        <p class="input-hints input-hints-gamepad"><kbd>D-pad</kbd> Navigate <kbd>A</kbd> Select <kbd>B</kbd> Back</p>
+        <p class="input-hints input-hints-gamepad"><kbd>D-pad</kbd> Navigate <kbd data-pad-button="0">A</kbd> Select <kbd data-pad-button="1">B</kbd> Back</p>
         <p class="title-legal">Hallucinated Games</p>
       </footer>
     </section>
@@ -618,21 +618,21 @@
           <dl class="controls-list">
             <div><dt>Move</dt><dd><kbd>Left stick</kbd></dd></div>
             <div><dt>Look</dt><dd><kbd>Right stick</kbd></dd></div>
-            <div><dt>Aim down sights</dt><dd><kbd>Hold LT</kbd></dd></div>
-            <div><dt>Fire</dt><dd><kbd>Hold RT</kbd></dd></div>
-            <div><dt>Sprint</dt><dd><kbd>Click left stick</kbd></dd></div>
-            <div><dt>Reload</dt><dd><kbd>X</kbd></dd></div>
-            <div><dt>Repair tissue</dt><dd><kbd>Hold LB</kbd></dd></div>
-            <div><dt>Deploy turret</dt><dd><kbd>RB</kbd></dd></div>
-            <div><dt>Move turret</dt><dd>Hold <kbd>RB</kbd> and walk</dd></div>
-            <div><dt>Jump</dt><dd><kbd>A</kbd></dd></div>
-            <div><dt>Dash (dodges hits)</dt><dd><kbd>B</kbd></dd></div>
-            <div><dt>Bash</dt><dd><kbd>Click right stick</kbd></dd></div>
-            <div><dt>Antibody grenade</dt><dd><kbd>D-pad ↑</kbd></dd></div>
-            <div><dt>Stun charge</dt><dd><kbd>D-pad ↓</kbd></dd></div>
-            <div><dt>Pause or resume</dt><dd><kbd>Menu ☰</kbd></dd></div>
+            <div><dt>Aim down sights</dt><dd><kbd data-pad="aim" data-pad-prefix="Hold ">Hold LT</kbd></dd></div>
+            <div><dt>Fire</dt><dd><kbd data-pad="fire" data-pad-prefix="Hold ">Hold RT</kbd></dd></div>
+            <div><dt>Sprint</dt><dd><kbd data-pad="sprint">L3</kbd></dd></div>
+            <div><dt>Reload</dt><dd><kbd data-pad="reload">X</kbd></dd></div>
+            <div><dt>Repair tissue</dt><dd><kbd data-pad="repair" data-pad-prefix="Hold ">Hold LB</kbd></dd></div>
+            <div><dt>Deploy turret</dt><dd><kbd data-pad="turret">RB</kbd></dd></div>
+            <div><dt>Move turret</dt><dd>Hold <kbd data-pad="turret">RB</kbd> and walk</dd></div>
+            <div><dt>Jump</dt><dd><kbd data-pad="jump">A</kbd></dd></div>
+            <div><dt>Dash (dodges hits)</dt><dd><kbd data-pad="dash">B</kbd></dd></div>
+            <div><dt>Bash</dt><dd><kbd data-pad="melee">R3</kbd></dd></div>
+            <div><dt>Antibody grenade</dt><dd><kbd data-pad="grenade">D-pad ↑</kbd></dd></div>
+            <div><dt>Stun charge</dt><dd><kbd data-pad="stun">D-pad ↓</kbd></dd></div>
+            <div><dt>Pause or resume</dt><dd><kbd data-pad-button="9">Menu</kbd></dd></div>
             <div><dt>Navigate menus</dt><dd><kbd>D-pad</kbd> or <kbd>Left stick</kbd></dd></div>
-            <div><dt>Select or go back</dt><dd><kbd>A</kbd><kbd>B</kbd></dd></div>
+            <div><dt>Select or go back</dt><dd><kbd data-pad-button="0">A</kbd><kbd data-pad-button="1">B</kbd></dd></div>
             <div><dt>Junction support</dt><dd><kbd>←</kbd> Amber <kbd>→</kbd> Teal <kbd>↑</kbd> Ammo</dd></div>
           </dl>
         </details>
