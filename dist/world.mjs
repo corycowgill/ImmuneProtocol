@@ -324,10 +324,6 @@ export class World {
       this.terrainArea = this.area;
       setTerrainArea(this.area);
       shapeFloor(this.room.floor.geometry);
-      this.terrainView?.removeFromParent();
-      this.terrainView = this.terrainViews.get(this.area) ?? createTerrainView(terrainFor(this.area), baseFloorHeight, this.area);
-      this.terrainViews.set(this.area, this.terrainView);
-      this.scene.add(this.terrainView);
     }
     const { arteryDetails, junctionDetails, heartDetails, floor, wall, canopy, growths, cilia } = this.room;
     arteryDetails.visible = this.area === 'artery';
@@ -386,6 +382,12 @@ export class World {
       }
       [floor.material, wall.material, canopy.material] = this.causticFloors.get(this.area);
     }
+    // Shelves and ridges wear this arena's floor, so they are built once its material is chosen.
+    this.terrainView?.removeFromParent();
+    this.terrainView = this.terrainViews.get(this.area) ??
+      createTerrainView(terrainFor(this.area), baseFloorHeight, this.area, floor.material);
+    this.terrainViews.set(this.area, this.terrainView);
+    this.scene.add(this.terrainView);
     canopy.scale.y = heart ? .54 : junction ? .63 : profile ? .85 : 1;
     this.scene.background.setHex(profile?.background ?? (heart ? 0x26181f : junction ? 0x1d1115 : 0x230f11));
     this.scene.fog.color.setHex(profile?.fog ?? (heart ? 0x3c2228 : junction ? 0x332528 : 0x462524));

@@ -231,7 +231,7 @@ Each organ hazard is drawn as its own effect, and every one raises a pulsing cur
 | Heart Valve | Shoot the colony through the open valve and defend the Septal Node against flank attacks. |
 | Bronchial Fork | Survive three waves, reopen both bronchi, and keep them open through a full breath. |
 | Gastric Chamber | Close the intake and drain the acid basin under fire, then defend the newly exposed lower passage. |
-| Intestinal Bend | Defend three nodes in a swaying villus forest and move into the side channels to evade the pressure wave. |
+| Intestinal Bend | Defend three nodes in a swaying villus forest and climb the villus terraces to ride out the pressure wave that sweeps the whole bend. |
 | Colonic Reservoir | Hold three nodes in the microbiome while haustral squeezes sweep the chamber from side to side. |
 | Lymph Node | A patrolling macrophage digests every pathogen it touches, and crushes suits. Lure infections into its path while you hold three nodes. |
 | Inner Ear | Place your turret outside the resonance zones to keep it firing. Resonance rotates between three nodes. |
@@ -285,7 +285,7 @@ The Arterial Junction now has real height. A plaque overlook with a walkable ram
 | Heart Valve | A balcony to shoot down through the valve from, and a rise by the side node. |
 | Lungs | Alveolar platforms that rise and fall about 0.8 m with every breath (no turret on them), and bronchial ridges along the airway. |
 | Stomach | Acid floods the whole chamber in surges. 78 rugae islands are scattered everywhere: one beside each node and valve for repairs, a backbone so you are never more than a few seconds from safety, walk-up mounds, and small stepping pads for jump chains. Standing on any of them keeps you out of the acid. |
-| Intestines | Two stepped villus terraces, six walkable steps up to 2.28 m. The contraction's crest reaches about 1.7 m, so the top two tiers ride it out. |
+| Intestines | The contraction sweeps the whole bend, so eleven stepped villus terraces stand across it, each six walkable steps up to 2.28 m. The crest reaches about 1.7 m, so the top two tiers ride it out. Nowhere in the wave's path is more than about 22 m from a terrace. |
 | Colon | Haustral folds a jump tall (1.05 m), with walk-up pads beside them. On a fold's crest the squeeze passes beneath you. |
 | Lymph Node | A three-tier lookout in the middle of the follicle. |
 | Inner Ear | The cochlea: a spiral stair to a 2.5 m perch. A turret on the perch stands above the resonance and never jams. |

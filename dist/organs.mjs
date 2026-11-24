@@ -62,7 +62,7 @@ export const ORGAN_MISSIONS = {
   },
   intestines: {
     name: 'Intestinal Bend',
-    briefing: 'Move through the villus forest. Use the side channels when a pressure wave sweeps the center passage, and cover three mucosal nodes.',
+    briefing: 'Move through the villus forest. When a pressure wave sweeps the whole bend, climb a villus terrace to its top tiers, and cover three mucosal nodes.',
     nodes: [
       node('intestines-fold', 'Villus Bed', -16, -22),
       node('intestines-lining', 'Mucosal Bank', 18, 14),
@@ -78,8 +78,8 @@ export const ORGAN_MISSIONS = {
       [-30, -36, 4.5], [31, -34, 4], [-33, -2, 4], [34, 26, 3.5], [8, -44, 3.5], [13, -5, 2.6], [-12, 8, 2.6],
     ],
     hazard: {
-      name: 'Contraction', instruction: 'Move into a side channel', effect: 'Pressure wave sweeping the center',
-      x: 0, z: -52, endZ: 44, width: 20, depth: 8, recovery: 6, warning: 3.8, active: 4.8, damage: 14, push: 5,
+      name: 'Contraction', instruction: 'Climb a villus terrace', effect: 'Pressure wave sweeping the whole bend',
+      x: 0, z: -52, endZ: 44, width: 100, depth: 8, recovery: 6, warning: 3.8, active: 4.8, damage: 14, push: 5,
     },
     waves: [
       wave('Parasitic Bloom', 1.04, 'pfspbvsvpsfv', 'CLR'),

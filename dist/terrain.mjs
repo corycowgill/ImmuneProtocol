@@ -172,12 +172,16 @@ export const TERRAIN = Object.freeze({
     mound(1.8, 61.0, 2.6, 0.80, 2.4),
     shelf(14.4, 60.4, 1.9, 0.98),
   ].map(Object.freeze)),
-  // Intestines: villus terraces, six walkable steps of 0.38 m up to 2.28 m. The contraction's crest
-  // reaches about 1.7 m, so the top two tiers ride it out.
+  // Intestines: the contraction sweeps the whole chamber, so villus terraces stand all across it,
+  // each six walkable steps of 0.38 m up to 2.28 m. Its crest reaches about 1.7 m, so the top two
+  // tiers ride it out. Nowhere in the wave's path is more than about 22 m from a terrace.
   intestines: Object.freeze([
     ...terrace(0, -20, [4.4, 3.8, 3.2, 2.6, 2, 1.4]),
     ...terrace(1, 14, [4.2, 3.6, 3, 2.4, 1.8, 1.3]),
-    mound(-32, -16, 2.2, .9, 2.8),
+    ...[[30, -28], [-28, -48], [25, 40], [-34, 22], [36, 2], [0, -48], [-32, -12]]
+      .flatMap(([x, z]) => terrace(x, z, [3.8, 3.2, 2.6, 2, 1.5, 1.1])),
+    ...terrace(-14, 50, [3.6, 3, 2.5, 1.9, 1.4, 1.05]),
+    ...terrace(24, -52, [3.4, 2.9, 2.4, 1.8, 1.35, 1]),
   ].map(Object.freeze)),
   // Colon: haustral folds running with the bowel, a jump tall, with walk-up pads alongside. On a
   // fold's crest the squeeze passes beneath you.
