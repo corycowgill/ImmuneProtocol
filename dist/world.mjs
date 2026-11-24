@@ -280,6 +280,8 @@ export class World {
 
     // Tracer streaks for the suit's own fire, a teammate's and the turret's (shot-fx.mjs).
     this.tracers = new TracerPool(this.scene, 96);
+    // Short stretched spurts of a pathogen's fluid when it is hit (impact-fx.mjs).
+    this.sprays = new TracerPool(this.scene, 96, 1.7);
     this.shotMaterial = 0xd6ffc4;
     this.teammateShotMaterial = 0xbcefff;
     this.turretShotMaterial = 0xffc27e;
@@ -439,6 +441,7 @@ export class World {
     this.updateEnemies([], 0);
     this.updateProjectiles([], false);
     this.tracers.clear();
+    this.sprays.clear();
     this.particles.length = 0;
     this.shotLight.intensity = 0;
     this.lastEvents = null;
@@ -912,6 +915,7 @@ export class World {
       }
     }
     this.tracers.update(dt, this.camera);
+    this.sprays.update(dt, this.camera);
     this.shotLight.intensity *= Math.exp(-dt * 28);
   }
 

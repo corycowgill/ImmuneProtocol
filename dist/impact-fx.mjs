@@ -247,6 +247,21 @@ export class ImpactFX {
         vx: this.direction.x * 1.6, vy: .3, vz: this.direction.z * 1.6,
       });
     }
+    // Fluid spurts: stretched streaks thrown back toward the shooter and out of the far side,
+    // more and longer for heavier rounds, fanned so a burst reads as a splash, not a spark.
+    if (world.sprays && !reduceMotion) {
+      const count = Math.min(9, 4 + Math.round(damage / 15)) + (critical ? 3 : 0);
+      const fluid = recipe?.flash ?? gore;
+      for (let i = 0; i < count; i++) {
+        const back = i % 3 !== 2 ? -1 : 1, reach = (.6 + Math.random() * .8) * (critical ? 1.4 : 1);
+        this.point.set(impact.x, impact.y, impact.z);
+        this.normal.copy(this.direction).multiplyScalar(back * .8)
+          .add(this.scale.set(Math.random() - .5, Math.random() * .9 - .15, Math.random() - .5)).normalize();
+        const end = this.point.clone().addScaledVector(this.normal, reach);
+        end.y -= reach * reach * .35;
+        world.sprays.add(this.point, end, i % 2 ? fluid : gore, .2 + Math.random() * .1, .04 + Math.random() * .035, reach * .75);
+      }
+    }
     // Heavy hits knock fragments loose.
     if ((damage >= 40 || critical) && !reduceMotion) {
       const count = Math.min(4, Math.round(damage / 35)) + (critical ? 1 : 0);
