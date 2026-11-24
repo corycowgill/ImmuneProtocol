@@ -925,7 +925,9 @@ export class World {
     this.shotLight.intensity *= Math.exp(-dt * 28);
   }
 
-  render(sim, dt, input, reduceMotion, resizeViewport = true) {
+  // `draw: false` updates every object for this frame without drawing it, so preparation can
+  // compile the frame's shaders asynchronously (compileAsync) before the first draw links them.
+  render(sim, dt, input, reduceMotion, resizeViewport = true, draw = true) {
     const now = performance.now();
     const rescaled = resizeViewport && this.renderScale.sample((now - this.lastRender) / 1000);
     this.lastRender = now;
@@ -984,6 +986,11 @@ export class World {
     this.scene.updateMatrixWorld();
     this.syncLights();
     cullDecor(this.camera, this.scene.fog);
+    if (draw) this.drawFrame(reduceMotion);
+    return this.weaponPose.aim > .94;
+  }
+
+  drawFrame(reduceMotion = false) {
     if (this.post && this.quality !== 'low') {
       this.post.render(this.scene, this.camera, this.weaponScene, this.weaponCamera, this.clock, reduceMotion);
     } else {
@@ -995,6 +1002,5 @@ export class World {
       this.renderer.render(this.weaponScene, this.weaponCamera);
       this.renderer.autoClear = true;
     }
-    return this.weaponPose.aim > .94;
   }
 }

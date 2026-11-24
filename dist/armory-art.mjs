@@ -3,6 +3,7 @@ import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { createArsenalView, weaponModelsReady } from './arsenal-models.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 import { LOW_MEMORY, loadTexture } from './asset-loading.mjs';
+import { gpuIdle } from './gpu-idle.mjs';
 import { createTurret } from './turret.mjs';
 
 // A soft round sprite for the turret's muzzle flash and contact shade (neither shows on the bench).
@@ -85,6 +86,16 @@ function createCapture(renderer, width, height) {
   return { draw, dispose: () => target.dispose() };
 }
 
+// WebP encoding through toBlob runs off the main thread; toDataURL blocks it for every card.
+async function cardImage(canvas) {
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', .84));
+  const image = new Image(canvas.width, canvas.height);
+  image.src = blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/webp', .84);
+  await image.decode();
+  return image;
+}
+const nextTask = () => new Promise(resolve => setTimeout(resolve, 0));
+
 export async function prepareArmoryArt(renderer) {
   const { width, height } = LOW_MEMORY ? { width: 640, height: 400 } : ARMORY_ART_SIZE;
   const [bench] = await Promise.all([loadBench(), weaponModelsReady]);
@@ -145,16 +156,17 @@ export async function prepareArmoryArt(renderer) {
       thumbnails[slot] = {};
       for (const option of Object.keys(options)) {
         carbine.setLoadout({ ...DEFAULT_WEAPON_LOADOUT, [slot]: option });
+        // readPixels is synchronous: let earlier uploads and compiles finish first.
+        await renderer.compileAsync(photography, cardCamera);
+        await gpuIdle(renderer, nextTask);
         const canvas = cards.draw(photography, cardCamera);
-        const image = new Image(canvas.width, canvas.height);
-        image.src = canvas.toDataURL('image/webp', .84);
-        await image.decode();
-        thumbnails[slot][option] = image;
+        thumbnails[slot][option] = await cardImage(canvas);
+        await nextTask();
       }
-      await new Promise(requestAnimationFrame);
     }
     // Allocate the full-size target before the first visit to the armory.
     carbine.setLoadout(DEFAULT_WEAPON_LOADOUT);
+    await gpuIdle(renderer, nextTask);
     preview.draw(photography, camera);
   } catch (error) {
     preview.dispose();
@@ -230,21 +242,18 @@ export async function prepareArmoryArt(renderer) {
     orbitCamera.lookAt(focus);
     return orbitCamera;
   }
-  return {
-    thumbnails,
-    thumbnailsFor(weapon) {
-      if (weaponThumbnails[weapon]) return weaponThumbnails[weapon];
-      const cards = {};
-      const turretShown = sentry.model.visible;
-      carbine.model.visible = true;
-      sentry.model.visible = false;
-      // Part cards are framed with the weapon square at the origin.
-      turntable.position.set(0, 0, 0);
-      turntable.rotation.set(0, 0, 0);
-      carbine.model.position.set(0, 0, 0);
-      const base = loadoutWithWeapon(DEFAULT_WEAPON_LOADOUT, 'primary', weapon);
+  // Photographs each part card for a weapon, one at a time.
+  function* photographCards(weapon) {
+    const turretShown = sentry.model.visible;
+    carbine.model.visible = true;
+    sentry.model.visible = false;
+    // Part cards are framed with the weapon square at the origin.
+    turntable.position.set(0, 0, 0);
+    turntable.rotation.set(0, 0, 0);
+    carbine.model.position.set(0, 0, 0);
+    const base = loadoutWithWeapon(DEFAULT_WEAPON_LOADOUT, 'primary', weapon);
+    try {
       for (const [slot, { options }] of Object.entries(WEAPON_SLOTS)) {
-        cards[slot] = {};
         for (const option of Object.keys(options)) {
           carbine.setLoadout({ ...base, weapon, [slot]: option });
           const focus = carbine.anchors()[slot];
@@ -253,14 +262,36 @@ export async function prepareArmoryArt(renderer) {
           cardCamera.lookAt(focus);
           cardCamera.fov = 36;
           cardCamera.updateProjectionMatrix();
-          const canvas = cardCapture.draw(photography, cardCamera);
-          const image = new Image(canvas.width, canvas.height);
-          image.src = canvas.toDataURL('image/webp', .84);
-          cards[slot][option] = image;
+          // The capture canvas is reused: the caller encodes it before asking for the next card.
+          yield [slot, option, cardCapture.draw(photography, cardCamera)];
         }
       }
+    } finally {
       carbine.model.visible = !turretShown;
       sentry.model.visible = turretShown;
+    }
+  }
+  return {
+    thumbnails,
+    // Startup builds the cards a few at a time, yielding between them; thumbnailsFor stays
+    // synchronous for the armory's on-demand path (mobile first visit).
+    async prepareThumbnails(weapon) {
+      if (weaponThumbnails[weapon]) return weaponThumbnails[weapon];
+      const cards = {};
+      for (const [slot, option, canvas] of photographCards(weapon)) {
+        (cards[slot] ??= {})[option] = await cardImage(canvas);
+        await gpuIdle(renderer, nextTask);
+      }
+      return (weaponThumbnails[weapon] ??= cards);
+    },
+    thumbnailsFor(weapon) {
+      if (weaponThumbnails[weapon]) return weaponThumbnails[weapon];
+      const cards = {};
+      for (const [slot, option, canvas] of photographCards(weapon)) {
+        const image = new Image(canvas.width, canvas.height);
+        image.src = canvas.toDataURL('image/webp', .84);
+        (cards[slot] ??= {})[option] = image;
+      }
       return (weaponThumbnails[weapon] = cards);
     },
     // `view` turns the camera around the weapon ({ yaw, pitch } in radians).

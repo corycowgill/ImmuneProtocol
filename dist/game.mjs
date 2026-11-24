@@ -389,8 +389,7 @@ async function prepareGame() {
     session.armoryArt = await prepareArmoryArt(session.world.renderer);
     // Desktop prepares all cards now; mobile uses the armory's existing first-visit cache.
     for (const [i, weapon] of (LOW_MEMORY ? [] : Object.keys(WEAPON_TYPES)).entries()) {
-      const cards = session.armoryArt.thumbnailsFor(weapon);
-      await Promise.all(Object.values(cards).flatMap(options => Object.values(options)).map(image => image.decode()));
+      await session.armoryArt.prepareThumbnails(weapon);
       loadingScreen.progress(84 + 2 * i, 'Preparing ' + weaponName(weapon) + ' part cards');
       await paintLoading();
     }
