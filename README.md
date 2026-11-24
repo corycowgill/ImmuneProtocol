@@ -270,6 +270,10 @@ git subtree push --prefix=dist origin gh-pages
 - **Antibody grenade** arcs where you aim, bounces, and bursts after 1.5 s or on contact with a pathogen: 150 damage in a 6 m blast that also throws smaller pathogens off the tissue they held. You carry two, restocked at every wave start, and each antibody cache adds one (up to three).
 - **Stun charge** sticks to the first pathogen it touches or rests where it lands, then discharges: every pathogen within 7 m freezes for 3.2 s and drops its attack. Bosses and nests are only slowed. You carry one, restocked every wave (up to two).
 
+### Raised ground
+
+The Arterial Junction now has real height. A plaque overlook with a walkable ramp sits beside each tissue node. A tall plaque shelf in the middle of the chamber is too high to step onto, so jump up for a view over all three nodes. Low plaque ridges cross the inlet lanes: hop over them or stand on them. The suit walks up steps under 0.42 m and up ramps, jumps onto anything up to about 1.1 m, and drops off edges. Crawlers walk the floor and must go around raised ground, so high ground keeps them off you. Floating pathogens drift over it. Grenades and stun charges bounce off its edges and settle on top. A turret placed on raised ground gains 12% range per metre of height. Raised ground is defined per arena in `dist/terrain.mjs`; other arenas get theirs in a later phase.
+
 The grenade and stun counts and the dash and bash charge bars sit above your suit integrity. In co-op each suit has its own abilities.
 
 When mouse capture is unavailable, drag the view to look. On touchscreens, move with the joystick, drag to look, and use the action buttons.

@@ -6,6 +6,7 @@ import { JUNCTION_GASH_SITES, JUNCTION_INLETS } from './simulation.mjs';
 import { ARENA_GROWTH } from './arena-scale.mjs';
 import { chunkInstances } from './decor-chunks.mjs';
 import { cloudTexture, membraneMaps } from './arena-textures.mjs';
+import { floorTerrainHeight, terrainFor } from './terrain.mjs';
 
 // A full turn, and the world's up axis.
 export const TAU = Math.PI * 2;
@@ -19,9 +20,21 @@ const CHAMBER_DEPTH = Math.round(71 * ARENA_GROWTH);
 const LAYOUT_SCALE = 1.45 * ARENA_GROWTH;
 const WALL_HEIGHT = 22;
 
-export function floorHeight(x, z) {
+// The gentle undulation of the tissue floor itself.
+export function baseFloorHeight(x, z) {
   return .115 * Math.sin(x * .67 + z * .16) * Math.cos(z * .46)
     + .075 * Math.cos(z * .98 - x * .24) + .035 * Math.sin(x * 2.8 + z * 1.7);
+}
+
+// The arena whose raised ground (terrain.mjs) the floor currently carries.
+let activeTerrain = [];
+export function setTerrainArea(area) {
+  activeTerrain = terrainFor(area);
+}
+
+// The visible floor: the undulation plus the current arena's plaque mounds.
+export function floorHeight(x, z) {
+  return baseFloorHeight(x, z) + (activeTerrain.length ? floorTerrainHeight(activeTerrain, x, z) : 0);
 }
 
 // How far inside the chamber wall a point is, as a fraction of the wall's reach at that angle and
@@ -57,21 +70,33 @@ function floorGeometry() {
   geometry.rotateX(-Math.PI / 2);
   const vertices = geometry.attributes.position;
   const uv = geometry.attributes.uv;
+  for (let i = 0; i < vertices.count; i++) uv.setXY(i, vertices.getX(i) / 4.6, vertices.getZ(i) / 4.6);
+  shapeFloor(geometry);
+  return geometry;
+}
+
+// Lifts the shared floor to the current arena's ground (see setTerrainArea) and tints raised
+// plaque a fatty yellow so the rises read from across the chamber.
+export function shapeFloor(geometry) {
+  const vertices = geometry.attributes.position;
   for (let i = 0; i < vertices.count; i++) {
     const x = vertices.getX(i);
     const z = vertices.getZ(i);
     const edge = Math.max(0, Math.hypot(x / CHAMBER_WIDTH, z / CHAMBER_DEPTH) - .86);
     vertices.setY(i, floorHeight(x, z) + edge * edge * 5);
-    uv.setXY(i, x / 4.6, z / 4.6);
   }
+  vertices.needsUpdate = true;
   geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
   colorGeometry(geometry, (color, x, y, z) => {
     const p = Math.sin(x * .35 + z * .5) * .5 + Math.cos(z * .26 - x * .61) * .5;
     const rim = Math.max(0, Math.hypot(x / CHAMBER_WIDTH, z / CHAMBER_DEPTH) - .45);
     color.setRGB(.92 + p * .12 - rim * .23, .74 + p * .12 - rim * .2, .69 + p * .12 - rim * .13);
+    const plaque = activeTerrain.length ? Math.min(1, floorTerrainHeight(activeTerrain, x, z) / .9) : 0;
+    if (plaque > 0) color.lerp(PLAQUE.setRGB(1.02 + p * .06, .86 + p * .05, .58), plaque * .7);
   });
-  return geometry;
 }
+const PLAQUE = new THREE.Color();
 
 function wallGeometry() {
   const geometry = new THREE.PlaneGeometry(1, 1, 220, 52);

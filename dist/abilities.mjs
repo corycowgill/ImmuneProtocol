@@ -6,13 +6,15 @@
 export const ABILITIES = Object.freeze({
   // 5.4 m in a fifth of a second. Hits that land in the guard window are dodged outright.
   dash: Object.freeze({ speed: 27, time: .2, cooldown: 1.1, guard: .3 }),
-  // About a metre of air; enough to hop a crawler or a spore's ground burst.
-  jump: Object.freeze({ velocity: 6.2, gravity: 19, airControl: .85 }),
+  // A little over a metre of air: hop a crawler, a low ridge, or onto a plaque shelf.
+  jump: Object.freeze({ velocity: 6.6, gravity: 19, airControl: .85 }),
   melee: Object.freeze({ cooldown: .72, reach: 3.2, arc: Math.cos(1.05), damage: 36, push: 4.4, stagger: 1.15, tissueReach: 4.2, strike: .1 }),
   grenade: Object.freeze({ carry: 2, max: 3, fuse: 1.45, radius: 6, damage: 150, speed: 17, lift: 3.2 }),
   stun: Object.freeze({ carry: 1, max: 2, fuse: 1, radius: 7, time: 3.2, damage: 12, speed: 15, lift: 3 }),
   throwCooldown: .55,
 });
+
+import { STEP_HEIGHT, groundHeight } from './terrain.mjs';
 
 const GRAVITY = 22;
 const KNOCK_DECAY = 8;
@@ -35,7 +37,7 @@ const REST_HEIGHT = .14;
 export function abilityState(suit) {
   return suit.ability ??= {
     dashCooldown: 0, dashTime: 0, dashX: 0, dashZ: 0,
-    lift: 0, vy: 0, eye: null, airborne: false,
+    feet: 0, vy: 0, eye: null, airborne: false,
     meleeCooldown: 0, meleeStrike: 0, throwCooldown: 0,
     grenades: ABILITIES.grenade.carry, stuns: ABILITIES.stun.carry,
   };
@@ -77,18 +79,6 @@ export function moveAbilities(sim, suit, input, dt) {
     state.airborne = true;
     sim.events.push({ type: 'jump', playerId, x: player.x, y: player.y, z: player.z });
   }
-  if (state.airborne) {
-    state.lift += state.vy * dt;
-    state.vy -= ABILITIES.jump.gravity * dt;
-    if (state.lift <= 0) {
-      sim.events.push({ type: 'land', playerId, speed: -state.vy, x: player.x, y: state.eye, z: player.z });
-      state.lift = 0;
-      state.vy = 0;
-      state.airborne = false;
-    }
-  }
-  player.y = state.eye + state.lift;
-  player.lift = state.lift;
 
   if (state.dashTime > 0) {
     const step = Math.min(dt, state.dashTime);
@@ -100,6 +90,42 @@ export function moveAbilities(sim, suit, input, dt) {
   }
   player.dashing = false;
   return false;
+}
+
+// Runs after the suit's horizontal move (walk or dash) from (fromX, fromZ): sheer edges taller
+// than a step stop it, it walks up ramps and small steps, falls off edges, and lands on tops.
+export function settleOnTerrain(sim, suit, fromX, fromZ, dt) {
+  const { player } = suit;
+  const state = abilityState(suit);
+  state.eye ??= player.y;
+  const pieces = sim.terrain ?? [];
+  const ground = (x, z) => groundHeight(pieces, x, z);
+  // Feet clear an edge only if they are already (nearly) above it.
+  const reach = state.feet + (state.airborne ? .05 : STEP_HEIGHT);
+  if (ground(player.x, player.z) > reach) {
+    // Slide along the edge where one axis is still open, otherwise stop at it.
+    if (ground(player.x, fromZ) <= reach) player.z = fromZ;
+    else if (ground(fromX, player.z) <= reach) player.x = fromX;
+    else { player.x = fromX; player.z = fromZ; }
+  }
+  const floor = ground(player.x, player.z);
+  if (state.airborne) {
+    state.feet += state.vy * dt;
+    state.vy -= ABILITIES.jump.gravity * dt;
+    if (state.feet <= floor && state.vy <= 0) {
+      sim.events.push({ type: 'land', playerId: player.id, speed: -state.vy, x: player.x, y: state.eye + floor, z: player.z });
+      state.feet = floor;
+      state.vy = 0;
+      state.airborne = false;
+    }
+  } else if (floor < state.feet - .12) {
+    // Walked off an edge: fall.
+    state.airborne = true;
+    state.vy = 0;
+  } else state.feet = floor;
+  player.y = state.eye + state.feet;
+  player.lift = state.feet - floor;
+  player.feet = state.feet;
 }
 
 // A hit that lands inside the dash's guard window is dodged. Returns true if it was.
@@ -238,14 +264,26 @@ export function updateThrowables(sim, dt) {
     item.fuse -= dt;
     if (!item.rest) {
       item.vy -= GRAVITY * dt;
+      const fromX = item.x;
+      const fromZ = item.z;
       item.x += item.vx * dt;
       item.y += item.vy * dt;
       item.z += item.vz * dt;
       item.spin += dt * Math.hypot(item.vx, item.vz) * 1.6;
       let bounced = bounceOff(sim, item);
-      if (item.y < REST_HEIGHT) {
+      // Struck the side of raised ground: knock it back off the edge.
+      const pieces = sim.terrain ?? [];
+      if (groundHeight(pieces, item.x, item.z) > item.y + .1) {
+        item.x = fromX;
+        item.z = fromZ;
+        item.vx *= -.45;
+        item.vz *= -.45;
+        bounced = true;
+      }
+      const rest = groundHeight(pieces, item.x, item.z) + REST_HEIGHT;
+      if (item.y < rest) {
         const impact = -item.vy;
-        item.y = REST_HEIGHT;
+        item.y = rest;
         item.vy = impact * .38;
         item.vx *= .6;
         item.vz *= .6;

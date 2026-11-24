@@ -324,7 +324,9 @@ export class EnemyAIController {
     }
   }
   move(dt, speed, stopDistance = 0) {
-    const { enemy, world } = this, now = world.sim.clock, nav = world.navigation;
+    const { enemy, world } = this, now = world.sim.clock;
+    // Crawlers walk the floor, so raised ground is as solid to them as a clot.
+    const nav = enemy.type === 'crawler' ? world.groundNavigation : world.navigation;
     if (this.profile.family !== 'mutated' && enemy.encounterOrder?.until > now && !enemy.encounterOrder.reached &&
         this.targetKey?.startsWith('node:') && ['objective', 'flank'].includes(this.action)) stopDistance = 0;
     if (!this.destination || this.action === 'idle' || (this.blockedUntil ?? 0) > now) return;
@@ -406,6 +408,8 @@ export class AIWorld {
   constructor(sim, options = {}) {
     this.sim = sim; this.config = { ...AI_CONFIG, ...options }; this.seed = options.seed ?? 0x1a11ce;
     this.navigation = new NavigationSystem(sim.obstacles, sim.area);
+    this.groundNavigation = sim.terrainFootprints?.length
+      ? new NavigationSystem([...sim.obstacles, ...sim.terrainFootprints], sim.area) : this.navigation;
     this.controllers = new Map(); this.entities = new Map(); this.cells = new Map(); this.players = [];
     this.noises = []; this.noiseSequence = 0;
     this.director = new EncounterDirector(this); this.squads = new SquadCoordinator(this);

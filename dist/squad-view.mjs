@@ -12,7 +12,7 @@ export function createSquadView(mask, createView = createTeammate) {
       const teammates = (players ?? []).filter(player => player.id !== localId);
       views.forEach((view, index) => {
         const player = teammates[index];
-        view.update(player, player ? floorHeight(player.x, player.z) : 0, dt, reduceMotion);
+        view.update(player, player ? Math.max(floorHeight(player.x, player.z), player.feet ?? 0) : 0, dt, reduceMotion);
       });
     },
     fire(playerId, reduceMotion, position) {

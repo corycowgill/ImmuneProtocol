@@ -9,7 +9,8 @@ import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-o
 import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
-import { abilityState, dodges, knockBack, moveAbilities, restockThrowables, throwItems, updateThrowables, useMelee } from './abilities.mjs';
+import { groundHeight, terrainFor, terrainFootprints } from './terrain.mjs';
+import { abilityState, dodges, knockBack, moveAbilities, settleOnTerrain, restockThrowables, throwItems, updateThrowables, useMelee } from './abilities.mjs';
 import {
   DEFAULT_WEAPON_STATS, WEAPON_SLOTS, TURRET_BASE, legacyWeaponLoadout, normalizeTurretBuild, turretStats, loadoutInSlot, magazineCapacity, normalizeWeaponLoadout,
   otherSlot, weaponStats,
@@ -293,6 +294,9 @@ export class Simulation {
     this.organMission = Object.hasOwn(ORGAN_MISSIONS, area) ? ORGAN_MISSIONS[area] : null;
     this.area = this.organMission || area === 'heart' || area === 'junction' ? area : 'artery';
     this.obstacles = arenaObstacles(this.area);
+    // Raised ground (terrain.mjs): the suit stands on it, crawlers go round it.
+    this.terrain = terrainFor(this.area);
+    this.terrainFootprints = terrainFootprints(this.terrain);
     this.missions = this.organMission?.waves ?? (this.area === 'heart' ? HEART_MISSIONS : this.area === 'junction' ? JUNCTION_MISSIONS : MISSIONS);
     this.hasTutorial = tutorial && this.area === 'artery';
     this.bossPractice = bossPractice && this.area === 'brain';
@@ -385,6 +389,11 @@ export class Simulation {
   turretGround(player) {
     const { x, z, yaw } = player;
     const point = { x: x - Math.sin(yaw) * 2.2, y: 0, z: z - Math.cos(yaw) * 2.2 };
+    // It stands on raised ground too, but only where its tripod sits level (not across an edge).
+    point.y = groundHeight(this.terrain ?? [], point.x, point.z);
+    for (const [dx, dz] of [[.7, 0], [-.7, 0], [0, .7], [0, -.7]]) {
+      if (Math.abs(groundHeight(this.terrain ?? [], point.x + dx, point.z + dz) - point.y) > .2) return null;
+    }
     if (this.valve && (Math.abs(point.x) > HEART_MAX_PLAYER_X - .65 ||
       point.z < HEART_MIN_PLAYER_Z + .65 || point.z > HEART_MAX_PLAYER_Z - .65)) return null;
     if (chamberRadius(point.x, point.z) > .975) return null;
@@ -1115,8 +1124,11 @@ export class Simulation {
     player.pitch = clamp(player.pitch - (input.lookY || 0) * sensitivity, -1.46, 1.46);
 
     // A dash carries the suit on its own; it still cannot pass through scenery.
+    const fromX = player.x;
+    const fromZ = player.z;
     if (moveAbilities(this, suit, input, dt)) {
       this.confineToArena(player, true);
+      settleOnTerrain(this, suit, fromX, fromZ, dt);
       return;
     }
     const strafe = input.moveX || 0;
@@ -1134,6 +1146,7 @@ export class Simulation {
     player.x += (strafe * cos - forward * sin) * travel;
     player.z -= (strafe * sin + forward * cos) * travel;
     this.confineToArena(player, true);
+    settleOnTerrain(this, suit, fromX, fromZ, dt);
   }
 
   confineToArena(actor, solid = false) {
@@ -1315,7 +1328,8 @@ export class Simulation {
     }
     const origin = { x: turret.x, y: turret.y + 1.18, z: turret.z };
     const stats = turret.stats ?? DEFAULT_TURRET_STATS;
-    const range = stats.range;
+    // High ground lets it see further: +12% range per metre of height.
+    const range = stats.range * (1 + .12 * (turret.y ?? 0));
     let target = null;
     let targetScore = -Infinity;
     for (const enemy of this.enemies) {

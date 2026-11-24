@@ -3,7 +3,7 @@
 // pathogen it caught), crackling arcs on stunned pathogens, the antibody burst's jade flash, and
 // the bash's impact rings. The camera side (dash lean, landing dip, dodge flash) lives in world.mjs.
 import * as THREE from './vendor/three.module.js';
-import { floorHeight } from './arena-scene.mjs';
+import { baseFloorHeight, floorHeight } from './arena-scene.mjs';
 
 const JADE = 0x6dffc1;
 const VOLT = 0x7fd8ff;
@@ -175,7 +175,7 @@ export class AbilityFX {
         view = { model, kind: item.kind, trail: 0 };
         this.items.set(item.id, view);
       }
-      const ground = item.rest ? floorHeight(item.x, item.z) : 0;
+      const ground = item.rest ? baseFloorHeight(item.x, item.z) : 0;
       view.model.position.set(item.x, item.y + ground, item.z);
       view.model.rotation.set(item.rest ? 0 : item.spin, item.spin * .6, item.rest ? 0 : item.spin * .3);
       // The core blinks faster as the fuse runs down.

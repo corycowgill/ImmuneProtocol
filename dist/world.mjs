@@ -8,6 +8,8 @@ import { ImpactFX } from './impact-fx.mjs';
 import { paintGround, patchGround, patchShell } from './ground-fx.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve } from './heart-valve.mjs';
+import { createTerrainView } from './terrain-view.mjs';
+import { terrainFor, terrainFootprints } from './terrain.mjs';
 import { AbilityFX } from './ability-fx.mjs';
 import { createTurret } from './turret.mjs';
 import { createGuardCarapace, createOrganEnvironment, organProfile } from './organ-world.mjs';
@@ -27,7 +29,7 @@ import { NEST } from './field-objectives.mjs';
 import { BOSS_FLOATS, LEVEL_BOSSES } from './level-bosses.mjs';
 import { chunkInstances, cullDecor } from './decor-chunks.mjs';
 import { randomSource, configureTile, glowTexture, cloudTexture, fallbackTissue, normalFromImage, membraneMaps, reflectionTexture } from './arena-textures.mjs';
-import { TAU, UP, floorHeight, texturedLobe, redCellGeometry, sprite, setInstance, addMesh, makeRoom, makeAtmosphere, makeTissue, makeJunctionField, biologicalMaterial } from './arena-scene.mjs';
+import { TAU, UP, floorHeight, baseFloorHeight, setTerrainArea, shapeFloor, texturedLobe, redCellGeometry, sprite, setInstance, addMesh, makeRoom, makeAtmosphere, makeTissue, makeJunctionField, biologicalMaterial } from './arena-scene.mjs';
 import { prepareAll as prepareAllOf, prepareScenes as prepareScenesOf, capturePreview as capturePreviewOf, prepareArea as prepareAreaOf, prepareMission as prepareMissionOf } from './world-preparation.mjs';
 import { enemyTemplate as enemyTemplateOf, dressGuardModel as dressGuardModelOf, updateEnemies as updateEnemiesOf, releaseEnemyView as releaseEnemyViewOf, poseEnemyAttack as poseEnemyAttackOf, updateTethers as updateTethersOf, updateProjectiles as updateProjectilesOf } from './pathogen-views.mjs';
 import { updateWeapon as updateWeaponOf, updateRepairTool as updateRepairToolOf, addShot as addShotOf, addTracer as addTracerOf, addTeammateShot as addTeammateShotOf, addTurretShot as addTurretShotOf } from './weapon-view.mjs';
@@ -169,6 +171,7 @@ export class World {
     this.junctionField = makeJunctionField(this.room.junctionDetails, this.tissueViews[0], this.glow);
     this.turretView = createTurret(this.glow);
     this.abilityFx = new AbilityFX(this.scene, this.glow, this.random);
+    this.terrainViews = new Map();
     // How the suit's own moves feel through the camera and the weapon (see applyFeel).
     this.feel = { rush: 0, side: 0, forward: 0, dip: 0, dipV: 0, focus: 0, bash: 0, throw: 0 };
     this.scene.add(this.turretView.model);
@@ -315,6 +318,17 @@ export class World {
     const heart = area === 'heart';
     const profile = organProfile(area);
     this.area = heart || junction || profile ? area : 'artery';
+    // Raised ground: the shared floor takes this arena's plaque mounds; shelves and ridges are
+    // their own meshes. Set before any decor is placed, since placement reads floorHeight.
+    if (this.terrainArea !== this.area) {
+      this.terrainArea = this.area;
+      setTerrainArea(this.area);
+      shapeFloor(this.room.floor.geometry);
+      this.terrainView?.removeFromParent();
+      this.terrainView = this.terrainViews.get(this.area) ?? createTerrainView(terrainFor(this.area), baseFloorHeight);
+      this.terrainViews.set(this.area, this.terrainView);
+      this.scene.add(this.terrainView);
+    }
     const { arteryDetails, junctionDetails, heartDetails, floor, wall, canopy, growths, cilia } = this.room;
     arteryDetails.visible = this.area === 'artery';
     junctionDetails.visible = junction;
@@ -347,7 +361,8 @@ export class World {
     }
     if (!this.levelProps.has(this.area)) {
       const props = createLevelProps(this.area, {
-        glow: this.glow, floorHeight, nodes: TISSUE_NODES[this.area], obstacles: arenaObstacles(this.area),
+        glow: this.glow, floorHeight, nodes: TISSUE_NODES[this.area],
+        obstacles: [...arenaObstacles(this.area), ...terrainFootprints(terrainFor(this.area))],
       });
       props.setQuality(this.quality !== 'low');
       this.levelProps.set(this.area, props);
@@ -918,7 +933,8 @@ export class World {
     this.updatePickups(sim.pickups ?? [], reduceMotion);
     this.teammateView.update(sim.players, player.id, floorHeight, dt, reduceMotion);
     const { turret } = sim;
-    this.turretView.update(turret, turret ? floorHeight(turret.x, turret.z) : 0, dt, reduceMotion);
+    // turret.y is the raised ground it stands on; the floor's own undulation goes on top.
+    this.turretView.update(turret, turret ? baseFloorHeight(turret.x, turret.z) : 0, dt, reduceMotion);
     this.abilityFx.update(sim, this.camera, dt, reduceMotion, this.enemyViews);
     const { weaponLoadout, tutorial } = sim;
     if (weaponLoadout !== this.weaponSource || tutorial !== this.weaponTutorial) {
