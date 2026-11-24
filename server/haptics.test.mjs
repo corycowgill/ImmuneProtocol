@@ -17,8 +17,7 @@ function fakePad({ triggers = true } = {}) {
 
 const player = { x: 0, z: 0, yaw: 0 };
 
-test('heavy weapons kick harder than automatic ones, and the shot reaches the right trigger', () => {
-  assert.ok(WEAPON_KICK.sniper.strong > WEAPON_KICK.carbine.strong);
+test('heavy weapons kick longer than automatic ones, and the shot reaches the right trigger', () => {
   assert.ok(WEAPON_KICK.shotgun.ms > WEAPON_KICK.carbine.ms);
   // An automatic kick must end before the next round (carbine fires every 118 ms).
   assert.ok(WEAPON_KICK.carbine.ms < 118);
@@ -151,4 +150,19 @@ test('the vibration slider can boost past 100%', () => {
     haptics.event({ type: 'shot', weapon: 'carbine', hit: false }, { player });
   }
   assert.ok(boosted.update(5).strong > normal.update(5).strong);
+});
+
+test('every weapon kicks equally hard and holds it while the motors spin up', () => {
+  const peaks = Object.keys(WEAPON_KICK).map(weapon => {
+    const haptics = new Haptics(() => null);
+    haptics.update(0);
+    haptics.event({ type: 'shot', weapon, hit: false }, { player });
+    haptics.update(5);
+    return { weapon, mix: haptics.update(40) };
+  });
+  for (const { weapon, mix } of peaks) {
+    for (const channel of ['strong', 'weak', 'right']) {
+      assert.ok(Math.abs(mix[channel] - peaks[0].mix[channel]) < .02, weapon + ' ' + channel + ' matches the others at 40 ms');
+    }
+  }
 });

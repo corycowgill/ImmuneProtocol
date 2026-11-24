@@ -14,15 +14,17 @@ const REFRESH_MS = 34;
 const CHANNELS = ['strong', 'weak', 'left', 'right'];
 const SILENT = Object.freeze({ strong: 0, weak: 0, left: 0, right: 0 });
 
-// Per-weapon recoil feel. Automatic weapons stay short enough to end before the next round
-// (the carbine fires every 118 ms) so their rate of fire comes through as separate punches, but
-// each kick holds full power long enough for the grip motors to spin up and be felt.
+// Recoil kick per weapon. Every weapon hits both grip motors and the right trigger equally
+// hard and holds full power long enough for the motors to spin up, so each one is felt as
+// clearly as the others. They differ only in length: automatic guns end before the next round
+// (the carbine fires every 118 ms) so a burst reads as separate punches; heavy guns last longer.
+const KICK = { strong: .9, weak: .9, right: 1 };
 export const WEAPON_KICK = Object.freeze({
-  carbine: { strong: .62, weak: .9, right: .8, ms: 92, hold: 45 },
-  pistol: { strong: .5, weak: 1, right: .9, ms: 85, hold: 40 },
-  shotgun: { strong: 1, weak: .8, right: 1, ms: 190, attack: 4, hold: 70 },
-  sniper: { strong: 1, weak: .7, right: 1, ms: 230, attack: 6, hold: 80 },
-  launcher: { strong: .9, weak: .4, right: .9, ms: 210, attack: 12, hold: 60 },
+  carbine: { ...KICK, ms: 92, hold: 45 },
+  pistol: { ...KICK, ms: 90, hold: 45 },
+  shotgun: { ...KICK, ms: 180, attack: 4, hold: 60 },
+  sniper: { ...KICK, ms: 200, attack: 4, hold: 60 },
+  launcher: { ...KICK, ms: 190, attack: 4, hold: 60 },
 });
 
 // Rumble motors barely move below about a tenth of their power and feel weak until well past
@@ -99,7 +101,6 @@ export class Haptics {
         if (!event.pellet) {
           const steady = this.aiming ? .9 : 1; // Aiming down sights braces the weapon.
           this.add({ strong: kick.strong * steady, weak: kick.weak * steady, right: kick.right, ms: kick.ms, attack: kick.attack, hold: kick.hold });
-          if (event.weapon === 'sniper') this.add({ strong: .35, weak: 0, ms: 260, curve: 2.4 }, 40); // Long tail of the heavy round.
         }
         if (event.hit && !event.rocket) {
           // Hit confirm: a light, high tick; a weak point lands sharper.
