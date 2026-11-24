@@ -732,8 +732,8 @@ export function drawMarkers() {
     if (!edge.hidden) {
       const position = positionEdgeMarker(edge, point, dx, dz, top, width, height, edgePositions);
       edgePositions.push(position);
-      const valveOpen = valveState?.phase === 'open' && valveState.colonies > 0 ? 'Open · ' : '';
-      setText(edgeLabel, markerName + ' · ' + valveOpen + (danger ? Math.ceil(node.health) + '%' : port && !port.open ? 'Blocked' : Math.round(distance) + ' m'));
+      const valveOpen = valveState?.phase === 'open' && valveState.colonies > 0 ? 'OPEN · ' : '';
+      setText(edgeLabel, valveOpen + markerName + ' · ' + (danger ? Math.ceil(node.health) + '%' : port && !port.open ? 'Blocked' : Math.round(distance) + ' m'));
     }
   }
   drawGash(edgePositions);
