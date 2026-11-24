@@ -63,12 +63,18 @@ varying vec3 vTriPos;
 varying vec3 vTriNormal;
 uniform float triScale, triNormalScale, triRoughScale;
 vec3 triW;
+// Each projection blends the tissue at two scales and angles: one scale alone repeated the
+// texture's swirl bands along a whole ridge, which read as wood grain (catalog L-05).
+const mat2 triTurn = mat2(.8, -.6, .6, .8);
+vec4 triSample(sampler2D t, vec2 p, float s) {
+  return mix(texture2D(t, p * s), texture2D(t, triTurn * p * s * 2.31 + vec2(.37, .71)), .45);
+}
 vec4 triplanar(sampler2D t, float s) {
   vec4 c = vec4(0.);
   float w = 0.;
-  if (triW.x > .03) { c += texture2D(t, vTriPos.zy * s) * triW.x; w += triW.x; }
-  if (triW.y > .03) { c += texture2D(t, vTriPos.xz * s) * triW.y; w += triW.y; }
-  if (triW.z > .03) { c += texture2D(t, vTriPos.xy * s) * triW.z; w += triW.z; }
+  if (triW.x > .03) { c += triSample(t, vTriPos.zy, s) * triW.x; w += triW.x; }
+  if (triW.y > .03) { c += triSample(t, vTriPos.xz, s) * triW.y; w += triW.y; }
+  if (triW.z > .03) { c += triSample(t, vTriPos.xy, s) * triW.z; w += triW.z; }
   return c / max(w, .0001);
 }`)
       .replace('#include <map_fragment>', `triW = pow(abs(normalize(vTriNormal)), vec3(4.));
@@ -83,9 +89,9 @@ roughnessFactor *= ${sample('roughnessMap', 'triRoughScale')}.g;
       .replace('#include <normal_fragment_maps>', `#ifdef USE_NORMALMAP
 {
   vec3 wn = normalize(vTriNormal);
-  vec3 nx = texture2D(normalMap, vTriPos.zy * triNormalScale).xyz * 2. - 1.;
-  vec3 ny = texture2D(normalMap, vTriPos.xz * triNormalScale).xyz * 2. - 1.;
-  vec3 nz = texture2D(normalMap, vTriPos.xy * triNormalScale).xyz * 2. - 1.;
+  vec3 nx = triSample(normalMap, vTriPos.zy, triNormalScale).xyz * 2. - 1.;
+  vec3 ny = triSample(normalMap, vTriPos.xz, triNormalScale).xyz * 2. - 1.;
+  vec3 nz = triSample(normalMap, vTriPos.xy, triNormalScale).xyz * 2. - 1.;
   nx.xy *= normalScale; ny.xy *= normalScale; nz.xy *= normalScale;
   nx = vec3(nx.xy + wn.zy, abs(nx.z) * wn.x);
   ny = vec3(ny.xy + wn.xz, abs(ny.z) * wn.y);

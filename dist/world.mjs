@@ -60,6 +60,53 @@ const HEALTHY_FLANK = new THREE.Color(0xf1c1d5);
 const INJURED = new THREE.Color(0xff795d);
 const REPAIR_LIGHT = new THREE.Color(0x9bf4c4);
 
+// Tissue-node health rings (catalog E-04): an arc on the ground that drains clockwise with the
+// node's health, over a faint full track; it pulses red while the node is under attack or low.
+const NODE_RING_COLORS = [0xc8f794, 0x8fe4dd, 0xdbafef];
+function makeHealthRing(parent) {
+  const material = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide,
+    uniforms: { health: { value: 1 }, tint: { value: new THREE.Color(NODE_RING_COLORS[0]) }, time: { value: 0 }, hit: { value: 0 } },
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv * 2. - 1.; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+    fragmentShader: `
+      uniform float health, time, hit; uniform vec3 tint; varying vec2 vUv;
+      void main() {
+        float r = length(vUv);
+        float band = smoothstep(.80, .83, r) * (1. - smoothstep(.93, .96, r));
+        float angle = fract(atan(vUv.x, -vUv.y) / 6.2831853 + 1.);
+        // Short gaps every 5% of health so the arc reads as a gauge.
+        float ticks = smoothstep(.0, .004, fract(angle * 20.)) * smoothstep(.0, .004, 1. - fract(angle * 20.));
+        float filled = step(angle, health);
+        float danger = max(hit, 1. - smoothstep(.25, .45, health));
+        float pulse = .6 + .4 * sin(time * 7.);
+        vec3 color = mix(tint, vec3(1., .32, .24), danger * (.5 + .5 * pulse));
+        float glow = exp(-pow((r - .875) * 14., 2.)) * .35 * filled;
+        float alpha = band * ticks * (filled * (.7 + .3 * danger * pulse) + (1. - filled) * .12) + glow;
+        gl_FragColor = vec4(color * (1.4 + danger * .8), alpha * .85);
+      }`,
+  });
+  const geometry = new THREE.PlaneGeometry(6.4, 6.4, 40, 40).rotateX(-Math.PI / 2);
+  geometry.userData.flat = geometry.attributes.position.array.slice();
+  const ring = new THREE.Mesh(geometry, material);
+  ring.renderOrder = 1;
+  ring.frustumCulled = false;
+  parent.add(ring);
+  return ring;
+}
+// Drapes the ring over the uneven floor around its node, a few centimetres above it.
+function conformHealthRing(ring, root) {
+  root.updateMatrixWorld();
+  const flat = ring.geometry.userData.flat, position = ring.geometry.attributes.position;
+  const c = Math.cos(root.rotation.y), s = Math.sin(root.rotation.y);
+  for (let i = 0; i < position.count; i++) {
+    const x = flat[i * 3], z = flat[i * 3 + 2];
+    const wx = root.position.x + x * c + z * s, wz = root.position.z - x * s + z * c;
+    position.setY(i, floorHeight(wx, wz) + .07 - root.position.y);
+  }
+  position.needsUpdate = true;
+  ring.geometry.computeBoundingSphere();
+}
+
 export class World {
   constructor(canvas, area = 'artery') {
     this.canvas = canvas;
@@ -464,6 +511,10 @@ export class World {
       if (!node) continue;
       view.root.position.set(node.x, node.y + floorHeight(node.x, node.z), node.z);
       view.root.rotation.y = junction ? (i === 0 ? .31 : -.31) : [0, -.49, .62][i];
+      // The health ring on the ground around the node, in the node's HUD colour.
+      view.healthRing ??= makeHealthRing(view.root);
+      conformHealthRing(view.healthRing, view.root);
+      view.healthRing.material.uniforms.tint.value.set(NODE_RING_COLORS[i] ?? NODE_RING_COLORS[0]);
       view.opening = 0;
       view.wound.reshape(0);
       view.channel.visible = false;
@@ -649,6 +700,14 @@ export class World {
       const node = sim.nodes[i];
       const view = this.tissueViews[i];
       const state = THREE.MathUtils.clamp(node.health / 100, 0, 1);
+      if (view.healthRing) {
+        const ring = view.healthRing.material.uniforms;
+        ring.health.value = THREE.MathUtils.damp(ring.health.value, state, 6, dt);
+        ring.time.value = reduceMotion ? 0 : this.clock;
+        ring.hit.value = Math.max(0, ring.hit.value - dt * 2.5);
+        if (node.underAttack) ring.hit.value = 1;
+        view.healthRing.visible = !sim.airway && (!sim.tutorial || i === 0);
+      }
       const { organ, core, fiber, glowOrb, light, channel, wound } = view;
       view.root.visible = !sim.airway && (!sim.tutorial || i === 0);
       const healing = sim.repairing && sim.repairTarget === node;

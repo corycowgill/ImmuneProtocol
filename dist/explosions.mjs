@@ -14,25 +14,41 @@ function radialTexture(stops, size = 128) {
   return map;
 }
 
-// A lumpy smoke puff: overlapping soft blobs.
-function smokeTexture(size = 128) {
+// A smoke puff with real structure: value-noise fBm, domain-warped so it curls, with a ragged
+// edge and a denser core, instead of a soft round disc. Every puff is drawn at a random rotation.
+function smokeTexture(size = 256) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const context = canvas.getContext('2d');
   let seed = 913;
   const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
-  for (let i = 0; i < 26; i++) {
-    const angle = random() * Math.PI * 2;
-    const distance = random() * size * .22;
-    const x = size / 2 + Math.cos(angle) * distance;
-    const y = size / 2 + Math.sin(angle) * distance;
-    const radius = size * (.12 + random() * .16);
-    const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
-    gradient.addColorStop(0, 'rgba(255,255,255,.34)');
-    gradient.addColorStop(1, 'rgba(255,255,255,0)');
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, size, size);
+  const grid = 32, lattice = Array.from({ length: grid * grid }, random);
+  const smooth = t => t * t * (3 - 2 * t);
+  const noise = (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = smooth(x - xi), yf = smooth(y - yi);
+    const at = (i, j) => lattice[((j % grid + grid) % grid) * grid + ((i % grid + grid) % grid)];
+    const top = at(xi, yi) + (at(xi + 1, yi) - at(xi, yi)) * xf, bottom = at(xi, yi + 1) + (at(xi + 1, yi + 1) - at(xi, yi + 1)) * xf;
+    return top + (bottom - top) * yf;
+  };
+  const fbm = (x, y) => noise(x, y) * .5 + noise(x * 2.03, y * 2.03) * .27 + noise(x * 4.1, y * 4.1) * .15 + noise(x * 8.3, y * 8.3) * .08;
+  // Test stubs (node) provide a canvas without pixel access; the texture is then left blank.
+  if (!context.createImageData) return new THREE.CanvasTexture(canvas);
+  const image = context.createImageData(size, size);
+  for (let py = 0; py < size; py++) {
+    for (let px = 0; px < size; px++) {
+      const u = px / size * 2 - 1, v = py / size * 2 - 1;
+      const wx = fbm(u * 2.2 + 5.1, v * 2.2 + 1.7), wy = fbm(u * 2.2 - 3.3, v * 2.2 + 8.2);
+      const density = fbm(u * 2.6 + wx * 1.6, v * 2.6 + wy * 1.6);
+      const r = Math.hypot(u, v) + (wx - .5) * .5;
+      const falloff = Math.max(0, 1 - Math.pow(Math.max(0, r) / .92, 2.2));
+      const alpha = Math.max(0, Math.min(1, (density - .3) * 1.9)) * falloff;
+      const i = (py * size + px) * 4;
+      const shade = 200 + density * 55;
+      image.data[i] = image.data[i + 1] = image.data[i + 2] = shade;
+      image.data[i + 3] = Math.round(alpha * .62 * 255);
+    }
   }
+  context.putImageData(image, 0, 0);
   const map = new THREE.CanvasTexture(canvas);
   map.colorSpace = THREE.SRGBColorSpace;
   return map;
