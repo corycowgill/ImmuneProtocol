@@ -316,6 +316,17 @@ export class CanvasUiRenderer {
       const path = new Path2D(item.path); c.fillStyle = item.fill; c.strokeStyle = item.color ?? '#ffbf69'; c.lineWidth = 2; c.setLineDash([9, 5]); c.fill(path); c.stroke(path); return;
     }
     if (kind === 'scope') return this.scope(r);
+    if (kind === 'label' && item.hazard) {
+      // A timed organ hazard: an amber warning strip with a hazard glyph, pulsing as it nears.
+      const pulse = .75 + .25 * Math.sin(performance.now() / 160);
+      const g = c.createLinearGradient(r.x, 0, r.x + r.w, 0); g.addColorStop(0, `rgba(120,64,10,${.75 * pulse})`); g.addColorStop(1, 'rgba(30,18,8,.55)');
+      this.box(r, g, '#ffca9655', 2);
+      this.box({ x: r.x, y: r.y, w: 3, h: r.h }, item.color, null, 0);
+      const tx = r.x + 16, ty = r.y + r.h / 2;
+      c.strokeStyle = item.color; c.lineWidth = 1.6; c.lineJoin = 'round'; c.beginPath(); c.moveTo(tx, ty - 7); c.lineTo(tx + 8, ty + 6); c.lineTo(tx - 8, ty + 6); c.closePath(); c.stroke();
+      c.fillStyle = item.color; c.fillRect(tx - .8, ty - 3, 1.6, 5); c.fillRect(tx - .8, ty + 3.4, 1.6, 1.6);
+      return this.text(item.text.toUpperCase(), { x: r.x + 32, y: r.y + (r.h - (item.size ?? 11) * 1.3) / 2, w: r.w - 38, h: r.h - 4 }, item.size ?? 11, item.color, 700, 'left', 1, 1.3, undefined, .6);
+    }
     if (kind === 'label') {
       if (item.box) this.box(r, '#151515c9', item.color ?? '#d4c9aa55', 2);
       return this.text(item.text, { x: r.x + 4, y: r.y + 4, w: r.w - 8, h: r.h - 8 }, item.size ?? 10, item.color ?? t.green, 500, item.align ?? 'center');

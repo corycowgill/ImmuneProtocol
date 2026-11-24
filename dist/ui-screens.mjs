@@ -230,12 +230,21 @@ function buildCombat(ui, model, area, full, size, state, measure) {
   });
   const waveW = d.special ? (compact ? Math.min(250, portrait ? area.w - 110 : w * .34) : Math.min(340, w * .34)) : compact ? 150 : 190;
   const waveX = portrait && compact ? x : (w - waveW) / 2;
-  if (d.special) {
+  if (d.special?.health != null) {
+    // A boss: name over a wide segmented health bar, phase on the right; no duplicate readouts.
+    const panel = d.special, detail = /^\d+%$/.test(panel.detail.trim()) ? '' : panel.detail;
+    const bh = (compact ? 58 : 68) + (detail ? 18 : 0);
+    ui.add({ kind: 'panel', hud: true, accent: '#ff8fae' }, { x: waveX, y: top, w: waveW, h: bh });
+    ui.add({ ...heading(panel.title, compact ? 17 : 22), tracking: .6 }, { x: waveX + 14, y: top + 8, w: waveW - 90, h: 26 });
+    ui.add({ ...text(Math.ceil(panel.health) + '%', compact ? 11 : 13, '#ffd0dc'), align: 'right', weight: 700 }, { x: waveX + waveW - 74, y: top + 12, w: 60, h: 18 });
+    ui.add({ kind: 'meter', text: '', detail: '', value: panel.health, segments: 40, thick: compact ? 6 : 8, color: '#ff6f8f' }, { x: waveX + 14, y: top + (compact ? 30 : 36), w: waveW - 28, h: 16 });
+    if (panel.phase) ui.add({ ...text(panel.phase.toUpperCase(), 9, '#e6c9de'), weight: 700, tracking: 1.2 }, { x: waveX + 14, y: top + (compact ? 42 : 52), w: waveW - 28, h: 14 });
+    if (detail) ui.add(text(detail, compact ? 10 : 11, '#e6c9de'), { x: waveX + 14, y: top + bh - 22, w: waveW - 28, h: 16 });
+  } else if (d.special) {
     const panel = d.special;
     ui.add({ kind: 'panel', hud: true, accent: '#e7aac2' }, { x: waveX, y: top, w: waveW, h: compact ? 100 : 145 });
     ui.add(heading(panel.title, compact ? 18 : 27), { x: waveX + 8, y: top + 6, w: waveW - 16, h: 28 });
     ui.add(text(panel.detail, compact ? 10 : 12, '#e6c9de'), { x: waveX + 8, y: top + (compact ? 32 : 44), w: waveW - 16, h: 58 });
-    if (panel.health != null) ui.add({ kind: 'meter', text: panel.phase ?? '', value: panel.health, size: 9, segments: 30, thick: 6, color: '#ff8fae' }, { x: waveX + 8, y: top + (compact ? 65 : 104), w: waveW - 16, h: 29 });
   } else {
     ui.add({ kind: 'panel', hud: true, accent: '#ffc888' }, { x: waveX, y: top, w: waveW, h: compact ? 45 : 93 });
     if (!compact) ui.add({ ...text(d.mode, 10, '#c9b9a4'), align: 'center', weight: 700, tracking: 1.4 }, { x: waveX, y: top + 7, w: waveW, h: 18 });
@@ -293,9 +302,9 @@ function buildCombat(ui, model, area, full, size, state, measure) {
   if (d.ally) ui.add(text(d.ally, 10, '#b2e8ff'), { x, y: allyY, w: nodeWidth, h: 28 });
   let hazardY = 0;
   if (d.hazard) {
-    const hy = compact ? (portrait ? nodeTop + 39 : top + (d.ally ? 68 : 39)) : top + (d.special ? 155 : 105);
+    const hy = compact ? (portrait ? nodeTop + 39 : top + (d.ally ? 68 : 39)) : top + (d.special?.health != null ? 80 + (/^\d+%$/.test(d.special.detail.trim()) ? 0 : 18) : d.special ? 155 : 105);
     hazardY = hy;
-    ui.add({ kind: 'label', text: d.hazard, box: true, align: 'left', size: compact ? 10 : 11, color: '#ffca96' }, { x: compact ? x : waveX, y: hy, w: compact ? Math.min(228, nodeWidth) : waveW, h: 30 });
+    ui.add({ kind: 'label', text: d.hazard, hazard: true, align: 'left', size: compact ? 10 : 12, color: '#ffca96' }, { x: compact ? x : waveX, y: hy, w: compact ? Math.min(228, nodeWidth) : waveW, h: 30 });
   }
   const notice = d.notice || d.training || d.alert || d.surge;
   if (notice) {

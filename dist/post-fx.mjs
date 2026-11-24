@@ -39,7 +39,7 @@ export const LOOKS = Object.freeze({
   artery: { ...BASE, saturation: .93, contrast: 1.08, tint: [.99, .99, 1], lift: [.006, .006, .012], gain: [1.04, .98, .96], mist: [.55, .25, .25], mistDensity: 0.019, shadowTone: [0, .008, .02] },
   junction: { ...BASE, saturation: .93, contrast: 1.08, tint: [.98, .99, 1], lift: [.006, .005, .012], mist: [.52, .24, .25], mistDensity: 0.016, shadowTone: [0, .008, .02] },
   heart: { ...BASE, bloom: .62, saturation: .95, tint: [1, .99, 1], lift: [.016, .002, .004], gain: [1.04, .95, .94], mist: [.6, .18, .2], mistDensity: 0.019 },
-  lungs: { ...BASE, saturation: 1.02, contrast: 1.14, tint: [1, .99, 1.03], lift: [0, 0, .006], gain: [1.02, 1, 1.04], mist: [.78, .6, .66], mistDensity: 0.010, mistHeight: 1.7, mistReach: 32 },
+  lungs: { ...BASE, saturation: .98, contrast: 1.07, tint: [1, .99, 1.02], lift: [.004, .003, .008], gain: [1.03, 1.01, 1.03], mist: [.78, .6, .66], mistDensity: 0.012, mistHeight: 1.7, mistReach: 36 },
   stomach: { ...BASE, tint: [1.03, 1.01, .93], lift: [.01, .008, 0], gain: [1.04, 1.02, .92], mist: [.62, .5, .26], mistDensity: 0.019 },
   intestines: { ...BASE, saturation: .92, tint: [.98, .99, 1.01], lift: [.012, .004, .006], mist: [.72, .4, .38], mistDensity: 0.017 },
   colon: { ...BASE, tint: [1.02, 1, .92], lift: [.008, .008, 0], gain: [1.02, 1.02, .9], mist: [.5, .44, .26], mistDensity: 0.020, mistHeight: 1.1 },

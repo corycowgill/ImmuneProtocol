@@ -25,7 +25,7 @@ import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion, setPath
 
 // The pathogen rim light per arena: a colour that contrasts with the arena's dominant hue.
 const PATHOGEN_RIMS = {
-  artery: [0xb8d8f0, .42], junction: [0xb8d8f0, .4], heart: [0xb8d4f0, .4], lungs: [0xfff0e0, .25], stomach: [0xb0e0f0, .35],
+  artery: [0xb8d8f0, .42], junction: [0xb8d8f0, .4], heart: [0xb8d4f0, .4], lungs: [0xfff0e0, .35], stomach: [0xb0e0f0, .35],
   intestines: [0xb8e0f0, .38], colon: [0xc0e0f0, .35], lymph: [0xffe0b8, .3], ear: [0xffdcc0, .3], brain: [0xd8f8c0, .32],
 };
 import { RenderScale } from './render-scale.mjs';
@@ -218,7 +218,7 @@ export class World {
       depthWrite: false,
     });
     this.sporeHaloMaterial = new THREE.SpriteMaterial({
-      map: this.glow, color: new THREE.Color(0xff5fbf).multiplyScalar(2.2), transparent: true, opacity: .85,
+      map: this.glow, color: new THREE.Color(0xff5fbf).multiplyScalar(1.6), transparent: true, opacity: .7,
       depthWrite: false, blending: THREE.AdditiveBlending,
     });
     this.sporeTrailMaterial.color.multiplyScalar(1.8);
@@ -619,7 +619,10 @@ export class World {
       const angle = phase + this.clock * .47;
       this.tempPosition.set(x + Math.sin(angle) * .86, y + Math.sin(angle * .61) * .58, z + Math.cos(angle * .72) * .79);
       this.transform.rotation.set(phase + this.clock * spin, phase * 1.7, phase * .3 + this.clock * spin * .58);
-      setInstance(cells, i, this.transform, this.tempPosition, [radius, radius, radius * (1 + Math.sin(phase) * .14)]);
+      // A cell drifting into the lens shrinks away instead of filling the frame with a blurry blob.
+      const near = THREE.MathUtils.smoothstep(this.tempPosition.distanceTo(this.camera.position), 1.2 + radius, 2.6 + radius * 2);
+      const size = radius * near;
+      setInstance(cells, i, this.transform, this.tempPosition, [size, size, size * (1 + Math.sin(phase) * .14)]);
     }
     cells.instanceMatrix.needsUpdate = true;
     motes.position.x = Math.sin(this.clock * .15) * .43;

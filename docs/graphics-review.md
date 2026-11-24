@@ -49,6 +49,8 @@ What the graphics sprint changed, per catalog item. Items not listed were left f
 | H-07 | Done | Mute and pause hide while the mouse is captured (touch keeps them). |
 | H-08 | Done | Wave panel label centred and tracked. |
 | H-09 | Done | World labels in tracked caps with a drop shadow. |
+| H-10 | Done | Organ hazard countdowns are an amber warning strip with a hazard glyph that pulses. |
+| H-11 | Done | Found after the review, in the boss captures: the boss panel was a 145 px box with the health shown twice. It is now a compact name, percentage and 40-cell health bar, with the phase underneath. |
 | V-02 | Done | Spore spit glows (HDR emissive core, additive pulsing halo, additive trail). |
 | V-04 | Done | Lens fringe .0005 → .00014. |
 | V-05 | Done | Vessel clearcoat roughened so the curved highlight no longer streaks. |
@@ -57,7 +59,8 @@ What the graphics sprint changed, per catalog item. Items not listed were left f
 | L-01 | Done | Cooler bloodstream fill light, less chroma in fog and mist, cool-shadow and warm-highlight split toning in the finishing pass (per-arena `shadowTone` / `highlightTone`). |
 | L-02 | Done | Rougher floor coat, artery bulb 310 → 200, exposure 1.18 → 1.14. |
 | L-03 | Partly | Brighter ground hemisphere colour in the bloodstream arenas. |
-| L-04 | Done | Lungs: contrast 1.14, lower mist density and reach, neutral lift. |
+| L-04 | Done | Lungs: slightly more contrast, less and shorter-reaching mist, a little less magenta. |
+| E-01 | Done | The beige lump at the bottom of the view was a drifting red cell passing the lens; drifting cells now shrink away within about two metres of the camera. |
 | E-02 | Done | Platelets darker and wetter (amber, not beige gravel). |
 | N-01 | Done | Shared fresnel rim light on every pathogen material, colour and strength per arena (`setPathogenRim`). |
 | F-01 | Done | Co-op without a server shows a designed "Squad link offline" state with how to play online. |

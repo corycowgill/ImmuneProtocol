@@ -436,7 +436,7 @@ export function updateProjectiles(world, projectiles, reduceMotion) {
     view.model.scale.set(radius * .88, radius * .88, radius * 1.35);
     if (direction.lengthSq() > 0) view.model.quaternion.setFromUnitVectors(FORWARD, direction);
     view.halo.position.copy(view.model.position);
-    view.halo.scale.setScalar(radius * (5 + (reduceMotion ? 0 : Math.sin(world.clock * 31 + projectile.id) * .6)));
+    view.halo.scale.setScalar(radius * (3.4 + (reduceMotion ? 0 : Math.sin(world.clock * 31 + projectile.id) * .4)));
     view.trail.visible = world.quality !== 'low' && !reduceMotion;
     if (view.trail.visible) {
       view.trail.position.copy(view.model.position).addScaledVector(direction, -radius * 1.48);
