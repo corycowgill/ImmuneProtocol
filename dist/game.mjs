@@ -1092,7 +1092,20 @@ function finish() {
   else showReport();
 }
 
+// One frame of play. A failure in any part of it is reported once and the loop carries on, so a
+// single bad frame can never freeze the game.
+let frameFailed = false;
 function frame(now) {
+  try {
+    playFrame(now);
+  } catch (error) {
+    if (!frameFailed) console.error('A frame of play failed; continuing', error);
+    frameFailed = true;
+    if (session.running && !animation) animation = requestAnimationFrame(frame);
+  }
+}
+
+function playFrame(now) {
   animation = 0;
   if (!session.running) return;
   // Frame-rate limit: skip display refreshes until the next frame is due (1 ms of slack absorbs

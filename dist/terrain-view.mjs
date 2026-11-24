@@ -3,6 +3,11 @@
 // floor (arena-scene.mjs shapeFloor).
 import * as THREE from './vendor/three.module.js';
 import { pieceTop } from './terrain.mjs';
+import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
+import { LOW_MEMORY } from './asset-loading.mjs';
+
+// Phones and low-memory devices get lighter raised ground.
+const SEGMENTS = LOW_MEMORY ? 28 : 48;
 
 // Each arena's raised ground in its own tissue: [top colour, foot colour, clearcoat, roughness].
 export const TERRAIN_LOOKS = {
@@ -34,28 +39,39 @@ const plaque = look => new THREE.MeshPhysicalMaterial({
 // only shading (occlusion toward the foot, streaks, the stomach's acid tideline).
 const FLOOR_UV = 4.6; // world metres per floor UV unit (arena-scene floorGeometry)
 function floorMatched(floor, look) {
-  const material = new THREE.MeshPhysicalMaterial({ vertexColors: true });
+  const material = new THREE.MeshStandardMaterial({ vertexColors: true });
   // The floor is lifted by its own ground shading (detail, caustics); match its overall brightness.
   material.color.copy(floor.color).multiplyScalar(1.22);
   for (const key of ['map', 'normalMap', 'roughnessMap']) if (floor[key]) material[key] = floor[key];
   if (floor.normalScale) material.normalScale.copy(floor.normalScale);
   material.roughness = floor.roughness ?? look[3];
   material.metalness = floor.metalness ?? 0;
-  material.clearcoat = Math.max(floor.clearcoat ?? 0, look[2] * .6);
-  material.clearcoatRoughness = floor.clearcoatRoughness ?? .35;
-  material.sheen = floor.sheen ?? .2;
-  if (floor.sheenColor) material.sheenColor.copy(floor.sheenColor);
+  // Standard (not physical) lighting: no clearcoat or sheen layers; a wet look comes from lower roughness.
+  material.roughness = Math.max(.2, material.roughness - (floor.clearcoat ?? 0) * .25);
   const scale = texture => ({ value: (texture?.repeat?.x ?? 1) / FLOOR_UV });
   const uniforms = { triScale: scale(floor.map), triNormalScale: scale(floor.normalMap), triRoughScale: scale(floor.roughnessMap) };
-  const sample = (name, factor) => `(texture2D(${name}, vTriPos.zy * ${factor}) * triW.x + texture2D(${name}, vTriPos.xz * ${factor}) * triW.y + texture2D(${name}, vTriPos.xy * ${factor}) * triW.z)`;
+  // Each projection is sampled only where it carries weight: a flat top costs one fetch, not three.
+  const sample = (name, factor) => `triplanar(${name}, ${factor})`;
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vTriPos;\nvarying vec3 vTriNormal;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTriPos = (modelMatrix * vec4(transformed, 1.)).xyz;\nvTriNormal = normalize(mat3(modelMatrix) * objectNormal);');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vTriPos;\nvarying vec3 vTriNormal;\nuniform float triScale, triNormalScale, triRoughScale;')
-      .replace('#include <map_fragment>', `vec3 triW = pow(abs(normalize(vTriNormal)), vec3(4.));
+      .replace('#include <common>', `#include <common>
+varying vec3 vTriPos;
+varying vec3 vTriNormal;
+uniform float triScale, triNormalScale, triRoughScale;
+vec3 triW;
+vec4 triplanar(sampler2D t, float s) {
+  vec4 c = vec4(0.);
+  float w = 0.;
+  if (triW.x > .03) { c += texture2D(t, vTriPos.zy * s) * triW.x; w += triW.x; }
+  if (triW.y > .03) { c += texture2D(t, vTriPos.xz * s) * triW.y; w += triW.y; }
+  if (triW.z > .03) { c += texture2D(t, vTriPos.xy * s) * triW.z; w += triW.z; }
+  return c / max(w, .0001);
+}`)
+      .replace('#include <map_fragment>', `triW = pow(abs(normalize(vTriNormal)), vec3(4.));
 triW /= triW.x + triW.y + triW.z;
 #ifdef USE_MAP
 diffuseColor *= ${sample('map', 'triScale')};
@@ -131,7 +147,7 @@ function shelfMesh(piece, material, baseFloor, look, options = {}) {
     [radius + .35, -.35], [radius + .32, 0], [radius + .2, top * .45], [radius + .06, top * .86],
     [radius - .12, top], ...[.82, .64, .46, .28, .12].map(f => [radius * f, top + .02]), [0, top + .02],
   ].map(([x, y]) => new THREE.Vector2(x, y));
-  const geometry = new THREE.LatheGeometry(profile, 56);
+  const geometry = new THREE.LatheGeometry(profile, SEGMENTS);
   lumpy(geometry, .09, 1.6);
   if (options.rugae) {
     // Gastric rugae: parallel folds across the top that wander a little.
@@ -158,7 +174,7 @@ function shelfMesh(piece, material, baseFloor, look, options = {}) {
 function ridgeMesh(piece, material, baseFloor, look, options = {}) {
   const length = Math.hypot(piece.x2 - piece.x1, piece.z2 - piece.z1);
   const half = piece.width / 2;
-  const geometry = new THREE.CapsuleGeometry(half, length, 8, 18);
+  const geometry = new THREE.CapsuleGeometry(half, length, LOW_MEMORY ? 5 : 8, LOW_MEMORY ? 12 : 18);
   geometry.rotateZ(Math.PI / 2);
   // Squash it into a low hump whose crest stands at the ridge's height.
   geometry.scale(1, piece.top / half, 1);
@@ -186,6 +202,26 @@ export function createTerrainView(pieces, baseFloor, area = 'artery', floor = nu
       if (piece.breathe) breathing.push(mesh);
     }
     if (piece.kind === 'ridge') group.add(ridgeMesh(piece, material, baseFloor, look, options));
+  }
+  // Everything that stays put is baked into one mesh: an arena of islands or terraces is a single
+  // draw call instead of one per piece. Breathing platforms move, so they stay separate.
+  const still = group.children.filter(mesh => !breathing.includes(mesh));
+  if (still.length > 1) {
+    const indexed = still.every(mesh => mesh.geometry.index);
+    const geometries = still.map(mesh => {
+      mesh.updateMatrix();
+      const geometry = indexed ? mesh.geometry.clone() : mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
+      return geometry.applyMatrix4(mesh.matrix);
+    });
+    const merged = mergeGeometries(geometries);
+    if (merged) {
+      for (const mesh of still) { mesh.geometry.dispose(); group.remove(mesh); }
+      for (const geometry of geometries) geometry.dispose();
+      merged.computeBoundingSphere();
+      const mesh = new THREE.Mesh(merged, material);
+      mesh.name = 'terrain-static';
+      group.add(mesh);
+    }
   }
   // Breathing platforms follow the simulation clock so they match where the suit stands.
   group.userData.update = time => {

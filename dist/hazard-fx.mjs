@@ -81,8 +81,10 @@ function addTo(root, geometry, mat, order = 2) {
 }
 
 // A floor-hugging surface over the zone (local -1..1 on both axes, `reach` times the zone).
+// reach: how far past the zone the floor effect extends, either one factor or [across x, across z].
 function zoneFloor(root, uniforms, fragmentBody, { reach = 1, lift = .06, additive = false, segments = 64, order = 2 } = {}) {
-  const geometry = new THREE.PlaneGeometry(2 * reach, 2 * reach, segments, segments);
+  const [reachX, reachZ] = Array.isArray(reach) ? reach : [reach, reach];
+  const geometry = new THREE.PlaneGeometry(2 * reachX, 2 * reachZ, segments, segments);
   geometry.rotateX(-Math.PI / 2);
   const vertex = /* glsl */ `
     varying vec2 vLocal, vWorld;
@@ -415,7 +417,7 @@ function contraction(root, u, along) {
     float pulse = .55 + .45 * sin(time * 8.);
     col = mix(accent, tint, band) * (band * .9 + rings * .7 + crack * 1.2);
     alpha = inside * (band * (.35 * live + .45 * warn * pulse) + rings * .16 * live + crack * .45 * live);
-  `, { additive: true, reach: 3 });
+  `, { additive: true, reach: along === 'x' ? [1.02, 3] : [3, 1.02] });
   // Chyme flung forward off the crest, and grit shaken loose ahead of it.
   quadField(root, u, 220, /* glsl */ `
     float life = fract(seed.z + time * (.6 + seed.y * .5));
@@ -694,7 +696,8 @@ export function createHazardFX(area, root, floorHeight) {
     fx.update?.(dt, state ?? {}, u.live.value, floorHeight, camera, reduced);
     const flicker = fx.flicker && !reduced ? .55 + Math.random() * .9 : 1;
     light.position.set(u.center.value.x, floorHeight(u.center.value.x, u.center.value.y) + (fx.height ?? 2), u.center.value.y);
-    light.distance = Math.max(u.halfSize.value.x, u.halfSize.value.y) * 2.4 + 6;
+    // A chamber-wide hazard still only lights its surroundings: the reach is capped.
+    light.distance = Math.min(40, Math.max(u.halfSize.value.x, u.halfSize.value.y) * 2.4 + 6);
     light.intensity = (fx.light?.[1] ?? 1) * 40 * (u.live.value + u.warn.value * .3) * flicker;
   };
 }
