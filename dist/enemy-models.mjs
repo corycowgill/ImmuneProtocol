@@ -11,8 +11,9 @@ import { loadModel } from './asset-loading.mjs';
 export const ENEMY_MODELS = Object.freeze({
   virus: { size: .9, glow: 0x4a160c },
   spore: { size: .82, glow: 0x3c1240 },
-  bacillus: { size: 1, glow: 0x3d300a },
-  splitter: { size: 1, glow: 0x3a0f44 },
+  // Brightened so its gold body holds up under the arenas' cooler fill and split toning.
+  bacillus: { size: 1, glow: 0x4a3a0c, brighten: 1.45 },
+  splitter: { size: 1, glow: 0x5a1a6a, brighten: 1.7 },
   guard: { size: 1.05, glow: 0x0c3434 },
   colony: { size: 1.4, glow: 0x1c2a0c },
   phage: { size: .98, glow: 0x2c1648 },
@@ -121,7 +122,7 @@ const clips = new WeakMap();
 const loads = new Map();
 
 function prepare(type, gltf) {
-  const { size, glow } = ENEMY_MODELS[type];
+  const { size, glow, brighten = 1 } = ENEMY_MODELS[type];
   // gltfpack keeps the named node as a dequantisation wrapper around the mesh,
   // so the name and the clip's track targets move onto the mesh itself.
   const node = gltf.scene.getObjectByName('attack-membrane');
@@ -133,6 +134,7 @@ function prepare(type, gltf) {
   mesh.name = 'attack-membrane';
   mesh.material.emissive.setHex(glow);
   mesh.material.emissiveIntensity = .7;
+  if (brighten !== 1) mesh.material.color.multiplyScalar(brighten);
   if (type === 'rogue-bot' || type === 'crawler') {
     // HDR optics and telemetry so the red eyes bloom, and grime on body and legs.
     mesh.material.emissiveIntensity = 1.3;

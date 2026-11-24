@@ -140,7 +140,11 @@ export function createMuzzleFlash() {
 
 // A pool of travelling tracer ribbons. Each one is a quad rebuilt every frame to face the camera.
 export class TracerPool {
-  constructor(scene, size = 96) {
+  // hdr scales colours past 1 so tracers bloom. `liquid` ribbons blend normally instead of adding
+  // light, so a pathogen's fluid reads as wet matter rather than glowing rays.
+  constructor(scene, size = 96, hdr = 4.5, liquid = false) {
+    this.hdr = hdr;
+    this.liquid = liquid;
     this.texture = textures().tracer;
     this.materials = new Map();
     this.free = [];
@@ -167,7 +171,8 @@ export class TracerPool {
     if (!this.materials.has(color)) {
       // HDR: bright enough to cross the bloom threshold.
       const material = additive(this.texture, color, 1);
-      material.color.multiplyScalar(4.5);
+      if (this.liquid) material.blending = THREE.NormalBlending;
+      material.color.multiplyScalar(this.hdr);
       this.materials.set(color, material);
     }
     return this.materials.get(color);
