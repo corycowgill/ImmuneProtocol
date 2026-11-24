@@ -35,8 +35,8 @@ export const ORGAN_MISSIONS = {
     inlets: [[[-26, -40], [-37, -16], [-30, 30]], [[26, -40], [37, -16], [30, 30]]],
     obstacles: [[-30, 8, 3.2], [30, 8, 3.2], [-9, -34, 2.6], [9, -34, 2.6], [-22, -30, 2.6], [22, -30, 2.6], [-18, 24, 2.8], [18, 24, 2.8]],
     hazard: {
-      name: 'Exhale', instruction: 'Leave the center airway', effect: 'Airflow pushes you back',
-      x: 0, z: -4, width: 14, depth: 74, recovery: 4.2, warning: 3.4, active: 3.4, push: 9,
+      name: 'Exhale', instruction: 'Leave the center airway', effect: 'Airflow batters you back',
+      x: 0, z: -4, width: 14, depth: 74, recovery: 4.2, warning: 3.4, active: 3.4, push: 9, damage: 10,
     },
     waves: [
       wave('Crosswind', 1.12, 'vvsgvsvsvvs', 'LLRLRRLRLRR'),
@@ -53,7 +53,7 @@ export const ORGAN_MISSIONS = {
     obstacles: [[-6, 18, 2.8], [10, -28, 3], [-30, -26, 2.8], [30, 26, 2.8], [-10, -38, 2.6], [-28, 24, 2.6]],
     hazard: {
       name: 'Acid flood', instruction: 'Get onto an island', effect: 'Acid damages your suit',
-      x: 0, z: -6, radius: 70, recovery: 5.8, warning: 3.6, active: 4.6, damage: 9,
+      x: 0, z: -6, radius: 70, recovery: 5.8, warning: 3.6, active: 4.6, damage: 24,
     },
     waves: [
       wave('Acid-Tolerant Bloom', 1.02, 'fpsvsgpavsfps', 'RLLRLRRLLRRLR'),
@@ -79,7 +79,7 @@ export const ORGAN_MISSIONS = {
     ],
     hazard: {
       name: 'Contraction', instruction: 'Climb a villus terrace', effect: 'Pressure wave sweeping the whole bend',
-      x: 0, z: -52, endZ: 44, width: 100, depth: 8, recovery: 6, warning: 3.8, active: 4.8, damage: 14, push: 5,
+      x: 0, z: -52, endZ: 44, width: 100, depth: 8, recovery: 6, warning: 3.8, active: 4.8, damage: 32, push: 5,
     },
     waves: [
       wave('Parasitic Bloom', 1.04, 'pfspbvsvpsfv', 'CLR'),
@@ -105,7 +105,7 @@ export const ORGAN_MISSIONS = {
     obstacles: [[-12, -2, 3.2], [12, 16, 3], [4, -30, 3.5], [-30, 8, 3], [26, 34, 3], [30, -32, 3], [-19, -37, 3], [-18, 44, 2.8]],
     hazard: {
       name: 'Haustral squeeze', instruction: 'Watch the wall band and step aside', effect: 'Pressure crushes your suit',
-      x: -40, endX: 40, z: 0, width: 9, depth: 120, recovery: 6.4, warning: 3.6, active: 5.2, damage: 10, pushX: 5,
+      x: -40, endX: 40, z: 0, width: 9, depth: 120, recovery: 6.4, warning: 3.6, active: 5.2, damage: 26, pushX: 5,
     },
     waves: [
       wave('Fermentation', 1.04, 'vhsvbsfpvsvhs', 'LCR'),
@@ -131,7 +131,7 @@ export const ORGAN_MISSIONS = {
     obstacles: [[-10, -4, 2.2], [10, -4, 2.2], [-31, 22, 2.6], [31, 22, 2.6], [0, -40, 3], [-24, -36, 2.6], [24, -36, 2.6], [-12, 42, 2.4], [12, 42, 2.4]],
     hazard: {
       name: 'Macrophage sweep', instruction: 'Lure pathogens into its path', effect: 'Engulfs pathogens and crushes suits',
-      radius: 7.5, recovery: 5.4, warning: 3.4, active: 4.8, damage: 12, engulf: 70,
+      radius: 7.5, recovery: 5.4, warning: 3.4, active: 4.8, damage: 30, engulf: 70,
       patrol: [[0, -26, 'Medulla'], [-24, 10, 'West sinus'], [24, 10, 'East sinus'], [0, 4, 'Hilum']],
     },
     waves: [
@@ -157,8 +157,8 @@ export const ORGAN_MISSIONS = {
     ],
     obstacles: [[0, -8, 3], [-30, 10, 2.6], [24, 24, 2.6], [22, -26, 2.6], [-30, -32, 2.6], [8, 40, 2.8], [-2, 14, 2.4]],
     hazard: {
-      name: 'Resonance', instruction: 'Keep your turret outside the ring', effect: 'Slows suit movement and jams turrets',
-      radius: 9, alternateNodes: true, recovery: 5.2, warning: 3.5, active: 4, slow: .58,
+      name: 'Resonance', instruction: 'Keep your turret outside the ring', effect: 'Slows and shakes your suit, jams turrets',
+      radius: 9, alternateNodes: true, recovery: 5.2, warning: 3.5, active: 4, slow: .58, damage: 12,
     },
     waves: [
       wave('Harmonic Swarm', .92, 'ssgpvsmgvsvs', 'RLC'),

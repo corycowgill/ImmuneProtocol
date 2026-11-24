@@ -274,6 +274,10 @@ git subtree push --prefix=dist origin gh-pages
 - **Antibody grenade** arcs where you aim, bounces, and bursts after 1.5 s or on contact with a pathogen: 150 damage in a 6 m blast that also throws smaller pathogens off the tissue they held. You carry two, restocked at every wave start, and each antibody cache adds one (up to three).
 - **Stun charge** sticks to the first pathogen it touches or rests where it lands, then discharges: every pathogen within 7 m freezes for 3.2 s and drops its attack. Bosses and nests are only slowed. You carry one, restocked every wave (up to two).
 
+### Organ hazards hit hard
+
+Organ hazards are a real threat to your suit, not just a nuisance: a full acid surge in the stomach costs about a third of your integrity, and the gut's contraction, the colon's squeeze and the macrophage's crush hit harder still. The lungs' exhale batters you as it pushes you back, and the inner ear's resonance shakes your suit while it slows you. Raised ground that clears a hazard is the best way to ride it out, and the Insulated Suit field upgrade still cuts acid, contraction and squeeze damage by 40%.
+
 ### Raised ground
 
 The Arterial Junction now has real height. A plaque overlook with a walkable ramp sits beside each tissue node. A tall plaque shelf in the middle of the chamber is too high to step onto, so jump up for a view over all three nodes. Low plaque ridges cross the inlet lanes: hop over them or stand on them. The suit walks up steps under 0.42 m and up ramps, jumps onto anything up to about 1.1 m, and drops off edges. Crawlers walk the floor and must go around raised ground, so high ground keeps them off you. Floating pathogens drift over it. Grenades and stun charges bounce off its edges and settle on top. A turret placed on raised ground gains 12% range per metre of height. Every arena has raised ground, defined in `dist/terrain.mjs`, and in five of them it changes how the hazard plays:
