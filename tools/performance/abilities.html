@@ -20,6 +20,7 @@ try {
   function reset() {
     sim?.ai.dispose();
     sim = new Simulation(area, { ai: { seed: 7 }, encounterSeed: 7 });
+    world.setArea(area);
     sim.start();
     sim.tutorial = null;
     sim.phase = 'combat';
