@@ -109,3 +109,70 @@ export function keyLabel(code) {
 export function actionKey(action) {
   return keyLabel(binds[action]);
 }
+
+// ------------------------------------------------------------------- controller buttons
+// Standard-mapping button indices. Menu (9) always pauses and the menus keep A/B/D-pad, so a bad
+// binding can never lock anyone out of play or the menus.
+const PAD_KEY = 'immune-protocol.padbinds';
+export const PAD_ACTIONS = Object.freeze([
+  ['fire', 'Fire (hold)', 7],
+  ['aim', 'Aim (hold)', 6],
+  ['sprint', 'Sprint (hold)', 10],
+  ['jump', 'Jump', 0],
+  ['dash', 'Dash', 1],
+  ['reload', 'Reload', 2],
+  ['swap', 'Switch weapon', 3],
+  ['repair', 'Repair (hold)', 4],
+  ['turret', 'Turret (hold to move)', 5],
+  ['melee', 'Bash', 11],
+  ['grenade', 'Antibody grenade', 12],
+  ['stun', 'Stun charge', 13],
+].map(Object.freeze));
+export const PAD_RESERVED = Object.freeze([9]);
+const PAD_DEFAULTS = Object.fromEntries(PAD_ACTIONS.map(([action, , button]) => [action, button]));
+const PAD_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'Left stick (click)', 'Right stick (click)', 'D-pad ↑', 'D-pad ↓', 'D-pad ←', 'D-pad →', 'Guide'];
+
+function loadPad() {
+  const pad = { ...PAD_DEFAULTS };
+  try {
+    const saved = JSON.parse(readSetting(PAD_KEY) ?? '{}');
+    for (const [action, button] of Object.entries(saved ?? {})) {
+      if (Object.hasOwn(PAD_DEFAULTS, action) && Number.isInteger(button) && button >= 0 && button <= 16 && !PAD_RESERVED.includes(button)) pad[action] = button;
+    }
+  } catch { /* Defaults. */ }
+  return pad;
+}
+let padBinds = loadPad();
+
+export function padButtonOf(action) {
+  return padBinds[action];
+}
+export function padLabel(button) {
+  return PAD_NAMES[button] ?? 'Button ' + button;
+}
+export function padActionKey(action) {
+  return padLabel(padBinds[action]);
+}
+// Held / just pressed, from a GamepadInput poll's raw masks.
+export function padHeld(state, action) {
+  return Boolean(state?.buttons & (1 << padBinds[action]));
+}
+export function padPressed(state, action) {
+  return Boolean(state?.edges & (1 << padBinds[action]));
+}
+export function setPadBind(action, button) {
+  if (!Object.hasOwn(PAD_DEFAULTS, action) || PAD_RESERVED.includes(button) || !(button >= 0 && button <= 16)) return false;
+  const holder = Object.keys(padBinds).find(other => padBinds[other] === button);
+  if (holder && holder !== action) padBinds[holder] = padBinds[action];
+  padBinds[action] = button;
+  savePad();
+  return true;
+}
+export function resetPadBinds() {
+  padBinds = { ...PAD_DEFAULTS };
+  savePad();
+}
+function savePad() {
+  writeSetting(PAD_KEY, JSON.stringify(padBinds));
+  for (const listener of listeners) listener(currentBinds());
+}

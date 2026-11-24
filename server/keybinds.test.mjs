@@ -19,3 +19,17 @@ test('default bindings, swaps on conflict, reserved keys and readable labels', (
   resetBinds();
   assert.equal(bindOf('jump'), 'Space');
 });
+
+test('controller bindings: held and pressed from raw masks, swaps, Menu reserved', async () => {
+  const { padButtonOf, padHeld, padPressed, resetPadBinds, setPadBind, padActionKey } = await import('../dist/keybinds.mjs');
+  resetPadBinds();
+  assert.equal(padButtonOf('jump'), 0);
+  assert.ok(padPressed({ edges: 1 << 0 }, 'jump'));
+  assert.ok(padHeld({ buttons: 1 << 7 }, 'fire'));
+  assert.ok(setPadBind('jump', 2));
+  assert.equal(padButtonOf('reload'), 0, 'reload took jump\'s old button');
+  assert.equal(padActionKey('jump'), 'X');
+  assert.equal(setPadBind('dash', 9), false, 'Menu always pauses');
+  resetPadBinds();
+  assert.equal(padButtonOf('jump'), 0);
+});

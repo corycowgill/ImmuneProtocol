@@ -15,7 +15,7 @@ const INACTIVE = Object.freeze({
   connected: false, disconnected: false, active: false,
   moveX: 0, moveZ: 0, lookX: 0, lookY: 0, menuX: 0, menuY: 0,
   fire: false, aim: false, repair: false, sprint: false, deploy: false,
-  pressed: NO_BUTTON_EDGES,
+  pressed: NO_BUTTON_EDGES, buttons: 0, edges: 0,
 });
 
 function isStandardGamepad(pad) {
@@ -41,9 +41,11 @@ function readStick(axes, offset, deadZone, exponent) {
   return { x: x * scale, y: y * scale };
 }
 
+// Every standard-mapping button (0-16), so any of them can be bound to a gameplay action.
+const ALL_BUTTONS = Array.from({ length: 17 }, (_, index) => index);
 function readButtons(gamepadButtons) {
   let mask = 0;
-  for (const index of BUTTONS) {
+  for (const index of ALL_BUTTONS) {
     const button = gamepadButtons[index];
     const threshold = index === HELD_BUTTONS.fire || index === HELD_BUTTONS.aim ? .24 : .5;
     if (button?.pressed || button?.value >= threshold) mask |= 1 << index;
@@ -51,7 +53,7 @@ function readButtons(gamepadButtons) {
   return mask;
 }
 
-function hasButton(mask, index) {
+export function hasButton(mask, index) {
   return Boolean(mask & (1 << index));
 }
 
@@ -123,6 +125,8 @@ export class GamepadInput {
       repair: hasButton(buttons, HELD_BUTTONS.repair), sprint: hasButton(buttons, HELD_BUTTONS.sprint),
       deploy: hasButton(buttons, HELD_BUTTONS.deploy),
       pressed,
+      // Raw masks of held buttons and of buttons pressed this poll (for player bindings).
+      buttons, edges: buttonEdges,
     };
   }
 }

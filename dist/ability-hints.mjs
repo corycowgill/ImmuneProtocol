@@ -5,14 +5,13 @@
 // bindings, controller buttons or touch buttons. Off with Settings > Controls > Ability hints.
 import { session } from './session.mjs';
 import { byId, isTouch, setText } from './dom.mjs';
-import { actionKey } from './keybinds.mjs';
+import { actionKey, padActionKey } from './keybinds.mjs';
 import { readSetting, writeSetting } from './settings-store.mjs';
 import { STEP_HEIGHT, pieceHeight } from './terrain.mjs';
 
 const KEY = 'immune-protocol.hints-seen';
 const SHOW_SECONDS = 5.5;
 const GAP_SECONDS = 9;
-const PAD = { dash: 'B', jump: 'A', melee: 'the right stick (click)', grenade: 'D-pad up', stun: 'D-pad down', turret: 'RB' };
 const TOUCH = { dash: 'Dash', jump: 'Jump', melee: 'Bash', grenade: 'Grenade', stun: 'Stun', turret: 'Move' };
 
 const panel = byId('ability-hint');
@@ -27,7 +26,7 @@ let quiet = 0;
 let turretPlacedAt = null;
 
 function key(action) {
-  if (session.usingGamepad) return PAD[action];
+  if (session.usingGamepad) return padActionKey(action);
   if (isTouch) return TOUCH[action];
   return actionKey(action);
 }

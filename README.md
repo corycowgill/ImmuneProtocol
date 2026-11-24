@@ -297,7 +297,7 @@ The Arterial Junction now has real height. A plaque overlook with a walkable ram
 
 The grenade and stun counts and the dash and bash charge bars sit above your suit integrity. In co-op each suit has its own abilities.
 
-Every keyboard binding can be changed in **Settings > Key bindings**: press an action's button, then the new key (Esc cancels). Choosing a key another action already uses swaps the two. Esc always pauses and the arrow keys always look, so you can never lock yourself out. The field manual, HUD and hints always show your current keys. **Reset key bindings** restores the defaults. Controller buttons are fixed.
+Every keyboard binding can be changed in **Settings > Key bindings**: press an action's button, then the new key (Esc cancels). Choosing a key another action already uses swaps the two. Esc always pauses and the arrow keys always look, so you can never lock yourself out. The field manual, HUD and hints always show your current keys. **Reset key bindings** restores the defaults. Controller buttons can be changed the same way in **Settings > Controller buttons**: choose an action, release the button you chose it with, then press the new one. Menu always pauses and the menus keep A, B and the D-pad, so you cannot lock yourself out; **Reset controller buttons** restores the defaults. During a Capillary Junction break the D-pad still picks support.
 
 The first time each move would help, a short hint shows the key for it: dash when a pathogen first winds up at you, jump next to raised ground, raised ground when an acid flood, contraction or squeeze is coming, bash when a pathogen latches nearby, a grenade into a crowd, a stun charge when a node is swarmed, and dragging the turret. Each appears once. Turn them off with **Settings > Controls > Ability hints**; **Reset to defaults** shows them all again.
 
@@ -341,6 +341,8 @@ After securing Capillary Junction, choose **Extract** to bank the result or **St
 In Heart Valve, fire through the opening to hit the colony. Use each closed window to repair the valve wound. The outer wall can be repaired at any time. The mission ends when the colony and flank threats are gone and both nodes are restored. Unlocks are saved in the browser.
 
 In **Bronchial Fork**, move to each blocked bronchus after the third wave and hold Repair to reopen it. Completed pulses carry over while you stop to fight. Once both bronchi are open, keep both tissue nodes at **45% integrity or higher** through one full breath. If integrity drops below 45%, that side clogs again. Watch the exhale timer when crossing the central airway, and clear any surviving pathogens before leaving.
+
+In the campaign you can start any mission you have reached, not only the next one: pick it in the deployment screen. Replaying an earlier mission keeps your results before it and replaces the later ones as you play on; starting a mission you reached in an earlier campaign records the missions you skipped with no score.
 
 In **Gastric Chamber**, acid surges flood the entire chamber, so get onto one of the rugae islands during each warning and fight from island to island while it lasts. Clear the first wave, then hold Repair at the intake on the west bank. Closing it diverts acid into the drain channel. Cross to the east bank and hold Repair at the drain valve. Completed pulses carry over if you stop to fight. Once the basin empties, watch the lower passage behind the insertion point. The final wave uses it to flank both tissue nodes.
 

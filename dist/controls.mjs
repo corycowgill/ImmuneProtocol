@@ -9,7 +9,7 @@ import { session } from './session.mjs';
 import { byId, isTouch, setText } from './dom.mjs';
 import { gameUi } from './ui-browser.mjs';
 import { turretStatus, junctionSupply, supplyButtons, drawJunctionStatus, drawTurretHud } from './hud.mjs';
-import { actionFor } from './keybinds.mjs';
+import { actionFor, padButtonOf, padHeld, padPressed } from './keybinds.mjs';
 
 // What is held and what was tapped since the last frame, plus pointer and controller state.
 export const controls = {
@@ -167,6 +167,8 @@ export function controllerFrame(now) {
   if (current.active) setGamepadMode(true);
   if (!session.running || session.paused || session.sim.extractionPending) {
     controls.xboxState = null;
+    // While Settings waits for a button to bind, the menus leave the controller alone.
+    if (document.documentElement.dataset.rebinding) return;
     if (current.connected && session.usingGamepad && !gameUi.menuGamepad(current, now)) xboxMenus.update(current, now);
     return;
   }
@@ -174,21 +176,24 @@ export function controllerFrame(now) {
     commands.pause();
     return;
   }
+  // Gameplay follows the player's controller bindings (keybinds.mjs); held actions are read from
+  // the same bindings, so game.mjs sees fire/aim/repair/sprint exactly as bound.
+  Object.assign(current, { fire: padHeld(current, 'fire'), aim: padHeld(current, 'aim'), repair: padHeld(current, 'repair'), sprint: padHeld(current, 'sprint') });
   controls.xboxState = current;
-  controls.reloadTap ||= current.pressed.reload;
-  if (current.pressed.deploy && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
-  // Holding RB on a placed turret drags it; the press that deploys one does not also pick it up.
-  if (current.pressed.deploy) controls.padCarry = !!session.sim.turret;
-  if (!current.deploy) controls.padCarry = false;
-  if (current.pressed.swap && !session.sim.tutorial) controls.swapTap = true;
-  // A jumps, B dashes, the right stick bashes; the D-pad throws (up: grenade, down: stun charge).
-  controls.jumpTap ||= current.pressed.confirm;
-  controls.dashTap ||= current.pressed.back;
-  controls.meleeTap ||= current.pressed.melee;
-  if (junctionSupply.hidden) {
-    controls.grenadeTap ||= current.pressed.up;
-    controls.stunTap ||= current.pressed.down;
-  }
+  // During a Capillary Junction break the D-pad picks support, so D-pad bindings wait.
+  const supplyOpen = !junctionSupply.hidden;
+  const pressed = action => padPressed(current, action) && !(supplyOpen && padButtonOf(action) >= 12);
+  controls.reloadTap ||= pressed('reload');
+  if (pressed('turret') && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
+  // Holding the turret button on a placed turret drags it; the press that deploys one does not also pick it up.
+  if (pressed('turret')) controls.padCarry = !!session.sim.turret;
+  if (!padHeld(current, 'turret')) controls.padCarry = false;
+  if (pressed('swap') && !session.sim.tutorial) controls.swapTap = true;
+  controls.jumpTap ||= pressed('jump');
+  controls.dashTap ||= pressed('dash');
+  controls.meleeTap ||= pressed('melee');
+  controls.grenadeTap ||= pressed('grenade');
+  controls.stunTap ||= pressed('stun');
   if (!junctionSupply.hidden) {
     const direction = Object.keys(supplyPad).find(key => current.pressed[key]);
     if (direction) supplyButtons.find(button => button.dataset.junctionSupply === supplyPad[direction])?.click();

@@ -1,4 +1,4 @@
-import { Simulation, JUNCTION_INLETS, RULES } from './simulation.mjs';
+import { Simulation, JUNCTION_INLETS, RULES, TISSUE_NODES } from './simulation.mjs';
 import { AIDebugSystem } from './ai-debug.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
@@ -274,9 +274,12 @@ function displayBest() {
 
 function displayMissionAccess() {
   const unavailable = loading || !session.ready;
-  const routeArea = deployment.mode === 'campaign' ? campaignArea() : null;
+  // The campaign can start any mission already reached (in this run or an earlier one).
+  const campaignMode = deployment.mode === 'campaign';
+  const reachable = campaignMode ? campaignReach() : 0;
   for (const { button, bossPractice, area } of missionEntries) {
-    button.disabled = unavailable || (bossPractice && !megaVirusReached) || (routeArea && (bossPractice || area !== routeArea));
+    button.disabled = unavailable || (bossPractice && !megaVirusReached) ||
+      (campaignMode && (bossPractice || campaignAreas.indexOf(area) > reachable));
   }
   deploy.disabled = missionSelect.disabled = armoryOpen.disabled = unavailable;
   coopOpen.disabled = unavailable;
@@ -858,6 +861,26 @@ function campaignArea() {
   return deployment.run ? campaignAreas[deployment.run.results.length] : null;
 }
 
+// The furthest campaign mission the player may start: the next one in this run, or any mission
+// reached before.
+function campaignReach() {
+  return Math.min(campaignAreas.length - 1, Math.max(deployment.run?.results.length ?? 0, unlockedMission));
+}
+
+// The run to launch a chosen campaign mission with. Replaying an earlier mission keeps the results
+// before it (later ones are replaced as you play on); jumping ahead to a mission reached in an
+// earlier campaign records the skipped missions with no score.
+function campaignRunFor(area, run) {
+  const index = campaignAreas.indexOf(area);
+  const results = run.results.slice(0, index);
+  for (let i = results.length; i < index; i++) {
+    const nodes = TISSUE_NODES[campaignAreas[i]] ?? [];
+    results.push({ area: campaignAreas[i], tissue: 0, score: 0, kills: 0, skipped: true,
+      nodes: (nodes.length >= 2 ? nodes : [{ name: 'Node' }, { name: 'Node' }]).map(({ name }) => ({ name, health: 0 })) });
+  }
+  return { ...run, results };
+}
+
 function openDeployment(mode, run = null) {
   deployment = { mode, run };
   missionDialog.dataset.mode = mode;
@@ -866,15 +889,17 @@ function openDeployment(mode, run = null) {
   setText(byId('deploy-mode'), mode === 'campaign'
     ? 'Campaign · Mission ' + (next + 1) + ' of ' + campaignAreas.length : 'Free Mode');
   setText(byId('mission-intro'), mode === 'free' ? 'Replay any mission. Campaign saves and records stay separate.'
-    : next ? 'Your checkpoint is saved. Review the briefing and your kit, then continue.'
-      : 'Ten missions from the bloodstream to the brain. Review the briefing and your kit, then begin.');
+    : next ? 'Your checkpoint is saved. Continue, or pick any mission you have reached to replay it.'
+      : unlockedMission ? 'Begin from the bloodstream, or pick any mission you have reached. Skipped missions score nothing.'
+        : 'Ten missions from the bloodstream to the brain. Review the briefing and your kit, then begin.');
   setText(byId('deploy-go-label'), mode === 'free' ? 'Deploy' : next ? 'Continue campaign' : 'Begin campaign');
   practiceLoadout.value = mode === 'campaign' ? run.upgrade ?? 'standard' : savedPracticeLoadout();
   updatePracticeLoadout();
   for (const entry of missionEntries) {
     const index = campaignAreas.indexOf(entry.area);
+    const reach = mode === 'campaign' ? Math.max(next, unlockedMission) : 0;
     const status = mode !== 'campaign' || entry.bossPractice ? ''
-      : index < next ? 'Secured' : index === next ? 'Next' : 'Locked';
+      : index < next ? 'Secured' : index === next ? 'Next' : index <= reach ? 'Reached' : 'Locked';
     entry.button.dataset.status = status.toLowerCase();
     setText(entry.status, status);
   }
@@ -1367,7 +1392,7 @@ practiceDeploy.addEventListener('click', () => {
   const { area, bossPractice } = selectedPracticeMission;
   if (deployment.mode === 'campaign') {
     const upgrade = practiceLoadout.value === 'standard' ? null : practiceLoadout.value;
-    launch(area, { ...deployment.run, upgrade });
+    launch(area, campaignRunFor(area, { ...deployment.run, upgrade }));
   } else {
     launch(area, null, { upgrade: practiceLoadout.value, bossPractice });
   }

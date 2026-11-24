@@ -263,3 +263,4 @@ dialog.pause-panel[open]{display:grid;grid-template-columns:minmax(0,1.25fr) min
 }
 @media(prefers-reduced-motion:reduce){.menu-art,.menu-art::after,.operator-route li{animation:none!important}}
 
+[data-status="reached"] .mission-status{color:#9fd8ff}
