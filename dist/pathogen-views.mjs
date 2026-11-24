@@ -7,7 +7,7 @@ import { OBJECTIVE } from './simulation.mjs';
 import { animatePathogen, pathogenMotion } from './enemy-models.mjs';
 import { BOSS_FLOATS } from './level-bosses.mjs';
 import { membraneMaps } from './arena-textures.mjs';
-import { TAU, UP, floorHeight, addMesh } from './arena-scene.mjs';
+import { TAU, UP, floorHeight, groundLevel, baseFloorHeight, addMesh } from './arena-scene.mjs';
 
 const FORWARD = new THREE.Vector3(0, 0, 1);
 const HIT_FLASH = new THREE.Color(0xfff0e0);
@@ -52,7 +52,8 @@ function updateCrawlerView(world, enemy, view, dt, reduceMotion, charge) {
   view.stride = THREE.MathUtils.damp(view.stride ?? 0, Math.min(1, speed / 4), 10, dt);
   view.gait = (view.gait ?? view.phase) + moved * 4.2;
   view.crouch = THREE.MathUtils.damp(view.crouch ?? 0, charge, 14, dt);
-  const ground = floorHeight(enemy.x, enemy.z);
+  // The simulation already lifts the crawler onto raised ground; add only the chamber floor.
+  const ground = baseFloorHeight(enemy.x, enemy.z);
   const bob = reduceMotion ? 0 : Math.abs(Math.sin(view.gait)) * .05 * view.stride;
   view.model.position.y = enemy.y + ground - view.crouch * .14 + bob;
   view.model.rotation.set(reduceMotion ? 0 : -view.crouch * .12 + view.stride * .05, view.facing ?? enemy.heading ?? 0,
@@ -95,7 +96,7 @@ function updateBotView(world, enemy, view, dt, reduceMotion) {
     view.laser.children.forEach((mesh, index) => mesh.scale.set(firing ? index ? .026 : .075 : index ? .005 : .016,
       length, firing ? index ? .026 : .075 : index ? .005 : .016));
   }
-  view.shadow.position.set(enemy.x, floorHeight(enemy.x, enemy.z) + .1, enemy.z);
+  view.shadow.position.set(enemy.x, groundLevel(enemy.x, enemy.z, world.clock) + .1, enemy.z);
   view.shadow.scale.setScalar(enemy.radius * 1.4);
 }
 
@@ -216,7 +217,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
         view.attackMembrane.emissiveIntensity = view.membraneIntensity + view.clench * .9 + exposed + view.hit * .5;
       }
       if (!reduceMotion) animatePathogen(view.motion, dt, view.clench);
-      view.shadow.position.set(enemy.x, floorHeight(enemy.x, enemy.z) + .1, enemy.z);
+      view.shadow.position.set(enemy.x, groundLevel(enemy.x, enemy.z, world.clock) + .1, enemy.z);
       view.shadow.scale.setScalar(enemy.radius * (floats ? 1.3 : 1.8));
       continue;
     }
@@ -232,7 +233,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
         view.attackMembrane.emissiveIntensity = view.membraneIntensity + .15 + throb * 4 + view.hit * .5;
       }
       if (!reduceMotion) animatePathogen(view.motion, dt, throb * 8);
-      view.shadow.position.set(enemy.x, floorHeight(enemy.x, enemy.z) + .1, enemy.z);
+      view.shadow.position.set(enemy.x, groundLevel(enemy.x, enemy.z, world.clock) + .1, enemy.z);
       view.shadow.scale.setScalar(enemy.radius * 1.9);
       continue;
     }
@@ -274,7 +275,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       view.model.position.add(view.knock);
       view.knock.multiplyScalar(Math.exp(-dt * 9));
     }
-    view.shadow.position.set(enemy.x, floorHeight(enemy.x, enemy.z) + .1, enemy.z);
+    view.shadow.position.set(enemy.x, groundLevel(enemy.x, enemy.z, world.clock) + .1, enemy.z);
     view.shadow.scale.setScalar((enemy.radius || .9) * 1.4);
   }
   for (const [id, view] of world.enemyViews) {

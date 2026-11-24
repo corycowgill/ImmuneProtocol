@@ -1842,7 +1842,7 @@ export class Simulation {
         continue;
       }
       enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
-      enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * .24 + this.perchLift(enemy, dt);
+      enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * .24 + this.hoverLift(enemy, dt);
       const target = controller.attackTarget();
       const attacksSuit = controller.targetKey?.startsWith('player:');
       const distance = target ? Math.hypot(target.x - enemy.x, target.z - enemy.z) : Infinity;
@@ -1981,6 +1981,17 @@ export class Simulation {
     }
     enemy.perchLift = (enemy.perchLift ?? 0) + (lift - (enemy.perchLift ?? 0)) * Math.min(1, dt * 2.5);
     return enemy.perchLift;
+  }
+
+  groundUnder(point) {
+    return this.terrain?.length ? groundHeight(this.terrain, point.x, point.z, this.clock) : 0;
+  }
+
+  // How far a hovering pathogen sits above its usual height: over raised ground it floats clear
+  // of the top instead of sinking into it, and near a perched suit it rises to meet it.
+  hoverLift(enemy, dt) {
+    const perch = this.perchLift(enemy, dt);
+    return Math.max(perch, this.groundUnder(enemy));
   }
 
   launchSpore(enemy) {

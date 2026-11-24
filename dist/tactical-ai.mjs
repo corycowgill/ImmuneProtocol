@@ -326,7 +326,11 @@ export class EnemyAIController {
   move(dt, speed, stopDistance = 0) {
     const { enemy, world } = this, now = world.sim.clock;
     // Crawlers walk the floor, so raised ground is as solid to them as a clot.
-    const nav = enemy.type === 'crawler' ? world.groundNavigation : world.navigation;
+    // Crawlers go round raised ground, except to climb it after a suit standing up there (or to
+    // walk back down off it).
+    const climbing = enemy.type === 'crawler' && (world.sim.groundUnder?.(enemy) > .05 ||
+      (world.players.find(player => playerKey(player) === this.targetKey)?.feet ?? 0) > .3);
+    const nav = enemy.type === 'crawler' && !climbing ? world.groundNavigation : world.navigation;
     if (this.profile.family !== 'mutated' && enemy.encounterOrder?.until > now && !enemy.encounterOrder.reached &&
         this.targetKey?.startsWith('node:') && ['objective', 'flank'].includes(this.action)) stopDistance = 0;
     if (!this.destination || this.action === 'idle' || (this.blockedUntil ?? 0) > now) return;

@@ -181,3 +181,32 @@ test('spores lob over raised ground at a perched suit, spit splashes against it,
   for (let i = 0; i < 120; i++) sim.perchLift(virus, DT);
   assert.ok(virus.perchLift > .6, `rose ${virus.perchLift.toFixed(2)} m`);
 });
+
+test('pathogens still reach a suit up on raised ground: crawlers climb, drones and floaters rise', () => {
+  const sim = field('intestines');
+  const top = { x: 0, z: -20 };
+  Object.assign(sim.player, top);
+  for (let i = 0; i < 30; i++) sim.movePlayer(DT, {});
+  assert.ok(sim.player.feet > 2, 'standing on the terrace top');
+  // A crawler on a step rides the step, its legs on the ground.
+  const crawler = sim.createEnemy('crawler', top.x + 3, top.z, sim.nodes[0]);
+  sim.enemies.push(crawler);
+  const bot = sim.createEnemy('rogue-bot', top.x + 7, top.z + 3, sim.nodes[0]);
+  sim.enemies.push(bot);
+  const virus = sim.createEnemy('virus', top.x - 2, top.z + 2, sim.nodes[0]);
+  sim.enemies.push(virus);
+  let hits = 0, lowestVirus = Infinity, crawlerAbove = Infinity;
+  for (let i = 0; i < 60 * 12; i++) {
+    sim.events = [];
+    Object.assign(sim.player, top);
+    sim.step(DT, {});
+    hits += sim.events.filter(event => event.type === 'damage' && event.target === 'player').length;
+    sim.player.health = 100;
+    if (virus.action === 'idle') lowestVirus = Math.min(lowestVirus, virus.y - sim.groundUnder(virus));
+    crawlerAbove = Math.min(crawlerAbove, crawler.y - sim.groundUnder(crawler));
+  }
+  assert.ok(hits > 3, `the perched suit was hit ${hits} times`);
+  assert.ok(crawlerAbove > .5, 'the crawler stood on the steps, not inside them');
+  assert.ok(lowestVirus > .8, 'the virus floated clear of the terrace');
+  assert.ok(bot.y > 2.15 + 1, `the drone rose to the perch (${bot.y.toFixed(2)})`);
+});

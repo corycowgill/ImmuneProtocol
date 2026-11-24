@@ -102,9 +102,12 @@ export function stepRogueBot(sim, enemy, dt, spec, speedFactor, controller) {
     return;
   }
   enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
-  enemy.y = spec.y + Math.sin(sim.clock * 2 + enemy.id) * rules.hover;
+  // The drone hovers clear of raised ground, and rises to meet a suit standing on it.
+  if (enemy.type !== 'crawler') enemy.y = spec.y + Math.sin(sim.clock * 2 + enemy.id) * rules.hover + (sim.hoverLift?.(enemy, dt) ?? 0);
   const target = controller.targetKey?.startsWith('player:') ? controller.attackTarget() : null;
   const defensive = ['retreat', 'cover', 'evade', 'investigate', 'idle', 'patrol'].includes(controller.action);
   if (!defensive && target && enemy.attackCooldown === 0 && startBotLaser(sim, enemy, target, 'player')) return;
   controller.move(dt, spec.speed * speedFactor, target && controller.action === 'pursue' ? controller.profile.preferredDistance : 0);
+  // The crawler walks on its legs: up the stairs and over raised ground.
+  if (enemy.type === 'crawler') enemy.y = spec.y + (sim.groundUnder?.(enemy) ?? 0);
 }

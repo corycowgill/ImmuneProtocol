@@ -6,7 +6,7 @@ import { JUNCTION_GASH_SITES, JUNCTION_INLETS } from './simulation.mjs';
 import { ARENA_GROWTH } from './arena-scale.mjs';
 import { chunkInstances } from './decor-chunks.mjs';
 import { cloudTexture, membraneMaps } from './arena-textures.mjs';
-import { floorTerrainHeight, terrainFor } from './terrain.mjs';
+import { floorTerrainHeight, groundHeight, terrainFor } from './terrain.mjs';
 import { TERRAIN_LOOKS } from './terrain-view.mjs';
 
 // A full turn, and the world's up axis.
@@ -38,6 +38,11 @@ export function setTerrainArea(area) {
 // The visible floor: the undulation plus the current arena's plaque mounds.
 export function floorHeight(x, z) {
   return baseFloorHeight(x, z) + (activeTerrain.length ? floorTerrainHeight(activeTerrain, x, z) : 0);
+}
+
+// The top of whatever is underfoot, shelves and steps included: where a shadow or a walker lands.
+export function groundLevel(x, z, time = 0) {
+  return baseFloorHeight(x, z) + (activeTerrain.length ? groundHeight(activeTerrain, x, z, time) : 0);
 }
 
 // How far inside the chamber wall a point is, as a fraction of the wall's reach at that angle and
