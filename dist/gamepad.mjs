@@ -9,6 +9,8 @@ const EDGE_ENTRIES = Object.entries(EDGE_BUTTONS);
 const MOVE_DEAD_ZONE = .17;
 const LOOK_DEAD_ZONE = .19;
 const LOOK_RESPONSE = 1.6;
+// Right-stick response curves offered in Settings: exponent applied past the dead zone.
+export const LOOK_CURVES = Object.freeze({ standard: 1.6, linear: 1, precise: 2.2 });
 const CENTER = Object.freeze({ x: 0, y: 0 });
 const NO_BUTTON_EDGES = Object.freeze(Object.fromEntries(EDGE_ENTRIES.map(([action]) => [action, false])));
 const INACTIVE = Object.freeze({
@@ -62,16 +64,32 @@ export class GamepadInput {
     this.read = read;
     this.index = null;
     this.id = '';
+    this.moveDeadZone = MOVE_DEAD_ZONE;
+    this.lookDeadZone = LOOK_DEAD_ZONE;
+    this.lookResponse = LOOK_RESPONSE;
     this.reset();
+  }
+
+  // Player tuning from Settings: stick dead zones (0-1) and the right-stick response curve.
+  configure({ moveDeadZone = this.moveDeadZone, lookDeadZone = this.lookDeadZone, curve } = {}) {
+    const zone = value => Math.min(.5, Math.max(.02, Number.isFinite(value) ? value : MOVE_DEAD_ZONE));
+    this.moveDeadZone = zone(moveDeadZone);
+    this.lookDeadZone = zone(lookDeadZone);
+    if (curve) this.lookResponse = LOOK_CURVES[curve] ?? LOOK_RESPONSE;
   }
 
   reset() {
     const pad = this.index === null ? null : this.selectedPad(readMappedPads(this.read));
     this.latchOnNextPoll = !pad;
     this.blockedButtons = pad ? readButtons(pad.buttons) : 0;
-    this.blockedMove = !!pad && readStick(pad.axes, 0, MOVE_DEAD_ZONE, 1) !== CENTER;
-    this.blockedLook = !!pad && readStick(pad.axes, 2, LOOK_DEAD_ZONE, LOOK_RESPONSE) !== CENTER;
+    this.blockedMove = !!pad && readStick(pad.axes, 0, this.moveDeadZone, 1) !== CENTER;
+    this.blockedLook = !!pad && readStick(pad.axes, 2, this.lookDeadZone, this.lookResponse) !== CENTER;
     this.previousButtons = 0;
+  }
+
+  // The live Gamepad object in use, for rumble; null when none is selected.
+  currentPad() {
+    return this.index === null ? null : this.selectedPad(readMappedPads(this.read)) ?? null;
   }
 
   selectedPad(available) {
@@ -92,8 +110,8 @@ export class GamepadInput {
     if (!pad) return disconnected ? { ...INACTIVE, disconnected: true } : INACTIVE;
 
     const rawButtons = readButtons(pad.buttons);
-    let move = readStick(pad.axes, 0, MOVE_DEAD_ZONE, 1);
-    let look = readStick(pad.axes, 2, LOOK_DEAD_ZONE, LOOK_RESPONSE);
+    let move = readStick(pad.axes, 0, this.moveDeadZone, 1);
+    let look = readStick(pad.axes, 2, this.lookDeadZone, this.lookResponse);
     const active = rawButtons !== 0 || move !== CENTER || look !== CENTER;
 
     // Controls already held on a context change become eligible independently as each returns to neutral.
@@ -118,7 +136,7 @@ export class GamepadInput {
     const pressed = {};
     for (const [action, index] of EDGE_ENTRIES) pressed[action] = hasButton(buttonEdges, index);
     return {
-      connected: true, disconnected, active,
+      connected: true, disconnected, active, id: pad.id,
       moveX: move.x, moveZ: move.y ? -move.y : 0, lookX: look.x, lookY: look.y,
       menuX: useDpad ? dpadX : move.x, menuY: useDpad ? dpadY : move.y,
       fire: hasButton(buttons, HELD_BUTTONS.fire), aim: hasButton(buttons, HELD_BUTTONS.aim),
@@ -128,5 +146,29 @@ export class GamepadInput {
       // Raw masks of held buttons and of buttons pressed this poll (for player bindings).
       buttons, edges: buttonEdges,
     };
+  }
+}
+
+// Sprint on a controller: hold the button, tap it to start (it stops when you stop pushing
+// forward or aim), or sprint automatically whenever the stick is pushed all the way forward.
+export class SprintLatch {
+  constructor() {
+    this.latched = false;
+  }
+
+  reset() {
+    this.latched = false;
+  }
+
+  update(state, mode, held, pressed) {
+    if (mode === 'hold') {
+      this.latched = false;
+      return held;
+    }
+    const forward = state.moveZ > .55 && Math.hypot(state.moveX, state.moveZ) > .6;
+    if (!forward || state.aim) this.latched = false;
+    else if (pressed) this.latched = !this.latched;
+    if (mode === 'auto') return forward && !state.aim && (state.moveZ > .9 || this.latched);
+    return this.latched;
   }
 }

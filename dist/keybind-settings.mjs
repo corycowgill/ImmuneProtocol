@@ -1,6 +1,6 @@
 // The Key bindings section of the settings dialog: one row per action; press its button, then
 // the new key (Esc cancels). Also keeps every on-screen key label (field manual, HUD) in step.
-import { KEY_ACTIONS, PAD_ACTIONS, PAD_RESERVED, RESERVED_KEYS, actionKey, keyLabel, onBindsChange, padButtonOf, padLabel, resetBinds, resetPadBinds, setBind, setPadBind, bindOf } from './keybinds.mjs';
+import { KEY_ACTIONS, PAD_ACTIONS, PAD_RESERVED, RESERVED_KEYS, actionKey, keyLabel, onBindsChange, padActionKey, padButtonOf, padLabel, resetBinds, resetPadBinds, setBind, setPadBind, bindOf } from './keybinds.mjs';
 
 export function createKeybindSettings(dialog, document = globalThis.document) {
   const list = dialog.querySelector('.settings-list');
@@ -20,6 +20,12 @@ export function createKeybindSettings(dialog, document = globalThis.document) {
     }
     for (const kbd of document.querySelectorAll('[data-bind]')) {
       const text = (kbd.dataset.bindPrefix ?? '') + actionKey(kbd.dataset.bind);
+      if (kbd.textContent !== text) kbd.textContent = text;
+    }
+    // Controller labels follow both the bindings and the kind of controller in use.
+    for (const kbd of document.querySelectorAll('[data-pad], [data-pad-button]')) {
+      const label = kbd.dataset.pad ? padActionKey(kbd.dataset.pad) : padLabel(Number(kbd.dataset.padButton));
+      const text = (kbd.dataset.padPrefix ?? '') + label;
       if (kbd.textContent !== text) kbd.textContent = text;
     }
   };

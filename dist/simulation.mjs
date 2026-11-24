@@ -195,7 +195,7 @@ export const ENTRANCES = [
   [[-38, -14], [-40, -6], [-27, 40], [-34, 28]],
 ].map(route => route.map(growPoint));
 
-const TURN_SENSITIVITY = 0.00225;
+export const TURN_SENSITIVITY = 0.00225;
 const RIFLE_RANGE = 68;
 // Rockets fly no farther than this before they burst.
 const ROCKET_RANGE = 60;

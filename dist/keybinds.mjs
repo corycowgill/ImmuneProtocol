@@ -130,7 +130,32 @@ export const PAD_ACTIONS = Object.freeze([
 ].map(Object.freeze));
 export const PAD_RESERVED = Object.freeze([9]);
 const PAD_DEFAULTS = Object.fromEntries(PAD_ACTIONS.map(([action, , button]) => [action, button]));
-const PAD_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'Left stick (click)', 'Right stick (click)', 'D-pad ↑', 'D-pad ↓', 'D-pad ←', 'D-pad →', 'Guide'];
+// Button names per controller family, by standard-mapping index. Nintendo names follow the
+// printed labels, which sit in different places from Xbox's (the bottom face button is B).
+const DPAD = ['D-pad ↑', 'D-pad ↓', 'D-pad ←', 'D-pad →'];
+export const PAD_FAMILIES = Object.freeze({
+  xbox: ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'L3', 'R3', ...DPAD, 'Guide'],
+  playstation: ['✕', '○', '□', '△', 'L1', 'R1', 'L2', 'R2', 'Create', 'Options', 'L3', 'R3', ...DPAD, 'PS'],
+  nintendo: ['B', 'A', 'Y', 'X', 'L', 'R', 'ZL', 'ZR', '−', '+', 'L-stick', 'R-stick', ...DPAD, 'Home'],
+});
+let padFamily = 'xbox';
+
+// Which family a controller belongs to, from the id the browser reports.
+export function padFamilyOf(id = '') {
+  if (/054c|playstation|dualsense|dualshock|ps[345]\b/i.test(id)) return 'playstation';
+  if (/057e|nintendo|pro controller|joy-?con|switch/i.test(id)) return 'nintendo';
+  return 'xbox';
+}
+export function setPadFamily(family) {
+  const next = PAD_FAMILIES[family] ? family : 'xbox';
+  if (next === padFamily) return false;
+  padFamily = next;
+  for (const listener of listeners) listener(currentBinds());
+  return true;
+}
+export function currentPadFamily() {
+  return padFamily;
+}
 
 function loadPad() {
   const pad = { ...PAD_DEFAULTS };
@@ -148,7 +173,7 @@ export function padButtonOf(action) {
   return padBinds[action];
 }
 export function padLabel(button) {
-  return PAD_NAMES[button] ?? 'Button ' + button;
+  return PAD_FAMILIES[padFamily][button] ?? 'Button ' + button;
 }
 export function padActionKey(action) {
   return padLabel(padBinds[action]);
