@@ -128,3 +128,27 @@ test('pads without trigger motors get dual rumble, older Firefox pads a pulse, a
   broken.event({ type: 'explosion', x: 0, z: 0 }, { player });
   assert.doesNotThrow(() => broken.update(10));
 });
+
+test('light guns kick hard enough to feel: full power held while the motors spin up', () => {
+  for (const weapon of ['carbine', 'pistol']) {
+    const haptics = new Haptics(() => null);
+    haptics.update(0);
+    haptics.event({ type: 'shot', weapon, hit: false }, { player });
+    const start = haptics.update(1);
+    const held = haptics.update(38);
+    assert.ok(start.strong >= .6 && start.weak >= .9, weapon + ' starts strong');
+    assert.ok(Math.abs(held.strong - start.strong) < .01, weapon + ' still at full power after 38 ms');
+    assert.ok(haptics.update(WEAPON_KICK[weapon].ms + 1)?.strong === 0 || WEAPON_KICK[weapon].ms < 118);
+  }
+});
+
+test('the vibration slider can boost past 100%', () => {
+  const normal = new Haptics(() => null);
+  const boosted = new Haptics(() => null);
+  boosted.configure({ intensity: 1.5 });
+  for (const haptics of [normal, boosted]) {
+    haptics.update(0);
+    haptics.event({ type: 'shot', weapon: 'carbine', hit: false }, { player });
+  }
+  assert.ok(boosted.update(5).strong > normal.update(5).strong);
+});

@@ -14,20 +14,34 @@ const REFRESH_MS = 34;
 const CHANNELS = ['strong', 'weak', 'left', 'right'];
 const SILENT = Object.freeze({ strong: 0, weak: 0, left: 0, right: 0 });
 
-// Per-weapon recoil feel. Automatic weapons stay short so their rate of fire comes through.
+// Per-weapon recoil feel. Automatic weapons stay short enough to end before the next round
+// (the carbine fires every 118 ms) so their rate of fire comes through as separate punches, but
+// each kick holds full power long enough for the grip motors to spin up and be felt.
 export const WEAPON_KICK = Object.freeze({
-  carbine: { strong: .2, weak: .5, right: .42, ms: 58 },
-  pistol: { strong: .1, weak: .62, right: .55, ms: 46 },
-  shotgun: { strong: 1, weak: .62, right: .95, ms: 150, attack: 4 },
-  sniper: { strong: 1, weak: .5, right: 1, ms: 190, attack: 6 },
-  launcher: { strong: .75, weak: .28, right: .8, ms: 170, attack: 12 },
+  carbine: { strong: .62, weak: .9, right: .8, ms: 92, hold: 45 },
+  pistol: { strong: .5, weak: 1, right: .9, ms: 85, hold: 40 },
+  shotgun: { strong: 1, weak: .8, right: 1, ms: 190, attack: 4, hold: 70 },
+  sniper: { strong: 1, weak: .7, right: 1, ms: 230, attack: 6, hold: 80 },
+  launcher: { strong: .9, weak: .4, right: .9, ms: 210, attack: 12, hold: 60 },
 });
+
+// Rumble motors barely move below about a tenth of their power and feel weak until well past
+// half, so every non-zero level is lifted onto a curve that starts where the motor does.
+const MOTOR_FLOOR = .14;
+export function motorLevel(value) {
+  if (!(value > .01)) return 0;
+  return Math.min(1, MOTOR_FLOOR + (1 - MOTOR_FLOOR) * value ** .7);
+}
+// Every effect holds full power at least this long (or half its length, if shorter) before fading.
+const MIN_HOLD = 35;
 
 function level(effect, t) {
   if (t < 0 || t >= effect.ms) return 0;
   const attack = effect.attack ?? 0;
   if (t < attack) return t / attack;
-  const fall = (t - attack) / Math.max(1, effect.ms - attack);
+  const hold = effect.hold ?? Math.min(MIN_HOLD, (effect.ms - attack) / 2);
+  if (t < attack + hold) return 1;
+  const fall = (t - attack - hold) / Math.max(1, effect.ms - attack - hold);
   return effect.flat ? 1 : (1 - fall) ** (effect.curve ?? 1.6);
 }
 
@@ -43,7 +57,7 @@ export class Haptics {
     this.getPad = getPad;
     this.effects = [];
     this.intensity = 1;
-    this.triggerIntensity = .7;
+    this.triggerIntensity = 1;
     this.enabled = true;
     this.now = 0;
     this.sentAt = -Infinity;
@@ -53,7 +67,7 @@ export class Haptics {
   }
 
   configure({ intensity = this.intensity, triggers = this.triggerIntensity } = {}) {
-    this.intensity = clamp01(intensity);
+    this.intensity = Math.min(1.5, Math.max(0, Number.isFinite(intensity) ? intensity : 1));
     this.triggerIntensity = clamp01(triggers);
     if (!this.intensity) this.stop();
   }
@@ -83,21 +97,21 @@ export class Haptics {
         const kick = WEAPON_KICK[event.weapon] ?? WEAPON_KICK.carbine;
         // Pellets after the first share one kick; hits still tick below.
         if (!event.pellet) {
-          const steady = this.aiming ? .82 : 1; // Aiming down sights braces the weapon.
-          this.add({ strong: kick.strong * steady, weak: kick.weak * steady, right: kick.right, ms: kick.ms, attack: kick.attack });
+          const steady = this.aiming ? .9 : 1; // Aiming down sights braces the weapon.
+          this.add({ strong: kick.strong * steady, weak: kick.weak * steady, right: kick.right, ms: kick.ms, attack: kick.attack, hold: kick.hold });
           if (event.weapon === 'sniper') this.add({ strong: .35, weak: 0, ms: 260, curve: 2.4 }, 40); // Long tail of the heavy round.
         }
         if (event.hit && !event.rocket) {
           // Hit confirm: a light, high tick; a weak point lands sharper.
-          this.add(event.crit ? { weak: .55, strong: .12, ms: 38 } : { weak: .3, ms: 26 }, 16);
+          this.add(event.crit ? { weak: .85, strong: .45, ms: 70 } : { weak: .6, strong: .2, ms: 55 }, 16);
         }
         break;
       }
       case 'kill':
         if (event.source === 'turret' || event.source === 'immune') break;
         // Kill confirm: a quick double thunk.
-        this.add({ strong: .45, weak: .5, ms: 55 }, 20);
-        this.add({ strong: .3, weak: .35, ms: 70 }, 105);
+        this.add({ strong: .75, weak: .7, ms: 75 }, 20);
+        this.add({ strong: .55, weak: .5, ms: 90 }, 130);
         break;
       case 'explosion': {
         const force = clamp01(near(.11) * (event.kind === 'antibody' ? 1 : 1.1));
@@ -130,7 +144,7 @@ export class Haptics {
         this.add({ strong: .18, ms: 320, curve: 1.2 }, 90);
         break;
       case 'jump':
-        this.add({ weak: .16, ms: 45 });
+        this.add({ weak: .3, ms: 55 });
         break;
       case 'land': {
         const force = clamp01(.15 + (event.speed ?? 0) * .07);
@@ -149,15 +163,15 @@ export class Haptics {
       case 'reload':
         // Magazine out on the start, the slap of the fresh one seating on completion.
         if (event.stage === 'complete') {
-          this.add({ strong: .32, weak: .45, ms: 60 });
-          this.add({ weak: .2, ms: 30 }, 90);
-        } else this.add({ weak: .24, ms: 38 });
+          this.add({ strong: .55, weak: .6, ms: 80 });
+          this.add({ weak: .4, ms: 50 }, 110);
+        } else this.add({ weak: .45, strong: .15, ms: 60 });
         break;
       case 'dry':
-        this.add({ right: .35, weak: .08, ms: 28 });
+        this.add({ right: .6, weak: .3, ms: 50 });
         break;
       case 'swap':
-        this.add({ weak: .2, strong: .08, ms: 45 });
+        this.add({ weak: .4, strong: .2, ms: 65 });
         break;
       case 'turret':
         if (event.stage === 'deployed' || event.stage === 'redeployed' || event.stage === 'moved') {
@@ -218,7 +232,7 @@ export class Haptics {
   update(now, { health = 100, maxHealth = 100, aiming = false, alive = true } = {}) {
     this.now = now;
     // Raising the sights clicks the left trigger, like the scope trigger in Call of Duty.
-    if (aiming && !this.aiming) this.add({ left: .4, weak: .1, ms: 40 });
+    if (aiming && !this.aiming) this.add({ left: .6, weak: .25, ms: 55 });
     this.aiming = aiming;
 
     // Heartbeat below a third of the suit: lub-dub, faster as it drops.
@@ -244,7 +258,8 @@ export class Haptics {
     }
     this.effects.length = count;
     for (const channel of CHANNELS) {
-      mix[channel] = clamp01(mix[channel] * this.intensity * (channel === 'left' || channel === 'right' ? this.triggerIntensity : 1));
+      const scale = this.intensity * (channel === 'left' || channel === 'right' ? this.triggerIntensity : 1);
+      mix[channel] = scale > 0 ? clamp01(motorLevel(mix[channel]) * scale) : 0;
     }
     return this.send(mix, now);
   }
