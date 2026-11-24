@@ -108,7 +108,8 @@ export class World {
     side.position.set(11, 4.6, -11);
     this.scene.add(side);
     // The muzzle flash lights the tissue around the suit.
-    this.shotLight = new THREE.PointLight(0xffc48a, 0, 15, 2);
+    // Reaches the floor and walls around the suit, not pathogens across the room (they strobed).
+    this.shotLight = new THREE.PointLight(0xffc48a, 0, 7, 2);
     this.scene.add(this.shotLight);
     this.explosions = new ExplosionFX(this.scene, { floorHeight, burst: (...args) => this.burst(...args) });
     this.deaths = new DeathFX(this);
@@ -281,7 +282,7 @@ export class World {
     // Tracer streaks for the suit's own fire, a teammate's and the turret's (shot-fx.mjs).
     this.tracers = new TracerPool(this.scene, 96);
     // Short stretched spurts of a pathogen's fluid when it is hit (impact-fx.mjs).
-    this.sprays = new TracerPool(this.scene, 96, 1.7);
+    this.sprays = new TracerPool(this.scene, 128, 1, true);
     this.shotMaterial = 0xd6ffc4;
     this.teammateShotMaterial = 0xbcefff;
     this.turretShotMaterial = 0xffc27e;
@@ -800,7 +801,7 @@ export class World {
       this.particlePositions[index] = particle.x;
       this.particlePositions[index + 1] = particle.y;
       this.particlePositions[index + 2] = particle.z;
-      const glow = fade * (1 + fade * .9);
+      const glow = fade * (1 + fade * .45);
       this.particleColors[index] = particle.r * glow;
       this.particleColors[index + 1] = particle.g * glow;
       this.particleColors[index + 2] = particle.b * glow;
@@ -904,7 +905,8 @@ export class World {
         if (event.type === 'guard' && event.stage === 'block') {
           const guard = this.enemyViews.get(event.id);
           if (guard) guard.strike = .23;
-          this.burst(event.x, event.y, event.z, 0xfce5a9, 8, 2.0);
+          // Deflected rounds spark off the shell; kept small so sustained fire doesn't bleach it.
+          this.burst(event.x, event.y, event.z, 0xc9a978, 4, 2.4);
         }
         if (event.type === 'boss') {
           if (event.stage === 'block') this.burst(event.x, event.y, event.z, 0xe6dbbd, 7, 1.7);

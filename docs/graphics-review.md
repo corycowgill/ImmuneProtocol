@@ -58,7 +58,8 @@ What the graphics sprint changed, per catalog item. Items not listed were left f
 | V-04 | Done | Lens fringe .0005 → .00014. |
 | V-05 | Done | Vessel clearcoat roughened so the curved highlight no longer streaks. |
 | V-07 | Done | Bloom .55 → .7; flashes, tracers, sight reticles and the spore halo are HDR. |
-| V-01 | Partly | Spray particles have individual sizes that shrink as they fade, fluid drag and an HDR start. |
+| V-01 | Done | Spray particles have individual sizes that shrink as they fade, fluid drag and an HDR start; every hit also flings short, thick droplet streaks of the pathogen's fluid back toward the shooter and out the far side (a liquid, normally blended ribbon pool). |
+| N-05 | Done | Found while checking hits: sustained fire strobed large pathogens white because the muzzle light reached 15 m at high strength. It now lights only the floor and walls around the suit (7 m, about a fifth of the strength), and deflected-round sparks are smaller. |
 | L-01 | Done | Cooler bloodstream fill light, less chroma in fog and mist, cool-shadow and warm-highlight split toning in the finishing pass (per-arena `shadowTone` / `highlightTone`). |
 | L-02 | Done | Rougher floor coat, artery bulb 310 → 200, exposure 1.18 → 1.14. |
 | L-03 | Partly | Brighter ground hemisphere colour in the bloodstream arenas. |

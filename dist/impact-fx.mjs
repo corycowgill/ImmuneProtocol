@@ -253,13 +253,14 @@ export class ImpactFX {
       const count = Math.min(9, 4 + Math.round(damage / 15)) + (critical ? 3 : 0);
       const fluid = recipe?.flash ?? gore;
       for (let i = 0; i < count; i++) {
-        const back = i % 3 !== 2 ? -1 : 1, reach = (.6 + Math.random() * .8) * (critical ? 1.4 : 1);
+        const back = i % 3 !== 2 ? -1 : 1, reach = (.25 + Math.random() * .45) * (critical ? 1.4 : 1);
         this.point.set(impact.x, impact.y, impact.z);
         this.normal.copy(this.direction).multiplyScalar(back * .8)
           .add(this.scale.set(Math.random() - .5, Math.random() * .9 - .15, Math.random() - .5)).normalize();
         const end = this.point.clone().addScaledVector(this.normal, reach);
         end.y -= reach * reach * .35;
-        world.sprays.add(this.point, end, i % 2 ? fluid : gore, .2 + Math.random() * .1, .04 + Math.random() * .035, reach * .75);
+        // Short, thick and mostly the darker fluid: droplets flung off, not rays.
+        world.sprays.add(this.point, end, i % 3 ? gore : fluid, .22 + Math.random() * .1, .07 + Math.random() * .06, reach * .55);
       }
     }
     // Heavy hits knock fragments loose.
