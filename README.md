@@ -186,6 +186,8 @@ All pathogen models load while the startup screen prepares the arenas. A missing
 
 Fifty-six achievements, worth 1,000 points in all, work like console achievements and trophies. Each has its own artwork, a tier (**bronze**, **silver**, **gold** or **platinum**) and a score. When you earn one, an **Achievement unlocked** banner pops in with the art, the trophy and the score, plays a chime and a light rumble, then folds away; several in a row queue up. In a mission it sits under the wave panel, clear of the crosshair; in menus it appears low in the centre. Earn every other achievement for the platinum, **Immune Protocol**.
 
+See [every tile](docs/achievement-artwork.png).
+
 Open **Achievements** from the main menu or the pause screen. The overview shows your completion ring, score and trophy count per tier, what you earned most recently and what you are closest to; tabs (or a picker on narrow screens) group the rest into Campaign, Combat, Bosses, Field ops and Mastery. Locked achievements show their art dimmed under a lock, and counting ones show a progress bar. Select one for large art, its tier, score and date earned. Two are hidden until you earn them.
 
 | Category | Examples |
