@@ -65,7 +65,6 @@ What the graphics sprint changed, per catalog item. Items not listed were left f
 | L-03 | Partly | Brighter ground hemisphere colour in the bloodstream arenas. |
 | L-04 | Done | Lungs: slightly more contrast, less and shorter-reaching mist, a little less magenta. |
 | E-01 | Done | The lump at the bottom of the view was a platelet lying just behind the bloodstream insertion point; platelets now keep 3.5 m clear of it. Drifting red cells also shrink away within about two metres of the camera so they can't fill the lens. |
-| E-04 | Done | Each tissue node has a health ring draped over the floor around it, in the node's HUD colour: a ticked arc that drains clockwise with health over a faint track, pulsing red while the node is under attack or below about 40%. |
 | L-05 | Done | Raised ridges and shelves sample the tissue texture at two scales and angles (albedo and normals), so its swirl bands no longer repeat along a ridge as wood grain. |
 | V-03 | Done | Smoke and hit-mist puffs use a domain-warped noise texture with a ragged edge and denser core instead of soft round blobs. |
 | E-02 | Done | Platelets darker and wetter (amber, not beige gravel). |
