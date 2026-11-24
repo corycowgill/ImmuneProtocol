@@ -9,8 +9,8 @@ function noise(x, y, z) {
 }
 
 const plaque = () => new THREE.MeshPhysicalMaterial({
-  vertexColors: true, roughness: .42, metalness: 0, clearcoat: .55, clearcoatRoughness: .3,
-  sheen: .4, sheenColor: new THREE.Color(0xffe2b8), sheenRoughness: .6,
+  vertexColors: true, roughness: .5, metalness: 0, clearcoat: .35, clearcoatRoughness: .35,
+  sheen: .25, sheenColor: new THREE.Color(0xd9a070), sheenRoughness: .6,
 });
 
 function colorize(geometry, top) {
@@ -22,9 +22,9 @@ function colorize(geometry, top) {
     const n = noise(x * 1.3, y * 1.3, z * 1.3);
     // Fatty yellow on top, blushing to tissue red where it meets the floor, with darker streaks.
     const up = THREE.MathUtils.clamp(y / Math.max(.1, top), 0, 1);
-    color.setRGB(.86 + n * .08, .58 + up * .2 + n * .06, .4 + up * .12);
-    if (n > .38) color.multiplyScalar(.82);
-    color.lerp(new THREE.Color(.62, .26, .24), (1 - up) * .55);
+    color.setRGB(.6 + n * .07, .36 + up * .12 + n * .05, .2 + up * .06);
+    if (n > .38) color.multiplyScalar(.78);
+    color.lerp(new THREE.Color(.45, .14, .12), (1 - up) * .6);
     color.toArray(colors, i * 3);
   }
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));

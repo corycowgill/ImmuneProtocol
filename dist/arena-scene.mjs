@@ -93,7 +93,7 @@ export function shapeFloor(geometry) {
     const rim = Math.max(0, Math.hypot(x / CHAMBER_WIDTH, z / CHAMBER_DEPTH) - .45);
     color.setRGB(.92 + p * .12 - rim * .23, .74 + p * .12 - rim * .2, .69 + p * .12 - rim * .13);
     const plaque = activeTerrain.length ? Math.min(1, floorTerrainHeight(activeTerrain, x, z) / .9) : 0;
-    if (plaque > 0) color.lerp(PLAQUE.setRGB(1.02 + p * .06, .86 + p * .05, .58), plaque * .7);
+    if (plaque > 0) color.lerp(PLAQUE.setRGB(.96 + p * .06, .72 + p * .05, .46), plaque * .6);
   });
 }
 const PLAQUE = new THREE.Color();
