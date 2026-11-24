@@ -9,7 +9,7 @@ import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-o
 import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
-import { groundHeight, terrainFor, terrainFootprints } from './terrain.mjs';
+import { HAZARD_CLEARANCE, RESONANCE_CLEARANCE, groundHeight, onMovingGround, terrainFor, terrainFootprints } from './terrain.mjs';
 import { abilityState, dodges, knockBack, moveAbilities, settleOnTerrain, restockThrowables, throwItems, updateThrowables, useMelee } from './abilities.mjs';
 import {
   DEFAULT_WEAPON_STATS, WEAPON_SLOTS, TURRET_BASE, legacyWeaponLoadout, normalizeTurretBuild, turretStats, loadoutInSlot, magazineCapacity, normalizeWeaponLoadout,
@@ -390,9 +390,12 @@ export class Simulation {
     const { x, z, yaw } = player;
     const point = { x: x - Math.sin(yaw) * 2.2, y: 0, z: z - Math.cos(yaw) * 2.2 };
     // It stands on raised ground too, but only where its tripod sits level (not across an edge).
-    point.y = groundHeight(this.terrain ?? [], point.x, point.z);
+    const pieces = this.terrain ?? [];
+    // Not on a breathing platform: the tripod needs ground that stays put.
+    if (onMovingGround(pieces, point.x, point.z)) return null;
+    point.y = groundHeight(pieces, point.x, point.z, this.clock);
     for (const [dx, dz] of [[.7, 0], [-.7, 0], [0, .7], [0, -.7]]) {
-      if (Math.abs(groundHeight(this.terrain ?? [], point.x + dx, point.z + dz) - point.y) > .2) return null;
+      if (Math.abs(groundHeight(pieces, point.x + dx, point.z + dz, this.clock) - point.y) > .2) return null;
     }
     if (this.valve && (Math.abs(point.x) > HEART_MAX_PLAYER_X - .65 ||
       point.z < HEART_MIN_PLAYER_Z + .65 || point.z > HEART_MAX_PLAYER_Z - .65)) return null;
@@ -1053,6 +1056,9 @@ export class Simulation {
     const { player } = suit;
     const { organ } = this;
     if (!withinHazard(player, organ)) return;
+    // High enough on raised ground, the acid, contraction or squeeze passes beneath the suit.
+    const clearance = HAZARD_CLEARANCE[this.area];
+    if (clearance != null && (player.feet ?? 0) >= clearance) return;
     const { push, pushX, damage } = this.organMission.hazard;
     if (push) {
       player.z += push * dt;
@@ -1320,7 +1326,8 @@ export class Simulation {
     turret.cooldown = Math.max(0, turret.cooldown - dt);
     if (turret.carried) return;
     if (this.area === 'ear') {
-      turret.jammed = this.organ.phase === 'active' && withinHazard(turret, this.organ);
+      // The cochlea's perch stands above the resonance.
+      turret.jammed = this.organ.phase === 'active' && withinHazard(turret, this.organ) && (turret.y ?? 0) < RESONANCE_CLEARANCE;
       if (turret.jammed) {
         turret.targetId = null;
         return;

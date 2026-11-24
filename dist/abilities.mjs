@@ -99,7 +99,7 @@ export function settleOnTerrain(sim, suit, fromX, fromZ, dt) {
   const state = abilityState(suit);
   state.eye ??= player.y;
   const pieces = sim.terrain ?? [];
-  const ground = (x, z) => groundHeight(pieces, x, z);
+  const ground = (x, z) => groundHeight(pieces, x, z, sim.clock ?? 0);
   // Feet clear an edge only if they are already (nearly) above it.
   const reach = state.feet + (state.airborne ? .05 : STEP_HEIGHT);
   if (ground(player.x, player.z) > reach) {
@@ -262,6 +262,11 @@ export function updateThrowables(sim, dt) {
   for (const item of sim.throwables) {
     item.age += dt;
     item.fuse -= dt;
+    // Something resting on a breathing platform rides it up and down.
+    if (item.rest && !item.stuck) {
+      const rest = groundHeight(sim.terrain ?? [], item.x, item.z, sim.clock) + REST_HEIGHT;
+      if (Math.abs(rest - item.y) > .005) item.y = rest;
+    }
     if (!item.rest) {
       item.vy -= GRAVITY * dt;
       const fromX = item.x;
@@ -273,14 +278,14 @@ export function updateThrowables(sim, dt) {
       let bounced = bounceOff(sim, item);
       // Struck the side of raised ground: knock it back off the edge.
       const pieces = sim.terrain ?? [];
-      if (groundHeight(pieces, item.x, item.z) > item.y + .1) {
+      if (groundHeight(pieces, item.x, item.z, sim.clock) > item.y + .1) {
         item.x = fromX;
         item.z = fromZ;
         item.vx *= -.45;
         item.vz *= -.45;
         bounced = true;
       }
-      const rest = groundHeight(pieces, item.x, item.z) + REST_HEIGHT;
+      const rest = groundHeight(pieces, item.x, item.z, sim.clock) + REST_HEIGHT;
       if (item.y < rest) {
         const impact = -item.vy;
         item.y = rest;

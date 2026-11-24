@@ -7,6 +7,7 @@ import { ARENA_GROWTH } from './arena-scale.mjs';
 import { chunkInstances } from './decor-chunks.mjs';
 import { cloudTexture, membraneMaps } from './arena-textures.mjs';
 import { floorTerrainHeight, terrainFor } from './terrain.mjs';
+import { TERRAIN_LOOKS } from './terrain-view.mjs';
 
 // A full turn, and the world's up axis.
 export const TAU = Math.PI * 2;
@@ -28,8 +29,10 @@ export function baseFloorHeight(x, z) {
 
 // The arena whose raised ground (terrain.mjs) the floor currently carries.
 let activeTerrain = [];
+let activeLook = TERRAIN_LOOKS.artery;
 export function setTerrainArea(area) {
   activeTerrain = terrainFor(area);
+  activeLook = TERRAIN_LOOKS[area] ?? TERRAIN_LOOKS.artery;
 }
 
 // The visible floor: the undulation plus the current arena's plaque mounds.
@@ -93,7 +96,7 @@ export function shapeFloor(geometry) {
     const rim = Math.max(0, Math.hypot(x / CHAMBER_WIDTH, z / CHAMBER_DEPTH) - .45);
     color.setRGB(.92 + p * .12 - rim * .23, .74 + p * .12 - rim * .2, .69 + p * .12 - rim * .13);
     const plaque = activeTerrain.length ? Math.min(1, floorTerrainHeight(activeTerrain, x, z) / .9) : 0;
-    if (plaque > 0) color.lerp(PLAQUE.setRGB(.96 + p * .06, .72 + p * .05, .46), plaque * .6);
+    if (plaque > 0) color.lerp(PLAQUE.setRGB(...activeLook[0]).multiplyScalar(1.45 + p * .08), plaque * .55);
   });
 }
 const PLAQUE = new THREE.Color();

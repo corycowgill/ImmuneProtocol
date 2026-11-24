@@ -325,7 +325,7 @@ export class World {
       setTerrainArea(this.area);
       shapeFloor(this.room.floor.geometry);
       this.terrainView?.removeFromParent();
-      this.terrainView = this.terrainViews.get(this.area) ?? createTerrainView(terrainFor(this.area), baseFloorHeight);
+      this.terrainView = this.terrainViews.get(this.area) ?? createTerrainView(terrainFor(this.area), baseFloorHeight, this.area);
       this.terrainViews.set(this.area, this.terrainView);
       this.scene.add(this.terrainView);
     }
@@ -936,6 +936,7 @@ export class World {
     // turret.y is the raised ground it stands on; the floor's own undulation goes on top.
     this.turretView.update(turret, turret ? baseFloorHeight(turret.x, turret.z) : 0, dt, reduceMotion);
     this.abilityFx.update(sim, this.camera, dt, reduceMotion, this.enemyViews);
+    this.terrainView?.userData.update?.(sim.clock ?? 0);
     const { weaponLoadout, tutorial } = sim;
     if (weaponLoadout !== this.weaponSource || tutorial !== this.weaponTutorial) {
       this.setWeaponLoadout(tutorial ? {

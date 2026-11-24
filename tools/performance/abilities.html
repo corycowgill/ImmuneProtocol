@@ -13,12 +13,13 @@ const status = document.querySelector('#status');
 try {
   const world = new World(document.querySelector('#world'));
   if (new URL(location.href).searchParams.has('low')) world.setQuality('low');
-  await world.prepareAll(['artery']);
+  const area = new URL(location.href).searchParams.get('area') ?? 'artery';
+  await world.prepareAll([area]);
   let sim;
   const idle = () => ({ moveX: 0, moveZ: 0, lookX: 0, lookY: 0 });
   function reset() {
     sim?.ai.dispose();
-    sim = new Simulation('artery', { ai: { seed: 7 }, encounterSeed: 7 });
+    sim = new Simulation(area, { ai: { seed: 7 }, encounterSeed: 7 });
     sim.start();
     sim.tutorial = null;
     sim.phase = 'combat';

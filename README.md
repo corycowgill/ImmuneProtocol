@@ -276,7 +276,20 @@ git subtree push --prefix=dist origin gh-pages
 
 ### Raised ground
 
-The Arterial Junction now has real height. A plaque overlook with a walkable ramp sits beside each tissue node. A tall plaque shelf in the middle of the chamber is too high to step onto, so jump up for a view over all three nodes. Low plaque ridges cross the inlet lanes: hop over them or stand on them. The suit walks up steps under 0.42 m and up ramps, jumps onto anything up to about 1.1 m, and drops off edges. Crawlers walk the floor and must go around raised ground, so high ground keeps them off you. Floating pathogens drift over it. Grenades and stun charges bounce off its edges and settle on top. A turret placed on raised ground gains 12% range per metre of height. Raised ground is defined per arena in `dist/terrain.mjs`; other arenas get theirs in a later phase.
+The Arterial Junction now has real height. A plaque overlook with a walkable ramp sits beside each tissue node. A tall plaque shelf in the middle of the chamber is too high to step onto, so jump up for a view over all three nodes. Low plaque ridges cross the inlet lanes: hop over them or stand on them. The suit walks up steps under 0.42 m and up ramps, jumps onto anything up to about 1.1 m, and drops off edges. Crawlers walk the floor and must go around raised ground, so high ground keeps them off you. Floating pathogens drift over it. Grenades and stun charges bounce off its edges and settle on top. A turret placed on raised ground gains 12% range per metre of height. Every arena has raised ground, defined in `dist/terrain.mjs`, and in five of them it changes how the hazard plays:
+
+| Arena | Raised ground |
+| --- | --- |
+| Arterial Junction | Plaque overlooks beside each node, a jump-up shelf in the middle, low ridges on the inlet lanes. |
+| Capillary Junction | Overlooks outside both nodes, a shelf between them, ridges on the way in. |
+| Heart Valve | A balcony to shoot down through the valve from, and a rise by the side node. |
+| Lungs | Alveolar platforms that rise and fall about 0.8 m with every breath (no turret on them), and bronchial ridges along the airway. |
+| Stomach | Four rugae islands across the acid pool, a jump apart. Standing on one keeps you out of the acid. |
+| Intestines | Two stepped villus terraces you can walk up. Their crowns stand above the contraction. |
+| Colon | Haustral folds you can climb to ride out the squeeze. |
+| Lymph Node | A three-tier lookout in the middle of the follicle. |
+| Inner Ear | The cochlea: a spiral stair to a 2.5 m perch. A turret on the perch stands above the resonance and never jams. |
+| Neural Cortex | A walkway of raised synapse pads between the nodes, each a jump apart. |
 
 The grenade and stun counts and the dash and bash charge bars sit above your suit integrity. In co-op each suit has its own abilities.
 
