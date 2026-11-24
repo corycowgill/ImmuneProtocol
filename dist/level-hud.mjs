@@ -3,6 +3,7 @@
 // difficulty picker on the deployment screen.
 import { Simulation } from './simulation.mjs';
 import { DIFFICULTIES, applyDifficulty, normalizeDifficulty } from './difficulty.mjs';
+import { readSetting, writeSetting } from './settings-store.mjs';
 
 const DIFFICULTY_KEY = 'immune-protocol.difficulty';
 
@@ -72,7 +73,7 @@ function renameIds(root, from, to) {
 }
 
 export function currentDifficulty() {
-  try { return normalizeDifficulty(localStorage.getItem(DIFFICULTY_KEY)); } catch { return normalizeDifficulty(); }
+  return normalizeDifficulty(readSetting(DIFFICULTY_KEY));
 }
 
 // Solo missions pick up the menu's difficulty when they start. Co-op suits are driven by the server.
@@ -130,7 +131,7 @@ function installDifficultyPicker(document) {
   });
   const select = id => {
     selected = id;
-    try { localStorage.setItem(DIFFICULTY_KEY, id); } catch { /* Private browsing may block storage. */ }
+    writeSetting(DIFFICULTY_KEY, id);
     for (const button of buttons) {
       const checked = button.dataset.difficulty === id;
       button.setAttribute('aria-checked', String(checked));
@@ -167,6 +168,8 @@ function installDifficultyPicker(document) {
   picker.append(label, options, detail);
   mount.append(picker);
   select(selected);
+  // Each operator profile keeps its own difficulty.
+  addEventListener('immune-protocol:profile', () => select(currentDifficulty()));
 }
 
 export function installLevelHud(document) {

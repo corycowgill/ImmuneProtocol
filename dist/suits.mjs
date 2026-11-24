@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import { loadModel } from './asset-loading.mjs';
 import { COOP_SUITS, DEFAULT_COOP_SUIT } from './coop-protocol.mjs';
+import { readSetting, writeSetting } from './settings-store.mjs';
 
 // Co-op suit catalog. The photoreal suits are TRELLIS scans refined, baked and cut
 // into rig joints in Blender by tools/trellis/process.py (dist/assets/suits/<id>.glb).
@@ -38,11 +39,11 @@ export const RIG_JOINTS = Object.freeze(['hips', 'upper', 'head',
 const SUIT_KEY = 'immune-protocol.coop-suit';
 
 export function savedSuit() {
-  try { return normalizeSuit(localStorage.getItem(SUIT_KEY)); } catch { return DEFAULT_COOP_SUIT; }
+  return normalizeSuit(readSetting(SUIT_KEY));
 }
 
 export function saveSuit(id) {
-  try { localStorage.setItem(SUIT_KEY, normalizeSuit(id)); } catch { /* Storage can be disabled. */ }
+  writeSetting(SUIT_KEY, normalizeSuit(id));
 }
 
 const glbModels = new Map();

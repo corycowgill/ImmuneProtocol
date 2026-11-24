@@ -129,6 +129,7 @@ export function parseRecord(text) {
 export class AchievementTracker {
   // load(): the saved JSON text or null; save(text): persist it; now(): a timestamp for unlocks.
   constructor({ load = () => null, save = () => {}, now = () => Date.now() } = {}) {
+    this.loadText = load;
     this.saveText = save;
     this.now = now;
     this.record = parseRecord(load());
@@ -201,6 +202,15 @@ export class AchievementTracker {
     if (!this.dirty) return;
     this.dirty = false;
     try { this.saveText(JSON.stringify(this.record)); } catch { /* Storage may be unavailable. */ }
+  }
+
+  // Reads the saved record again, after the player switches operator profile. Anything unsaved
+  // belongs to the previous profile, so save it first.
+  reload() {
+    this.flush();
+    this.record = parseRecord(this.loadText());
+    this.run = null;
+    this.dirty = false;
   }
 
   reset() {

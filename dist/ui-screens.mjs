@@ -50,7 +50,7 @@ export function buildUiScreen(model, size, safe, state, measure) {
     ui.flow([text(model.status, 13, T.muted), { kind: 'meter', text: model.failed ? 'PREPARATION INTERRUPTED' : 'PREPARING INSERTION', value: model.progress, detail: model.progress + '%', color: model.failed ? T.hot : T.green, thick: 5, glowHead: true }, ...(model.failed ? [button('loading:retry', 'Retry loading', { primary: true, icon: 'reset' })] : [text(model.quote, 12, T.muted)])], { x, y: py, w: width, h: h - py - bottom }, full);
   } else if (model.type === 'menu') buildMenu(ui, model, area, full, size);
   else if (model.type === 'combat') buildCombat(ui, model, area, full, size, state, measure);
-  else if (['new-campaign-dialog', 'ui-recovery'].includes(model.id)) buildConfirmation(ui, model, area, full, size);
+  else if (['new-campaign-dialog', 'profile-delete-dialog', 'ui-recovery'].includes(model.id)) buildConfirmation(ui, model, area, full, size);
   else buildDialog(ui, model, area, full, size, state, measure);
   if (state.popup) {
     const popup = state.popup, start = ui.draw.length, pw = Math.min(620, area.w), px = (w - pw) / 2;
@@ -69,7 +69,14 @@ export function buildUiScreen(model, size, safe, state, measure) {
 function buildMenu(ui, model, area, full, size) {
   const { w, h } = size, { x, y: top } = area, landscape = w > h && h < 540, phone = w < 600;
   ui.add({ kind: 'icon', icon: 'shield', color: T.green }, { x, y: top + 5, w: 28, h: 28 });
-  ui.add({ ...text(phone ? 'HALLUCINATED GAMES' : 'HALLUCINATED GAMES / NANO RESPONSE', 10, T.muted), tracking: 1.1, ...(model.brand ? { id: model.brand.id, action: model.brand.action, label: 'Visit Hallucinated Games' } : {}) }, { x: x + 40, y: top + 7, w: Math.max(140, area.w - 152), h: 44 });
+  // The active operator, left of the audio and settings buttons; on phones just the emblem.
+  let brandRoom = 0;
+  if (model.profile) {
+    const chipW = phone ? 44 : Math.min(250, Math.max(150, ui.measure(model.profile.name ?? '', 15, 800) + 96));
+    ui.add({ ...model.profile, kind: 'profile-chip', compact: phone }, { x: x + area.w - 104 - chipW, y: top, w: chipW, h: 44 });
+    brandRoom = chipW + 8;
+  }
+  ui.add({ ...text(phone ? 'HALLUCINATED GAMES' : 'HALLUCINATED GAMES / NANO RESPONSE', 10, T.muted), tracking: 1.1, ...(model.brand ? { id: model.brand.id, action: model.brand.action, label: 'Visit Hallucinated Games' } : {}) }, { x: x + 40, y: top + 7, w: Math.max(100, area.w - 152 - brandRoom), h: 44 });
   ui.add({ ...model.mute, icon: model.mute?.selected ? 'muted' : 'volume', iconOnly: true, text: '' }, { x: x + area.w - 96, y: top, w: 44, h: 44 });
   ui.add({ ...model.settings, icon: 'settings', iconOnly: true, text: '' }, { x: x + area.w - 44, y: top, w: 44, h: 44 });
   ui.add({ kind: 'rule' }, { x, y: top + 51, w: area.w, h: 1 });
@@ -93,10 +100,10 @@ function buildMenu(ui, model, area, full, size) {
     const sy = h - Math.max(16, h - area.y - area.h) - 46, sw = Math.min(550, area.w);
     if (sy > navY + 76 + 3 * 52) {
       ui.add({ kind: 'panel', hud: true, accent: '#c8f79470' }, { x, y: sy, w: sw, h: 46 });
-      const cells = [['OPERATOR RECORD', ''], ['SECURED', model.operator.progress], ['BEST SCORE', best], ['DIFFICULTY', model.operator.difficulty]];
+      const cells = [['OPERATOR', model.profile?.name ?? ''], ['SECURED', model.operator.progress], ['BEST SCORE', best], ['DIFFICULTY', model.operator.difficulty]];
       const cw = (sw - 24) / cells.length;
       cells.forEach(([label, value], i) => {
-        ui.add({ ...text(label, 9, i ? T.muted : T.green), weight: 700, tracking: 1.2 }, { x: x + 14 + i * cw, y: sy + (i ? 8 : 17), w: cw - 8, h: 14 });
+        ui.add({ ...text(label, 9, i ? T.muted : T.green), weight: 700, tracking: 1.2 }, { x: x + 14 + i * cw, y: sy + (i || value ? 8 : 17), w: cw - 8, h: 14 });
         if (value) ui.add({ ...text(value, 15, T.paper), weight: 700 }, { x: x + 14 + i * cw, y: sy + 22, w: cw - 8, h: 20 });
       });
     }
@@ -105,11 +112,11 @@ function buildMenu(ui, model, area, full, size) {
 
 function buildConfirmation(ui, model, area, full, size) {
   const width = Math.min(610, area.w), pad = size.w < 600 ? 20 : 30, x = (size.w - width) / 2, inner = width - pad * 2;
-  const title = heading(model.title, size.h < 500 ? 32 : 42), body = model.body.map(polish), destructive = model.id === 'new-campaign-dialog', actions = model.footer.map((b, i) => ({ ...polish(b), tone: destructive && i === 1 ? 'danger' : undefined, primary: destructive ? i === 1 : b.primary }));
+  const title = heading(model.title, size.h < 500 ? 32 : 42), body = model.body.map(polish), destructive = ['new-campaign-dialog', 'profile-delete-dialog'].includes(model.id), actions = model.footer.map((b, i) => ({ ...polish(b), tone: destructive && i === 1 ? 'danger' : undefined, primary: destructive ? i === 1 : b.primary }));
   const controls = grid(actions, 230, 2), titleH = ui.height(title, inner), bodyH = ui.height({ kind: 'stack', children: body }, inner), actionsH = ui.height(controls, inner);
   const height = Math.min(area.h, 110 + titleH + bodyH + actionsH), y = Math.max(area.y, (size.h - height) / 2);
   ui.add({ kind: 'panel', color: '#111c24fc', border: '#a4c1cc50' }, { x, y, w: width, h: height });
-  ui.add({ ...text(destructive ? 'CAMPAIGN / CHECKPOINT' : 'SYSTEM RECOVERY', 10, T.hot), tracking: 1.4 }, { x: x + pad, y: y + 22, w: inner, h: 18 });
+  ui.add({ ...text(model.id === 'profile-delete-dialog' ? 'OPERATOR / SAVE DATA' : destructive ? 'CAMPAIGN / CHECKPOINT' : 'SYSTEM RECOVERY', 10, T.hot), tracking: 1.4 }, { x: x + pad, y: y + 22, w: inner, h: 18 });
   ui.add(title, { x: x + pad, y: y + 50, w: inner, h: titleH });
   ui.pane('body', body, { x: x + pad, y: y + 62 + titleH, w: inner, h: Math.max(28, height - 94 - titleH - actionsH) });
   ui.flow([controls], { x: x + pad, y: y + height - actionsH - 18, w: inner, h: actionsH }, full);

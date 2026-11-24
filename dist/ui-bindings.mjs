@@ -156,7 +156,7 @@ export class BrowserUiBindings {
     if (id === 'campaign-briefing') return { id, type: 'intro', src: this.resource(root.querySelector('video')), skip: 'briefing:skip', skipLabel: 'Skip briefing' };
     if (id === 'startup-load') return { id, type: 'loading', background: 'assets/loading-patrol.webp', title: this.value('loading-title'), detail: this.value('loading-detail'), eyebrow: this.value('loading-mode'), progress: Number(this.get('startup-progress').value), quote: this.value('loading-quote'), status: this.value('startup-status'), failed: this.shown(this.get('startup-retry')) };
     if (id === 'game') return this.combat(root);
-    if (id === 'menu') return { id, type: 'menu', brand: this.control(root.querySelector('.brand')), notices: ['menu-error', 'controller-audio-hint'].map(key => this.shown(this.get(key)) ? this.value(key) : '').filter(Boolean), detail: this.text(root.querySelector('.summary')), buttons: this.controls('.menu-navigation button', root), mute: this.control(root.querySelector('[data-mute]')), settings: this.control(root.querySelector('[data-settings]')), operator: { progress: this.value('operator-progress-value'), best: this.value('operator-best'), difficulty: this.value('operator-difficulty'), primary: this.value('operator-primary'), secondary: this.value('operator-secondary') }, status: [] };
+    if (id === 'menu') return { id, type: 'menu', brand: this.control(root.querySelector('.brand')), notices: ['menu-error', 'controller-audio-hint'].map(key => this.shown(this.get(key)) ? this.value(key) : '').filter(Boolean), detail: this.text(root.querySelector('.summary')), buttons: this.controls('.menu-navigation button', root), mute: this.control(root.querySelector('[data-mute]')), settings: this.control(root.querySelector('[data-settings]')), profile: this.get('profile-open') ? { ...this.control(this.get('profile-open')), ...this.profileModel?.chip() } : null, operator: { progress: this.value('operator-progress-value'), best: this.value('operator-best'), difficulty: this.value('operator-difficulty'), primary: this.value('operator-primary'), secondary: this.value('operator-secondary') }, status: [] };
     const model = { id, type: 'dialog', canBack: id !== 'extraction-dialog', background: this.shown(this.get('game')) ? false : 'assets/hero.webp', title: this.text(root.querySelector('h2')) || 'Immune Protocol', kicker: this.text(root.querySelector('.eyebrow,#deploy-mode')), body: [], footer: [] };
     const footerSelectors = {
       'armory-dialog': '#armory-reset,#armory-done', 'mission-dialog': '#deploy-armory,#deploy-practice',
@@ -165,7 +165,7 @@ export class BrowserUiBindings {
       'coop-dialog': '#coop-leave,#coop-customize,#coop-ready',
       'extraction-dialog': '#extract-now,#stay-overtime',
       'result-dialog': '#continue-mission,#replay,#restart-from-start,#result-armory,#return-menu',
-      'new-campaign-dialog': 'button',
+      'new-campaign-dialog': 'button', 'profile-delete-dialog': 'button', 'profiles-dialog': '#profile-done',
     };
     const footerEls = footerSelectors[id] ? [...root.querySelectorAll(footerSelectors[id])].filter(e => this.shown(e)) : [];
     model.footer = footerEls.map(e => this.control(e));
@@ -241,6 +241,25 @@ export class BrowserUiBindings {
       const controls = [...root.querySelector('.manual-controls').children].filter(el => el.tagName === 'DETAILS'), tactics = [...root.querySelector('.manual-tactics').children].filter(el => el.tagName === 'DETAILS');
       model.views = [{ id: 'controls', text: 'Controls', body: controls.map(el => this.block(el)) }, { id: 'tactics', text: 'Tactics', body: tactics.slice(0, 2).map(el => this.block(el)) }, { id: 'operations', text: 'Operations', body: tactics.slice(2).map(el => this.block(el)) }];
       model.body = model.views[0].body;
+    } else if (id === 'profiles-dialog') {
+      // Operator cards and emblems come from the profile store; the callsign is the real input, so
+      // the platform keyboard edits it.
+      const active = this.profileModel?.chip();
+      model.contextKey = 'profile:' + (active?.profileId ?? '') + ':' + (active?.name ?? '');
+      model.defaultFocus = this.id(root.querySelector('[data-profile-id][aria-checked="true"]') ?? this.get('profile-done'));
+      model.left = [{ kind: 'section', text: 'Operators on this device' },
+        ...[...root.querySelectorAll('[data-profile-id]')].map(el => ({ ...this.control(el), ...this.profileModel?.card(el.dataset.profileId), kind: 'profile-card', height: 96 })),
+        this.control(this.get('profile-new'))].filter(Boolean);
+      const note = this.value('profile-name-note');
+      model.body = [{ kind: 'section', text: 'Active operator' }, this.control(this.get('profile-name')),
+        ...(note ? [{ kind: 'text', text: note, size: 13, color: /already|needs/.test(note) ? '#ff977d' : '#a8b7bf' }] : []),
+        { kind: 'section', text: 'Emblem' },
+        grid([...root.querySelectorAll('[data-emblem]')].map(el => ({ ...this.control(el), kind: 'emblem', color: active?.color, height: 92 })), 82, 7),
+        ...(this.shown(this.get('profile-delete')) ? [{ ...this.control(this.get('profile-delete')), tone: 'danger' }] : []),
+      ].filter(Boolean);
+    } else if (id === 'profile-delete-dialog') {
+      model.body = [this.block(this.get('profile-delete-detail'))].filter(Boolean);
+      model.defaultFocus = model.footer[0]?.id;
     } else if (id === 'achievements-dialog') {
       // Built from the achievement record rather than the DOM: cards, art and progress bars.
       const screen = this.achievementModel?.() ?? { views: [], details: {} };
