@@ -1,5 +1,6 @@
 import { lines, intersect, clamp } from './ui-core.mjs';
 import { UI_THEME, uiFace, uiLineHeight } from './ui-theme.mjs';
+import { TIERS } from './achievements.mjs';
 
 export { UI_THEME } from './ui-theme.mjs';
 // The renderer consumes only draw commands and a resource resolver. It does not
@@ -54,6 +55,8 @@ export class CanvasUiRenderer {
       muted: 'M3 9h4l5-5v16l-5-5H3V9M17 9l6 6M23 9l-6 6',
       pause: 'M8 5v14M16 5v14',
       settings: 'M10 2h4l1 4 3 1 3-1 2 4-3 3v3l1 3-4 3-3-2h-3l-3 2-4-3 1-3v-3L1 10l2-4 3 1 3-1 1-4M12 8a4 4 0 1 0 .01 0',
+      trophy: 'M7 3h10v5a5 5 0 0 1-10 0V3M7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4M12 13v4M8 21h8M9 17h6v4',
+      lock: 'M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3M12 15v2',
     };
     const path = paths[name] ?? paths.target; c.stroke(new Path2D(path)); c.restore();
   }
@@ -229,6 +232,16 @@ export class CanvasUiRenderer {
         this.text(kind === 'choice' ? (item.options?.find(o => o.value === item.value)?.text ?? item.text) : String(item.value || item.placeholder || ''), { x: r.x + 12, y: y + 13, w: r.w - 45, h: 25 }, 14, t.paper, 500, 'left', 1);
         if (kind === 'choice') this.icon('down', { x: r.x + r.w - 29, y: y + 14, w: 17, h: 17 }, t.muted);
       }
+      return;
+    }
+    if (kind === 'achievement') return this.achievementCard(item, r, focused || hot);
+    if (kind === 'achievement-summary') return this.achievementSummary(item, r);
+    if (kind === 'achievement-art') {
+      const side = Math.min(r.w, r.h), art = { x: r.x + (r.w - side) / 2, y: r.y, w: side, h: side };
+      const tier = TIERS[item.tier] ?? TIERS.bronze;
+      if (item.unlocked) { c.save(); c.shadowColor = tier.color; c.shadowBlur = 34; this.box({ x: art.x + 10, y: art.y + 10, w: art.w - 20, h: art.h - 20 }, '#000', null, 6); c.restore(); }
+      this.image(item.src, art, false, item.unlocked ? 1 : .38);
+      if (!item.unlocked) this.icon('lock', { x: art.x + side / 2 - 22, y: art.y + side / 2 - 22, w: 44, h: 44 }, '#e9f0f2');
       return;
     }
     if (kind === 'meter') {
@@ -441,6 +454,123 @@ export class CanvasUiRenderer {
 
   // A combat HUD frame: smoked glass that darkens toward the bottom, a hairline edge, a clipped
   // top-left corner and short accent brackets on the corners.
+  // A trophy cup in the tier's metal, like the trophy shown beside console achievements.
+  trophy(r, tier) {
+    const c = this.c, colors = TIERS[tier] ?? TIERS.bronze;
+    c.save(); c.translate(r.x, r.y); c.scale(r.w / 24, r.h / 24);
+    const g = c.createLinearGradient(4, 2, 20, 22); g.addColorStop(0, colors.light); g.addColorStop(.45, colors.color); g.addColorStop(1, colors.dark);
+    c.fillStyle = g; c.strokeStyle = colors.dark; c.lineWidth = 1.2; c.lineJoin = 'round';
+    const cup = new Path2D('M6.5 2.5h11v5.5a5.5 5.5 0 0 1-11 0zM10.6 13.2h2.8v3.6h-2.8zM7.5 17h9l1 4.5h-11z');
+    c.fill(cup); c.stroke(cup);
+    c.strokeStyle = colors.color; c.lineWidth = 1.6; c.lineCap = 'round';
+    c.stroke(new Path2D('M6.5 4.5H4v1.6a3.6 3.6 0 0 0 3.4 3.6M17.5 4.5H20v1.6a3.6 3.6 0 0 1-3.4 3.6'));
+    c.fillStyle = '#ffffff90'; c.fillRect(8.4, 3.6, 1.4, 4.2);
+    c.restore();
+  }
+  achievementCard(item, r, active) {
+    const c = this.c, t = UI_THEME, tier = TIERS[item.tier] ?? TIERS.bronze, earned = item.unlocked;
+    const fill = c.createLinearGradient(r.x, 0, r.x + r.w, 0);
+    fill.addColorStop(0, earned ? tier.dark + 'cc' : '#101a21e0'); fill.addColorStop(.45, '#121d25e6'); fill.addColorStop(1, '#0c151ce6');
+    this.box(r, fill, null, 0);
+    this.hudPanel(r, { accent: active ? t.green : earned ? tier.color : '#5d707a', top: '#00000000', bottom: '#00000000' });
+    if (active) { c.strokeStyle = t.green; c.lineWidth = 2; c.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); }
+    const side = r.h - 16, art = { x: r.x + 8, y: r.y + 8, w: side, h: side };
+    if (earned) { c.save(); c.shadowColor = tier.color; c.shadowBlur = 14; this.box({ x: art.x + 4, y: art.y + 4, w: art.w - 8, h: art.h - 8 }, '#000', null, 4); c.restore(); }
+    this.image(item.src, art, false, earned ? 1 : .3);
+    if (!earned) {
+      this.box({ x: art.x + side / 2 - 17, y: art.y + side / 2 - 17, w: 34, h: 34 }, '#060a0dcc', '#ffffff30', 17);
+      this.icon('lock', { x: art.x + side / 2 - 10, y: art.y + side / 2 - 10, w: 20, h: 20 }, '#dfe8ea');
+    }
+    const x = art.x + side + 14, w = r.x + r.w - 12 - x;
+    this.text(item.text, { x, y: r.y + 11, w, h: 22 }, 16, earned ? t.paper : '#c6d1d5', 700, 'left', 1, 1.25);
+    this.text(item.detail, { x, y: r.y + 34, w, h: 36 }, 12, earned ? '#b9c7cc' : t.faint, 500, 'left', 2, 1.4);
+    const by = r.y + r.h - 25;
+    this.trophy({ x, y: by - 1, w: 16, h: 16 }, item.tier);
+    const tierText = tier.name.toUpperCase() + '  ·  ' + item.points + ' G';
+    this.text(tierText, { x: x + 21, y: by + 1, w: 130, h: 14 }, 10, earned ? tier.color : t.muted, 700, 'left', 1, 1.3, 'mono');
+    const rightX = x + 21 + this.measure(tierText, 10, 700, 'mono') + 14, rightW = r.x + r.w - 12 - rightX;
+    if (item.progress && rightW > 60) {
+      const p = item.progress, label = p.value.toLocaleString() + ' / ' + p.goal.toLocaleString(), lw = this.measure(label, 10, 600, 'mono') + 8;
+      const bw = Math.max(20, rightW - lw);
+      this.box({ x: rightX, y: by + 5, w: bw, h: 4 }, '#ffffff18', null, 2);
+      this.box({ x: rightX, y: by + 5, w: bw * clamp(p.value / p.goal, 0, 1), h: 4 }, tier.color, null, 2);
+      this.text(label, { x: rightX + bw + 6, y: by + 1, w: lw, h: 14 }, 10, t.muted, 600, 'left', 1, 1.3, 'mono');
+    } else if (item.date && rightW > 60) {
+      this.icon('check', { x: r.x + r.w - 26, y: by - 1, w: 15, h: 15 }, tier.color);
+      this.text(item.date, { x: rightX, y: by + 1, w: rightW - 22, h: 14 }, 10, t.muted, 600, 'right', 1, 1.3, 'mono');
+    }
+  }
+  achievementSummary(item, r) {
+    const c = this.c, t = UI_THEME, wide = r.w >= 560;
+    this.hudPanel(r, { accent: '#a6ecff', top: 'rgba(20,34,44,.9)', bottom: 'rgba(8,13,18,.94)' });
+    const ring = Math.min(r.h - 28, 96), cx = r.x + 16 + ring / 2, cy = r.y + r.h / 2, rad = ring / 2 - 5;
+    c.save(); c.lineCap = 'round';
+    c.strokeStyle = '#ffffff16'; c.lineWidth = 8; c.beginPath(); c.arc(cx, cy, rad, 0, Math.PI * 2); c.stroke();
+    const arc = c.createLinearGradient(cx - rad, cy - rad, cx + rad, cy + rad); arc.addColorStop(0, '#f2fdff'); arc.addColorStop(1, '#5fd4f5');
+    if (item.earned) { c.strokeStyle = arc; c.shadowColor = '#7fe3ff'; c.shadowBlur = 12; c.beginPath(); c.arc(cx, cy, rad, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * item.earned / item.total); c.stroke(); }
+    c.restore();
+    this.text(item.percent + '%', { x: cx - rad, y: cy - 17, w: rad * 2, h: 30 }, 26, t.paper, 800, 'center', 1, 1.04);
+    this.text('COMPLETE', { x: cx - rad, y: cy + 10, w: rad * 2, h: 12 }, 8, t.muted, 700, 'center', 1, 1.2, 'mono', .8);
+    const x = r.x + ring + 34, w = r.x + r.w - 16 - x;
+    this.text('ACHIEVEMENTS', { x, y: r.y + 18, w, h: 14 }, 10, '#a6ecff', 700, 'left', 1, 1.2, 'body', 1.6);
+    this.text(item.earned + ' / ' + item.total + ' EARNED', { x, y: r.y + 36, w: wide ? w * .55 : w, h: 34 }, wide ? 32 : 26, t.paper, 800, 'left', 1, 1.04);
+    this.text(item.points.toLocaleString() + ' / ' + item.totalPoints.toLocaleString() + ' G', { x, y: r.y + (wide ? 76 : 68), w, h: 20 }, 15, '#f4c94e', 700, 'left', 1, 1.25, 'mono');
+    const tiers = Object.entries(item.tiers);
+    if (wide) {
+      const tw = Math.min(92, (w * .45) / tiers.length), tx = r.x + r.w - 16 - tw * tiers.length;
+      tiers.forEach(([tier, count], i) => {
+        const bx = tx + i * tw;
+        this.trophy({ x: bx + tw / 2 - 15, y: r.y + 24, w: 30, h: 30 }, tier);
+        this.text(count.earned + '/' + count.total, { x: bx, y: r.y + 62, w: tw, h: 20 }, 16, t.paper, 800, 'center', 1, 1.1);
+        this.text(TIERS[tier].name.toUpperCase(), { x: bx, y: r.y + 86, w: tw, h: 12 }, 8, TIERS[tier].color, 700, 'center', 1, 1.2, 'mono', .6);
+      });
+    } else {
+      let bx = x;
+      for (const [tier, count] of tiers) {
+        this.trophy({ x: bx, y: r.y + r.h - 32, w: 16, h: 16 }, tier);
+        const label = count.earned + '/' + count.total;
+        this.text(label, { x: bx + 19, y: r.y + r.h - 30, w: 50, h: 14 }, 11, t.paper, 700, 'left', 1, 1.2, 'mono');
+        bx += 26 + this.measure(label, 11, 700, 'mono');
+      }
+    }
+  }
+  // The "achievement unlocked" pop-up. `state` comes from achievement-ui.mjs toastState; the art
+  // pops in at the centre, then the banner unrolls to its full width with the name and score.
+  achievementToast(state, place) {
+    if (!state) return;
+    const c = this.c, t = UI_THEME, item = state.item, tier = TIERS[item.tier] ?? TIERS.bronze;
+    const compact = place.compact, H = compact ? 64 : 78, W = Math.min(compact ? 380 : 452, place.w - 24), art = H + 10;
+    const width = art + (W - art) * state.open, x0 = place.cx - width / 2, y = place.y - state.lift, artY = y + (H - art) / 2;
+    c.save(); c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0); c.globalAlpha = state.alpha;
+    if (state.open > .02) {
+      const panel = { x: x0 + art / 2, y, w: Math.max(0, width - art / 2), h: H };
+      c.save(); c.shadowColor = tier.color + '88'; c.shadowBlur = 26; this.box(panel, '#0b141bf2', null, 0); c.restore();
+      this.hudPanel(panel, { accent: tier.color, top: 'rgba(24,38,48,.97)', bottom: 'rgba(8,13,18,.98)' });
+      const band = c.createLinearGradient(panel.x, 0, panel.x + panel.w, 0); band.addColorStop(0, tier.color + '40'); band.addColorStop(.6, tier.color + '00');
+      c.fillStyle = band; c.fillRect(panel.x, panel.y, panel.w, panel.h);
+      c.save(); c.beginPath(); c.rect(panel.x, panel.y, panel.w, panel.h); c.clip();
+      if (state.shine != null) {
+        const sx = panel.x - 80 + (panel.w + 160) * state.shine, g = c.createLinearGradient(sx - 50, 0, sx + 50, 0);
+        g.addColorStop(0, '#ffffff00'); g.addColorStop(.5, '#ffffff38'); g.addColorStop(1, '#ffffff00');
+        c.fillStyle = g; c.beginPath(); c.moveTo(sx - 30, panel.y); c.lineTo(sx + 60, panel.y); c.lineTo(sx + 30, panel.y + panel.h); c.lineTo(sx - 60, panel.y + panel.h); c.fill();
+      }
+      c.globalAlpha *= state.text;
+      const tx = x0 + art + 14, scoreW = compact ? 58 : 70, tw = x0 + width - tx - scoreW - 8;
+      this.trophy({ x: tx, y: y + (compact ? 9 : 12), w: 13, h: 13 }, item.tier);
+      this.text(item.tier === 'platinum' ? 'PLATINUM ACHIEVEMENT' : 'ACHIEVEMENT UNLOCKED', { x: tx + 18, y: y + (compact ? 10 : 13), w: tw - 18, h: 13 }, compact ? 9 : 10, tier.color, 700, 'left', 1, 1.2, 'body', 1.4);
+      this.text(item.name, { x: tx, y: y + (compact ? 26 : 31), w: tw, h: 28 }, compact ? 21 : 25, t.paper, 800, 'left', 1, 1.04);
+      if (!compact) this.text(tier.name.toUpperCase() + (state.waiting ? '  ·  +' + state.waiting + ' MORE' : ''), { x: tx, y: y + 58, w: tw, h: 12 }, 9, t.muted, 600, 'left', 1, 1.2, 'mono', .8);
+      const sx = x0 + width - scoreW - 10;
+      c.save(); c.shadowColor = tier.color; c.shadowBlur = 10;
+      this.text(item.points + 'G', { x: sx, y: y + H / 2 - (compact ? 13 : 16), w: scoreW, h: 34 }, compact ? 24 : 30, tier.light, 800, 'right', 1, 1.04);
+      c.restore(); c.restore();
+    }
+    // The art, popped slightly larger than the banner, with a glow in the tier colour.
+    const s = art * state.art, ax = x0 + (art - s) / 2, ay = artY + (art - s) / 2;
+    c.save(); c.shadowColor = tier.color; c.shadowBlur = 22; this.box({ x: ax + 4, y: ay + 4, w: s - 8, h: s - 8 }, '#000', null, 4); c.restore();
+    this.image(item.art, { x: ax, y: ay, w: s, h: s });
+    c.restore();
+  }
   hudPanel(r, item) {
     const c = this.c, cut = Math.min(10, r.h / 4), accent = item.accent ?? '#c8f794';
     const shape = () => { c.beginPath(); c.moveTo(r.x + cut, r.y); c.lineTo(r.x + r.w, r.y); c.lineTo(r.x + r.w, r.y + r.h); c.lineTo(r.x, r.y + r.h); c.lineTo(r.x, r.y + cut); c.closePath(); };

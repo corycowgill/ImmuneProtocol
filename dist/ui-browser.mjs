@@ -10,9 +10,14 @@ export class GameUi {
     this.images = new Map(); this.resourceImages = new WeakSet(); this.kinetic = new Map(); this.dirty = true; this.changed = true; this.lastSnapshot = 0; this.lastPaint = 0;
   }
   bindControls(controls) { this.controls = controls; }
+  // Achievement pop-ups: source(now) returns the toast to draw this frame (achievement-ui.mjs).
+  setToastSource(source) { this.toastSource = source; }
+  // The Achievements screen's plain model (achievement-ui.mjs), read when that dialog is open.
+  setAchievementModel(source) { this.achievementModel = source; }
   start() {
     if (this.active) return;
     this.bindings = new BrowserUiBindings();
+    this.bindings.achievementModel = () => this.achievementModel?.();
     this.canvas = document.createElement('canvas'); this.canvas.id = 'game-ui'; this.canvas.tabIndex = -1; this.canvas.setAttribute('aria-hidden', 'true');
     this.renderer = new CanvasUiRenderer(this.canvas, key => this.resource(key));
     this.access = document.createElement('section'); this.access.id = 'game-ui-access'; this.access.setAttribute('aria-label', 'Immune Protocol interface');
@@ -123,6 +128,9 @@ export class GameUi {
       this.scroll(id, motion.velocity * dt); motion.velocity *= Math.exp(-8 * dt); motion.time = now;
       if (Math.abs(motion.velocity) < 18 || before === this.state.scroll[id]) this.kinetic.delete(id);
     }
+    const toast = this.toastSource?.(now) ?? null;
+    if (toast || this.toastShown) this.changed = true;
+    this.toastShown = !!toast;
     const live = combat || this.model.type === 'intro' || this.model.id === 'armory-dialog' || this.model.id === 'guide-dialog' || this.model.id === 'coop-dialog';
     if (!this.changed && (!live || now - this.lastPaint < (combat || this.model.type === 'intro' ? 16 : 32))) return;
     this.scene = buildUiScreen(this.model, this.size, this.safe, this.state, this.renderer.measure);
@@ -141,10 +149,20 @@ export class GameUi {
       const source = this.bindings.resources.get(item.src);
       if (source?.tagName === 'CANVAS' && item.clip && item.rect.y < item.clip.y + item.clip.h && item.rect.y + item.rect.h > item.clip.y) setUiViewport(source, item.rect.w, item.rect.h);
     }
-    this.renderer.render(this.scene, this.state); this.lastPaint = now; this.changed = false;
-    this.canvas.dataset.screen = this.model.id; this.canvas.dataset.presentation = 'canvas';
+    this.renderer.render(this.scene, this.state);
+    if (toast && this.model.type !== 'intro') this.renderer.achievementToast(toast, this.toastPlace(combat));
+    this.lastPaint = now; this.changed = false;
+    this.canvas.dataset.screen = this.model.id;
+    this.canvas.dataset.toast = toast ? toast.item.id : ''; this.canvas.dataset.presentation = 'canvas';
     this.canvas.dataset.overlay = this.state.popup?.id ?? '';
     if (now - (this.lastAccess ?? 0) > 200 || scope !== this.accessScope || this.accessPending) { this.syncAccess(); this.lastAccess = now; this.accessScope = scope; this.accessPending = false; }
+  }
+  // Combat: under the wave/boss panel at the top, clear of the crosshair. Menus: low in the centre,
+  // where console achievements appear.
+  toastPlace(combat) {
+    const { w, h } = this.size, safe = this.safe, compact = w < 700 || h < 500;
+    const y = combat ? Math.max(safe.top + (compact ? (h > w ? 250 : 112) : 170), h * .2) : h - Math.max(16, safe.bottom) - (compact ? 64 : 78) - (compact ? 18 : 40);
+    return { cx: w / 2, y, w: w - safe.left - safe.right, compact };
   }
   point(event) { const r = this.canvas.getBoundingClientRect(); return { x: event.clientX - r.left, y: event.clientY - r.top, pointerType: event.pointerType, button: event.button, buttons: event.buttons, time: event.timeStamp }; }
   hit(point) {
@@ -217,11 +235,17 @@ export class GameUi {
     }
     if (item.id === '@close-popup') { this.state.popup = null; this.invalidate(); return; }
     if (item.id === '@armory-stats') { this.state.popup = { id: '@armory-stats', label: 'Build stats', body: this.model.left?.slice(3) ?? [] }; this.invalidate(); return; }
+    if (item.id?.startsWith('@achievement:')) {
+      const id = item.id.slice(13), body = this.model.details?.[id];
+      if (body) { this.state.popup = { id: item.id, label: 'Achievement', body }; this.state.scroll.popup = 0; this.invalidate(); }
+      return;
+    }
     if (item.id === '@report-details') { this.state.popup = { id: '@report-details', label: 'Mission details', body: this.model.reportDetails }; this.invalidate(); return; }
     if (item.id?.startsWith('@option:')) {
       const popup = this.state.popup, option = popup?.options[Number(item.id.slice(8))];
       if (!option || option.disabled) return;
       this.state.popup = null; this.state.focus = popup.id;
+      if (option.value?.startsWith?.('@view:')) return this.activate({ id: option.value });
       if (popup.id === '@sidebar' || popup.actionOptions) this.bindings.activate(option.value); else this.bindings.setValue(popup.action, option.value);
     } else if (item.kind === 'choice') {
       this.kinetic.clear();

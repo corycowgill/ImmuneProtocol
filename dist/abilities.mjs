@@ -351,7 +351,7 @@ function detonate(sim, item) {
     stunned.push({ id: enemy.id, x: enemy.x, y: enemy.y, z: enemy.z });
     sim.hitEnemy(enemy, spec.damage, false, { x: enemy.x, y: enemy.y, z: enemy.z }, 'stun', item.owner);
   }
-  sim.events.push({ type: 'stun', radius: spec.radius, time: spec.time, stunned, ...center });
+  sim.events.push({ type: 'stun', radius: spec.radius, time: spec.time, stunned, ...center, ...(item.owner?.id != null ? { playerId: item.owner.id } : {}) });
 }
 
 // For co-op snapshots: the throwables in flight, without their owning suit objects.

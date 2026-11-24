@@ -7,6 +7,7 @@ import { byId, isTouch, pad } from './dom.mjs';
 import { tutorialKey, writeSetting } from './settings-store.mjs';
 import { hitMarker, branches, nodeHitUntil } from './hud.mjs';
 import { padActionKey } from './keybinds.mjs';
+import { achievements } from './achievement-system.mjs';
 
 export const alertBox = byId('game-alert');
 
@@ -19,7 +20,21 @@ export function announce(title, detail = '', duration = 2.45) {
   session.announcementTimer = duration;
 }
 
+// The last step whose events reached the achievement tracker, so a step re-applied after a
+// dialog (extraction) is not counted twice.
+let observedStep = null;
+
 export function applyEvents() {
+  const step = session.sim.events.length ? session.sim.events[0] : null;
+  if (step && step !== observedStep) {
+    observedStep = step;
+    const localId = session.sim.player?.id;
+    achievements.observe(session.sim.events, {
+      isLocal: event => !session.onlineRun || event.playerId == null || event.playerId === localId,
+      weapon: session.sim.weaponLoadout?.weapon ?? session.sim.weapon?.weapon,
+      clock: session.sim.clock,
+    });
+  }
   for (const event of session.sim.events) {
     const teammate = session.onlineRun && event.playerId && event.playerId !== session.sim.player.id;
     session.haptics?.event(event, { player: session.sim.player, teammate: !!teammate });

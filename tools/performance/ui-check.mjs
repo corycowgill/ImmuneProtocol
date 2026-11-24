@@ -33,7 +33,7 @@ try {
     const canvas = $('studio-intro').querySelector('canvas'); canvas.width = 1280; canvas.height = 720;
     await window.HallucinatedIntro.ensureFonts(); window.HallucinatedIntro.renderFrame(canvas.getContext('2d'), 3.6, 1280, 720);
   } else {
-    const target = { settings: 'menu-settings', manual: 'manual', guide: 'guide', armory: 'armory-open', deployment: 'mission-select', confirm: 'new-campaign', coop: 'coop-open' }[scenario];
+    const target = { settings: 'menu-settings', manual: 'manual', guide: 'guide', achievements: 'achievements-open', armory: 'armory-open', deployment: 'mission-select', confirm: 'new-campaign', coop: 'coop-open' }[scenario];
     if (scenario === 'settings') document.querySelector('#menu [data-settings]').click();
     else if (target) $(target).click();
   }

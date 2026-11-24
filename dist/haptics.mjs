@@ -226,6 +226,11 @@ export class Haptics {
       case 'lost':
         this.add({ strong: .7, weak: .15, ms: 1400, attack: 40, curve: 1.2 });
         break;
+      case 'achievement':
+        // Two light taps, so an unlock is felt without being mistaken for a hit.
+        this.add({ weak: .35, strong: .1, ms: 70 });
+        this.add({ weak: .5, strong: .15, ms: 110 }, 140);
+        break;
     }
   }
 

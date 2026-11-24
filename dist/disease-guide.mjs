@@ -311,7 +311,7 @@ class PathogenViewer {
 }
 
 // Wires up the guide dialog. missionName maps an area id to its display name.
-export function createDiseaseGuide(dialog, { missionName }) {
+export function createDiseaseGuide(dialog, { missionName, onStudy }) {
   const list = dialog.querySelector('[data-guide-list]');
   const detail = dialog.querySelector('[data-guide-detail]');
   const canvas = dialog.querySelector('[data-guide-viewer]');
@@ -376,6 +376,7 @@ export function createDiseaseGuide(dialog, { missionName }) {
     render(entry);
     detail.scrollTop = 0;
     viewer?.show(type);
+    onStudy?.(type);
   }
 
   dialog.querySelector('[data-guide-provoke]').addEventListener('click', () => viewer?.provoke());

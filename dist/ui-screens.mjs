@@ -80,7 +80,7 @@ function buildMenu(ui, model, area, full, size) {
   ui.add({ ...heading('IMMUNE', logoSize), lineHeight: .9 }, { x, y: logoY, w: leftW, h: logoSize });
   ui.add({ ...heading('PROTOCOL', logoSize), color: T.green, lineHeight: .9 }, { x, y: logoY + logoSize * .9, w: leftW, h: logoSize });
   ui.add(text(model.detail, landscape ? 14 : 15, '#c1cdd2'), { x, y: logoY + logoH + 15, w: Math.min(450, leftW), h: landscape ? 64 : 52 });
-  const icons = { deploy: 'arrow', 'new-campaign': 'reset', 'mission-select': 'target', 'coop-open': 'users', 'armory-open': 'weapon', guide: 'shield', manual: 'book' };
+  const icons = { deploy: 'arrow', 'new-campaign': 'reset', 'mission-select': 'target', 'coop-open': 'users', 'armory-open': 'weapon', 'achievements-open': 'trophy', guide: 'shield', manual: 'book' };
   const nav = model.buttons.map((b, i) => ({ ...b, primary: i === 0, variant: i === 0 ? b.variant : 'menu', size: i === 0 ? (landscape ? (w < 750 ? 14 : 16) : 17) : landscape ? 17 : 21, icon: icons[b.id?.replace(/^dom:/, '')] ?? 'arrow', height: i === 0 ? (landscape ? 68 : 76) : landscape ? 44 : 48, detail: i === 0 ? b.detail : null }));
   const nodes = [nav[0], { ...grid(nav.slice(1), phone ? 145 : 160, 2), gap: 4 }, ...(model.notices ?? []).map(note => text(note, 12, '#ffca96'))];
   const navX = landscape ? x + leftW + 26 : x, navY = landscape ? y : logoY + logoH + 91;
@@ -156,6 +156,11 @@ function buildDialog(ui, model, area, full, size, state, measure) {
     const decision = model.report.options ? [section(model.report.label), grid(model.report.options.map(option => ({ ...polish(option), variant: 'reward', ...(short ? { height: 80 } : {}) })), 145, 2)] : model.report.forecast.map(polish);
     if (!phone) { const sw = Math.min(330, r.w * .34); pane(ui, 'summary', summary, { ...r, w: sw }); pane(ui, 'body', decision, { ...r, x: x + sw + 24, w: r.w - sw - 24 }); }
     else pane(ui, 'body', [...decision, section('Mission summary'), ...summary], r);
+  } else if (model.views?.length > 4 && r.w < 640) {
+    // Too many sections for a tab row on a narrow screen: one picker, like the mission list.
+    const current = selectedView(model, state, model.views);
+    ui.add({ kind: 'choice', id: '@views', action: '@views', actionOptions: true, text: current.text, value: '@view:' + current.id, options: model.views.map(view => ({ value: '@view:' + view.id, text: view.text })), label: '' }, { ...r, h: 48 });
+    pane(ui, 'body', current.body.map(polish), { ...r, y: r.y + 60, h: Math.max(40, r.h - 60) });
   } else if (model.views?.length) {
     const current = selectedView(model, state, model.views); tabsFor(ui, model.views, current.id, r, full);
     pane(ui, 'body', current.body.map(polish), { ...r, y: r.y + 56, h: Math.max(40, r.h - 56) });

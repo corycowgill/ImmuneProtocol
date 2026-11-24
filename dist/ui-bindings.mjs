@@ -161,7 +161,7 @@ export class BrowserUiBindings {
     const footerSelectors = {
       'armory-dialog': '#armory-reset,#armory-done', 'mission-dialog': '#deploy-armory,#deploy-practice',
       'pause-dialog': '.pause-actions button', 'settings-dialog': '#settings-close',
-      'manual-dialog': '.manual-actions button', 'guide-dialog': '',
+      'manual-dialog': '.manual-actions button', 'guide-dialog': '', 'achievements-dialog': '.achievements-actions button',
       'coop-dialog': '#coop-leave,#coop-customize,#coop-ready',
       'extraction-dialog': '#extract-now,#stay-overtime',
       'result-dialog': '#continue-mission,#replay,#restart-from-start,#result-armory,#return-menu',
@@ -169,7 +169,7 @@ export class BrowserUiBindings {
     };
     const footerEls = footerSelectors[id] ? [...root.querySelectorAll(footerSelectors[id])].filter(e => this.shown(e)) : [];
     model.footer = footerEls.map(e => this.control(e));
-    if (id === 'manual-dialog' && model.background === false) model.footer = model.footer.map(item => ({ ...item, text: 'Back to pause', label: 'Back to pause' }));
+    if (['manual-dialog', 'achievements-dialog'].includes(id) && model.background === false) model.footer = model.footer.map(item => ({ ...item, text: 'Back to pause', label: 'Back to pause' }));
     const excluded = new Set([...footerEls, root.querySelector('h2'), root.querySelector('.eyebrow,#deploy-mode'), ...root.querySelectorAll('.close-dialog,.deploy-back,#coop-close')].filter(Boolean));
     if (id === 'armory-dialog') {
       model.tabs = this.controls('#armory-modes button');
@@ -241,6 +241,13 @@ export class BrowserUiBindings {
       const controls = [...root.querySelector('.manual-controls').children].filter(el => el.tagName === 'DETAILS'), tactics = [...root.querySelector('.manual-tactics').children].filter(el => el.tagName === 'DETAILS');
       model.views = [{ id: 'controls', text: 'Controls', body: controls.map(el => this.block(el)) }, { id: 'tactics', text: 'Tactics', body: tactics.slice(0, 2).map(el => this.block(el)) }, { id: 'operations', text: 'Operations', body: tactics.slice(2).map(el => this.block(el)) }];
       model.body = model.views[0].body;
+    } else if (id === 'achievements-dialog') {
+      // Built from the achievement record rather than the DOM: cards, art and progress bars.
+      const screen = this.achievementModel?.() ?? { views: [], details: {} };
+      model.views = screen.views;
+      model.details = screen.details;
+      model.body = screen.views[0]?.body ?? [];
+      model.contextKey = screen.summary ? screen.summary.earned + ':' + screen.summary.points : '';
     } else if (id === 'pause-dialog') {
       model.body = this.blocks(root.querySelector('.pause-info'), new Set([...root.querySelectorAll('h2,.eyebrow')]));
       model.pauseActions = model.footer.map(item => ({ ...item, tone: item.id === 'dom:quit' ? 'danger' : undefined }));

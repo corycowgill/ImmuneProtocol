@@ -43,6 +43,7 @@ import {
   configureController, rumblePad, syncControllerAudioHint, touch, touchControls,
 } from './controls.mjs';
 import { Haptics } from './haptics.mjs';
+import { achievements, refreshAchievementMenu } from './achievement-system.mjs';
 import { armoryDialog, armoryEvents, armoryOpen, openArmory, setupArmory } from './armory-menu.mjs';
 
 const menu = byId('menu');
@@ -706,6 +707,10 @@ async function launch(area, run = null, drill = null, onlineState = null, checkp
     session.guardHintUntil = 0;
     session.running = true;
     session.paused = false;
+    achievements.missionStart({
+      area, checkpoint: !!checkpoint, upgrade, online: session.onlineRun, bossPractice: !!drill?.bossPractice,
+      loadout: session.weaponLoadout,
+    });
     session.audio.setActive(true);
     syncMusic();
     const mission = session.sim;
@@ -1084,6 +1089,13 @@ function finish() {
   session.audio.play({ type: won ? 'won' : 'lost' });
   session.haptics.event({ type: won ? 'won' : 'lost' });
   previewRumble();
+  const self = session.onlineRun ? session.sim.players?.find(player => player.id === session.sim.player?.id) ?? session.sim.player : session.sim.player;
+  achievements.missionEnd({
+    won, area: session.sim.area, difficulty: session.onlineRun ? 'medium' : session.sim.difficulty,
+    score: session.onlineRun ? self?.score ?? 0 : session.sim.score, nodes: session.sim.nodes ?? [], health: self?.health,
+    online: session.onlineRun, campaignComplete: complete, overtimeBonus: session.sim.overtimeBonus ?? 0, bossPractice,
+  });
+  refreshAchievementMenu();
   if (campaign && session.sim.score > bestScore) {
     bestScore = session.sim.score;
     writeSetting(bestKey, bestScore);
@@ -1299,7 +1311,7 @@ function playFrame(now) {
   animation = requestAnimationFrame(frame);
 }
 
-const diseaseGuide = createDiseaseGuide(byId('guide-dialog'), { missionName });
+const diseaseGuide = createDiseaseGuide(byId('guide-dialog'), { missionName, onStudy: type => achievements.studyPathogen(type) });
 byId('guide').addEventListener('click', () => diseaseGuide.open());
 
 byId('manual').addEventListener('click', () => {

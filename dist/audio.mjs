@@ -490,6 +490,32 @@ export class GameAudio {
     });
   }
 
+  // The achievement chime: a bright rising arpeggio with a shimmer, longer and fuller for the
+  // higher tiers. Synthesized, so it needs no sample; it plays in menus as well as in combat.
+  achievement(tier = 'bronze') {
+    const context = this.context;
+    if (context?.state !== 'running') return;
+    const notes = { bronze: [659.3, 987.8], silver: [659.3, 830.6, 987.8], gold: [523.3, 659.3, 784, 1046.5], platinum: [523.3, 659.3, 784, 1046.5, 1318.5] }[tier] ?? [659.3, 987.8];
+    const out = context.createGain();
+    out.gain.value = .22 * (this.effectsLevel ?? 1);
+    out.connect(this.master);
+    const start = context.currentTime + .02;
+    notes.forEach((frequency, i) => {
+      const at = start + i * .085, last = i === notes.length - 1, length = last ? 1.4 : .5;
+      for (const [type, detune, level] of [['triangle', 0, 1], ['sine', 1200, .25]]) {
+        const osc = context.createOscillator(), gain = context.createGain();
+        osc.type = type; osc.frequency.value = frequency; osc.detune.value = detune;
+        gain.gain.setValueAtTime(0, at);
+        gain.gain.linearRampToValueAtTime(level * (last ? .9 : .6), at + .012);
+        gain.gain.exponentialRampToValueAtTime(.0008, at + length);
+        osc.connect(gain); gain.connect(out);
+        osc.start(at); osc.stop(at + length + .05);
+        osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+      }
+    });
+    setTimeout(() => out.disconnect(), 2500);
+  }
+
   play(event) {
     if (this.context?.state !== 'running') return;
     switch (event.type) {

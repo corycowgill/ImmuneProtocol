@@ -182,6 +182,32 @@ The pathogens are photoreal 3D scans processed in Blender by `tools/enemies/proc
 
 All pathogen models load while the startup screen prepares the arenas. A missing model keeps the game behind the retry screen. The renderer retains its plain membrane placeholder as a defensive fallback for unexpected unknown species. `npm run test:coop` also checks that every species has a model, animation targets, a portrait, a guide entry and at least one mission.
 
+## Achievements
+
+Fifty-six achievements, worth 1,000 points in all, work like console achievements and trophies. Each has its own artwork, a tier (**bronze**, **silver**, **gold** or **platinum**) and a score. When you earn one, an **Achievement unlocked** banner pops in with the art, the trophy and the score, plays a chime and a light rumble, then folds away; several in a row queue up. In a mission it sits under the wave panel, clear of the crosshair; in menus it appears low in the centre. Earn every other achievement for the platinum, **Immune Protocol**.
+
+Open **Achievements** from the main menu or the pause screen. The overview shows your completion ring, score and trophy count per tier, what you earned most recently and what you are closest to; tabs (or a picker on narrow screens) group the rest into Campaign, Combat, Bosses, Field ops and Mastery. Locked achievements show their art dimmed under a lock, and counting ones show a progress bar. Select one for large art, its tier, score and date earned. Two are hidden until you earn them.
+
+| Category | Examples |
+| --- | --- |
+| Campaign | Secure each of the ten missions (*Clot Buster*, *Be Still, My Heart*, *Iron Stomach*, *Hear Me Out* …), finish the campaign (*The President Is Safe*), win on Hard (*House Call*) and win every mission on Hard (*Chief of Medicine*). |
+| Combat | Kill milestones from *Patient Zero* to *Pandemic Over* (25,000), 1,000 critical hits, a milestone for each weapon, five kills with one rocket (*Collateral Damage*), four with one grenade, fifteen in five seconds (*Fever Pitch*), melee kills, a six-pathogen stun and 25 perfect dodges. |
+| Bosses | Your first boss, then each boss's own trick: run the Thrombus Titan into a wall (*Off the Wall*), knock the Leech loose, destroy all seven Tapeworm segments, break the Macrophage's pull; defeat the Mega Virus and every boss (*Rogues' Gallery*). |
+| Field ops | Brood nests, antibody caches, sealed gashes, tissue restored, turret kills, a co-op win, studying 12 pathogens in the Disease guide, and deploying a weapon with a skin, decal, sticker and charm. |
+| Mastery | Win with every node at full integrity, with your suit at 10% or less, without deploying the turret, after a checkpoint retry, through Capillary Overtime, with each field upgrade; score 75,000 and 100,000 in one mission. |
+
+Achievements count in the campaign, Free Mode and co-op. In co-op, your own kills, hits, dodges and pickups count for you; squad events such as sealed gashes and bosses count for everyone. Hard-mode achievements need solo runs, because co-op always plays Medium. Mega Virus practice earns *Going Viral* but not the Neural Cortex. Progress is saved in the browser (`immune-protocol.achievements`), batched every few seconds during play and at the end of each mission.
+
+The rules are in [`dist/achievements.mjs`](dist/achievements.mjs) with no DOM or rendering, so `node --test server/achievements.test.mjs` checks them against the real simulation. [`dist/achievement-ui.mjs`](dist/achievement-ui.mjs) holds the toast timeline and the screen model, the canvas renderer draws both, and [`dist/achievement-system.mjs`](dist/achievement-system.mjs) wires storage, sound and menus. The artwork is baked from the game's own art: pathogen and boss portraits, the organ holograms from the mission briefings, the field-upgrade renders, key art, and the five weapon models rendered in Blender, framed in each tier's metal with the HUD's clipped corners:
+
+```sh
+node tools/achievements/decode_models.mjs dist/assets/weapons/carbine.glb work/weapons/carbine.glb   # per weapon; needs @gltf-transform/core, @gltf-transform/extensions and meshoptimizer
+blender -b -P tools/achievements/render_subjects.py -- tools/achievements/subjects work
+python3 tools/achievements/bake_art.py
+```
+
+The weapon renders are committed in `tools/achievements/subjects/`, so only the last step is needed to change a tile. `bake_art.py` needs Pillow, plus fontTools and brotli to read the bundled Barlow Condensed. On `localhost`, `window.__achievements` exposes the tracker and the toast queue for testing (for example `__achievements.achievements.unlock('fever-pitch')`).
+
 ## Online co-op
 
 Two or three players share all ten missions in one room, from Arterial Junction to the Mega Virus fight in Neural Cortex. On the multiplayer server's game page, open **Online co-op**, enter a callsign, and choose **Create room**. Send the invite link to one or two friends. They open it, enter callsigns, and choose **Join room**. The room holds up to three players and starts when all joined players choose **Ready**, with a minimum of two. Invite a third player before the pair readies up; matches do not accept new players after deployment.
@@ -406,6 +432,7 @@ flowchart LR
 | [`dist/heart-chamber.mjs`](dist/heart-chamber.mjs) | The Heart Valve layout: the four valves, their beat, wounds, colony spots and solid footprints, and the sleeve ray test the simulation uses for shots. |
 | [`dist/heart-valve.mjs`](dist/heart-valve.mjs) | The four moving valves: sleeves, leaflets, throat lights and blood cells. The scene follows the same timing as the simulation's shot and repair windows. |
 | [`dist/turret.mjs`](dist/turret.mjs) | The 3D auto-turret with its aiming mount, deployment animation, and recoil. |
+| [`dist/achievements.mjs`](dist/achievements.mjs), [`dist/achievement-ui.mjs`](dist/achievement-ui.mjs), [`dist/achievement-system.mjs`](dist/achievement-system.mjs) | Achievement definitions and rules fed by simulation events; the unlock toast and Achievements screen models; saved progress, chime and menu wiring. |
 | [`dist/audio.mjs`](dist/audio.mjs) | Mixes original [sound effects](dist/assets/sfx) and two synchronized [soundtrack loops](dist/assets/music). Impacts and inlet activity pan with their position relative to the player. |
 
 ## How it was built

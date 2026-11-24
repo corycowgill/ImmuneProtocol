@@ -112,6 +112,10 @@
               <span class="menu-option-label"><strong>Armory</strong><span>Weapons, parts, skins, decals and charms</span></span>
               <svg class="title-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
             </button>
+            <button id="achievements-open" class="title-option" type="button">
+              <span class="menu-option-label"><strong>Achievements</strong><span id="achievements-menu-detail">Trophies, artwork and progress</span></span>
+              <svg class="title-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
+            </button>
             <button id="guide" class="title-option" type="button">
               <span class="menu-option-label"><strong>Disease guide</strong><span>Every pathogen you will face</span></span>
               <svg class="title-arrow" aria-hidden="true"><use href="#arrow"></use></svg>
@@ -686,6 +690,15 @@
       </footer>
     </dialog>
 
+    <dialog id="achievements-dialog" class="panel" aria-labelledby="achievements-title">
+      <button class="icon-button close-dialog" data-close="achievements-dialog" type="button" aria-label="Close achievements"><svg aria-hidden="true"><use href="#close"></use></svg></button>
+      <p class="eyebrow">Service record / commendations</p>
+      <h2 id="achievements-title" tabindex="-1">Achievements</h2>
+      <footer class="achievements-actions">
+        <button class="button primary" data-close="achievements-dialog" type="button">Back to menu</button>
+      </footer>
+    </dialog>
+
     <dialog id="pause-dialog" class="panel pause-panel" aria-labelledby="pause-title" aria-describedby="pause-detail">
       <div class="pause-info">
         <p id="pause-mission" class="eyebrow"></p>
@@ -707,6 +720,7 @@
         <button id="restart-mission" class="button outline" type="button">Restart mission</button>
         <button class="button outline" type="button" data-settings>Settings</button>
         <button id="pause-manual" class="button outline" type="button">Field manual</button>
+        <button id="pause-achievements" class="button outline" type="button">Achievements</button>
         <button id="quit" class="button outline pause-quit" type="button" aria-describedby="quit-detail">Quit to main menu</button>
         <p id="quit-detail" class="pause-note">Quitting ends this run. Your campaign checkpoint is kept.</p>
       </div>

@@ -101,7 +101,7 @@ density, safe areas, and combat/menu geometry at 393×852, 852×393, 667×375,
 568×320 and 1280×720.
 
 Run `npm run profile` and open `/__ui?screen=menu&nointro`. Supported fixtures:
-`menu`, `settings`, `manual`, `guide`, `armory`, `deployment`, `confirm`, `coop`,
+`menu`, `settings`, `manual`, `guide`, `achievements`, `armory`, `deployment`, `confirm`, `coop`,
 `play`, `pause`, `result`, `loss`, `extraction`, `loading`, `failure`, `ui-failure`, and `intro`.
 These are local performance-server routes, not production cheats. Fixtures use
 the real controllers and simulation, and restore local settings when leaving.
