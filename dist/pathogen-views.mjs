@@ -130,6 +130,10 @@ export function dressGuardModel(world) {
   model.add(carapace);
 }
 
+// How far the Valve Colony scan's roots reach below its centre at its rendered size (the scan spans
+// ±0.945 m, scaled 1.4 in enemy-models.mjs), less a little so the roots bed into the floor.
+const COLONY_ROOT = .945 * 1.4 - .1;
+
 export function updateEnemies(world, enemies, dt, reduceMotion = false) {
   for (const view of world.enemyViews.values()) view.present = false;
   const frameDt = dt;
@@ -195,12 +199,19 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
     }
     if (enemy.type === 'rogue-bot' || enemy.type === 'crawler') { updateBotView(world, enemy, view, dt, reduceMotion); continue; }
     if (enemy.type === 'colony') {
+      // Rooted on the floor of its valve sleeve: the scan's roots (its lowest point, COLONY_ROOT below
+      // the model's centre) sit just into the ground, and it rears up as it readies a spit.
       view.hit = Math.max(0, view.hit - dt * 7);
-      const throb = reduceMotion ? 0 : Math.sin(world.clock * 3.1) * .025;
-      view.model.scale.set(1 + throb + view.hit * .07, 1 - throb - view.hit * .06, 1);
-      if (view.attackMembrane) view.attackMembrane.emissiveIntensity = view.membraneIntensity + (enemy.telegraph ? .8 : 0) + view.hit * .5;
-      if (!reduceMotion) animatePathogen(view.motion, dt);
-      view.shadow.visible = false;
+      view.clench = THREE.MathUtils.damp(view.clench, enemy.charging ? 1 : 0, 9, dt);
+      const throb = reduceMotion ? 0 : Math.sin(world.clock * 3.1 + view.phase) * .025;
+      const stretch = 1 - throb - view.hit * .06 + view.clench * .07;
+      view.model.position.y = groundLevel(enemy.x, enemy.z, world.clock) + COLONY_ROOT * stretch;
+      view.model.rotation.set(0, enemy.heading ?? 0, 0);
+      view.model.scale.set(1 + throb + view.hit * .07 - view.clench * .03, stretch, 1 + throb + view.hit * .07 - view.clench * .03);
+      if (view.attackMembrane) view.attackMembrane.emissiveIntensity = view.membraneIntensity + view.clench * .9 + view.hit * .5;
+      if (!reduceMotion) animatePathogen(view.motion, dt, view.clench);
+      view.shadow.position.set(enemy.x, groundLevel(enemy.x, enemy.z, world.clock) + .06, enemy.z);
+      view.shadow.scale.setScalar(enemy.radius * 1.6);
       continue;
     }
     if (enemy.boss || enemy.segmentOf) {

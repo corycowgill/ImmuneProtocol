@@ -18,6 +18,10 @@ import {
 import {
   GASTRIC_REPAIR_RADIUS, advanceGastric, createGastric, gastricValve, pendingGastricEnemies, repairGastricValve, shapeGastricHazard, startGastric,
 } from './gastric.mjs';
+import {
+  HEART_ENTRY, HEART_NODES, HEART_OBSTACLES, HEART_PATROL_ENTRIES, HEART_VALVES, VALVE_CENTER_Y, VALVE_CLOSED_TIME, VALVE_LEAFLET_TIME,
+  apertureRadius, insideSleeve, traceSleeve, valveBeat, valveFrame,
+} from './heart-chamber.mjs';
 
 export const OBJECTIVE = Object.freeze({ x: 0, y: 1.25, z: -8 });
 // Every arena is an ellipse this many metres wide (x) and deep (z) from its centre.
@@ -32,10 +36,7 @@ export const TISSUE_NODES = Object.freeze({
     Object.freeze({ id: 'junction-amber', name: 'Amber Node', x: grow(-15), y: 1.25, z: grow(-9) }),
     Object.freeze({ id: 'junction-teal', name: 'Teal Node', x: grow(15), y: 1.25, z: grow(-9) }),
   ]),
-  heart: Object.freeze([
-    Object.freeze({ id: 'heart-valve', name: 'Valve Wound', ...OBJECTIVE }),
-    Object.freeze({ id: 'heart-flank', name: 'Septal Node', x: 17, y: 1.25, z: 11 }),
-  ]),
+  heart: HEART_NODES,
   ...Object.fromEntries(Object.entries(ORGAN_MISSIONS).map(([area, mission]) =>
     [area, Object.freeze(mission.nodes.map(node => Object.freeze(node)))],
   )),
@@ -49,7 +50,7 @@ const ARTERY_OBSTACLES = [
 
 // Solid scenery a suit cannot walk through, for any arena.
 export function arenaObstacles(area) {
-  return ORGAN_MISSIONS[area]?.obstacles ?? (area === 'artery' ? ARTERY_OBSTACLES : []);
+  return ORGAN_MISSIONS[area]?.obstacles ?? (area === 'artery' ? ARTERY_OBSTACLES : area === 'heart' ? HEART_OBSTACLES : []);
 }
 
 export const JUNCTION_INLETS = Object.freeze({
@@ -63,7 +64,6 @@ export const JUNCTION_GASH_SITES = Object.freeze({
 });
 // The solid core of a tissue node that stops player fire (its lobes are about this size).
 export const TISSUE_BLOCK_RADIUS = 1.15;
-export const HEART_VALVE = Object.freeze({ x: 0, y: 2, z: -10.7, radius: 3.65 });
 
 export const RULES = Object.freeze({
   health: 100,
@@ -82,7 +82,8 @@ export const SPECIES = {
   spore: { radius: 0.73, y: 2.10, health: 36, speed: 3.55, suitDamage: 9, tissueDamage: 4, score: 130 },
   guard: { behavior: 'bacillus', radius: 1.32, y: 1.33, health: 144, speed: 1.62, tissueDamage: 12, period: 1.9, score: 260 },
   splitter: { behavior: 'virus', radius: 1.07, y: 1.75, health: 84, speed: 3.35, suitDamage: 13, tissueDamage: 7, score: 200 },
-  colony: { radius: 1.10, y: 3.35, health: 1100, tissueDamage: 11, period: 1.57, score: 900 },
+  // Rooted on the floor behind a heart valve; it spits through the aperture while the valve is open.
+  colony: { radius: 1.15, y: 1.3, health: 340, suitDamage: 14, tissueDamage: 13, period: 1.6, score: 600 },
   phage: { behavior: 'virus', radius: 0.88, y: 1.85, health: 52, speed: 2.6, suitDamage: 10, tissueDamage: 5, score: 115 },
   flagellate: { behavior: 'virus', radius: 0.95, y: 1.5, health: 66, speed: 2.45, suitDamage: 12, tissueDamage: 6, score: 125 },
   blister: { behavior: 'spore', radius: 0.84, y: 2.2, health: 44, speed: 3.2, suitDamage: 10, tissueDamage: 5, score: 150 },
@@ -151,17 +152,20 @@ const JUNCTION_OVERTIME = junctionMission('Overtime', [
   [8.8, 'right', 'Bacillus breach', ['bacillus', 'virus']],
 ], 2000);
 
-const HEART_MISSIONS = [{ species: ['colony'] }];
-const HEART_CLOSED_TIME = 3.8;
-const HEART_OPEN_TIME = 3.4;
-const HEART_LEAFLET_TIME = 0.42;
-const HEART_MIN_PLAYER_Z = -9.8;
-const HEART_MAX_PLAYER_Z = 28;
-const HEART_MAX_PLAYER_X = 20;
-const HEART_PATROL = extendRoster(['virus', 'spore', 'bacillus', 'spore', 'virus', 'virus', 'bacillus', 'spore', 'virus', 'bacillus']);
+// The Heart Valve's one wave is its colonies, three behind each of the four valves.
+const HEART_MISSIONS = [{ species: HEART_VALVES.flatMap(valve => valve.colonies.map(() => 'colony')) }];
+// Flank patrols, nano drones among them, come in from the four quarters between the valves.
+const HEART_PATROL = extendRoster(['virus', 'spore', 'bacillus', 'crawler', 'virus', 'rogue-bot', 'spore', 'bacillus', 'crawler', 'virus', 'spore', 'rogue-bot']);
 // Seconds between patrol arrivals.
-const HEART_PATROL_PACE = 3.2;
-const HEART_PATROL_ENTRIES = [{ x: 19, z: 27 }, { x: -18, z: 24 }, { x: 22, z: -4 }];
+const HEART_PATROL_PACE = 3;
+// Colony spit: fast, straight, and aimed to fit through the open aperture.
+const COLONY_SPIT_SPEED = 13;
+const COLONY_SPIT_RADIUS = .26;
+const COLONY_WINDUP = .55;
+// A colony spits at a suit standing in front of its valve within this range, otherwise at the wound.
+const COLONY_SUIT_RANGE = 30;
+// Each time a valve opens on living colonies it spews a spore out into the chamber, up to this many alive.
+const VALVE_SPEW_LIMIT = 8;
 // Which areas each species attacks in, for the disease guide. Gastric
 // counterattacks and Mega Virus broods only use species already in their waves.
 export function speciesHabitats() {
@@ -399,8 +403,6 @@ export class Simulation {
     for (const [dx, dz] of [[.7, 0], [-.7, 0], [0, .7], [0, -.7]]) {
       if (Math.abs(groundHeight(pieces, point.x + dx, point.z + dz, this.clock) - point.y) > .2) return null;
     }
-    if (this.valve && (Math.abs(point.x) > HEART_MAX_PLAYER_X - .65 ||
-      point.z < HEART_MIN_PLAYER_Z + .65 || point.z > HEART_MAX_PLAYER_Z - .65)) return null;
     if (chamberRadius(point.x, point.z) > .975) return null;
     if (this.obstacles.some(([x, z, size]) => Math.hypot(point.x - x, point.z - z) < size)) return null;
     if (this.nodes.some(node => Math.hypot(point.x - node.x, point.z - node.z) < 1.9)) return null;
@@ -463,13 +465,16 @@ export class Simulation {
     this.ai?.dispose();
     if (this.overtime) this.missions = JUNCTION_MISSIONS;
     this.valve = this.area === 'heart' ? {
-      phase: 'closed', duration: HEART_CLOSED_TIME, remaining: HEART_CLOSED_TIME,
-      openness: 0, exposed: false, colonyDefeated: false,
+      colonyDefeated: false, colonies: 0, colonyTotal: 0, open: 0,
+      valves: HEART_VALVES.map(({ id, name, index }) => ({
+        id, name, index, phase: 'closed', duration: VALVE_CLOSED_TIME, remaining: VALVE_CLOSED_TIME,
+        openness: 0, exposed: false, colonies: 0,
+      })),
     } : null;
     this.phase = 'ready';
     this.tutorial = null;
     this.player = {
-      x: 0, y: 1.7, z: this.valve ? 4 : grow(this.area === 'junction' ? 20 : 26), yaw: 0, pitch: 0,
+      x: this.valve ? HEART_ENTRY.x : 0, y: 1.7, z: this.valve ? HEART_ENTRY.z : grow(this.area === 'junction' ? 20 : 26), yaw: 0, pitch: 0,
       health: RULES.health, ammo: this.magazineSize, score: 0, kills: 0,
     };
     if (this.organMission) [this.player.x, this.player.z] = this.organMission.entry;
@@ -528,6 +533,7 @@ export class Simulation {
     this.turret = null;
     this.patrolIndex = 0;
     this.colony = null;
+    this.spewed = new Set();
     this.events = [];
     this.organCycle = 0;
     this.organNextDamage = 0;
@@ -549,9 +555,7 @@ export class Simulation {
     if (this.bossPractice) this.wave = this.missions.findIndex(mission => mission.boss);
     this.beginWave();
     if (this.valve) {
-      this.objective.health = RULES.tissue - 2 * REPAIR_PER_CYCLE;
-      this.colony = this.createEnemy('colony', HEART_VALVE.x, -13.25, this.objective);
-      this.enemies.push(this.colony);
+      this.startHeart();
       return;
     }
     if (this.hasTutorial) {
@@ -773,8 +777,8 @@ export class Simulation {
     this.clock += dt;
     for (const node of this.nodes) node.underAttack = false;
     if (this.valve) {
-      this.updateValve();
-      this.advanceColony(dt);
+      this.updateValves();
+      this.advanceColonies(dt);
       this.spawnHeartPatrol();
     }
     if (this.boss) stepBrainBoss(this, dt);
@@ -1077,52 +1081,170 @@ export class Simulation {
     }
   }
 
-  updateValve() {
-    const valve = this.valve;
-    const elapsed = this.clock % (HEART_CLOSED_TIME + HEART_OPEN_TIME);
-    const open = elapsed >= HEART_CLOSED_TIME;
-    const phase = open ? 'open' : 'closed';
-    const duration = open ? HEART_OPEN_TIME : HEART_CLOSED_TIME;
-    const phaseElapsed = open ? elapsed - HEART_CLOSED_TIME : elapsed;
-    const transition = open ? clamp(Math.min(phaseElapsed, duration - phaseElapsed) / HEART_LEAFLET_TIME, 0, 1) : 0;
-    valve.remaining = duration - phaseElapsed;
-    valve.duration = duration;
-    valve.openness = transition * transition * (3 - 2 * transition);
-    valve.exposed = open && valve.openness >= .72;
-    if (phase === valve.phase) return;
-
-    valve.phase = phase;
-    this.events.push({ type: 'valve', stage: phase, x: HEART_VALVE.x, y: HEART_VALVE.y, z: HEART_VALVE.z });
-    if (open && this.colony) this.colony.attackCooldown = .65;
+  // Roots three colonies behind each valve and leaves every wound part-torn, so the squad has
+  // somewhere to be from the first second.
+  startHeart() {
+    for (const node of this.nodes) node.health = RULES.tissue - REPAIR_PER_CYCLE;
+    for (const valve of HEART_VALVES) {
+      const node = this.nodes[valve.index];
+      valve.colonies.forEach((spot, index) => {
+        const colony = this.createEnemy('colony', spot.x, spot.z, node);
+        colony.valveIndex = valve.index;
+        // Each colony faces out through the mouth and keeps its own rhythm.
+        colony.heading = Math.atan2(valve.x - spot.x, valve.z - spot.z);
+        colony.attackCooldown = .5 + index * .38;
+        colony.shots = index;
+        this.enemies.push(colony);
+      });
+    }
+    this.colony = this.enemies.find(enemy => enemy.type === 'colony') ?? null;
+    this.countColonies();
   }
 
-  advanceColony(dt) {
-    const colony = this.colony;
-    if (!colony) return;
+  countColonies() {
+    const { valve } = this;
+    for (const state of valve.valves) state.colonies = 0;
+    let total = 0;
+    for (const enemy of this.enemies) {
+      if (enemy.type !== 'colony') continue;
+      valve.valves[enemy.valveIndex].colonies += 1;
+      total += 1;
+    }
+    valve.colonies = total;
+    valve.colonyTotal = Math.max(valve.colonyTotal, total);
+    valve.colonyDefeated = total === 0;
+    this.colony = this.enemies.find(enemy => enemy.type === 'colony') ?? null;
+  }
 
-    colony.attackingTissue = this.valve.exposed;
-    if (!colony.attackingTissue) {
-      colony.telegraph = null; colony.warning = ''; this.setEnemyAction(colony, 'idle'); return;
+  // Whether a colony sits behind a valve that is open far enough to shoot through.
+  colonyExposed(enemy) {
+    return enemy.type !== 'colony' || !!this.valve?.valves[enemy.valveIndex]?.exposed;
+  }
+
+  // Whether blast damage at `point` is kept off this pathogen by the valve it hides behind.
+  shielded(enemy, point) {
+    return enemy.type === 'colony' && !insideSleeve(HEART_VALVES[enemy.valveIndex], point);
+  }
+
+  updateValves() {
+    let open = 0;
+    for (const valve of this.valve.valves) {
+      const layout = HEART_VALVES[valve.index];
+      const { open: opened, elapsed, remaining, duration } = valveBeat(layout, this.clock);
+      const phase = opened ? 'open' : 'closed';
+      const transition = opened ? clamp(Math.min(elapsed, remaining) / VALVE_LEAFLET_TIME, 0, 1) : 0;
+      valve.remaining = remaining;
+      valve.duration = duration;
+      valve.openness = transition * transition * (3 - 2 * transition);
+      valve.exposed = opened && valve.openness >= .72;
+      if (opened) open += 1;
+      if (phase === valve.phase) continue;
+      valve.phase = phase;
+      this.events.push({ type: 'valve', stage: phase, valveId: valve.id, x: layout.x, y: VALVE_CENTER_Y, z: layout.z });
+      if (opened && valve.colonies > 0) this.spewSpore(layout);
     }
-    colony.node.underAttack = true;
-    colony.attackCooldown = Math.max(0, colony.attackCooldown - dt);
-    if (colony.attackCooldown <= .65 && !colony.telegraph) {
-      telegraph(colony, 'tear', colony.attackCooldown, 3.5, { x: HEART_VALVE.x, z: HEART_VALVE.z });
-      colony.warning = 'COLONY TEAR · FIRE THROUGH THE OPEN VALVE';
-      this.attackEvent(colony, 'windup', 'tissue', HEART_VALVE);
+    this.valve.open = open;
+  }
+
+  // An opening valve with living colonies behind it spews a spore out into the chamber.
+  spewSpore(layout) {
+    for (const id of this.spewed) if (!this.enemies.some(enemy => enemy.id === id)) this.spewed.delete(id);
+    if (this.spewed.size >= VALVE_SPEW_LIMIT) return;
+    const node = this.nodes[layout.index];
+    const spore = this.createEnemy('spore', layout.x - layout.ox * 2.6, layout.z - layout.oz * 2.6, node);
+    this.spewed.add(spore.id);
+    this.enemies.push(spore);
+    this.events.push({ type: 'valve', stage: 'spew', valveId: layout.id, x: spore.x, y: VALVE_CENTER_Y, z: spore.z });
+  }
+
+  advanceColonies(dt) {
+    for (const colony of this.enemies) {
+      if (colony.type !== 'colony') continue;
+      const valve = this.valve.valves[colony.valveIndex];
+      colony.attackingTissue = valve.exposed;
+      if (!valve.exposed) {
+        // A closing valve smothers a spit before it leaves.
+        if (colony.charging) this.attackEvent(colony, 'cancel', 'tissue');
+        colony.charging = false;
+        colony.warning = '';
+        colony.attackCooldown = Math.max(colony.attackCooldown, .35 + (colony.shots % 3) * .3);
+        this.setEnemyAction(colony, 'idle');
+        continue;
+      }
+      colony.node.underAttack = true;
+      colony.attackCooldown = Math.max(0, colony.attackCooldown - dt);
+      if (colony.attackCooldown <= COLONY_WINDUP && !colony.charging) {
+        colony.charging = true;
+        colony.warning = 'COLONY SPIT · FIRE THROUGH THE OPEN VALVE';
+        this.setEnemyAction(colony, 'windup');
+        this.attackEvent(colony, 'windup', 'tissue');
+      }
+      if (colony.attackCooldown > 0) continue;
+      colony.charging = false;
+      colony.warning = '';
+      colony.attackCooldown = SPECIES.colony.period * (.85 + .1 * (colony.shots % 4));
+      this.setEnemyAction(colony, 'idle');
+      this.colonySpit(colony, valve);
     }
-    if (colony.telegraph) colony.telegraph.remaining = colony.attackCooldown;
-    if (colony.attackCooldown > 0) return;
-    colony.attackCooldown = SPECIES.colony.period;
-    colony.telegraph = null; colony.warning = ''; this.setEnemyAction(colony, 'idle');
-    this.damageTarget(colony, 'tissue', SPECIES.colony.tissueDamage, HEART_VALVE);
+  }
+
+  // Spits a glob out through the aperture: at a suit standing in front of the valve every other
+  // time if one is in reach and in line, otherwise at the wound in front of it.
+  colonySpit(colony, valve) {
+    const layout = HEART_VALVES[colony.valveIndex];
+    const muzzle = { x: colony.x, y: colony.y + .7, z: colony.z };
+    const aperture = apertureRadius(valve.openness) * .95;
+    const through = point => {
+      const from = valveFrame(layout, muzzle.x, muzzle.z);
+      const to = valveFrame(layout, point.x, point.z);
+      if (to.u > -.5) return false;
+      const t = from.u / (from.u - to.u);
+      const y = muzzle.y + (point.y - muzzle.y) * t;
+      return Math.hypot(from.v + (to.v - from.v) * t, y - VALVE_CENTER_Y) <= aperture;
+    };
+    colony.shots += 1;
+    let target = 'tissue';
+    let aim = { x: colony.node.x, y: colony.node.y + .2, z: colony.node.z };
+    let playerId = null;
+    if (colony.shots % 2 === 0) {
+      let best = COLONY_SUIT_RANGE;
+      for (const { player } of this.activeSuits()) {
+        if (player.health <= 0 || player.downed) continue;
+        const point = { x: player.x, y: player.y - .25, z: player.z };
+        const distance = Math.hypot(point.x - layout.x, point.z - layout.z);
+        if (distance < best && through(point)) {
+          best = distance;
+          target = 'player';
+          aim = point;
+          playerId = player.id ?? null;
+        }
+      }
+    }
+    if (target === 'tissue' && !through(aim)) return;
+    const dx = aim.x - muzzle.x;
+    const dy = aim.y - muzzle.y;
+    const dz = aim.z - muzzle.z;
+    const distance = Math.hypot(dx, dy, dz);
+    const scale = COLONY_SPIT_SPEED / Math.max(.01, distance);
+    this.projectiles.push({
+      id: this.nextProjectileId++, owner: colony, colony: true,
+      target, targetPlayerId: playerId, targetNodeId: colony.nodeId,
+      ...muzzle, vx: dx * scale, vy: dy * scale, vz: dz * scale, radius: COLONY_SPIT_RADIUS,
+      arming: SPORE_ARM_TIME, lifetime: distance / COLONY_SPIT_SPEED + .45,
+    });
+    colony.actionPlayerId = playerId;
+    this.attackEvent(colony, 'release', target, muzzle, playerId);
   }
 
   spawnHeartPatrol() {
     if (this.patrolIndex >= HEART_PATROL.length || this.clock < 2.3 + this.patrolIndex * HEART_PATROL_PACE) return;
     const index = this.patrolIndex++;
-    const entry = HEART_PATROL_ENTRIES[index % HEART_PATROL_ENTRIES.length];
-    this.enemies.push(this.createEnemy(HEART_PATROL[index], entry.x, entry.z, this.nodes[1]));
+    // Patrols rotate round the four wounds, each from a quarter that is not right beside it.
+    const node = this.nodes[index % this.nodes.length];
+    const entries = [...HEART_PATROL_ENTRIES].sort((a, b) =>
+      Math.hypot(b.x - node.x, b.z - node.z) - Math.hypot(a.x - node.x, a.z - node.z));
+    const entry = entries[Math.floor(index / this.nodes.length) % 3];
+    this.enemies.push(this.createEnemy(HEART_PATROL[index], entry.x, entry.z, node));
   }
 
   movePlayer(dt, input, suit = this) {
@@ -1158,10 +1280,7 @@ export class Simulation {
   }
 
   confineToArena(actor, solid = false) {
-    if (this.valve) {
-      actor.x = clamp(actor.x, -HEART_MAX_PLAYER_X, HEART_MAX_PLAYER_X);
-      actor.z = clamp(actor.z, HEART_MIN_PLAYER_Z, HEART_MAX_PLAYER_Z);
-    } else confineToChamber(actor, solid ? this.obstacles : null);
+    confineToChamber(actor, solid ? this.obstacles : null);
   }
 
   updateRepair(dt, held, suit = this) {
@@ -1179,7 +1298,7 @@ export class Simulation {
       const overloaded = this.organ?.repairBlocked && this.organ.nodeId === node.id;
       const port = this.airway?.ports.find(item => item.nodeId === node.id);
       if ((node.health < RULES.tissue || port?.open === false) && distance <= repairDistance && !overloaded &&
-        (!this.valve || node !== this.objective || this.valve.phase === 'closed')) {
+        (node.valveIndex == null || this.valve?.valves[node.valveIndex].phase === 'closed')) {
         target = node;
         repairDistance = distance;
       }
@@ -1445,19 +1564,25 @@ export class Simulation {
       critical = false;
     }
 
-    if (this.valve && dz < 0) {
-      const crossing = (HEART_VALVE.z - player.z) / dz;
-      if (crossing < distance) {
-        const x = player.x + dx * crossing;
-        const y = player.y + dy * crossing;
-        // The ray must fit inside the moving aperture as well as the hit window.
-        const aperture = .035 + 2.35 * this.valve.openness ** .6;
-        if (!this.valve.exposed || Math.hypot(x - HEART_VALVE.x, y - HEART_VALVE.y) > aperture) {
-          distance = crossing;
-          target = undefined;
-          critical = false;
-          blocked = true;
+    // Heart valves: a shot gets into a sleeve only through an open aperture; the muscle stops it.
+    if (this.valve) {
+      for (const layout of HEART_VALVES) {
+        const hit = traceSleeve(layout, player, ray);
+        if (!hit || hit.distance >= distance) continue;
+        const valve = this.valve.valves[layout.index];
+        if (hit.mouth && valve.exposed && hit.offset <= apertureRadius(valve.openness)) {
+          // Through the aperture: whatever it meets inside, or the far wall of the sleeve.
+          if (hit.exit < distance) {
+            distance = hit.exit;
+            target = undefined;
+            critical = false;
+          }
+          continue;
         }
+        distance = hit.distance;
+        target = undefined;
+        critical = false;
+        blocked = hit.mouth;
       }
     }
 
@@ -1526,6 +1651,7 @@ export class Simulation {
     // Splash ignores Shellback armour; the pathogen it struck takes the direct hit too.
     for (const enemy of [...this.enemies]) {
       if (!this.enemies.includes(enemy) || enemy.hidden || (enemy.tutorial && this.tutorial === 'observe')) continue;
+      if (this.valve && this.shielded(enemy, impact)) continue;
       const gap = Math.max(0, Math.hypot(enemy.x - impact.x, enemy.y - impact.y, enemy.z - impact.z) - enemy.radius);
       const direct = enemy === target;
       if (gap > radius && !direct) continue;
@@ -1578,9 +1704,11 @@ export class Simulation {
       this.enemies = this.enemies.filter(enemy => enemy.segmentOf !== target.id);
     }
     if (target.nest) this.events.push({ type: 'nest', stage: 'destroyed', id: target.id, x: target.x, y: target.y, z: target.z });
-    if (target === this.colony) {
-      this.colony = null;
-      this.valve.colonyDefeated = true;
+    if (target.type === 'colony' && this.valve) {
+      this.countColonies();
+      const layout = HEART_VALVES[target.valveIndex];
+      const left = this.valve.valves[target.valveIndex].colonies;
+      this.events.push({ type: 'valve', stage: left ? 'colony' : 'cleared', valveId: layout.id, remaining: this.valve.colonies, x: target.x, y: target.y, z: target.z });
     }
     if (target.type === 'splitter') this.splitEnemy(target);
     if (target.tutorial) {
@@ -2048,7 +2176,8 @@ export class Simulation {
         this.attackEvent(owner, 'miss', target, { x: from.x + dx, y: from.y + dy, z: from.z + dz }, projectile.targetPlayerId);
         continue;
       }
-      if (!clearSegment(this.obstacles, from, { x: from.x + dx, z: from.z + dz }, projectile.radius)) {
+      // Colony spit starts inside a valve sleeve and leaves through the aperture.
+      if (!projectile.colony && !clearSegment(this.obstacles, from, { x: from.x + dx, z: from.z + dz }, projectile.radius)) {
         this.attackEvent(owner, 'miss', target, from, projectile.targetPlayerId);
         continue;
       }
@@ -2064,7 +2193,7 @@ export class Simulation {
         const radius = projectile.radius + (target === 'player' ? 0.61 : 1.08);
         if (Math.hypot(tx - dx * nearest, ty - dy * nearest, tz - dz * nearest) <= radius) {
           const impact = { x: from.x + dx * nearest, y: from.y + dy * nearest, z: from.z + dz * nearest };
-          const spec = SPECIES.spore;
+          const spec = projectile.colony ? SPECIES.colony : SPECIES.spore;
           this.damageTarget(owner, target, target === 'player' ? spec.suitDamage : spec.tissueDamage, impact, projectile.targetPlayerId, objective);
           this.attackEvent(owner, 'impact', target, impact, projectile.targetPlayerId);
           continue;

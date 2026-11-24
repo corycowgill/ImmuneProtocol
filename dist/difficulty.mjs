@@ -113,8 +113,8 @@ function reshapeArrivals(wave, { cadence, drop, extra }) {
 function reshapeMission(wave, level) {
   if (wave.boss) return wave;
   if (wave.arrivals) return reshapeArrivals(wave, level);
-  // The heart colony wave is a single boss organism; only its health and damage scale.
-  if (wave.species.length === 1 && wave.species[0] === 'colony') return wave;
+  // The heart's wave is its rooted colonies, one set per valve; only their health and damage scale.
+  if (wave.species.every(type => type === 'colony')) return wave;
   return reshapeWave(wave, level);
 }
 

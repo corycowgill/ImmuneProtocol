@@ -7,7 +7,7 @@ export const campaignAreas = CAMPAIGN_AREAS;
 export const missions = {
   artery: { name: 'Arterial Junction', briefing: 'Defend the core, lateral branch and venous wall through five waves in the bloodstream.' },
   junction: { name: 'Capillary Junction', briefing: 'Read the attack forecast and defend both inlets.' },
-  heart: { name: 'Heart Valve', briefing: 'Time your shots through the valve and defend the outer wall.' },
+  heart: { name: 'Heart Valve', briefing: 'Four valves open in turn. Sprint between them, shoot the colonies through each opening and seal the wounds while they close.' },
   ...ORGAN_MISSIONS,
 };
 

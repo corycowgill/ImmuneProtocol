@@ -14,7 +14,7 @@ The cannon announces a fixed firing line for 0.95 seconds. The drone holds its o
 
 ## Mission integration
 
-The bot replaces a small number of existing ranged enemies, preserving authored wave lengths and lane strings. It first appears in Arterial Junction Wave 3, also appears in Wave 5, and appears in Bronchial Fork Wave 2, Gastric Chamber Wave 2, Intestinal Bend Wave 3, Colonic Reservoir Wave 2, Lymph Node Wave 2, Inner Ear Wave 2 and Neural Cortex Wave 1. Training, Capillary Junction's scripted surges, the Heart Valve patrol and scripted boss broods keep their rosters. A bot can occupy Predator Pack's ranged-support slot while retaining its player-only AI.
+The bot replaces a small number of existing ranged enemies, preserving authored wave lengths and lane strings. It first appears in Arterial Junction Wave 3, also appears in Wave 5, and appears in Bronchial Fork Wave 2, Gastric Chamber Wave 2, Intestinal Bend Wave 3, Colonic Reservoir Wave 2, Lymph Node Wave 2, Inner Ear Wave 2 and Neural Cortex Wave 1. The Heart Valve's flank patrol brings Rogue Bots and Crawlers in from the quarters between its valves. Training, Capillary Junction's scripted surges and scripted boss broods keep their rosters. A bot can occupy Predator Pack's ranged-support slot while retaining its player-only AI.
 
 The existing disease guide now includes its animated model, Cycles portrait, counterplay, live stats, fictional background and automatically derived habitats. Deployment briefings pick it up from those same habitats. The guide reports zero tissue damage. The Rogue Cell remains available with its existing latching behavior.
 

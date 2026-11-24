@@ -1092,11 +1092,15 @@ export function createLevelProps(area, { glow, floorHeight, nodes = [], obstacle
     } else if (area === 'junction') {
       rivers.push(river(spread([[-48, 9, -40], [-24, 12, -30], [0, 13, -36], [24, 12, -30], [48, 9, -40]]), 3.2, 13, .5, 2));
     } else {
-      rivers.push(river(spread([[-40, 12, 40], [-18, 15, 20], [0, 16, 0], [18, 15, -20], [40, 12, -40]]), 3, 16, .5, 2));
+      // The heart's roof is low: its river runs just under it, corner to corner between the valves.
+      rivers.push(river([[-44, 9.5, 46], [-20, 10.8, 22], [0, 11.2, 0], [20, 10.8, -22], [44, 9.5, -46]].map(([x, y, z]) => new THREE.Vector3(x, y, z)), 3, 16, .5, 2));
     }
-    // Ground-level torrents race along both walls just outside the playable floor.
-    rivers.push(river(spread([[-46, 2, -62], [-49, 2.4, -30], [-50, 2.6, 0], [-49, 2.4, 30], [-44, 2, 62]]), 2.6, 18, .45, 2.2));
-    rivers.push(river(spread([[44, 2, 62], [49, 2.4, 30], [50, 2.6, 0], [49, 2.4, -30], [46, 2, -62]]), 2.6, 18, .45, 2.2));
+    // Ground-level torrents race along both walls just outside the playable floor. The heart's
+    // valve sleeves sit there instead.
+    if (area !== 'heart') {
+      rivers.push(river(spread([[-46, 2, -62], [-49, 2.4, -30], [-50, 2.6, 0], [-49, 2.4, 30], [-44, 2, 62]]), 2.6, 18, .45, 2.2));
+      rivers.push(river(spread([[44, 2, 62], [49, 2.4, 30], [50, 2.6, 0], [49, 2.4, -30], [46, 2, -62]]), 2.6, 18, .45, 2.2));
+    }
     for (const flow of rivers) vesselSheath(root, flow, 0xffc2bc);
     const total = 820;
     const cells = bloodRiver(root, rivers, total, time, random);

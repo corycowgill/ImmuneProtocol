@@ -42,7 +42,8 @@ const nodeMarkers = [
   { marker: byId('objective-marker'), label: byId('marker-label'), distance: byId('marker-distance'), edge: byId('objective-edge'), edgeLabel: byId('objective-edge-label') },
   { marker: byId('secondary-marker'), label: byId('secondary-marker-label'), distance: byId('secondary-marker-distance'), edge: byId('secondary-edge'), edgeLabel: byId('secondary-edge-label') },
   { marker: byId('tertiary-marker'), label: byId('tertiary-marker-label'), distance: byId('tertiary-marker-distance'), edge: byId('tertiary-edge'), edgeLabel: byId('tertiary-edge-label') },
-];
+  { marker: byId('quaternary-marker'), label: byId('quaternary-marker-label'), distance: byId('quaternary-marker-distance'), edge: byId('quaternary-edge'), edgeLabel: byId('quaternary-edge-label') },
+].filter(marker => marker.marker && marker.edge);
 
 const waveOutro = byId('wave-outro');
 const waveOutroTitle = byId('wave-outro-title');
@@ -192,20 +193,42 @@ function drawTraining() {
   trainingDetail.hidden = !trainingDetail.textContent;
 }
 
+// The valve whose wound is closest to the suit: the one the readout and prompts talk about.
+function focusValve(valve) {
+  const { player, nodes } = session.sim;
+  let best = null;
+  let distance = Infinity;
+  for (const node of nodes) {
+    const state = valve.valves?.[node.valveIndex];
+    const gap = Math.hypot(node.x - player.x, node.z - player.z);
+    if (state && gap < distance) {
+      distance = gap;
+      best = state;
+    }
+  }
+  return best;
+}
+
+// A heart valve's state in a word: OPEN, OPENING, CLOSING or CLOSED.
+function valveLabel(state) {
+  if (state.phase !== 'open') return 'CLOSED';
+  return state.exposed ? 'OPEN' : state.remaining > state.duration / 2 ? 'OPENING' : 'CLOSING';
+}
+
 function drawValve(valve) {
-  const open = valve.phase === 'open';
-  const phase = valve.exposed ? 'exposed' : valve.phase;
+  const state = focusValve(valve);
+  if (!state) return;
+  const open = state.phase === 'open';
+  const phase = state.exposed ? 'exposed' : state.phase;
   if (game.dataset.valve !== phase) game.dataset.valve = phase;
-  let label = 'CLOSED';
-  if (open) label = valve.exposed ? 'OPEN' : valve.remaining > valve.duration / 2 ? 'OPENING' : 'CLOSING';
-  setText(waveMode, 'HEART VALVE');
-  setText(waveValue, label);
-  setText(threats, (open ? 'CLOSES IN ' : 'OPENS IN ') + Math.ceil(valve.remaining) + 's');
-  valveFill.style.width = (100 * clamp(valve.remaining / valve.duration, 0, 1)).toFixed(1) + '%';
-  const colony = session.sim.enemies.find(enemy => enemy.type === 'colony');
-  const health = colony ? Math.ceil(100 * colony.health / colony.maxHealth) : 0;
-  const adds = session.sim.enemies.length - Number(!!colony);
-  setText(colonyStatus, valve.colonyDefeated ? 'COLONY NEUTRALIZED' : 'COLONY ' + health + '%');
+  setText(waveMode, state.name.toUpperCase() + ' VALVE');
+  setText(waveValue, valveLabel(state));
+  setText(threats, (open ? 'CLOSES IN ' : 'OPENS IN ') + Math.ceil(state.remaining) + 's' +
+    (valve.open ? ' · ' + valve.open + ' OF 4 OPEN' : ''));
+  valveFill.style.width = (100 * clamp(state.remaining / state.duration, 0, 1)).toFixed(1) + '%';
+  const adds = session.sim.enemies.filter(enemy => enemy.type !== 'colony').length;
+  setText(colonyStatus, valve.colonyDefeated ? 'COLONIES NEUTRALIZED'
+    : valve.colonies + ' / ' + valve.colonyTotal + ' COLONIES · ' + state.colonies + ' BEHIND THIS VALVE');
   flankStatus.hidden = adds === 0;
   setText(flankStatus, adds + ' FLANK ' + (adds === 1 ? 'THREAT' : 'THREATS'));
 }
@@ -633,10 +656,10 @@ export function drawHud() {
   else if (session.sim.organ?.repairBlocked && nearby?.id === session.sim.organ.nodeId && nearby.health < 100) {
     prompt = nearby.name.toUpperCase() + ' REPAIRS BLOCKED DURING OVERLOAD';
   }
-  else if (valve && nearby === session.sim.objective && nearby.health < 100 && valve.phase !== 'closed' && valve.colonyDefeated) {
+  else if (valve && nearby?.valveIndex != null && nearby.health < 100 && valve.valves[nearby.valveIndex].phase !== 'closed') {
     prompt = 'REPAIR ' + nearby.name.toUpperCase() + ' WHEN THE VALVE CLOSES';
   }
-  else if (valve?.exposed && !valve.colonyDefeated && player.ammo > 0) prompt = 'SHOOT THE EXPOSED COLONY';
+  else if (valve && player.ammo > 0 && focusValve(valve)?.exposed && focusValve(valve).colonies > 0) prompt = 'SHOOT THE EXPOSED COLONIES';
   else if (session.sim.settling && tissue < 100) prompt = 'MOVE TO A DAMAGED NODE TO REPAIR';
   else if (player.ammo === 0) {
     prompt = session.usingGamepad ? 'PRESS ' + padActionKey('reload').toUpperCase() + ' TO RELOAD' : isTouch ? 'RELOAD CARBINE' : 'PRESS R TO RELOAD';
@@ -662,6 +685,12 @@ export function drawHud() {
   drawJunctionStatus();
 }
 
+// What a heart wound's marker says about its valve: open now, or how long until it opens.
+function valveTimer(state) {
+  if (state.colonies === 0) return 'Clear';
+  return state.phase === 'open' ? 'Open ' + Math.ceil(state.remaining) + 's' : 'Opens ' + Math.ceil(state.remaining) + 's';
+}
+
 export function drawMarkers() {
   const player = session.sim.player;
   const width = window.innerWidth;
@@ -674,10 +703,12 @@ export function drawMarkers() {
     const dx = x - player.x;
     const dz = z - player.z;
     const distance = Math.hypot(dx, dz);
-    const valveNode = index === 0 && !!session.sim.valve;
-    const point = session.world.project(x, y + (valveNode ? .96 : 1.65), z);
+    const valveState = node.valveIndex != null ? session.sim.valve?.valves[node.valveIndex] : null;
+    const point = session.world.project(x, y + (valveState ? .96 : 1.65), z);
     const visible = point.visible && point.y >= top && point.y < worldMarkerBottom(height, .84) && point.x > 58 && point.x < width - 58;
-    const concealed = (index > 0 && !!session.sim.tutorial) || (valveNode && session.sim.valve.exposed && !session.sim.valve.colonyDefeated) || session.sim.gash?.nodeId === node.id;
+    // An open valve's marker steps aside so it does not sit over the colonies behind it.
+    const concealed = (index > 0 && !!session.sim.tutorial) || session.sim.gash?.nodeId === node.id ||
+      (visible && distance < 26 && valveState?.exposed && valveState.colonies > 0);
     const status = nodeStatus(node);
     const port = session.sim.airway?.ports[index];
     const markerName = port?.name ?? (compact ? shortNodeName(node, session.sim.nodes) : node.name);
@@ -696,12 +727,13 @@ export function drawMarkers() {
       marker.style.left = point.x + 'px';
       marker.style.top = point.y + 'px';
       setText(label, markerName);
-      setText(distanceLabel, (port && !port.open ? 'Blocked · ' : '') + Math.round(distance) + ' m');
+      setText(distanceLabel, (port && !port.open ? 'Blocked · ' : '') + (valveState ? valveTimer(valveState) + ' · ' : '') + Math.round(distance) + ' m');
     }
     if (!edge.hidden) {
       const position = positionEdgeMarker(edge, point, dx, dz, top, width, height, edgePositions);
       edgePositions.push(position);
-      setText(edgeLabel, markerName + ' · ' + (danger ? Math.ceil(node.health) + '%' : port && !port.open ? 'Blocked' : Math.round(distance) + ' m'));
+      const valveOpen = valveState?.phase === 'open' && valveState.colonies > 0 ? 'Open · ' : '';
+      setText(edgeLabel, markerName + ' · ' + valveOpen + (danger ? Math.ceil(node.health) + '%' : port && !port.open ? 'Blocked' : Math.round(distance) + ' m'));
     }
   }
   drawGash(edgePositions);

@@ -8,6 +8,7 @@ import { ImpactFX } from './impact-fx.mjs';
 import { paintGround, patchGround, patchShell } from './ground-fx.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve } from './heart-valve.mjs';
+import { HEART_VALVES } from './heart-chamber.mjs';
 import { createTerrainView } from './terrain-view.mjs';
 import { terrainFor, terrainFootprints } from './terrain.mjs';
 import { AbilityFX } from './ability-fx.mjs';
@@ -178,6 +179,7 @@ export class World {
       makeTissue(this.scene, this.glow, normal, this.random),
       makeTissue(this.scene, this.glow, normal, randomSource(327113), true),
       makeTissue(this.scene, this.glow, normal, randomSource(551903), true),
+      makeTissue(this.scene, this.glow, normal, randomSource(718231), true),
     ];
     this.junctionField = makeJunctionField(this.room.junctionDetails, this.tissueViews[0], this.glow);
     this.turretView = createTurret(this.glow);
@@ -400,7 +402,7 @@ export class World {
       createTerrainView(terrainFor(this.area), baseFloorHeight, this.area, floor.material);
     this.terrainViews.set(this.area, this.terrainView);
     this.scene.add(this.terrainView);
-    canopy.scale.y = heart ? .54 : junction ? .63 : profile ? .85 : 1;
+    canopy.scale.y = heart ? .62 : junction ? .63 : profile ? .85 : 1;
     this.scene.background.setHex(profile?.background ?? (heart ? 0x26181f : junction ? 0x1d1115 : 0x230f11));
     this.scene.fog.color.setHex(profile?.fog ?? (heart ? 0x3c2228 : junction ? 0x332528 : 0x3a2228));
     // Larger arenas need thinner haze so the far side of the chamber still reads.
@@ -459,7 +461,9 @@ export class World {
       view.root.visible = !!node;
       if (!node) continue;
       view.root.position.set(node.x, node.y + floorHeight(node.x, node.z), node.z);
-      view.root.rotation.y = junction ? (i === 0 ? .31 : -.31) : [0, -.49, .62][i];
+      // A heart wound turns its face to the valve it sits in front of.
+      view.root.rotation.y = junction ? (i === 0 ? .31 : -.31)
+        : node.valveIndex != null ? HEART_VALVES[node.valveIndex].yaw : [0, -.49, .62, .2][i];
       view.opening = 0;
       view.wound.reshape(0);
       view.channel.visible = false;

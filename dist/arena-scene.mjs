@@ -1,8 +1,9 @@
 // Builds the shared arena: the tissue floor and walls, vessels and growths, the drifting
-// atmosphere, the Capillary Junction inlets and Heart Valve chamber, and the tissue nodes with
+// atmosphere, the Capillary Junction inlets and the Heart Valve chamber's dressing, and the tissue nodes with
 // their wounds. World (world.mjs) creates these once and shows the parts each mission needs.
 import * as THREE from './vendor/three.module.js';
 import { JUNCTION_GASH_SITES, JUNCTION_INLETS } from './simulation.mjs';
+import { HEART_OBSTACLES, HEART_VALVES } from './heart-chamber.mjs';
 import { ARENA_GROWTH } from './arena-scale.mjs';
 import { chunkInstances } from './decor-chunks.mjs';
 import { cloudTexture, membraneMaps } from './arena-textures.mjs';
@@ -326,43 +327,90 @@ function makeJunction(scene, skin, glow) {
   return junction;
 }
 
-function makeHeartChamber(scene, skin, glow) {
+// The heart chamber: a full-size ventricle. Trabeculae (muscle ridges) line the walls, four
+// papillary muscles stand between the valves with chordae tendineae fanning up into the roof,
+// and two low clots give cover in the middle. The valves themselves are heart-valve.mjs.
+function makeHeartChamber(scene, skin, glow, random) {
   const chamber = new THREE.Group();
   scene.add(chamber);
   const muscle = skin({ color: 0xad707e, roughness: .58, clearcoat: .62, sheen: .42,
     sheenColor: 0xed8c87 });
-  const tendon = skin({ color: 0xd79695, roughness: .49, clearcoat: .68 });
+  const papillary = skin({ color: 0xc07c86, roughness: .52, clearcoat: .66, sheen: .4,
+    sheenColor: 0xf09a92 });
+  const tendon = skin({ color: 0xe6b0a8, roughness: .44, clearcoat: .72 });
+  const clot = skin({ color: 0x7a2f3a, roughness: .38, clearcoat: .82, clearcoatRoughness: .2 });
   const lobe = texturedLobe(1, 31, 19, .20);
+  const valveAngles = HEART_VALVES.map(valve => Math.atan2(valve.z / CHAMBER_DEPTH, valve.x / CHAMBER_WIDTH));
+  const nearValve = angle => valveAngles.some(a => Math.abs(Math.atan2(Math.sin(angle - a), Math.cos(angle - a))) < .2);
+
+  // Trabeculae: heavy muscle ridges round the foot of the wall, just outside the playable floor.
   const ridges = [];
-  for (const side of [-1, 1]) {
-    const ribs = [
-      [17.1, 1.1, -5.5, 2.3, 4.8, 5.8, -.21],
-      [17.8, .7, 3.4, 2.2, 4.6, 5.5, -.14],
-      [17.9, 1.2, 10.4, 2.7, 4.2, 5.9, .27],
-      [16.4, .8, 17.8, 2.7, 4.9, 6.0, .43],
-      [11.1, .8, 25.4, 2.1, 3.8, 5.4, .93],
-      [5.5, 1.7, 25.9, 4.5, 3.9, 3.3, -.25],
-      [10.8, .6, -13.4, 6.4, 2.7, 2.3, .10],
-    ];
-    for (const [x, y, z, width, height, depth, tilt] of ribs) {
-      const rib = addMesh(chamber, lobe, muscle, new THREE.Vector3(x * side, y, z), [width, height, depth]);
-      rib.rotation.set(.06, tilt * side, -.23 * side);
+  for (let i = 0; i < 34; i++) {
+    const angle = i / 34 * TAU + (random() - .5) * .08;
+    if (nearValve(angle)) continue;
+    const base = wallPosition(angle, 1);
+    const inset = .86 + random() * .05;
+    const rib = addMesh(chamber, lobe, muscle, new THREE.Vector3(base.x * inset, .4 + random() * 1.2, base.z * inset),
+      [2.2 + random() * 1.4, 2.6 + random() * 2.6, 4.5 + random() * 3]);
+    rib.rotation.set(.08, Math.PI / 2 - angle + (random() - .5) * .4, (random() - .5) * .3);
+    // A trabecular cord climbs the wall above most ribs.
+    if (random() < .7) {
+      const points = [];
+      for (let j = 0; j < 5; j++) {
+        const p = wallPosition(angle + (j - 2) * .02 * (random() - .5), 1.5 + j * 2.4);
+        p.x *= .9 + j * .012;
+        p.z *= .9 + j * .012;
+        points.push(p);
+      }
+      ridges.push(tubeGeometry(points, .45 + random() * .35, .4, 24, 8));
     }
-    const points = (coords) => coords.map(([x, y, z]) => new THREE.Vector3(x * side, y, z));
-    ridges.push(tubeGeometry(points([[5.3, .4, -11.7], [9.4, .55, -10.5], [13.6, 1.16, -10.5],
-      [15.1, 2.7, -6.4], [15.3, 2.2, 2.6], [16.0, 3.6, 10.5], [14.4, 2.8, 18.4],
-      [8.3, 2.1, 22.9], [2.8, .46, 23.6]]), .58, .55, 40, 9));
-    ridges.push(tubeGeometry(points([[15.6, 1.15, 15.7], [13.3, .48, 17.8], [10.8, .36, 19.8],
-      [7.3, .23, 21.1], [4.6, .19, 21.7]]), .39, .25, 20, 8));
   }
-  addMesh(chamber, lobe, muscle, new THREE.Vector3(.25, 1.3, 25.9), [4.3, 3.65, 3.45]);
-  addMesh(chamber, joinTubes(ridges), tendon);
-  const light = new THREE.PointLight(0xf09a86, 53, 19, 2);
-  light.position.set(12.4, 3.1, 13.7);
+  addMesh(chamber, joinTubes(ridges), muscle);
+
+  // Papillary muscles: thick fleshy pillars (solid in the simulation) with chordae to the roof.
+  const chordae = [];
+  for (const [x, z, radius] of HEART_OBSTACLES.slice(HEART_VALVES.length * 4, HEART_VALVES.length * 4 + 4)) {
+    addMesh(chamber, lobe, papillary, new THREE.Vector3(x, 1.6, z), [radius * 1.05, 3.4, radius * 1.05]);
+    addMesh(chamber, lobe, papillary, new THREE.Vector3(x * .99, 4.4, z * .99), [radius * .78, 2.3, radius * .78])
+      .rotation.set(.1, random() * TAU, .08);
+    addMesh(chamber, lobe, muscle, new THREE.Vector3(x, .2, z), [radius * 1.5, .9, radius * 1.5]);
+    const fans = 7;
+    for (let i = 0; i < fans; i++) {
+      const angle = i / fans * TAU + random() * .4;
+      const spread = 4 + random() * 5;
+      const top = new THREE.Vector3(x + Math.cos(angle) * spread, 11.5 + random() * 1.2, z + Math.sin(angle) * spread);
+      const start = new THREE.Vector3(x + Math.cos(angle) * .5, 5.6, z + Math.sin(angle) * .5);
+      const mid = start.clone().lerp(top, .5);
+      mid.y -= .6;
+      chordae.push(tubeGeometry([start, mid, top], .1 + random() * .07, .55, 14, 6));
+    }
+  }
+  // Long chordae slung across the roof between the pillars.
+  for (let i = 0; i < 10; i++) {
+    const angle = random() * TAU;
+    const reach = 18 + random() * 18;
+    const a = new THREE.Vector3(Math.cos(angle) * reach, 11 + random(), Math.sin(angle) * reach * 1.3);
+    const b = new THREE.Vector3(-a.x * (.4 + random() * .4), 11.5 + random(), -a.z * (.4 + random() * .4));
+    const mid = a.clone().lerp(b, .5);
+    mid.y -= 2 + random() * 2.5;
+    chordae.push(tubeGeometry([a, mid, b], .09 + random() * .08, .7, 30, 6));
+  }
+  addMesh(chamber, joinTubes(chordae), tendon);
+
+  // The two clots that give cover in the middle of the floor.
+  for (const [x, z, radius] of HEART_OBSTACLES.slice(HEART_VALVES.length * 4 + 4)) {
+    addMesh(chamber, lobe, clot, new THREE.Vector3(x, .3, z), [radius, 1.4, radius * .9]).rotation.y = random() * TAU;
+    addMesh(chamber, lobe, clot, new THREE.Vector3(x + radius * .5, .9, z - radius * .3), [radius * .55, 1, radius * .5]);
+  }
+
+  const light = new THREE.PointLight(0xf09a86, 70, 42, 2);
+  light.position.set(0, 9, 0);
   chamber.add(light);
-  const haze = sprite(glow, 0xdb978c, 11, .18);
-  haze.position.set(12.4, 2.4, 16.7);
-  chamber.add(haze);
+  for (const [x, z] of [[0, 0], [-24, -22], [24, 24]]) {
+    const haze = sprite(glow, 0xdb978c, 22, .14);
+    haze.position.set(x, 3.4, z);
+    chamber.add(haze);
+  }
   return chamber;
 }
 
@@ -500,9 +548,7 @@ export function makeRoom(scene, tile, normal, glow, random) {
   arteryDetails.scale.set(1.25 * LAYOUT_SCALE, 1.18, 1.22 * LAYOUT_SCALE);
 
   const junctionDetails = makeJunction(scene, skin, glow);
-  const heartDetails = makeHeartChamber(scene, skin, glow);
-  // The heart's play space grew; push its muscular walls out to match.
-  heartDetails.scale.set(1.2, 1.1, 1.12);
+  const heartDetails = makeHeartChamber(scene, skin, glow, random);
   chunkInstances(folds, { pad: 0 });
   return { surfaces, arteryDetails, junctionDetails, heartDetails, floor, wall, canopy,
     growths: chunkInstances(growths, { pad: 0 }), cilia: chunkInstances(cilia, { pad: 0 }) };
