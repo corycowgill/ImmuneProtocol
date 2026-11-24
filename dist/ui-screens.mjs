@@ -19,7 +19,8 @@ const tabsFor = (ui, views, selected, rect, full) => {
 };
 const selectedView = (model, state, views) => views.find(view => view.id === state.pages?.[model.id]) ?? views[0];
 function pane(ui, id, nodes, r, label) {
-  ui.add({ kind: 'panel', color: '#101a22c4', border: '#a4c1cc20' }, r);
+  // Every content pane shares the HUD's clipped-corner frame, so menus and combat read as one UI.
+  ui.add({ kind: 'panel', hud: true, accent: '#c8f79470', top: 'rgba(16,26,34,.84)', bottom: 'rgba(8,13,18,.9)' }, r);
   const pad = r.w < 220 ? 10 : 16, padY = r.h < 320 ? 8 : 14;
   if (label) ui.add(section(label), { x: r.x + pad, y: r.y + 13, w: r.w - pad * 2, h: 26 });
   ui.pane(id, nodes.filter(Boolean), { x: r.x + pad, y: r.y + (label ? 48 : padY), w: r.w - pad * 2, h: Math.max(24, r.h - (label ? 61 : padY * 2)) });
@@ -80,14 +81,25 @@ function buildMenu(ui, model, area, full, size) {
   ui.add({ ...heading('PROTOCOL', logoSize), color: T.green, lineHeight: .9 }, { x, y: logoY + logoSize * .9, w: leftW, h: logoSize });
   ui.add(text(model.detail, landscape ? 14 : 15, '#c1cdd2'), { x, y: logoY + logoH + 15, w: Math.min(450, leftW), h: landscape ? 64 : 52 });
   const icons = { deploy: 'arrow', 'new-campaign': 'reset', 'mission-select': 'target', 'coop-open': 'users', 'armory-open': 'weapon', guide: 'shield', manual: 'book' };
-  const nav = model.buttons.map((b, i) => ({ ...b, primary: i === 0, size: landscape ? (w < 750 ? 14 : 16) : 17, icon: icons[b.id?.replace(/^dom:/, '')] ?? 'arrow', height: i === 0 ? (landscape ? 68 : 76) : 50, detail: i === 0 ? b.detail : null }));
-  const nodes = [nav[0], grid(nav.slice(1), phone ? 145 : 160, 2), ...(model.notices ?? []).map(note => text(note, 12, '#ffca96'))];
+  const nav = model.buttons.map((b, i) => ({ ...b, primary: i === 0, variant: i === 0 ? b.variant : 'menu', size: i === 0 ? (landscape ? (w < 750 ? 14 : 16) : 17) : landscape ? 17 : 21, icon: icons[b.id?.replace(/^dom:/, '')] ?? 'arrow', height: i === 0 ? (landscape ? 68 : 76) : landscape ? 44 : 48, detail: i === 0 ? b.detail : null }));
+  const nodes = [nav[0], { ...grid(nav.slice(1), phone ? 145 : 160, 2), gap: 4 }, ...(model.notices ?? []).map(note => text(note, 12, '#ffca96'))];
   const navX = landscape ? x + leftW + 26 : x, navY = landscape ? y : logoY + logoH + 91;
   const navW = landscape ? area.w - leftW - 26 : Math.min(550, area.w);
   ui.pane('menu-actions', nodes, { x: navX, y: navY, w: navW, h: h - navY - Math.max(16, h - area.y - area.h) });
   if (!phone && !landscape && model.operator) {
-    const width = Math.min(330, area.w - navW - 70), sx = x + area.w - width, sy = h - 252;
-    if (width >= 220) pane(ui, 'operator', [heading(model.operator.progress, 38), text('MISSIONS SECURED', 11, T.muted), grid([{ kind: 'stat', text: 'Best score', detail: /^[\s—–-]*$/.test(model.operator.best ?? '') ? 'No runs yet' : model.operator.best }, { kind: 'stat', text: 'Difficulty', detail: model.operator.difficulty }], 110, 2)], { x: sx, y: sy, w: width, h: 220 }, 'Operator record');
+    // The operator record is a slim strip under the menu, in the shaded text column, so it no
+    // longer covers the key art.
+    const best = /^[\s—–-]*$/.test(model.operator.best ?? '') ? 'No runs yet' : model.operator.best;
+    const sy = h - Math.max(16, h - area.y - area.h) - 46, sw = Math.min(550, area.w);
+    if (sy > navY + 76 + 3 * 52) {
+      ui.add({ kind: 'panel', hud: true, accent: '#c8f79470' }, { x, y: sy, w: sw, h: 46 });
+      const cells = [['OPERATOR RECORD', ''], ['SECURED', model.operator.progress], ['BEST SCORE', best], ['DIFFICULTY', model.operator.difficulty]];
+      const cw = (sw - 24) / cells.length;
+      cells.forEach(([label, value], i) => {
+        ui.add({ ...text(label, 9, i ? T.muted : T.green), weight: 700, tracking: 1.2 }, { x: x + 14 + i * cw, y: sy + (i ? 8 : 17), w: cw - 8, h: 14 });
+        if (value) ui.add({ ...text(value, 15, T.paper), weight: 700 }, { x: x + 14 + i * cw, y: sy + 22, w: cw - 8, h: 20 });
+      });
+    }
   }
 }
 

@@ -70,11 +70,11 @@ What the graphics sprint changed, per catalog item. Items not listed were left f
 | V-06 | Done | Lungs: the wind-streak ribbons were already running faintly before the exhale, reading as white scratches across the view; they now barely stir until the gale, which keeps its strength with fewer, thinner, mist-tinted streaks. |
 | L-06 | Done | Light shafts feather toward their silhouettes, fade well before the floor and canopy, and break into drifting dust streaks instead of flat cones. |
 | F-06 | Done | Armory stat tiles draw the bars the Armory already computed: fill toward "better", with a previewed part's gain in green or loss in red and the difference beside the value. |
-| F-12 | Partly | An empty best score reads "No runs yet" instead of a dash. |
+| F-12 | Done | The operator record is a slim strip under the menu, in the shaded text column, so it no longer covers the key art; an empty best score reads "No runs yet". |
 | E-02 | Done | Platelets darker and wetter (amber, not beige gravel). |
 | N-01 | Done | Shared fresnel rim light on every pathogen material, colour and strength per arena (`setPathogenRim`). |
 | F-01 | Done | Co-op without a server shows a designed "Squad link offline" state with how to play online. |
-| F-02 | Partly | Buttons lit from above with a top highlight, a glow on the primary action and a lime focus bar on hover and focus. |
+| F-02 | Done | Title-menu entries are borderless condensed caps rows over hairlines; hover or focus slides in a lime bar and a fading sweep. Short buttons and tabs everywhere read in tracked caps (one case rule), and every content pane uses the HUD's clipped-corner frame with accent brackets. Buttons are also lit from above, with a glow on the primary action. |
 | F-03 | Done | Loading and title key art at full strength with directional shading for text, a thicker progress bar with a glowing head. |
 | F-04 | Done | Skip prompt sits on a dark pill over video. |
 | F-08 | Done | Turntable previews framed with viewfinder corners and a LIVE tag instead of a stray dash. |

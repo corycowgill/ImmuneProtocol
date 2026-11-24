@@ -153,6 +153,22 @@ export class CanvasUiRenderer {
         this.box(r, item.primary ? '#c8f79485' : active ? '#293127c0' : '#171b165c', item.color ?? (focused ? t.green : '#e9f3cc85'), Math.min(r.w, r.h) / 2);
         this.text(item.text, { x: r.x + 4, y: r.y + (r.h - size * 1.3) / 2, w: r.w - 8, h: r.h - 8 }, size, item.color ?? (item.primary ? '#efffd8' : t.paper), 500, 'center'); return;
       }
+      if (item.variant === 'menu') {
+        // A title-menu row: borderless condensed caps over a hairline; hover or focus slides in a
+        // lime bar and a fading sweep, like a game menu rather than a form button.
+        this.box({ x: r.x, y: r.y + r.h - 1, w: r.w, h: 1 }, '#ffffff16', null, 0);
+        if (active) {
+          const sweep = c.createLinearGradient(r.x, 0, r.x + r.w, 0);
+          sweep.addColorStop(0, '#c8f79430'); sweep.addColorStop(1, '#c8f79400');
+          this.box(r, sweep, null, 0);
+          this.box({ x: r.x, y: r.y + 6, w: 4, h: r.h - 12 }, t.green, null, 0);
+        }
+        const shift = active ? 14 : 4;
+        if (item.icon) this.icon(item.icon, { x: r.x + shift, y: r.y + (r.h - 20) / 2, w: 20, h: 20 }, active ? t.green : t.muted);
+        const size = item.size ?? 22;
+        this.text(String(item.text).toUpperCase(), { x: r.x + shift + (item.icon ? 32 : 0), y: r.y + (r.h - size * 1.05) / 2, w: r.w - shift - 40, h: size * 1.2 }, size, active ? '#f4ffe6' : t.paper, 800, 'left', 1, 1.05, undefined, .6);
+        return;
+      }
       const tab = item.variant === 'tab', ghost = item.variant === 'ghost', destructive = item.tone === 'danger';
       const toggle = !item.primary && !tab && !ghost && !item.detail && /^(.+):\s*(ON|OFF)$/i.exec(item.text ?? '');
       if (toggle) {
@@ -192,7 +208,8 @@ export class CanvasUiRenderer {
       if (item.selected != null && !tab) textRect.w -= 20;
       const size = item.size ?? 16, titleHeight = lines(item.text, textRect.w, this.measure, size, 600).length * size * 1.4;
       if (!item.detail) { textRect.y = r.y + Math.max(8, (r.h - titleHeight) / 2); textRect.h = r.h - (textRect.y - r.y); }
-      const th = this.text(item.text, textRect, size, ink, 600);
+      const caps = !item.detail && !item.src && !item.swatch && String(item.text ?? '').length <= 26;
+      const th = this.text(caps ? String(item.text).toUpperCase() : item.text, textRect, caps ? size - 1 : size, ink, caps ? 700 : 600, 'left', Infinity, 1.4, undefined, caps ? .5 : 0);
       if (item.detail) this.text(item.detail, { ...textRect, y: textRect.y + th + 5, h: r.h - padding * 2 - th - 5 }, 13, item.primary ? '#324631' : t.muted);
       if (item.selected && !tab) this.icon('check', { x: r.x + r.w - 27, y: r.y + (r.h - 15) / 2, w: 15, h: 15 }, t.green);
       else if (item.expanded != null) this.icon('down', { x: r.x + r.w - 28, y: r.y + (r.h - 18) / 2, w: 18, h: 18 }, t.muted);
