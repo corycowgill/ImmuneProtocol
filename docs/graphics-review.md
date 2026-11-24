@@ -39,6 +39,9 @@ What the graphics sprint changed, per catalog item. Items not listed were left f
 | W-02 | Done | Tracers are camera-facing HDR ribbons that travel from muzzle to impact with a fading tail and never drop below about two pixels wide (`TracerPool`). Sniper, pellet, rifle, teammate and turret tracers each have their own width, life and length. |
 | W-03 | Partly | Reflex and red-dot sights project a glowing ring-and-dot reticle in the glass (`createHoloReticle`) instead of a tiny sphere. Model push-forward during ADS not changed. |
 | W-04 | Done | Weapon hemisphere and bounce lights take the arena's mist and fog colours on every arena change. |
+| W-06 | Partly | Every weapon material wears its sharp edges procedurally (screen-space curvature), not only where the baked atlas says; the factory receiver and rubber are lifted out of near-black, and a soft fill light from the eye keeps faces turned toward the camera readable in aim-down-sights. No geometry changes. |
+| W-07 | Done | Gloves are olive-grey woven fabric with worn leather palms, plus moulded ivory armour plates on the backs of the hands and knuckles. |
+| N-04 | Done | Rogue Bot and Crawler: procedural biofilm builds up from the underside with drips and spots in the arena's own fluid colour, worn wet and glossy, so the top stays medical white; the red optics are HDR so they bloom. |
 | W-05 | Done | Hip pose sits lower and further out (y −.255 → −.27, z −.60 → −.64). |
 | H-01 | Done | World markers redrawn: in view, a diamond pin under a caps label and range; at the screen edge, a tag with a node-coloured left rule and an arrow pointing toward the target. Trailing "·" and clipped distance lines fixed. |
 | H-02 | Done | Score reads "SCORE 1,240 · 12 KILLS" (per player in co-op). |
@@ -55,7 +58,8 @@ What the graphics sprint changed, per catalog item. Items not listed were left f
 | V-04 | Done | Lens fringe .0005 → .00014. |
 | V-05 | Done | Vessel clearcoat roughened so the curved highlight no longer streaks. |
 | V-07 | Done | Bloom .55 → .7; flashes, tracers, sight reticles and the spore halo are HDR. |
-| V-01 | Partly | Spray particles have individual sizes that shrink as they fade, fluid drag and an HDR start. |
+| V-01 | Done | Spray particles have individual sizes that shrink as they fade, fluid drag and an HDR start; every hit also flings short, thick droplet streaks of the pathogen's fluid back toward the shooter and out the far side (a liquid, normally blended ribbon pool). |
+| N-05 | Done | Found while checking hits: sustained fire strobed large pathogens white because the muzzle light reached 15 m at high strength. It now lights only the floor and walls around the suit (7 m, about a fifth of the strength), and deflected-round sparks are smaller. |
 | L-01 | Done | Cooler bloodstream fill light, less chroma in fog and mist, cool-shadow and warm-highlight split toning in the finishing pass (per-arena `shadowTone` / `highlightTone`). |
 | L-02 | Done | Rougher floor coat, artery bulb 310 → 200, exposure 1.18 → 1.14. |
 | L-03 | Partly | Brighter ground hemisphere colour in the bloodstream arenas. |

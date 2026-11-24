@@ -80,11 +80,11 @@ function createKit() {
       bumpMap: brushed, bumpScale: .0016, clearcoat: .09, clearcoatRoughness: .5,
     }),
     dark: new THREE.MeshPhysicalMaterial({
-      color: 0x383d41, metalness: .61, roughness: .46, map: brushed, bumpMap: brushed, bumpScale: .00115,
+      color: 0x4b5257, metalness: .52, roughness: .44, map: brushed, bumpMap: brushed, bumpScale: .00115,
       clearcoat: .1, clearcoatRoughness: .49,
     }),
     edge: new THREE.MeshStandardMaterial({ color: 0xa4a9a5, metalness: .9, roughness: .28, map: brushed }),
-    rubber: new THREE.MeshStandardMaterial({ color: 0x17191c, roughness: .82, map: molded }),
+    rubber: new THREE.MeshStandardMaterial({ color: 0x2b2e32, roughness: .78, map: molded }),
     accent: new THREE.MeshStandardMaterial({
       color: 0x4c9a60, emissive: 0x4ebf74, emissiveIntensity: 1.08, metalness: .33, roughness: .22,
     }),

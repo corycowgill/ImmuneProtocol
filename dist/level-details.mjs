@@ -534,10 +534,10 @@ function colon(root, random, place, time) {
 
 // ---------------------------------------------------------------- ground decals and edge debris
 
-// Decal colours per arena: vessels, bruises, healed scars and glossy mucus film. The Heart Valve's
-// small scripted chamber keeps its own dressing.
+// Decal colours per arena: vessels, bruises, healed scars and glossy mucus film.
 const DECALS = {
   artery: { vein: 0x4a0a10, bruise: 0x5a1820, scar: 0xe8b4a8, film: 0xfff0e0, debris: ['red-cell', 0x8a2a28] },
+  heart: { vein: 0x520c16, bruise: 0x641a26, scar: 0xeab0a8, film: 0xfff0e8, debris: ['red-cell', 0x8a2a28] },
   junction: { vein: 0x4a0a10, bruise: 0x5a1820, scar: 0xe8b4a8, film: 0xfff0e0, debris: ['red-cell', 0x8a2a28] },
   lungs: { vein: 0x9a3a52, bruise: 0xb06478, scar: 0xfff0f4, film: 0xffffff, debris: ['leukocyte', 0xe0b0bc] },
   stomach: { vein: 0x6a2a18, bruise: 0x8a5a28, scar: 0xf8e0b8, film: 0xf4f0b0, debris: ['mucosa', 0xb07848] },

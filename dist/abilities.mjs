@@ -329,6 +329,7 @@ function detonate(sim, item) {
     sim.events.push({ type: 'explosion', kind: 'antibody', radius: spec.radius, ...center });
     for (const enemy of [...sim.enemies]) {
       if (!sim.enemies.includes(enemy) || enemy.hidden || (enemy.tutorial && sim.tutorial === 'observe')) continue;
+      if (sim.valve && sim.shielded?.(enemy, center)) continue;
       const gap = Math.max(0, Math.hypot(enemy.x - center.x, enemy.y - center.y, enemy.z - center.z) - (enemy.radius ?? .8));
       if (gap > spec.radius) continue;
       const point = { x: enemy.x, y: enemy.y, z: enemy.z };

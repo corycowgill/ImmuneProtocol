@@ -34,11 +34,13 @@ function advance(f, seconds) {
   }
 }
 
-test('Rogue Bot is distinct from Rogue Cell and mission intel/guide habitats include it in eight arenas', () => {
+test('Rogue Bot is distinct from Rogue Cell and mission intel/guide habitats include it in nine arenas', () => {
   assert.equal(SPECIES.rogue.behavior, 'bacillus'); assert.equal(SPECIES['rogue-bot'].behavior, 'laser');
-  const habitats = speciesHabitats()['rogue-bot']; assert.equal(habitats.length, 8);
+  const habitats = speciesHabitats()['rogue-bot']; assert.equal(habitats.length, 9);
   for (const area of habitats) assert.ok(missionIntel(area).threats.some(t => t.type === 'rogue-bot'));
-  assert.ok(!habitats.includes('heart') && !habitats.includes('junction'));
+  // The heart's flank patrols bring both nano drones; only the junction's surges go without.
+  assert.ok(habitats.includes('heart') && !habitats.includes('junction'));
+  assert.ok(speciesHabitats().crawler.includes('heart'));
 });
 
 test('AI has no tissue objective or hidden-player knowledge and patrols without a suit observation', () => {

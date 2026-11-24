@@ -282,12 +282,24 @@ test('both co-op suits can complete organ-specific objectives', () => {
   assert.equal(junction.phase, 'won');
 
   const heart = deploy('heart');
-  for (let tick = 0; tick < 420 && !heart.valve.exposed; tick++) heart.step(1 / 30);
-  assert.ok(heart.valve.exposed);
-  heart.hitEnemy(heart.colony, heart.colony.health, true, heart.colony, 'player');
+  for (let tick = 0; tick < 420 && !heart.valve.valves[0].exposed; tick++) heart.step(1 / 30);
+  assert.ok(heart.valve.valves[0].exposed);
+  for (const colony of heart.enemies.filter(enemy => enemy.type === 'colony')) {
+    heart.hitEnemy(colony, colony.health, true, colony, 'player');
+  }
+  assert.ok(heart.valve.colonyDefeated);
   heart.patrolIndex = Infinity;
   heart.enemies.length = 0;
-  repair(heart, 1, heart.objective, 12);
+  // Each wound is sealed while its own valve is closed; one suit takes two, the other two.
+  for (let tick = 0; tick < 30 * 40 && heart.phase !== 'won'; tick++) {
+    const input = {};
+    for (const [index, player] of heart.players.entries()) {
+      const node = heart.nodes.filter((_, n) => n % 2 === index).find(item => item.health < 100) ?? heart.nodes[index];
+      Object.assign(player, { x: node.x, z: node.z + 2 });
+      input[player.id] = { repair: true };
+    }
+    heart.step(1 / 30, input);
+  }
   assert.equal(heart.phase, 'won');
 
   const lungs = deploy('lungs');
@@ -404,7 +416,7 @@ test('difficulty reshapes solo missions and leaves scripted encounters intact', 
     assert.deepEqual(medium.missions, new Simulation(area).missions, area);
     assert.equal(easy.missions.length, medium.missions.length, area);
     assert.equal(hard.missions.length, medium.missions.length, area);
-    // The heart's only wave is the colony itself.
+    // The heart's only wave is its rooted colonies.
     if (area === 'heart') assert.equal(pathogens(easy), pathogens(medium));
     else assert.ok(pathogens(easy) < pathogens(medium), area);
     assert.ok(pathogens(hard) >= pathogens(medium), area);
@@ -435,7 +447,7 @@ test('difficulty reshapes solo missions and leaves scripted encounters intact', 
   assert.equal(junction.spawnIndex, 0);
 
   // The heart colony and Mega Virus waves are untouched; the boss scales through its hit size.
-  assert.deepEqual(deploy('heart', 'easy').missions[0].species, ['colony']);
+  assert.deepEqual(deploy('heart', 'easy').missions[0].species, Array(12).fill('colony'));
   const brain = deploy('brain', 'hard');
   assert.ok(brain.missions.at(-1).boss);
   brain.wave = brain.missions.length - 1;
@@ -558,7 +570,7 @@ test('waves field five times their roster and score is kept per player', () => {
   assert.equal(lungs.missions[0].species.length, 55);
   for (const wave of lungs.missions) assert.equal(wave.lanes.length, wave.species.length);
   assert.equal(new Simulation('junction').missions[0].arrivals.length, 30);
-  assert.deepEqual(new Simulation('heart').missions[0].species, ['colony']);
+  assert.deepEqual(new Simulation('heart').missions[0].species, Array(12).fill('colony'));
 
   const sim = new CoopSimulation([{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Bravo' }]);
   sim.start();

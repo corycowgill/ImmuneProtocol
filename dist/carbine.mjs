@@ -1,9 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { createMuzzleFlash, createHoloReticle } from './shot-fx.mjs';
 import { DEFAULT_WEAPON_LOADOUT, normalizeWeaponLoadout } from './weapon-mods.mjs';
+import { makeWeathered } from './weapon-skins.mjs';
 
 export const FINISH_COLORS = {
-  factory: { shell: 0xbeb6a3, steel: 0x7d8588, receiver: 0x383d41, trim: 0xa4a9a5 },
+  factory: { shell: 0xbeb6a3, steel: 0x7d8588, receiver: 0x4b5257, trim: 0xa4a9a5 },
   obsidian: { shell: 0x343836, steel: 0x61646a, receiver: 0x252628, trim: 0x96908a },
   arctic: { shell: 0xe3e7dc, steel: 0x8daab6, receiver: 0x3b505c, trim: 0xb9cdd0 },
   crimson: { shell: 0xa33a31, steel: 0x886f60, receiver: 0x472529, trim: 0xc09a69 },
@@ -81,7 +82,7 @@ export function createCarbine({ showHands = true } = {}) {
     bumpMap: brushed, bumpScale: .0016, clearcoat: .09, clearcoatRoughness: .50,
   });
   const dark = new THREE.MeshPhysicalMaterial({
-    color: 0x383d41, metalness: .61, roughness: .46, map: brushed,
+    color: 0x4b5257, metalness: .52, roughness: .44, map: brushed,
     bumpMap: brushed, bumpScale: .00115, clearcoat: .10, clearcoatRoughness: .49,
   });
   const edge = new THREE.MeshStandardMaterial({ color: 0xa4a9a5, metalness: .9, roughness: .28, map: brushed });
@@ -89,14 +90,21 @@ export function createCarbine({ showHands = true } = {}) {
     color: 0xbeb6a3, metalness: .18, roughness: .52,
     map: molded, roughnessMap: molded, bumpMap: molded, bumpScale: .0027,
   });
-  const rubber = new THREE.MeshStandardMaterial({ color: 0x17191c, roughness: .82, map: molded });
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x2b2e32, roughness: .78, map: molded });
+  // Tactical gloves: olive-grey woven backs, worn leather palms and armoured knuckles, light
+  // enough to hold their folds under the arena's light instead of reading as black mittens.
   const fabric = new THREE.MeshStandardMaterial({
-    color: 0x292b2c, roughness: .92, map: woven, bumpMap: woven, bumpScale: .0016,
+    color: 0x4a4f4a, roughness: .9, map: woven, bumpMap: woven, bumpScale: .004,
   });
   const leather = new THREE.MeshPhysicalMaterial({
-    color: 0x303131, roughness: .64, map: molded, bumpMap: molded, bumpScale: .0023,
-    clearcoat: .18, clearcoatRoughness: .73,
+    color: 0x5a5146, roughness: .58, map: molded, bumpMap: molded, bumpScale: .003,
+    clearcoat: .22, clearcoatRoughness: .6, sheen: .35, sheenColor: 0x8a7a66, sheenRoughness: .6,
   });
+  const armor = makeWeathered(new THREE.MeshPhysicalMaterial({
+    color: 0xb9b19c, metalness: .12, roughness: .48, map: molded, bumpMap: molded, bumpScale: .002,
+    clearcoat: .35, clearcoatRoughness: .45,
+  }), 'shell');
+  for (const [material, role] of [[metal, 'steel'], [dark, 'dark'], [edge, 'edge'], [rubber, 'rubber'], [ivory, 'shell']]) makeWeathered(material, role);
   const green = new THREE.MeshStandardMaterial({ color: 0x4c9a60, emissive: 0x4ebf74, emissiveIntensity: 1.08, metalness: .33, roughness: .22 });
   const glass = new THREE.MeshPhysicalMaterial({ color: 0x548d76, transparent: true, opacity: .26, metalness: .18, roughness: .13, clearcoat: 1, depthWrite: false });
   const cellGlass = new THREE.MeshPhysicalMaterial({
@@ -438,6 +446,9 @@ export function createCarbine({ showHands = true } = {}) {
     glovePad(supportHand,[-.047,.017,z],[.010,.014,.012],leather);
   }
   finger(supportHand,[-.043,-.004,.080],[[.004,.020,.008],[.017,.041,.003],[.024,.043,-.012]],.013);
+  // A moulded armour plate over the back of the support hand and a knuckle bar across the fingers.
+  glovePad(supportHand,[-.03,-.03,.03],[.026,.012,.05],armor).rotation.set(.26,0,-.5);
+  glovePad(supportHand,[-.05,.006,-.006],[.009,.012,.05],armor);
   const updateSupportSleeve = sleeve([-.29,-.35,.23],supportHand,[-.022,-.046,.090]);
 
   const gripHand = new THREE.Group();
@@ -450,6 +461,9 @@ export function createCarbine({ showHands = true } = {}) {
     finger(gripHand,[.015,-.030-i*.021,-.019+i*.005],
       [[-.007,-.001,-.036],[-.028,.005,-.047],[-.054,.009,-.036]],.011);
   }
+  // Knuckle guard and back-of-hand plate on the trigger hand.
+  glovePad(gripHand,[.026,-.02,.014],[.03,.05,.014],armor).rotation.set(.37,.3,0);
+  glovePad(gripHand,[.019,-.044,-.019],[.009,.036,.011],armor).rotation.x = .2;
   const indexFinger = finger(gripHand,[.004,.004,-.015],
     [[-.019,.014,-.057],[-.039,.013,-.094],[-.049,.019,-.088]],.0097);
   finger(gripHand,[.030,-.004,.029],[[.017,.022,-.010],[.013,.035,-.043],[-.011,.038,-.053]],.012);

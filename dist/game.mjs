@@ -715,7 +715,7 @@ async function launch(area, run = null, drill = null, onlineState = null, checkp
     if (checkpoint) announce(checkpointName(checkpoint).toUpperCase(), 'RESUMED FROM CHECKPOINT', 3.2);
     else if (session.onlineRun) announce(missionName(area).toUpperCase(), 'CO-OP MISSION ' + (index + 1) + ' OF ' + campaignAreas.length, 2.7);
     else if (drill?.bossPractice) announce('MEGA VIRUS PRACTICE', 'SHOOT EXPOSED CORES', 1.9);
-    else if (heart) announce('HEART VALVE', 'HIT THE COLONY · DEFEND THE FLANK', 3.2);
+    else if (heart) announce('HEART VALVE', 'FOUR VALVES · SHOOT THE COLONIES WHEN THEY OPEN', 3.4);
     else if (junction) announce('CAPILLARY JUNCTION', 'DEFEND BOTH INLETS', 2.8);
     else if (nextSim.organ) announce(missionName(area).toUpperCase(), ORGAN_MISSIONS[area].hazard.instruction.toUpperCase(), 2.4);
     else if (!session.sim.tutorial) announce('WAVE 01', (session.sim.nodes.length > 2 ? 'DEFEND ALL THREE' : 'DEFEND BOTH') + ' TISSUE NODES', 3.1);
@@ -1089,7 +1089,7 @@ function finish() {
     writeSetting(bestKey, bestScore);
   }
   resultTitle.textContent = complete ? 'Campaign complete' : won && bossPractice ? 'Mega Virus defeated'
-    : won ? (heart ? 'Valve stabilized' : junction ? 'Junction secured' : session.sim.organMission ? missionName(session.sim.area) + ' secured' : 'Artery secured') : 'Mission failed';
+    : won ? (heart ? 'Valves stabilized' : junction ? 'Junction secured' : session.sim.organMission ? missionName(session.sim.area) + ' secured' : 'Artery secured') : 'Mission failed';
   resultKicker.lastChild.textContent = (session.onlineRun ? ' CO-OP REPORT' : practice ? ' FREE MODE REPORT' : ' MISSION REPORT') +
     difficultyTag().toUpperCase();
   setText(returnMenu, session.onlineRun ? 'Leave room' : practice ? 'Free Mode' : 'Main menu');

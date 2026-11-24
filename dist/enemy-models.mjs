@@ -11,8 +11,9 @@ import { loadModel } from './asset-loading.mjs';
 export const ENEMY_MODELS = Object.freeze({
   virus: { size: .9, glow: 0x4a160c },
   spore: { size: .82, glow: 0x3c1240 },
-  bacillus: { size: 1, glow: 0x3d300a },
-  splitter: { size: 1, glow: 0x3a0f44 },
+  // Brightened so its gold body holds up under the arenas' cooler fill and split toning.
+  bacillus: { size: 1, glow: 0x4a3a0c, brighten: 1.45 },
+  splitter: { size: 1, glow: 0x5a1a6a, brighten: 1.7 },
   guard: { size: 1.05, glow: 0x0c3434 },
   colony: { size: 1.4, glow: 0x1c2a0c },
   phage: { size: .98, glow: 0x2c1648 },
@@ -63,12 +64,65 @@ export function addPathogenRim(material) {
   return material;
 }
 
+// The medical drones have been inside the host a while: biofilm and dried fluid build up from
+// their undersides and run down in streaks, worn wet and glossy, in a colour taken from the arena
+// (setMachineGrime). Bounds map the model's own coordinates (often quantized) to a 0..1 box.
+const GRIME = { grimeColor: { value: new THREE.Color(0x4a1012) } };
+export function setMachineGrime(color) { GRIME.grimeColor.value.setHex(color); }
+export function reapplyMachineGrime(clone) {
+  const args = clone?.userData.grimeArgs;
+  if (!args) return clone;
+  clone.userData.machineGrime = false;
+  return addMachineGrime(clone, new THREE.Box3(new THREE.Vector3(...args[0]), new THREE.Vector3(...args[1])), args[2]);
+}
+export function addMachineGrime(material, bounds, amount = 1) {
+  if (!material || material.userData.machineGrime) return material;
+  material.userData.machineGrime = true;
+  // Plain numbers survive Material.clone(), which drops onBeforeCompile (see reapplyMachineGrime).
+  material.userData.grimeArgs = [bounds.min.toArray(), bounds.max.toArray(), amount];
+  const uniforms = { grimeMin: { value: bounds.min.clone() }, grimeSize: { value: bounds.getSize(new THREE.Vector3()).max(new THREE.Vector3(1e-4, 1e-4, 1e-4)) }, grimeAmount: { value: amount } };
+  const previous = material.onBeforeCompile;
+  material.onBeforeCompile = (shader, renderer) => {
+    previous?.call(material, shader, renderer);
+    Object.assign(shader.uniforms, GRIME, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('void main() {', 'varying vec3 vGrimePos;\nvoid main() {')
+      .replace('#include <project_vertex>', 'vGrimePos = transformed;\n#include <project_vertex>');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', `varying vec3 vGrimePos;
+uniform vec3 grimeColor, grimeMin, grimeSize;
+uniform float grimeAmount;
+float grimeHash(vec3 p) { p = fract(p * .3183099 + .1); p *= 17.; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float grimeNoise(vec3 p) {
+  vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+  return mix(mix(mix(grimeHash(i), grimeHash(i + vec3(1, 0, 0)), f.x), mix(grimeHash(i + vec3(0, 1, 0)), grimeHash(i + vec3(1, 1, 0)), f.x), f.y),
+    mix(mix(grimeHash(i + vec3(0, 0, 1)), grimeHash(i + vec3(1, 0, 1)), f.x), mix(grimeHash(i + vec3(0, 1, 1)), grimeHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+float grimeFbm(vec3 p) { return grimeNoise(p) * .55 + grimeNoise(p * 2.13) * .3 + grimeNoise(p * 4.37) * .15; }
+void main() {`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+  vec3 grimeBox = (vGrimePos - grimeMin) / grimeSize;
+  float grimeSpread = grimeFbm(grimeBox * 6.);
+  float grimeLow = 1. - smoothstep(.0, .42, grimeBox.y + (grimeSpread - .5) * .3);
+  float grimeRun = smoothstep(.58, .74, grimeFbm(vec3(grimeBox.x * 14., grimeBox.y * 1.6, grimeBox.z * 14.))) * (1. - smoothstep(.45, .8, grimeBox.y));
+  float grimeSpots = smoothstep(.7, .8, grimeFbm(grimeBox * 11. + 3.1)) * .55;
+  float grime = clamp(grimeLow * .9 + grimeRun * .7 + grimeSpots, 0., 1.) * grimeAmount;
+  diffuseColor.rgb = mix(diffuseColor.rgb, grimeColor * (.5 + .8 * grimeSpread), grime * .85);
+  diffuseColor.rgb *= 1. - grimeSpots * .25 * grimeAmount;`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, .28, grime * .7);')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n  metalnessFactor = mix(metalnessFactor, 0., grime * .8);');
+  };
+  const key = material.customProgramCacheKey?.bind(material);
+  material.customProgramCacheKey = () => (key ? key() : '') + '|machine-grime';
+  return material;
+}
+
 // glTF clips keyed by the shared morph geometry, so every clone of a template finds its clip.
 const clips = new WeakMap();
 const loads = new Map();
 
 function prepare(type, gltf) {
-  const { size, glow } = ENEMY_MODELS[type];
+  const { size, glow, brighten = 1 } = ENEMY_MODELS[type];
   // gltfpack keeps the named node as a dequantisation wrapper around the mesh,
   // so the name and the clip's track targets move onto the mesh itself.
   const node = gltf.scene.getObjectByName('attack-membrane');
@@ -80,6 +134,17 @@ function prepare(type, gltf) {
   mesh.name = 'attack-membrane';
   mesh.material.emissive.setHex(glow);
   mesh.material.emissiveIntensity = .7;
+  if (brighten !== 1) mesh.material.color.multiplyScalar(brighten);
+  if (type === 'rogue-bot' || type === 'crawler') {
+    // HDR optics and telemetry so the red eyes bloom, and grime on body and legs.
+    mesh.material.emissiveIntensity = 1.3;
+    gltf.scene.traverse(part => {
+      if (!part.isMesh) return;
+      part.geometry.computeBoundingBox();
+      // Legs share the body's box would put them all "low"; they get their own lighter coat.
+      [part.material].flat().forEach(material => addMachineGrime(material, part.geometry.boundingBox, part === mesh ? 1 : .55));
+    });
+  }
   const clip = gltf.animations.find(animation => animation.name === 'Idle') ?? gltf.animations[0];
   for (const track of clip?.tracks ?? []) {
     if (track.name.startsWith(meshName + '.')) track.name = 'attack-membrane' + track.name.slice(meshName.length);

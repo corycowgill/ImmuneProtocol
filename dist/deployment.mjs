@@ -10,7 +10,7 @@ import { PATHOGENS } from './disease-guide.mjs';
 const SET_PIECES = {
   artery: { name: 'Pulse flow', detail: 'Red cells stream through a beating valve' },
   junction: { name: 'Surge forecast', detail: 'Amber and Teal inlets attack in turn' },
-  heart: { name: 'Valve windows', detail: 'Shoot the colony while the valve is open' },
+  heart: { name: 'Valve windows', detail: 'Four valves open in turn; shoot the colonies behind each one' },
 };
 
 const intel = new Map();

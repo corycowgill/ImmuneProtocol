@@ -8,6 +8,7 @@ import { ImpactFX } from './impact-fx.mjs';
 import { paintGround, patchGround, patchShell } from './ground-fx.mjs';
 import { createRepairTool } from './repair-tool.mjs';
 import { createHeartValve } from './heart-valve.mjs';
+import { HEART_VALVES } from './heart-chamber.mjs';
 import { createTerrainView } from './terrain-view.mjs';
 import { terrainFor, terrainFootprints } from './terrain.mjs';
 import { AbilityFX } from './ability-fx.mjs';
@@ -21,7 +22,7 @@ import { createSquadView } from './squad-view.mjs';
 import { COOP_MAX_PLAYERS } from './coop-protocol.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 import { Simulation, arenaObstacles, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, SPECIES, TISSUE_NODES } from './simulation.mjs';
-import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion, setPathogenRim } from './enemy-models.mjs';
+import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion, setMachineGrime, setPathogenRim } from './enemy-models.mjs';
 
 // The pathogen rim light per arena: a colour that contrasts with the arena's dominant hue.
 const PATHOGEN_RIMS = {
@@ -108,7 +109,8 @@ export class World {
     side.position.set(11, 4.6, -11);
     this.scene.add(side);
     // The muzzle flash lights the tissue around the suit.
-    this.shotLight = new THREE.PointLight(0xffc48a, 0, 15, 2);
+    // Reaches the floor and walls around the suit, not pathogens across the room (they strobed).
+    this.shotLight = new THREE.PointLight(0xffc48a, 0, 7, 2);
     this.scene.add(this.shotLight);
     this.explosions = new ExplosionFX(this.scene, { floorHeight, burst: (...args) => this.burst(...args) });
     this.deaths = new DeathFX(this);
@@ -145,7 +147,11 @@ export class World {
     const weaponBounce = this.weaponBounce = new THREE.DirectionalLight(0xffd8c7, 1.24);
     weaponBounce.position.set(-.95, .28, .8);
     this.weaponFlash = new THREE.PointLight(0xffc776, 0, 2.3, 2);
-    this.weaponScene.add(this.weaponKey, this.weaponKey.target, this.weaponRim, weaponBounce, this.weaponFlash);
+    // A soft fill from the eye, so faces turned toward the camera (the back of the receiver in
+    // aim-down-sights) read as gunmetal instead of black.
+    const weaponFill = new THREE.DirectionalLight(0xdfe6ea, .9);
+    weaponFill.position.set(.1, .25, 1);
+    this.weaponScene.add(this.weaponKey, this.weaponKey.target, this.weaponRim, weaponBounce, weaponFill, this.weaponFlash);
     this.weaponPose = {
       sim: null, stride: 0, movement: 0, aim: 0, recoil: 0, flash: 0, lowered: 0,
       swayX: 0, swayY: 0, swap: 0,
@@ -174,6 +180,7 @@ export class World {
       makeTissue(this.scene, this.glow, normal, this.random),
       makeTissue(this.scene, this.glow, normal, randomSource(327113), true),
       makeTissue(this.scene, this.glow, normal, randomSource(551903), true),
+      makeTissue(this.scene, this.glow, normal, randomSource(718231), true),
     ];
     this.junctionField = makeJunctionField(this.room.junctionDetails, this.tissueViews[0], this.glow);
     this.turretView = createTurret(this.glow);
@@ -276,6 +283,8 @@ export class World {
 
     // Tracer streaks for the suit's own fire, a teammate's and the turret's (shot-fx.mjs).
     this.tracers = new TracerPool(this.scene, 96);
+    // Short stretched spurts of a pathogen's fluid when it is hit (impact-fx.mjs).
+    this.sprays = new TracerPool(this.scene, 128, 1, true);
     this.shotMaterial = 0xd6ffc4;
     this.teammateShotMaterial = 0xbcefff;
     this.turretShotMaterial = 0xffc27e;
@@ -396,7 +405,7 @@ export class World {
       createTerrainView(terrainFor(this.area), baseFloorHeight, this.area, floor.material);
     this.terrainViews.set(this.area, this.terrainView);
     this.scene.add(this.terrainView);
-    canopy.scale.y = heart ? .54 : junction ? .63 : profile ? .85 : 1;
+    canopy.scale.y = heart ? .62 : junction ? .63 : profile ? .85 : 1;
     this.scene.background.setHex(profile?.background ?? (heart ? 0x26181f : junction ? 0x1d1115 : 0x230f11));
     this.scene.fog.color.setHex(profile?.fog ?? (heart ? 0x3c2228 : junction ? 0x332528 : 0x3a2228));
     // Larger arenas need thinner haze so the far side of the chamber still reads.
@@ -421,6 +430,8 @@ export class World {
     this.deaths?.clear();
     this.post?.setArea(this.area);
     setPathogenRim(...(PATHOGEN_RIMS[this.area] ?? PATHOGEN_RIMS.artery));
+    // Drone grime takes on the arena's own fluid: a darker, more saturated cut of its fog.
+    { const fog = this.scene.fog.color, hsl = {}; fog.getHSL(hsl); setMachineGrime(new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 1.4 + .15), .1).getHex()); }
     // The weapon picks up the arena: sky from its mist, ground and bounce from its fog and floor,
     // so the gun sits in the world instead of in a neutral studio.
     const mist = new THREE.Color().setRGB(...(this.post?.look.mist ?? [.62, .3, .28]));
@@ -433,6 +444,7 @@ export class World {
     this.updateEnemies([], 0);
     this.updateProjectiles([], false);
     this.tracers.clear();
+    this.sprays.clear();
     this.particles.length = 0;
     this.shotLight.intensity = 0;
     this.lastEvents = null;
@@ -453,7 +465,9 @@ export class World {
       view.root.visible = !!node;
       if (!node) continue;
       view.root.position.set(node.x, node.y + floorHeight(node.x, node.z), node.z);
-      view.root.rotation.y = junction ? (i === 0 ? .31 : -.31) : [0, -.49, .62][i];
+      // A heart wound turns its face to the valve it sits in front of.
+      view.root.rotation.y = junction ? (i === 0 ? .31 : -.31)
+        : node.valveIndex != null ? HEART_VALVES[node.valveIndex].yaw : [0, -.49, .62, .2][i];
       view.opening = 0;
       view.wound.reshape(0);
       view.channel.visible = false;
@@ -791,7 +805,7 @@ export class World {
       this.particlePositions[index] = particle.x;
       this.particlePositions[index + 1] = particle.y;
       this.particlePositions[index + 2] = particle.z;
-      const glow = fade * (1 + fade * .9);
+      const glow = fade * (1 + fade * .45);
       this.particleColors[index] = particle.r * glow;
       this.particleColors[index + 1] = particle.g * glow;
       this.particleColors[index + 2] = particle.b * glow;
@@ -895,7 +909,8 @@ export class World {
         if (event.type === 'guard' && event.stage === 'block') {
           const guard = this.enemyViews.get(event.id);
           if (guard) guard.strike = .23;
-          this.burst(event.x, event.y, event.z, 0xfce5a9, 8, 2.0);
+          // Deflected rounds spark off the shell; kept small so sustained fire doesn't bleach it.
+          this.burst(event.x, event.y, event.z, 0xc9a978, 4, 2.4);
         }
         if (event.type === 'boss') {
           if (event.stage === 'block') this.burst(event.x, event.y, event.z, 0xe6dbbd, 7, 1.7);
@@ -906,6 +921,7 @@ export class World {
       }
     }
     this.tracers.update(dt, this.camera);
+    this.sprays.update(dt, this.camera);
     this.shotLight.intensity *= Math.exp(-dt * 28);
   }
 

@@ -147,7 +147,8 @@ export function addShot(world, event, flashStrength, reduceMotion) {
     world.addTracer(start, end, world.shotMaterial, life, width, tail);
   }
   if (!event.pellet) {
-    world.shotLight.intensity = (event.weapon === 'sniper' || event.weapon === 'shotgun' ? 70 : 42) * flashStrength;
+    // Enough to flicker the tissue around the suit without bleaching a large pathogen up close.
+    world.shotLight.intensity = (event.weapon === 'sniper' || event.weapon === 'shotgun' ? 16 : 9) * flashStrength;
     world.shotLight.position.copy(start);
   }
   if (event.hit) world.burst(end.x, end.y, end.z, event.crit ? 0xffc875 : 0xff765a, event.crit ? 18 : 9, 3);

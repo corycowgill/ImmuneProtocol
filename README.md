@@ -37,7 +37,7 @@ Pathogens use local tactical AI: sight and hearing, fading memories, obstacle-aw
 
 Ordinary waves mix **Swarm Pincers, Spore Crossfire, Colony Convoys, Decoy Rushes, Tissue Sieges and Predator Packs** using their existing enemies. Nothing on screen names an encounter, marks where it will enter or labels what a pathogen is doing: you read the swarm from the pathogens themselves, their windups and their sounds. Groups compress into short pushes with breathing room afterward. Fresh deployments vary the mix, while wave-checkpoint retries preserve the encounter seed. Scripted objectives keep their own arrival systems. See [encounter patterns, pacing and validation](docs/encounters.md), `npm run test:encounters`, and `npm run benchmark:encounters`.
 
-Every arena is a third larger in each direction than it was first laid out: the playable floor is 110 × 154 m, with tissue nodes 40–60 m apart. Suits move about 20% faster to match. The artery floor is broken up by ten clots that block movement and line of sight for you and force pathogens to flow around them, and each organ arena has more of its own obstacles. The Heart Valve keeps its original chamber. `npm run profile`, then `/__overview`, draws a top-down plan of every arena with its nodes, inlets, obstacles and hazard zone.
+Every arena is a third larger in each direction than it was first laid out: the playable floor is 110 × 154 m, with tissue nodes 40–60 m apart. Suits move about 20% faster to match. The artery floor is broken up by ten clots that block movement and line of sight for you and force pathogens to flow around them, and each organ arena has more of its own obstacles. The Heart Valve fills the same full-size floor with four valves set into its edges (see below). `npm run profile`, then `/__overview`, draws a top-down plan of every arena with its nodes, inlets, obstacles and hazard zone.
 
 ## Campaign ending and credits
 
@@ -55,7 +55,7 @@ Every mission ends with a boss. Once the final wave has sent its last pathogen t
 | --- | --- | --- | --- |
 | Arterial Junction | Thrombus Titan | Armoured from every side (shots do 40%). Lines up a suit and charges in a straight line. | Sidestep so the charge carries it into the arena wall. It is stunned for about four seconds and takes 170% damage. |
 | Capillary Junction | Capillary Leech | Latches onto a node, drains it and heals itself. | Deal 13% of its health while it is latched to knock it loose and stagger it; it then heads for the other node. |
-| Heart Valve | The colony | Behind the valve, as before. | Shoot it while the valve is open. |
+| Heart Valve | Twelve colonies | Rooted on the floor behind the four valves, three each. | Shoot them while their valve is open. |
 | Bronchial Fork | Mold Crown | Circles overhead out of melee reach, firing six-shot spore volleys at suits, lobbing at the weakest node and seeding spitters. | Keep moving under the volleys and shoot upward between them. |
 | Gastric Chamber | Pylori Drill | Burrows where nothing can hit it, trailing a tremor, then erupts under a node or a suit. | Follow the tremor, get clear of the eruption, and punish it during the seven seconds it stays up. |
 | Intestinal Bend | Tapeworm | A head leading seven segments on a circuit of the nodes, biting each as it passes. The head takes 8% damage while any segment survives and speeds up as they die. | Destroy every segment, then the exposed head. |
@@ -135,7 +135,7 @@ Choose **Easy**, **Medium**, or **Hard** on the deployment briefing. Hover, focu
 | Tissue restored per repair pulse | +30% | Standard | −15% |
 | Auto-turret placements | Two, so you can move it once | One | One |
 
-Capillary Junction thins or reinforces each surge but always keeps the pathogen that triggers its forecast, and Overtime follows the same rules. The Heart Valve colony and flank patrol, the bronchus and gastric counterattacks, the lower-passage flank, and the Mega Virus brood keep their numbers and timing; only their health and damage change. Online co-op always plays Medium. The best score on the main menu counts runs from every difficulty.
+Capillary Junction thins or reinforces each surge but always keeps the pathogen that triggers its forecast, and Overtime follows the same rules. The Heart Valve colonies and flank patrol, the bronchus and gastric counterattacks, the lower-passage flank, and the Mega Virus brood keep their numbers and timing; only their health and damage change. Online co-op always plays Medium. The best score on the main menu counts runs from every difficulty.
 
 Run `npm run balance` to play every mission headlessly with two scripted strategies on each difficulty. The anchor guards the weakest node. The rover runs to the node under the most pressure and switches targets when Shellbacks block its shots. The script prints win rates and the lowest tissue integrity per run, and exits with an error if a mission is never won on some difficulty. Narrow it with `npm run balance -- --difficulty hard --trials 20 stomach colon`.
 
@@ -156,7 +156,7 @@ Pathogens don't just vanish when they die. Each species has its own death animat
 | Crown Virus | Lunger | Arterial Junction |
 | Spitting Spore | Ranged | Arterial Junction |
 | Bacillus | Latcher | Arterial Junction |
-| Valve Colony | Stationary, fight it through the valve | Heart Valve |
+| Valve Colony | Rooted behind a heart valve, spits through it while it is open | Heart Valve |
 | Phage Lander | Lunger, lighter and quicker | Arterial Junction, Wave 4 |
 | Filovirus | Latcher, tears a little faster | Arterial Junction, Wave 4 |
 | Blister Mortar | Ranged, tougher than a spore | Arterial Junction, Wave 5 |
@@ -228,7 +228,7 @@ Each organ hazard is drawn as its own effect, and every one raises a pulsing cur
 | --- | --- |
 | Arterial Junction | Learn to intercept attackers and repair the core before defending three nodes through five waves, under a river of red blood cells pumped through a beating valve. |
 | Capillary Junction | Read the Amber and Teal attack forecasts, deploy support between waves, and choose whether to stay for Overtime. |
-| Heart Valve | Shoot the colony through the open valve and defend the Septal Node against flank attacks. |
+| Heart Valve | Four valves open in turn around a full-size chamber. Sprint between them, shoot the colonies through each opening and seal the four wounds while their valves are shut. |
 | Bronchial Fork | Survive three waves, reopen both bronchi, and keep them open through a full breath. |
 | Gastric Chamber | Close the intake and drain the acid basin under fire, then defend the newly exposed lower passage. |
 | Intestinal Bend | Defend three nodes in a swaying villus forest and climb the villus terraces to ride out the pressure wave that sweeps the whole bend. |
@@ -286,7 +286,7 @@ The Arterial Junction now has real height. A plaque overlook with a walkable ram
 | --- | --- |
 | Arterial Junction | Plaque overlooks beside each node, a jump-up shelf in the middle, low ridges on the inlet lanes. |
 | Capillary Junction | Overlooks outside both nodes, a shelf between them, ridges on the way in. |
-| Heart Valve | A balcony to shoot down through the valve from, and a rise by the side node. |
+| Heart Valve | A shelf at the hub to see every valve from, overlooks in two far quarters, and low ridges to hop on the runs between valves. |
 | Lungs | Alveolar platforms that rise and fall about 0.8 m with every breath (no turret on them), and bronchial ridges along the airway. |
 | Stomach | Acid floods the whole chamber in surges. 78 rugae islands are scattered everywhere: one beside each node and valve for repairs, a backbone so you are never more than a few seconds from safety, walk-up mounds, and small stepping pads for jump chains. Standing on any of them keeps you out of the acid. |
 | Intestines | The contraction sweeps the whole bend, so eleven stepped villus terraces stand across it, each six walkable steps up to 2.28 m. The crest reaches about 1.7 m, so the top two tiers ride it out. Nowhere in the wave's path is more than about 22 m from a terrace. |
@@ -340,7 +340,7 @@ In the breach wave, a bacillus tear can leave a gash that keeps draining tissue 
 
 After securing Capillary Junction, choose **Extract** to bank the result or **Stay for overtime**. Both nodes, your remaining suit health and ammo, and your turret carry into overtime. Stop the Teal breach, clear the Amber spore pressure, and seal any gash to earn 2,000 bonus points. If you lose in overtime, retry Capillary Junction from Wave 1.
 
-In Heart Valve, fire through the opening to hit the colony. Use each closed window to repair the valve wound. The outer wall can be repaired at any time. The mission ends when the colony and flank threats are gone and both nodes are restored. Unlocks are saved in the browser.
+In Heart Valve, four valves (Mitral, Tricuspid, Aortic and Pulmonary) sit at the edges of a full-size chamber, each with a tissue wound a few metres in front of its mouth and three spore colonies rooted on the floor behind it. The valves beat a quarter-cycle apart, so their open windows roll around the chamber: each opens for 3.6 s and shuts for 7.2 s. While a valve is open its colonies spit through the aperture at its wound, or at a suit standing in line with it, and each time it opens on living colonies it spews a spore out into the chamber. Shots, rockets and grenades only reach the colonies through an open aperture; the sleeve's muscle stops everything else. A wound can only be sealed while its own valve is shut. Flank patrols, Rogue Bots and Crawlers among them, come in from the four quarters between the valves. Four papillary muscles and two clots give cover on the long runs, so sprint and dash between valves. Each wound's marker says how long until its valve opens. The mission ends when every colony and flank threat is gone and all four wounds are restored. Unlocks are saved in the browser.
 
 In **Bronchial Fork**, move to each blocked bronchus after the third wave and hold Repair to reopen it. Completed pulses carry over while you stop to fight. Once both bronchi are open, keep both tissue nodes at **45% integrity or higher** through one full breath. If integrity drops below 45%, that side clogs again. Watch the exhale timer when crossing the central airway, and clear any surviving pathogens before leaving.
 
@@ -403,7 +403,8 @@ flowchart LR
 | [`dist/arsenal-models.mjs`](dist/arsenal-models.mjs), [`dist/arsenal-ui.mjs`](dist/arsenal-ui.mjs) | 3D models for the sniper rifle, shotgun, rocket launcher, and pistol with every part variant, receiver stickers and swinging charms; the weapon strip, spread crosshair, scope overlay, swap controls, and armory loadout picker. |
 | [`dist/explosions.mjs`](dist/explosions.mjs) | Rocket flights with smoke trails, and explosions with a fireball, flash, smoke column, ground shockwave, sparks, light, and camera shake. |
 | [`dist/repair-tool.mjs`](dist/repair-tool.mjs) | The 3D tissue sealer that replaces the carbine while the player repairs the wound. |
-| [`dist/heart-valve.mjs`](dist/heart-valve.mjs) | The moving valve and attached colony. The scene follows the same timing as the simulation's shot and repair windows. |
+| [`dist/heart-chamber.mjs`](dist/heart-chamber.mjs) | The Heart Valve layout: the four valves, their beat, wounds, colony spots and solid footprints, and the sleeve ray test the simulation uses for shots. |
+| [`dist/heart-valve.mjs`](dist/heart-valve.mjs) | The four moving valves: sleeves, leaflets, throat lights and blood cells. The scene follows the same timing as the simulation's shot and repair windows. |
 | [`dist/turret.mjs`](dist/turret.mjs) | The 3D auto-turret with its aiming mount, deployment animation, and recoil. |
 | [`dist/audio.mjs`](dist/audio.mjs) | Mixes original [sound effects](dist/assets/sfx) and two synchronized [soundtrack loops](dist/assets/music). Impacts and inlet activity pan with their position relative to the player. |
 

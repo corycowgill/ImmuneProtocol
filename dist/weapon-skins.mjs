@@ -363,12 +363,14 @@ export function extendShader(material, key, patch) {
 
 // How each weapon material ages: baked occlusion darkens crevices, and the baked
 // edge mask wears the coating back to `color` with its own roughness and metalness.
+// `edge` wears sharp edges procedurally too, wherever the surface normal turns quickly on screen,
+// so modelled bevels on every part (baked atlas or not) catch a bright worn line.
 const WEAR = {
-  shell: { color: 0xc9c4b8, amount: .45, rough: .62, metal: .05, occlusion: .85 },
-  dark: { color: 0x9a9c9c, amount: .75, rough: .32, metal: .9, occlusion: .9 },
-  steel: { color: 0xd4d7d8, amount: .55, rough: .18, metal: 1, occlusion: .85 },
-  edge: { color: 0xe3e5e5, amount: .35, rough: .16, metal: 1, occlusion: .7 },
-  rubber: { color: 0x2a2b2d, amount: .25, rough: .9, metal: 0, occlusion: .9 },
+  shell: { color: 0xc9c4b8, amount: .45, rough: .62, metal: .05, occlusion: .85, edge: .3 },
+  dark: { color: 0x9a9c9c, amount: .75, rough: .32, metal: .9, occlusion: .9, edge: .6 },
+  steel: { color: 0xd4d7d8, amount: .55, rough: .18, metal: 1, occlusion: .85, edge: .45 },
+  edge: { color: 0xe3e5e5, amount: .35, rough: .16, metal: 1, occlusion: .7, edge: .3 },
+  rubber: { color: 0x2a2b2d, amount: .25, rough: .9, metal: 0, occlusion: .9, edge: .1 },
 };
 
 // Weathered materials read a baked atlas (R occlusion, G worn edges) through a
@@ -406,6 +408,7 @@ export function makeWeathered(material, role) {
     weatherRough: { value: wear.rough },
     weatherMetal: { value: wear.metal },
     weatherOcclusion: { value: wear.occlusion },
+    weatherEdge: { value: wear.edge },
   };
   return extendShader(material, 'weathered', shader => {
     Object.assign(shader.uniforms, uniforms);
@@ -415,10 +418,11 @@ export function makeWeathered(material, role) {
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vWeatheringUv;\nuniform sampler2D weatheringAtlas;\n' +
         'uniform vec3 weatherColor;\nuniform float weatherAmount;\nuniform float weatherRough;\nuniform float weatherMetal;\n' +
-        'uniform float weatherOcclusion;')
+        'uniform float weatherOcclusion;\nuniform float weatherEdge;')
       .replace('#include <color_fragment>', '#include <color_fragment>\n' +
         'vec2 weathering = texture2D(weatheringAtlas, vWeatheringUv).rg;\n' +
-        'float weatherWear = clamp(weathering.g * weatherAmount, 0.0, 1.0);\n' +
+        '#ifndef FLAT_SHADED\nfloat weatherCurve = smoothstep(0.06, 0.32, length(fwidth(normalize(vNormal))));\n#else\nfloat weatherCurve = 0.0;\n#endif\n' +
+        'float weatherWear = clamp(max(weathering.g * weatherAmount, weatherCurve * weatherEdge), 0.0, 1.0);\n' +
         'diffuseColor.rgb = mix(diffuseColor.rgb, weatherColor, weatherWear);\n' +
         'diffuseColor.rgb *= mix(1.0, weathering.r, weatherOcclusion);')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' +

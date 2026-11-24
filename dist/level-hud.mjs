@@ -1,4 +1,4 @@
-// HUD and menu pieces for the expanded campaign: the third tissue-node readout and marker, the
+// HUD and menu pieces for the expanded campaign: the third and fourth tissue-node readouts and markers, the
 // wave-clear countdown banner, Free Mode cards for the Colonic Reservoir and Lymph Node, and the
 // difficulty picker on the deployment screen.
 import { Simulation } from './simulation.mjs';
@@ -13,6 +13,12 @@ const STYLE = `
 #tertiary-marker.under-attack,#tertiary-edge.under-attack{color:#ffbd92}
 #tertiary-marker.critical,#tertiary-edge.critical{color:#ff8a73}
 #tertiary-edge:is(.under-attack,.critical){border-color:currentColor}
+.node-row[data-tissue-node="3"]{--node-color:#ffd58a}
+#quaternary-marker,#quaternary-edge{color:#ffd58a}
+#quaternary-edge{border-color:#ffd58a80}
+#quaternary-marker.under-attack,#quaternary-edge.under-attack{color:#ffbd92}
+#quaternary-marker.critical,#quaternary-edge.critical{color:#ff8a73}
+#quaternary-edge:is(.under-attack,.critical){border-color:currentColor}
 .wave-outro{position:absolute;left:50%;top:27%;transform:translateX(-50%);display:grid;justify-items:center;gap:4px;padding:12px 26px 14px;min-width:220px;border:1px solid #c8f79459;background:linear-gradient(180deg,#141a13d9,#0d100cc2);color:var(--green);text-align:center;pointer-events:none;box-shadow:0 0 28px #9bf4c41f;animation:outro-in .35s ease-out}
 .wave-outro[hidden]{display:none}
 .wave-outro span{font:800 clamp(16px,2vw,24px)/1 var(--display);letter-spacing:.14em}
@@ -180,6 +186,16 @@ export function installLevelHud(document) {
     third.querySelector('[data-node-name]').textContent = 'Tertiary';
     second.after(third);
   }
+  // The Heart Valve defends four wounds, one in front of each valve.
+  const thirdRow = document.querySelector('[data-tissue-node="2"]');
+  if (thirdRow && !document.querySelector('[data-tissue-node="3"]')) {
+    const fourth = thirdRow.cloneNode(true);
+    fourth.dataset.tissueNode = '3';
+    fourth.hidden = true;
+    renameIds(fourth, 'tertiary', 'quaternary');
+    fourth.querySelector('[data-node-name]').textContent = 'Quaternary';
+    thirdRow.after(fourth);
+  }
 
   const secondaryEdge = document.getElementById('secondary-edge');
   if (secondaryEdge && !document.getElementById('tertiary-marker')) {
@@ -188,6 +204,14 @@ export function installLevelHud(document) {
     renameIds(marker, 'secondary', 'tertiary');
     renameIds(edge, 'secondary', 'tertiary');
     secondaryEdge.after(marker, edge);
+  }
+  const tertiaryEdge = document.getElementById('tertiary-edge');
+  if (tertiaryEdge && !document.getElementById('quaternary-marker')) {
+    const marker = document.getElementById('tertiary-marker').cloneNode(true);
+    const edge = tertiaryEdge.cloneNode(true);
+    renameIds(marker, 'tertiary', 'quaternary');
+    renameIds(edge, 'tertiary', 'quaternary');
+    tertiaryEdge.after(marker, edge);
   }
 
   const alert = document.getElementById('game-alert');

@@ -160,12 +160,15 @@ test('boss phase changes are monotonic across healing and telegraphs serialize f
   assert.doesNotThrow(() => JSON.stringify(boss)); assert.equal(levelBossStatus(sim).remaining, 1);
 });
 
-test('Heart colony warns before tearing tissue and closing the valve cancels a pending tear', () => {
+test('Heart colonies wind up before spitting and a closing valve smothers a pending spit', () => {
   const sim = new Simulation('heart'); sim.start();
-  sim.clock = 4.2; sim.updateValve(); const node = sim.colony.node, before = node.health;
-  sim.advanceColony(.1); assert.equal(node.health, before); assert.ok(sim.colony.telegraph);
-  sim.clock = 7.3; sim.updateValve(); sim.advanceColony(.1);
-  assert.equal(node.health, before); assert.equal(sim.colony.telegraph, null);
+  const colony = sim.enemies.find(enemy => enemy.type === 'colony' && enemy.valveIndex === 0);
+  colony.attackCooldown = .5;
+  sim.clock = 4.5 + .8; sim.updateValves(); sim.advanceColonies(.1);
+  assert.ok(sim.valve.valves[0].exposed); assert.ok(colony.charging); assert.equal(sim.projectiles.length, 0);
+  sim.clock = 4.5 + 3.65; sim.updateValves(); sim.advanceColonies(.1);
+  assert.equal(sim.valve.valves[0].phase, 'closed'); assert.equal(colony.charging, false);
+  assert.equal(sim.projectiles.filter(shot => shot.owner === colony).length, 0);
 });
 
 test('Mega Virus rejects stale core/phase/cycle hits, sealed hits and repeated kill credit', () => {
