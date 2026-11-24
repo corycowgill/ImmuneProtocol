@@ -4,7 +4,7 @@
 import * as THREE from './vendor/three.module.js';
 import { createGuardCarapace } from './organ-world.mjs';
 import { OBJECTIVE } from './simulation.mjs';
-import { addPathogenRim, animatePathogen, pathogenMotion } from './enemy-models.mjs';
+import { addPathogenRim, animatePathogen, pathogenMotion, reapplyMachineGrime } from './enemy-models.mjs';
 import { BOSS_FLOATS } from './level-bosses.mjs';
 import { membraneMaps } from './arena-textures.mjs';
 import { TAU, UP, floorHeight, groundLevel, baseFloorHeight, addMesh } from './arena-scene.mjs';
@@ -162,7 +162,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       const clonedMembrane = membrane ? membrane.material.clone() : null;
       if (clonedMembrane) {
         clonedMembrane.userData.pathogenRim = false;
-        membrane.material = addPathogenRim(clonedMembrane);
+        membrane.material = addPathogenRim(reapplyMachineGrime(clonedMembrane));
       }
       world.scene.add(model);
       const shadow = new THREE.Mesh(world.shadowGeometry, world.shadowMaterial);

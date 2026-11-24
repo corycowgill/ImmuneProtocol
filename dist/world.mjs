@@ -21,7 +21,7 @@ import { createSquadView } from './squad-view.mjs';
 import { COOP_MAX_PLAYERS } from './coop-protocol.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 import { Simulation, arenaObstacles, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, SPECIES, TISSUE_NODES } from './simulation.mjs';
-import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion, setPathogenRim } from './enemy-models.mjs';
+import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion, setMachineGrime, setPathogenRim } from './enemy-models.mjs';
 
 // The pathogen rim light per arena: a colour that contrasts with the arena's dominant hue.
 const PATHOGEN_RIMS = {
@@ -145,7 +145,11 @@ export class World {
     const weaponBounce = this.weaponBounce = new THREE.DirectionalLight(0xffd8c7, 1.24);
     weaponBounce.position.set(-.95, .28, .8);
     this.weaponFlash = new THREE.PointLight(0xffc776, 0, 2.3, 2);
-    this.weaponScene.add(this.weaponKey, this.weaponKey.target, this.weaponRim, weaponBounce, this.weaponFlash);
+    // A soft fill from the eye, so faces turned toward the camera (the back of the receiver in
+    // aim-down-sights) read as gunmetal instead of black.
+    const weaponFill = new THREE.DirectionalLight(0xdfe6ea, .9);
+    weaponFill.position.set(.1, .25, 1);
+    this.weaponScene.add(this.weaponKey, this.weaponKey.target, this.weaponRim, weaponBounce, weaponFill, this.weaponFlash);
     this.weaponPose = {
       sim: null, stride: 0, movement: 0, aim: 0, recoil: 0, flash: 0, lowered: 0,
       swayX: 0, swayY: 0, swap: 0,
@@ -421,6 +425,8 @@ export class World {
     this.deaths?.clear();
     this.post?.setArea(this.area);
     setPathogenRim(...(PATHOGEN_RIMS[this.area] ?? PATHOGEN_RIMS.artery));
+    // Drone grime takes on the arena's own fluid: a darker, more saturated cut of its fog.
+    { const fog = this.scene.fog.color, hsl = {}; fog.getHSL(hsl); setMachineGrime(new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 1.4 + .15), .1).getHex()); }
     // The weapon picks up the arena: sky from its mist, ground and bounce from its fog and floor,
     // so the gun sits in the world instead of in a neutral studio.
     const mist = new THREE.Color().setRGB(...(this.post?.look.mist ?? [.62, .3, .28]));
