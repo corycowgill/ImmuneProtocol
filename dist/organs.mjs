@@ -46,14 +46,14 @@ export const ORGAN_MISSIONS = {
   },
   stomach: {
     name: 'Gastric Chamber',
-    briefing: 'Use the banks during acid surges. Shut the intake and open the drain to reach the final wave.',
+    briefing: 'Acid floods the whole chamber in surges. Jump onto the rugae islands before it rises. Shut the intake and open the drain to reach the final wave.',
     nodes: [node('stomach-wall', 'Gastric Wall', -21, -14), node('stomach-lining', 'Pyloric Lining', 19, 8)],
     entry: [5, 27],
     inlets: [[[-28, -37], [-39, 4], [-14, -51]], [[36, -20], [30, 34], [22, -46]]],
     obstacles: [[-6, 18, 2.8], [10, -28, 3], [-30, -26, 2.8], [30, 26, 2.8], [-10, -38, 2.6], [-28, 24, 2.6]],
     hazard: {
-      name: 'Acid rise', instruction: 'Climb out of the basin', effect: 'Acid damages your suit',
-      x: 0, z: -6, radius: 11, recovery: 5.8, warning: 3.6, active: 4.6, damage: 9,
+      name: 'Acid flood', instruction: 'Get onto an island', effect: 'Acid damages your suit',
+      x: 0, z: -6, radius: 70, recovery: 5.8, warning: 3.6, active: 4.6, damage: 9,
     },
     waves: [
       wave('Acid-Tolerant Bloom', 1.02, 'fpsvsgpavsfps', 'RLLRLRRLLRRLR'),

@@ -284,7 +284,7 @@ The Arterial Junction now has real height. A plaque overlook with a walkable ram
 | Capillary Junction | Overlooks outside both nodes, a shelf between them, ridges on the way in. |
 | Heart Valve | A balcony to shoot down through the valve from, and a rise by the side node. |
 | Lungs | Alveolar platforms that rise and fall about 0.8 m with every breath (no turret on them), and bronchial ridges along the airway. |
-| Stomach | Four rugae islands across the acid pool, a jump apart. Standing on one keeps you out of the acid. |
+| Stomach | Acid floods the whole chamber in surges. 78 rugae islands are scattered everywhere: one beside each node and valve for repairs, a backbone so you are never more than a few seconds from safety, walk-up mounds, and small stepping pads for jump chains. Standing on any of them keeps you out of the acid. |
 | Intestines | Two stepped villus terraces you can walk up. Their crowns stand above the contraction. |
 | Colon | Haustral folds you can climb to ride out the squeeze. |
 | Lymph Node | A three-tier lookout in the middle of the follicle. |
@@ -332,7 +332,7 @@ In Heart Valve, fire through the opening to hit the colony. Use each closed wind
 
 In **Bronchial Fork**, move to each blocked bronchus after the third wave and hold Repair to reopen it. Completed pulses carry over while you stop to fight. Once both bronchi are open, keep both tissue nodes at **45% integrity or higher** through one full breath. If integrity drops below 45%, that side clogs again. Watch the exhale timer when crossing the central airway, and clear any surviving pathogens before leaving.
 
-In **Gastric Chamber**, clear the first wave, then hold Repair at the intake on the west bank. Closing it diverts acid into the drain channel. Cross to the east bank and hold Repair at the drain valve. Completed pulses carry over if you stop to fight. Once the basin empties, watch the lower passage behind the insertion point. The final wave uses it to flank both tissue nodes.
+In **Gastric Chamber**, acid surges flood the entire chamber, so get onto one of the rugae islands during each warning and fight from island to island while it lasts. Clear the first wave, then hold Repair at the intake on the west bank. Closing it diverts acid into the drain channel. Cross to the east bank and hold Repair at the drain valve. Completed pulses carry over if you stop to fight. Once the basin empties, watch the lower passage behind the insertion point. The final wave uses it to flank both tissue nodes.
 
 The **Mega Virus** is Neural Cortex's third wave. Its connected membranes protect three cores. Follow the pulse to the core about to open, then shoot the exposed tissue. When the shell closes, clear spawned viruses, reload, and repair. Neural overload blocks repairs at the highlighted node during exposure. In the final phase, Shellbacks and Splitters pressure opposite sides. Clear any survivors after the boss falls.
 

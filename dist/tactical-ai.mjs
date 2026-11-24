@@ -405,11 +405,20 @@ export class EnemyAIController {
 }
 
 export class AIWorld {
+  // Crawlers walk the floor, so their routes also avoid raised ground. Built on first use: a
+  // chamber full of islands makes a large graph, and most missions have no crawlers.
+  get groundNavigation() {
+    if (!this.groundRoutes) {
+      const footprints = this.sim.terrainFootprints ?? [];
+      this.groundRoutes = footprints.length ? new NavigationSystem([...this.sim.obstacles, ...footprints], this.sim.area) : this.navigation;
+    }
+    return this.groundRoutes;
+  }
+
   constructor(sim, options = {}) {
     this.sim = sim; this.config = { ...AI_CONFIG, ...options }; this.seed = options.seed ?? 0x1a11ce;
     this.navigation = new NavigationSystem(sim.obstacles, sim.area);
-    this.groundNavigation = sim.terrainFootprints?.length
-      ? new NavigationSystem([...sim.obstacles, ...sim.terrainFootprints], sim.area) : this.navigation;
+    this.groundRoutes = null;
     this.controllers = new Map(); this.entities = new Map(); this.cells = new Map(); this.players = [];
     this.noises = []; this.noiseSequence = 0;
     this.director = new EncounterDirector(this); this.squads = new SquadCoordinator(this);
