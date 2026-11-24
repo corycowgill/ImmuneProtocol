@@ -11,7 +11,7 @@
 // split into cullable patches (decor-chunks.mjs), and Low quality thins it.
 import * as THREE from './vendor/three.module.js';
 import { chunkInstances } from './decor-chunks.mjs';
-import { ARENA_GROWTH } from './arena-scale.mjs';
+import { ARENA_GROWTH, grow } from './arena-scale.mjs';
 import { bioMaterial, addSway, lumpySphere, fingerGeometry, redCellGeometry, mergeGeometries, tube, taperedTube } from './level-props.mjs';
 
 const FLOOR_X = 42 * ARENA_GROWTH;
@@ -197,6 +197,8 @@ function bloodstream(root, random, place, time) {
     if (!spot) continue;
     const [x, z] = spot;
     const s = .1 + random() * .16;
+    // None right at the insertion points, where one would sit at the bottom of the first view.
+    if ([grow(26), grow(20)].some(start => Math.hypot(x, z - start) < 3.5)) continue;
     platelets.push({ x, y: place.floorHeight(x, z) + s * .3, z, ry: random() * TAU, rx: (random() - .5) * .5, sx: s, sy: s * .35, sz: s * .8,
       color: tint(random, 1, .25) });
   }

@@ -60,7 +60,7 @@ What the graphics sprint changed, per catalog item. Items not listed were left f
 | L-02 | Done | Rougher floor coat, artery bulb 310 → 200, exposure 1.18 → 1.14. |
 | L-03 | Partly | Brighter ground hemisphere colour in the bloodstream arenas. |
 | L-04 | Done | Lungs: slightly more contrast, less and shorter-reaching mist, a little less magenta. |
-| E-01 | Done | The beige lump at the bottom of the view was a drifting red cell passing the lens; drifting cells now shrink away within about two metres of the camera. |
+| E-01 | Done | The lump at the bottom of the view was a platelet lying just behind the bloodstream insertion point; platelets now keep 3.5 m clear of it. Drifting red cells also shrink away within about two metres of the camera so they can't fill the lens. |
 | E-02 | Done | Platelets darker and wetter (amber, not beige gravel). |
 | N-01 | Done | Shared fresnel rim light on every pathogen material, colour and strength per arena (`setPathogenRim`). |
 | F-01 | Done | Co-op without a server shows a designed "Squad link offline" state with how to play online. |
