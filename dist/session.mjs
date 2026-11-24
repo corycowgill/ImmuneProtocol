@@ -7,6 +7,8 @@ export const session = {
   // co-op snapshot). sim is also set while no mission runs, to the one last played.
   world: null,
   audio: null,
+  // Controller rumble (haptics.mjs), fed by field events and refreshed each frame.
+  haptics: null,
   sim: null,
   // Startup has finished; a mission is running; it is paused; it is an online co-op match.
   ready: false,

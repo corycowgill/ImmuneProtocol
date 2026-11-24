@@ -21,6 +21,7 @@ export function announce(title, detail = '', duration = 2.45) {
 export function applyEvents() {
   for (const event of session.sim.events) {
     const teammate = session.onlineRun && event.playerId && event.playerId !== session.sim.player.id;
+    session.haptics?.event(event, { player: session.sim.player, teammate: !!teammate });
     if (teammate) {
       if (event.type === 'shot') {
         const actor = session.sim.players.find(player => player.id === event.playerId);

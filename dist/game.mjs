@@ -39,8 +39,9 @@ import { game, hitMarker, turretStatus, touchTurret, gashMarker, gashEdge, junct
 import { alertBox, announce, applyEvents } from './field-events.mjs';
 import {
   canvas, clearControls, commands, controllerFrame, controls, input, keys, pauseDialog, releaseMouse, requestMouse,
-  syncControllerAudioHint, touch, touchControls,
+  rumblePad, syncControllerAudioHint, touch, touchControls,
 } from './controls.mjs';
+import { Haptics } from './haptics.mjs';
 import { armoryDialog, armoryEvents, armoryOpen, openArmory, setupArmory } from './armory-menu.mjs';
 
 const menu = byId('menu');
@@ -157,8 +158,16 @@ function countFrame(now) {
 }
 
 // The wider options menu (game-settings.mjs). The World picks these up when it is created.
-function applyOptions(values) {
+session.haptics = new Haptics(rumblePad);
+function applyOptions(values, changed) {
   session.options = values;
+  session.haptics.configure({ intensity: values['controller-vibration'], triggers: values['trigger-rumble'] });
+  // Let the player feel the new strength while adjusting it with a controller.
+  if ((changed === 'controller-vibration' || changed === 'trigger-rumble') && session.usingGamepad) {
+    const now = performance.now();
+    session.haptics.preview(now);
+    previewRumble();
+  }
   session.reduceMotion = values['reduce-motion'] === 'system' ? reducedMotion : values['reduce-motion'] === 'on';
   if (values['aim-mode'] !== 'toggle') aimLatched = false;
   fpsCounter.hidden = !values['show-fps'];
@@ -166,6 +175,17 @@ function applyOptions(values) {
   session.audio.setLevels(values['master-volume'], values['ambience-volume']);
   session.world?.applyOptions(values);
   if (session.paused && session.world) session.world.render(session.sim, 0, input, session.reduceMotion);
+}
+// Outside play no frame runs, so the settings preview drives its own short rumble loop.
+let rumblePreview = 0;
+function previewRumble() {
+  cancelAnimationFrame(rumblePreview);
+  const tick = now => {
+    session.haptics.update(now);
+    rumblePreview = session.haptics.effects.length && !(session.running && !session.paused) ? requestAnimationFrame(tick) : 0;
+    if (!rumblePreview && !(session.running && !session.paused)) session.haptics.stop();
+  };
+  rumblePreview = requestAnimationFrame(tick);
 }
 const options = createSettings(byId('settings-dialog'), applyOptions);
 const keybinds = createKeybindSettings(byId('settings-dialog'));
@@ -769,6 +789,7 @@ function pause() {
 
 function suspendCombat() {
   session.paused = true;
+  session.haptics.stop();
   cancelAnimationFrame(animation);
   animation = 0;
   clearControls();
@@ -793,6 +814,7 @@ function resume() {
 }
 
 function offerExtraction() {
+  session.haptics.stop();
   clearControls();
   session.audio.setActive(false);
   syncMusic();
@@ -1028,6 +1050,7 @@ function drawNodeBreakdown(container, nodes) {
 
 function finish() {
   session.running = false;
+  session.haptics.stop();
   clearAbilityHints();
   aiDebug.update(session.sim, performance.now(), false);
   extractionDialog.close();
@@ -1052,6 +1075,8 @@ function finish() {
   if (complete && campaign) saveCheckpoint(null);
   displayMissionAccess();
   session.audio.play({ type: won ? 'won' : 'lost' });
+  session.haptics.event({ type: won ? 'won' : 'lost' });
+  previewRumble();
   if (campaign && session.sim.score > bestScore) {
     bestScore = session.sim.score;
     writeSetting(bestKey, bestScore);
@@ -1204,6 +1229,11 @@ function playFrame(now) {
         (session.sim.gastric && session.sim.phase === 'intermission' && (session.sim.enemies.length > 0) !== enemiesActive)) syncMusic();
       applyEvents();
       updateAbilityHints(simDt);
+      const suit = session.sim.player;
+      session.haptics.update(now, {
+        health: suit.health, maxHealth: suit.maxHealth ?? 100, aiming: input.aim,
+        alive: suit.health > 0 && session.sim.phase !== 'won' && session.sim.phase !== 'lost',
+      });
       controls.fireTap = false;
       controls.reloadTap = false;
       controls.deployTap = false;

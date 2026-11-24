@@ -74,6 +74,11 @@ export class GamepadInput {
     this.previousButtons = 0;
   }
 
+  // The live Gamepad object in use, for rumble; null when none is selected.
+  currentPad() {
+    return this.index === null ? null : this.selectedPad(readMappedPads(this.read)) ?? null;
+  }
+
   selectedPad(available) {
     return available.find(pad => pad.index === this.index && pad.id === this.id);
   }

@@ -37,6 +37,8 @@ export const pauseDialog = byId('pause-dialog');
 const joystick = byId('joystick');
 export const touchControls = byId('touch-controls');
 const xbox = new GamepadInput();
+// The pad that rumble goes to: only while the player is actually playing with a controller.
+export const rumblePad = () => session.usingGamepad ? xbox.currentPad() : null;
 const xboxMenus = new GamepadMenu({ main: byId('menu'), onBack: backFromControllerMenu });
 export const keys = new Set();
 export const touch = { fire: false, repair: false, reload: false, carry: false, x: 0, z: 0 };

@@ -14,6 +14,8 @@ export const OPTIONS = Object.freeze([
   { id: 'aim-sensitivity', group: 'Controls', type: 'range', label: 'Aim sensitivity', min: .3, max: 1.5, step: .05, value: 1, format: times },
   { id: 'controller-sensitivity', group: 'Controls', type: 'range', label: 'Controller look speed', min: .5, max: 2, step: .05, value: 1, format: times },
   { id: 'ability-hints', group: 'Controls', type: 'toggle', label: 'Ability hints', value: true },
+  { id: 'controller-vibration', group: 'Controls', type: 'range', label: 'Controller vibration', min: 0, max: 1, step: .05, value: 1, format: percent },
+  { id: 'trigger-rumble', group: 'Controls', type: 'range', label: 'Trigger rumble (Xbox)', min: 0, max: 1, step: .05, value: .7, format: percent },
   { id: 'aim-mode', group: 'Controls', type: 'select', label: 'Aim down sights', value: 'hold', options: [['hold', 'Hold'], ['toggle', 'Toggle']] },
   // Video
   { id: 'brightness', group: 'Video', type: 'range', label: 'Brightness', min: .6, max: 1.6, step: .05, value: 1, format: percent },
