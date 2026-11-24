@@ -39,6 +39,10 @@ Ordinary waves mix **Swarm Pincers, Spore Crossfire, Colony Convoys, Decoy Rushe
 
 Every arena is a third larger in each direction than it was first laid out: the playable floor is 110 × 154 m, with tissue nodes 40–60 m apart. Suits move about 20% faster to match. The artery floor is broken up by ten clots that block movement and line of sight for you and force pathogens to flow around them, and each organ arena has more of its own obstacles. The Heart Valve keeps its original chamber. `npm run profile`, then `/__overview`, draws a top-down plan of every arena with its nodes, inlets, obstacles and hazard zone.
 
+## Campaign ending and credits
+
+Win the Neural Cortex to finish the campaign. Before the final report, a short ending plays: the President wakes and laughs, the doctor celebrates, and a nanonaut returns from the shrink chamber, closing on "The President is safe." The credits roll after it. Both can be skipped like the briefings, and the main menu's **Credits** option replays the credits at any time. The ending shots were animated from frames of the original briefings with Wan 2.2 image-to-video on Hugging Face ZeroGPU, and the doctor's lines were voiced with Chatterbox voice cloning from his intro narration.
+
 ## Checkpoints
 
 Each wave is a checkpoint. If a mission fails after the first wave, the report offers **Retry from wave N**: the mission resumes at the start of the wave you lost, with the score, kills, tissue node integrity, turret and junction support exactly as they were when that wave began, and the field cleared. Suits come back with at least half their integrity. **Restart mission** starts over from wave 1. The pause menu also has **Restart from wave N**. In the Bronchial Fork the final airway objective is its own checkpoint, and in Capillary Junction so is Overtime. In co-op, readying up after a loss retries the squad from the checkpoint, with every suit's score and integrity restored.

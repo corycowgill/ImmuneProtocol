@@ -36,13 +36,13 @@ function grownRidge(x1, z1, x2, z2, width, top) {
 export const TERRAIN = Object.freeze({
   artery: Object.freeze([
     // Overlooks: one per node, off to the side, each with a walkable ramp skirt.
-    grownMound(9, -24, 2.8, 1.05, 3.4),
+    grownMound(-8.5, -24, 2.8, 1.05, 3.4),
     grownMound(30, 2, 2.4, .95, 3),
     grownMound(-30, 4, 2.4, .95, 3),
     // The plaque shelf in the middle of the chamber: jump up for the view over all three nodes.
     grownShelf(0, -4, 2.9, .78),
     // Low ridges across the approaches: hop them; crawlers must go round.
-    grownRidge(-7, 22, -1, 24, .9, .62),
+    grownRidge(-5, 21, 1, 23.5, .9, .62),
     grownRidge(7, 22, 12, 18.5, .9, .62),
     grownRidge(18, -9, 21, -16, .9, .58),
     grownRidge(-18, -8, -21, -15, .9, .58),

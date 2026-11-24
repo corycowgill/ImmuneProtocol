@@ -18,9 +18,13 @@ export const BRIEFINGS = Object.freeze({
   lymph: 'Mission eight: the lymph node. A macrophage is on patrol. It eats every pathogen it touches, and it will crush you too. Lure the infection into its path. And if it goes rogue, shoot it to break its pull.',
   ear: 'Mission nine: the inner ear. Resonance pulses will slow you down and jam your turrets, so set them up outside the rings. And when the Otolith Screamer charges up, get behind cover.',
   brain: "This is it. The neural cortex. The source of the infection is here: the Mega Virus. Protect the overloaded node, and end this. The President's life is in your hands, nanonauts.",
+  // After the campaign: the President wakes, then the credits roll.
+  ending: "Nanonauts, you did it. The Mega Virus is gone, the rogue nanites are shutting down, and the President is waking up. We're bringing you home. The whole country owes you one. Well, one very important patient does. Welcome back. The President is safe.",
+  credits: 'Credits. Immune Protocol, a Hallucinated Games production. Creative director: Cory Cowgill. Lead engineer: Claude. Development studio: one cloud container. Build system: none. QA department: a headless browser on a software GPU. Deployment engineer: GitHub Pages. Turret balance: nerfed from carbine, to half, to one third. Medical accuracy consultant: vibes. Ending cinematic: Wan 2.2 on borrowed ZeroGPUs. Voice of the doctor: cloned by Chatterbox. The President: himself. No presidents were permanently harmed in the making of this game. Thank you for playing.',
 });
 
-const source = key => key === 'campaign' ? 'assets/story/campaign-intro' : 'assets/story/missions/' + key;
+const STORY = { campaign: 'assets/story/campaign-intro', ending: 'assets/story/campaign-ending', credits: 'assets/story/credits' };
+const source = key => STORY[key] ?? 'assets/story/missions/' + key;
 
 export function briefingPlaying() {
   return !!byId('campaign-briefing')?.open;
@@ -50,7 +54,7 @@ function play(key) {
     video.poster = base + '.webp';
     if (!video.src.endsWith(base + '.mp4')) video.src = base + '.mp4';
     byId('campaign-briefing-transcript').textContent = BRIEFINGS[key];
-    dialog.setAttribute('aria-label', key === 'campaign' ? 'Campaign briefing from the lab' : 'Mission briefing from the lab');
+    dialog.setAttribute('aria-label', { campaign: 'Campaign briefing from the lab', ending: 'Campaign ending', credits: 'Credits' }[key] ?? 'Mission briefing from the lab');
     video.addEventListener('ended', finish);
     video.addEventListener('error', finish);
     dialog.addEventListener('close', finish);
@@ -64,6 +68,16 @@ function play(key) {
     // playback, continue rather than stall on a black frame.
     Promise.resolve(video.play()).catch(finish);
   });
+}
+
+// The campaign's last win: the President wakes, then the credits. Each can be skipped.
+export async function playCampaignEnding() {
+  await play('ending');
+  await play('credits');
+}
+
+export function playCredits() {
+  return play('credits');
 }
 
 export function playCampaignBriefing() {

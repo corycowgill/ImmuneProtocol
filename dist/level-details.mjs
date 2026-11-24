@@ -24,9 +24,11 @@ const position = new THREE.Vector3();
 const size = new THREE.Vector3();
 const shade = new THREE.Color();
 
-function placement(random, nodes, obstacles, floorHeight) {
+// keepOff: [x, z, radius] areas decor must stay off without being dressed like obstacles (raised ground).
+function placement(random, nodes, obstacles, floorHeight, keepOff = []) {
   const clear = (x, z, gap) => !nodes.some(node => Math.hypot(node.x - x, node.z - z) < 4.5 + gap) &&
-    !obstacles.some(([ox, oz, radius]) => Math.hypot(ox - x, oz - z) < radius + .6 + gap);
+    !obstacles.some(([ox, oz, radius]) => Math.hypot(ox - x, oz - z) < radius + .6 + gap) &&
+    !keepOff.some(([ox, oz, radius]) => Math.hypot(ox - x, oz - z) < radius + .4 + Math.max(0, gap));
   return {
     floorHeight, nodes, obstacles,
     // A floor point clear of nodes and obstacles, or null.
@@ -712,12 +714,12 @@ function edgeDebris(root, random, place, area) {
 const DETAILS = { artery: bloodstream, junction: bloodstream, lungs, stomach, ear, lymph, brain, intestines, colon };
 
 // Adds an arena's dressing to `root`. Returns a setQuality(high) function.
-export function addLevelDetails(area, root, { random, time, nodes = [], obstacles = [], floorHeight = () => 0 }) {
+export function addLevelDetails(area, root, { random, time, nodes = [], obstacles = [], keepOff = [], floorHeight = () => 0 }) {
   if (!DECALS[area]) return () => {};
   const group = new THREE.Group();
   group.name = 'level-details-' + area;
   root.add(group);
-  const place = placement(random, nodes, obstacles, floorHeight);
+  const place = placement(random, nodes, obstacles, floorHeight, keepOff);
   keepClear = (x, z) => place.clear(x, z, -.5);
   const quality = DETAILS[area]?.(group, random, place, time);
   groundDecals(group, random, place, area);

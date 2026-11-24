@@ -28,7 +28,7 @@ import { createUpgradeCards, drawIntel, drawLoadout, drawOperatorCard } from './
 import './interface-setup.mjs';
 import { session } from './session.mjs';
 import { createSettings } from './game-settings.mjs';
-import { briefingPlaying, playCampaignBriefing, playMissionBriefing } from './campaign-briefing.mjs';
+import { briefingPlaying, playCampaignBriefing, playCampaignEnding, playCredits, playMissionBriefing } from './campaign-briefing.mjs';
 import { byId, isTouch, reducedMotion, pad, clamp, setText } from './dom.mjs';
 import { bestKey, muteKey, junctionKey, heartKey, tutorialKey, sensitivityKey, qualityKey, checkpointKey, unlockedKey, practiceLoadoutKey, weaponLoadoutKey, weaponModKey, weaponFinishKey, coopNameKey, megaVirusKey, musicVolumeKey, effectsVolumeKey, readSetting, writeSetting } from './settings-store.mjs';
 import { campaignAreas, missions, missionName, nextMission } from './mission-text.mjs';
@@ -1075,9 +1075,14 @@ function finish() {
   if (session.onlineRun) syncCoopCheckpoint();
   replay.classList.toggle('primary', !next);
   replay.classList.toggle('outline', !!next);
-  resultDialog.showModal();
-  resultDialog.scrollTop = 0;
-  resultTitle.focus({ preventScroll: true });
+  const showReport = () => {
+    resultDialog.showModal();
+    resultDialog.scrollTop = 0;
+    resultTitle.focus({ preventScroll: true });
+  };
+  // Saving the President earns the ending cinematic and the credits before the final report.
+  if (complete) playCampaignEnding().then(showReport);
+  else showReport();
 }
 
 function frame(now) {
@@ -1248,6 +1253,7 @@ document.querySelectorAll('[data-mute]').forEach(button => button.addEventListen
   if (!session.muted) session.audio.unlock().catch(() => {});
 }));
 deploy.addEventListener('click', startCampaign);
+byId('credits').addEventListener('click', () => { if (!session.running && !briefingPlaying()) playCredits(); });
 coopOpen.addEventListener('click', openCoop);
 byId('coop-create').addEventListener('click', () => enterCoop('create'));
 byId('coop-join').addEventListener('submit', event => {

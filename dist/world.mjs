@@ -361,8 +361,8 @@ export class World {
     }
     if (!this.levelProps.has(this.area)) {
       const props = createLevelProps(this.area, {
-        glow: this.glow, floorHeight, nodes: TISSUE_NODES[this.area],
-        obstacles: [...arenaObstacles(this.area), ...terrainFootprints(terrainFor(this.area))],
+        glow: this.glow, floorHeight, nodes: TISSUE_NODES[this.area], obstacles: arenaObstacles(this.area),
+        keepOff: terrainFootprints(terrainFor(this.area)),
       });
       props.setQuality(this.quality !== 'low');
       this.levelProps.set(this.area, props);

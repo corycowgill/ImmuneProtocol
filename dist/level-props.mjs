@@ -1068,7 +1068,7 @@ const SHAFT_COLORS = {
   colon: 0xe8d890, lymph: 0xcfe8ff, ear: 0xc8e0ff, brain: 0xc8a8ff,
 };
 
-export function createLevelProps(area, { glow, floorHeight, nodes = [], obstacles = [] }) {
+export function createLevelProps(area, { glow, floorHeight, nodes = [], obstacles = [], keepOff = [] }) {
   const root = new THREE.Group();
   root.name = 'level-props-' + area;
   const random = seeded([...area].reduce((sum, char) => sum * 31 + char.charCodeAt(0), 7) >>> 0);
@@ -1076,7 +1076,7 @@ export function createLevelProps(area, { glow, floorHeight, nodes = [], obstacle
   const updates = [];
   let quality = true;
   const shaftTime = lightShafts(root, SHAFT_COLORS[area] ?? 0xffffff, area === 'brain' ? 4 : 7, random);
-  const detailQuality = addLevelDetails(area, root, { random, time, nodes, obstacles, floorHeight });
+  const detailQuality = addLevelDetails(area, root, { random, time, nodes, obstacles, keepOff, floorHeight });
   const heartbeat = () => {
     const phase = (time.value / 1.15) % 1;
     return phase < .38 ? Math.sin(phase / .38 * Math.PI) : 0;
