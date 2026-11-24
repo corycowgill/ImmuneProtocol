@@ -145,3 +145,39 @@ test('raised ground clears the acid, the contraction and the squeeze; the cochle
   ear.updateTurret(DT);
   assert.equal(ear.turret.jammed, true);
 });
+
+test('spores lob over raised ground at a perched suit, spit splashes against it, and floaters rise to perches', () => {
+  const sim = field();
+  // A suit standing on the artery's central shelf.
+  Object.assign(sim.player, { x: shelf.x, z: shelf.z, health: 100 });
+  sim.movePlayer(DT, {});
+  assert.ok(sim.player.feet > .7, 'standing on the shelf');
+  const spore = sim.createEnemy('spore', shelf.x + 9, shelf.z, sim.nodes[0]);
+  sim.enemies.push(spore);
+  Object.assign(spore, { actionTarget: 'player', actionPlayerId: sim.player.id, attackPoint: { x: sim.player.x, y: sim.player.y - .2, z: sim.player.z } });
+  sim.ai.controllers.delete(spore.id);
+  sim.events = [];
+  sim.launchSpore(spore);
+  const shot = sim.projectiles.at(-1);
+  assert.ok(shot.lob, 'the spit is lobbed');
+  const health = sim.player.health;
+  for (let i = 0; i < 180 && sim.projectiles.length; i++) { sim.events = []; sim.clock += DT; sim.advanceProjectiles(DT); }
+  assert.ok(sim.player.health < health, 'the lob lands on the perched suit');
+
+  // A straight shot driven into the shelf's side splashes there.
+  sim.projectiles = [{ id: 99, owner: spore, target: 'player', targetPlayerId: sim.player.id, x: shelf.x + shelf.radius + 1.5, y: .4, z: shelf.z,
+    vx: -7, vy: 0, vz: 0, radius: .2, arming: 0, lifetime: 3 }];
+  sim.player.x += 40;
+  let splashed = false;
+  for (let i = 0; i < 60 && sim.projectiles.length; i++) {
+    sim.events = []; sim.clock += DT; sim.advanceProjectiles(DT);
+    splashed ||= sim.events.some(event => event.type === 'enemyAttack' && event.stage === 'miss');
+  }
+  assert.ok(splashed && !sim.projectiles.length, 'stopped by the raised ground');
+
+  // A floating virus near a perched suit drifts up toward it.
+  sim.player.x -= 40;
+  const virus = sim.createEnemy('virus', shelf.x + 6, shelf.z, sim.nodes[0]);
+  for (let i = 0; i < 120; i++) sim.perchLift(virus, DT);
+  assert.ok(virus.perchLift > .6, `rose ${virus.perchLift.toFixed(2)} m`);
+});

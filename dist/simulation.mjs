@@ -238,6 +238,8 @@ const SPORE_RANGE = 8.2;
 const SPORE_SPEED = 7.3;
 const SPORE_RADIUS = 0.21;
 const SPORE_ARM_TIME = 0.12;
+// Lobbed spit (over raised ground, or at a suit up on it) falls under this gravity.
+const SPORE_GRAVITY = 9;
 // The auto-turret is a carbine on a tripod: carbine damage at a third of the Needle Carbine's rate
 // of fire, out to 20 m, so a placed turret helps hold an approach without carrying the fight.
 export const TURRET_RANGE = TURRET_BASE.range;
@@ -1840,7 +1842,7 @@ export class Simulation {
         continue;
       }
       enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
-      enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * .24;
+      enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * .24 + this.perchLift(enemy, dt);
       const target = controller.attackTarget();
       const attacksSuit = controller.targetKey?.startsWith('player:');
       const distance = target ? Math.hypot(target.x - enemy.x, target.z - enemy.z) : Infinity;
@@ -1957,6 +1959,30 @@ export class Simulation {
     }
   }
 
+  // True if raised ground stands above the straight line between two points.
+  terrainBlocks(from, to) {
+    if (!this.terrain?.length) return false;
+    for (let i = 1; i < 12; i++) {
+      const t = i / 12;
+      const y = from.y + (to.y - from.y) * t;
+      if (groundHeight(this.terrain, from.x + (to.x - from.x) * t, from.z + (to.z - from.z) * t, this.clock) > y - .1) return true;
+    }
+    return false;
+  }
+
+  // Floating pathogens rise toward a suit standing up on raised ground nearby, so a perch is an
+  // advantage, not a hiding place.
+  perchLift(enemy, dt) {
+    let lift = 0;
+    for (const { player } of this.activeSuits()) {
+      if (player.health <= 0 || !((player.feet ?? 0) > .3)) continue;
+      const distance = Math.hypot(player.x - enemy.x, player.z - enemy.z);
+      if (distance < 12) lift = Math.max(lift, player.feet * (1 - Math.max(0, distance - 5) / 7));
+    }
+    enemy.perchLift = (enemy.perchLift ?? 0) + (lift - (enemy.perchLift ?? 0)) * Math.min(1, dt * 2.5);
+    return enemy.perchLift;
+  }
+
   launchSpore(enemy) {
     const aim = enemy.attackPoint;
     const controller = this.ai.controllers.get(enemy.id);
@@ -1972,7 +1998,7 @@ export class Simulation {
     const dz = aim.z - enemy.z;
     const distance = Math.hypot(dx, dy, dz);
     const scale = SPORE_SPEED / Math.max(0.01, distance);
-    this.projectiles.push({
+    const shot = {
       id: this.nextProjectileId++, owner: enemy,
       target: enemy.actionTarget, targetPlayerId: enemy.actionPlayerId,
       targetNodeId: enemy.nodeId,
@@ -1980,7 +2006,18 @@ export class Simulation {
       vx: dx * scale, vy: dy * scale, vz: dz * scale, radius: SPORE_RADIUS,
       arming: SPORE_ARM_TIME,
       lifetime: Math.max(0.4, distance / SPORE_SPEED + 0.32),
-    });
+    };
+    // A suit up on raised ground, or raised ground in the way, gets a lobbed spit that arcs over.
+    const perched = target === this.attackPlayer(enemy.actionPlayerId) && (target?.feet ?? 0) > .35;
+    if (perched || this.terrainBlocks(enemy, aim)) {
+      const flat = Math.hypot(dx, dz);
+      const time = Math.max(.6, flat / (SPORE_SPEED * .85));
+      Object.assign(shot, {
+        vx: dx / time, vz: dz / time, vy: (dy + .5 * SPORE_GRAVITY * time * time) / time,
+        gravity: SPORE_GRAVITY, lob: true, lifetime: time + .4,
+      });
+    }
+    this.projectiles.push(shot);
     this.attackEvent(enemy, 'release', enemy.actionTarget);
   }
 
@@ -1991,8 +2028,14 @@ export class Simulation {
       const from = { x: projectile.x, y: projectile.y, z: projectile.z };
       const travel = Math.min(dt, projectile.lifetime);
       const dx = vx * travel;
-      const dy = vy * travel;
+      const dy = vy * travel - .5 * (projectile.gravity ?? 0) * travel * travel;
       const dz = vz * travel;
+      if (projectile.gravity) projectile.vy -= projectile.gravity * travel;
+      // Spit splashes against raised ground it runs into.
+      if (this.terrain?.length && groundHeight(this.terrain, from.x + dx, from.z + dz, this.clock) > from.y + dy) {
+        this.attackEvent(owner, 'miss', target, { x: from.x + dx, y: from.y + dy, z: from.z + dz }, projectile.targetPlayerId);
+        continue;
+      }
       if (!clearSegment(this.obstacles, from, { x: from.x + dx, z: from.z + dz }, projectile.radius)) {
         this.attackEvent(owner, 'miss', target, from, projectile.targetPlayerId);
         continue;
