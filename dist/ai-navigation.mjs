@@ -38,18 +38,13 @@ export class NavigationSystem {
     this.failures = 0;
   }
   inside(p) {
-    return this.area === 'heart' ? Math.abs(p.x) <= 19 && p.z >= -9 && p.z <= 27
-      : (p.x / (this.bounds.x - 1)) ** 2 + (p.z / (this.bounds.z - 1)) ** 2 <= 1;
+    return (p.x / (this.bounds.x - 1)) ** 2 + (p.z / (this.bounds.z - 1)) ** 2 <= 1;
   }
   clear(a, b, clearance = this.clearance) { return clearSegment(this.obstacles, a, b, clearance); }
   project(point) {
     const p = { x: point.x, z: point.z };
-    if (this.area === 'heart') {
-      p.x = Math.max(-19, Math.min(19, p.x)); p.z = Math.max(-9, Math.min(27, p.z));
-    } else {
-      const scale = Math.hypot(p.x / (this.bounds.x - 1), p.z / (this.bounds.z - 1));
-      if (scale > 1) { p.x /= scale; p.z /= scale; }
-    }
+    const scale = Math.hypot(p.x / (this.bounds.x - 1), p.z / (this.bounds.z - 1));
+    if (scale > 1) { p.x /= scale; p.z /= scale; }
     for (let pass = 0; pass < 3; pass++) for (const [x, z, radius] of this.obstacles) {
       const dx = p.x - x, dz = p.z - z, d = Math.hypot(dx, dz), reach = radius + this.clearance + .08;
       if (d < reach) { p.x = x + (d ? dx / d : 1) * reach; p.z = z + (d ? dz / d : 0) * reach; }

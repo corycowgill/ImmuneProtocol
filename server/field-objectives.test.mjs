@@ -125,7 +125,7 @@ test('arenas are a third larger and every obstacle leaves the objectives reachab
   const { ENTRANCES, arenaObstacles } = await import('../dist/simulation.mjs');
   assert.deepEqual({ ...ARENA }, { x: 55, z: 77 });
   assert.ok(arenaObstacles('artery').length >= 8, 'the artery has cover');
-  assert.deepEqual(arenaObstacles('heart'), []);
+  assert.ok(arenaObstacles('heart').length >= 16, 'the heart valves and papillary muscles are solid');
   for (const area of CAMPAIGN_AREAS) {
     const sim = new Simulation(area);
     sim.start();

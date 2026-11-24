@@ -60,6 +60,8 @@ export class EncounterDirector {
     let scripted = 0;
     for (const e of this.world.sim.enemies) {
       if (!(e.boss || e.type === 'colony') || e.health <= 0) continue;
+      // A heart colony only presses the squad while its valve is open.
+      if (e.type === 'colony' && this.world.sim.colonyExposed?.(e) === false) continue;
       const active = (e.boss === 'thrombus' && e.state === 'charge') || (e.boss === 'macrophage' && e.state === 'pull');
       scripted += active || (e.telegraph?.remaining > 0 && majorBossAttacks.has(e.telegraph.kind)) ? 2 : 1;
     }
@@ -194,7 +196,7 @@ export class EnemyAIController {
   decide() {
     const { world, enemy, profile: p } = this, now = world.sim.clock;
     let node = p.tissuePriority > 0 && enemy.node?.health > 0 ? enemy.node : null, nodeValue = -Infinity;
-    const locked = !!(enemy.attackAnchor || enemy.branch || world.sim.valve || enemy.fragment || enemy.latched || enemy.action !== 'idle' || world.director.pressure.has(enemy.id) || enemy.encounterOrder?.until > now);
+    const locked = !!(enemy.attackAnchor || enemy.branch || enemy.fragment || enemy.latched || enemy.action !== 'idle' || world.director.pressure.has(enemy.id) || enemy.encounterOrder?.until > now);
     for (const record of this.memory.targets.values()) {
       if (record.kind !== 'node' || locked || p.tissuePriority === 0) continue;
       const candidate = world.sim.nodes.find(n => 'node:' + n.id === record.key && n.health > 0);

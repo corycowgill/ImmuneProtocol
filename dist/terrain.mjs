@@ -72,11 +72,15 @@ export const TERRAIN = Object.freeze({
     ridge(-13, 6, -6, 10, .9, .6),
     ridge(6, 10, 13, 6, .9, .6),
   ].map(Object.freeze)),
-  // Heart Valve: a balcony to shoot down through the valve from, and a rise by the side node.
+  // Heart Valve: a shelf at the hub of the chamber to see every valve from, two overlooks in the
+  // far quarters, and low ridges across the long runs between valves to hop on the way through.
   heart: Object.freeze([
-    shelf(-13, 15, 2.3, .82),
-    mound(13, 24, 2, .9, 2.4),
-    ridge(-5, 21, 3, 22.5, .9, .6),
+    shelf(0, -14, 2.6, .8),
+    mound(32, -24, 2.6, 1, 3.2),
+    mound(-32, 22, 2.6, 1, 3.2),
+    ridge(-8, 28, 4, 30, .9, .6),
+    ridge(14, -40, 22, -34, .9, .6),
+    ridge(-24, -24, -30, -16, .9, .6),
   ].map(Object.freeze)),
   // Lungs: alveolar platforms that rise and fall with every breath, and bronchial ridges along
   // both edges of the airway.

@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { HEART_VALVE } from './simulation.mjs';
+import { HEART_VALVES, VALVE_CENTER_Y, VALVE_RIM, apertureRadius } from './heart-chamber.mjs';
 
 const TAU = Math.PI * 2;
 const CUSPS = 3;
@@ -45,7 +45,7 @@ function mesh(group, geometry, material) {
 
 function cuspShape(cusp, index, openness) {
   const positions = cusp.attributes.position;
-  const bore = .035 + 2.35 * openness ** .6;
+  const bore = apertureRadius(openness);
   const yaw = rimPhase + index * CUSP_SWEEP;
   for (let row = 0; row <= CUSP_WIDTH; row++) {
     const v = row / CUSP_WIDTH;
@@ -54,7 +54,7 @@ function cuspShape(cusp, index, openness) {
       const center = Math.sin(u * Math.PI);
       const theta = yaw + (u - .5) * CUSP_SWEEP;
       const scallop = 1 + openness * .075 * (1 - center ** 2);
-      const base = HEART_VALVE.radius + .19 * center ** 2 + .04 * Math.sin(theta * 7);
+      const base = VALVE_RIM + .19 * center ** 2 + .04 * Math.sin(theta * 7);
       const radius = THREE.MathUtils.lerp(bore * scallop, base, v);
       // The free edge bends downstream when the valve opens. Keep the wall seam rooted.
       const fold = Math.sin(v * Math.PI);
@@ -112,9 +112,11 @@ function shapedRim(radius, width, depth, side) {
   return geometry;
 }
 
+// All four valves of the chamber. Each is a muscular sleeve lying in the floor with its mouth to the
+// middle of the chamber, three leaflets that open and close on that valve's own beat, a capped
+// far end, a light in its throat, and blood cells pouring through while it is open.
 export function createHeartValve(scene, maps, redCell, random) {
   const group = new THREE.Group();
-  group.position.set(HEART_VALVE.x, HEART_VALVE.y, HEART_VALVE.z);
   group.visible = false;
   scene.add(group);
 
@@ -123,91 +125,103 @@ export function createHeartValve(scene, maps, redCell, random) {
     clearcoat: .59, clearcoatRoughness: .32, sheen: .44, sheenColor: 0xd68c93,
     normalScale: new THREE.Vector2(1.02, 1.02), side: THREE.DoubleSide,
   });
-  mesh(group, sleeve(), muscle);
   const rim = new THREE.MeshPhysicalMaterial({
     ...maps, color: 0xc67d77, roughness: .55, clearcoat: .68, clearcoatRoughness: .29,
     sheen: .38, sheenColor: 0xf0a89f, normalScale: new THREE.Vector2(.7, .7),
   });
   const rimAccent = rim.clone();
   rimAccent.color.set(0x9f535e);
-  mesh(group, shapedRim(3.82, .25, .25, .4), rim);
-  mesh(group, shapedRim(3.95, .13, .62, 1.2), rimAccent);
-  mesh(group, shapedRim(3.99, .22, -.63, 2.8), rimAccent);
-
+  const throat = new THREE.MeshPhysicalMaterial({
+    ...maps, color: 0x5a2630, roughness: .7, clearcoat: .4, sheen: .3, sheenColor: 0xb05a66,
+    emissive: 0x2a0a10, emissiveIntensity: .35, side: THREE.DoubleSide,
+  });
   const sheet = new THREE.MeshPhysicalMaterial({
     ...maps, vertexColors: true, color: 0xffc8b9,
     roughness: .52, clearcoat: .76, clearcoatRoughness: .25,
     sheen: .62, sheenColor: 0xffb7a5, normalScale: new THREE.Vector2(.88, .88),
     emissive: 0x461721, emissiveIntensity: .13, side: THREE.DoubleSide,
   });
-  const lip = new THREE.Color(0xe2959a);
-  const vein = new THREE.Color(0x823d50);
-  const cusps = [];
-  for (let index = 0; index < CUSPS; index++) {
-    const geometry = surface(CUSP_WIDTH, CUSP_SPAN, (u, v, color) => {
-      const striation = .5 + .5 * Math.sin(u * 27 + Math.sin(v * 5) + index * .65);
-      const lipEdge = Math.exp(-v * 15) * .35;
-      const root = THREE.MathUtils.smoothstep(v, .49, .96);
-      const fade = .55 + .22 * Math.sin(u * Math.PI) + lipEdge - root * .45;
-      return color.copy(vein).lerp(lip, fade + striation * .12);
-    }, true);
-    geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 4.15);
-    cuspShape(geometry, index, 0);
-    mesh(group, geometry, sheet);
-    cusps.push(geometry);
-  }
-
-  const inflow = new THREE.PointLight(0xffac85, 31, 14, 2);
-  inflow.position.set(-1.85, 2.75, 3.4);
-  group.add(inflow);
-  const chamber = new THREE.PointLight(0xff9d66, 65, 15, 2);
-  chamber.position.set(1.85, 2.25, -4.3);
-  const apertureLight = new THREE.PointLight(0xffdca1, 0, 6, 2);
-  apertureLight.position.set(-.8, 2.1, -1.25);
-  group.add(chamber, apertureLight);
-
   const cellMaterial = new THREE.MeshPhysicalMaterial({
     color: 0xb34a4f, roughness: .34, clearcoat: .75, clearcoatRoughness: .23,
     emissive: 0x431111, emissiveIntensity: .2,
   });
-  const cells = new THREE.InstancedMesh(redCell, cellMaterial, 26);
-  cells.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  cells.frustumCulled = false;
-  group.add(cells);
-  const blood = Array.from({ length: cells.count }, (_, i) => ({
-    angle: i * 2.39996, radial: .6 + random() * 1.63,
-    depth: random() * 8, size: .072 + random() ** 1.8 * .15, tilt: random() * TAU,
-  }));
+  const sleeveGeometry = sleeve();
+  const rims = [shapedRim(3.82, .25, .25, .4), shapedRim(3.95, .13, .62, 1.2), shapedRim(3.99, .22, -.63, 2.8)];
+  // The far end of the sleeve is closed off, so a look through the valve finds the colonies'
+  // dark chamber rather than the arena beyond.
+  const cap = new THREE.CircleGeometry(7.1, 40);
+  cap.translate(0, 0, -12.7);
+  const lip = new THREE.Color(0xe2959a);
+  const vein = new THREE.Color(0x823d50);
   const transform = new THREE.Object3D();
-  let previous = 0;
-  let distance = 0;
 
-  function update(valve, dt, reduceMotion, low) {
-    const openness = valve.openness;
-    if (Math.abs(openness - previous) > .0008 || (openness === 0 && previous !== 0)) {
-      cusps.forEach((geometry, index) => cuspShape(geometry, index, openness));
-      previous = openness;
+  const valves = HEART_VALVES.map(layout => {
+    const root = new THREE.Group();
+    root.position.set(layout.x, VALVE_CENTER_Y, layout.z);
+    root.rotation.y = layout.yaw;
+    group.add(root);
+    mesh(root, sleeveGeometry, muscle);
+    mesh(root, rims[0], rim);
+    mesh(root, rims[1], rimAccent);
+    mesh(root, rims[2], rimAccent);
+    mesh(root, cap, throat);
+    const cusps = [];
+    for (let index = 0; index < CUSPS; index++) {
+      const geometry = surface(CUSP_WIDTH, CUSP_SPAN, (u, v, color) => {
+        const striation = .5 + .5 * Math.sin(u * 27 + Math.sin(v * 5) + index * .65 + layout.index);
+        const lipEdge = Math.exp(-v * 15) * .35;
+        const root = THREE.MathUtils.smoothstep(v, .49, .96);
+        const fade = .55 + .22 * Math.sin(u * Math.PI) + lipEdge - root * .45;
+        return color.copy(vein).lerp(lip, fade + striation * .12);
+      }, true);
+      geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 4.15);
+      cuspShape(geometry, index, 0);
+      mesh(root, geometry, sheet);
+      cusps.push(geometry);
     }
-    chamber.intensity = 46 + openness * 48;
-    inflow.intensity = 29 + openness * 12;
-    apertureLight.intensity = openness * 12;
-    cells.visible = !reduceMotion;
-    if (!cells.visible) return;
-    cells.count = low ? 10 : blood.length;
-    distance = (distance + dt * (.25 + openness * 3.6)) % 8;
-    for (let index = 0; index < cells.count; index++) {
-      const cell = blood[index];
-      const depth = (distance + cell.depth) % 8;
-      const angle = cell.angle + depth * .18;
-      const radial = cell.radial + depth * .10;
-      transform.position.set(Math.cos(angle) * radial,
-        Math.sin(angle) * radial, -1.0 - depth);
-      transform.rotation.set(cell.tilt + depth * .72, angle, cell.tilt * .6);
-      transform.scale.setScalar(cell.size);
-      transform.updateMatrix();
-      cells.setMatrixAt(index, transform.matrix);
+    // One light in the throat: dim while shut, flaring as the leaflets part.
+    const light = new THREE.PointLight(0xff9d66, 40, 15, 2);
+    light.position.set(.6, .2, -4.6);
+    root.add(light);
+    const cells = new THREE.InstancedMesh(redCell, cellMaterial, 18);
+    cells.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    cells.frustumCulled = false;
+    root.add(cells);
+    const blood = Array.from({ length: cells.count }, (_, i) => ({
+      angle: i * 2.39996, radial: .6 + random() * 1.63,
+      depth: random() * 8, size: .072 + random() ** 1.8 * .15, tilt: random() * TAU,
+    }));
+    return { cusps, light, cells, blood, previous: -1, distance: 0 };
+  });
+
+  function update(state, dt, reduceMotion, low) {
+    if (!state?.valves) return;
+    for (const [index, view] of valves.entries()) {
+      const openness = state.valves[index]?.openness ?? 0;
+      if (Math.abs(openness - view.previous) > .0008 || (openness === 0 && view.previous !== 0)) {
+        view.cusps.forEach((geometry, cusp) => cuspShape(geometry, cusp, openness));
+        view.previous = openness;
+      }
+      view.light.intensity = 34 + openness * 70;
+      const { cells, blood } = view;
+      cells.visible = !reduceMotion && openness > .02;
+      if (!cells.visible) continue;
+      cells.count = low ? 6 : blood.length;
+      view.distance = (view.distance + dt * (.25 + openness * 3.6)) % 8;
+      for (let i = 0; i < cells.count; i++) {
+        const cell = blood[i];
+        // Cells pour out of the open valve into the chamber.
+        const depth = (view.distance + cell.depth) % 8;
+        const angle = cell.angle + depth * .18;
+        const radial = Math.min(cell.radial, apertureRadius(openness) * .9) + depth * .10;
+        transform.position.set(Math.cos(angle) * radial, Math.sin(angle) * radial - Math.max(0, depth - 4.5) * .25, depth - 4.5);
+        transform.rotation.set(cell.tilt + depth * .72, angle, cell.tilt * .6);
+        transform.scale.setScalar(cell.size);
+        transform.updateMatrix();
+        cells.setMatrixAt(i, transform.matrix);
+      }
+      cells.instanceMatrix.needsUpdate = true;
     }
-    cells.instanceMatrix.needsUpdate = true;
   }
   return { group, update };
 }

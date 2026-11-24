@@ -13,6 +13,8 @@ const ENEMY_CUES = {
   spore: { windup: ['field/spore-windup', .44], release: ['field/spore-spit', .39] },
   laser: { windup: ['field/laser-charge', .4], release: ['field/laser-fire', .55] },
   bacillus: { windup: ['field/bacillus-windup', .43] },
+  // Heart colonies gurgle and spit like spores, deeper, out of their valve sleeves.
+  colony: { release: ['field/spore-spit', .34] },
 };
 // Which death each pathogen dies (see death-fx.mjs), by species.
 const DEATH_VOICES = {
@@ -660,6 +662,8 @@ export class GameAudio {
         const pan = this.spatialPan(event) * .7;
         if (event.stage === 'open') this.playSample('field/valve-open', .36, { pan });
         else if (event.stage === 'closed') this.playSample('field/valve-close', .43, { pan });
+        else if (event.stage === 'spew') this.playSample('field/spore-spit', .4, { pan, rate: .62 });
+        else if (event.stage === 'cleared') this.playSample('field/valve-close', .5, { pan, rate: .7 });
         else if (event.stage === 'blocked') {
           const now = this.context.currentTime;
           if (now - this.valveBlockedAt >= .18 && this.playSample('field/valve-blocked', .29, { pan })) {

@@ -7,11 +7,14 @@
 // The anchor guards whichever node is weakest and keeps shooting its target even when a Shellback
 // soaks the shots. The rover runs to the node under the most pressure and drops targets its shots
 // can't reach. Both seal gastric valves, reopen bronchi and shoot the Mega Virus cores when exposed.
+// In the heart, both go and stand in front of an open valve to shoot the colonies through it.
+// Either jumps when something low (a ridge) stops it.
 // Some arenas favour one strategy over the other; a mission counts as winnable on a difficulty
 // when either strategy wins it. The script exits with an error if one never is.
 import { Simulation } from '../../dist/simulation.mjs';
 import { CAMPAIGN_AREAS } from '../../dist/coop-protocol.mjs';
 import { DIFFICULTIES, applyDifficulty } from '../../dist/difficulty.mjs';
+import { HEART_VALVES } from '../../dist/heart-chamber.mjs';
 
 const STEP = 1 / 30;
 const TIME_LIMIT = 2700;
@@ -75,6 +78,7 @@ function play(area, difficulty, rover) {
   let clock = 0;
   let deployed = false;
   let lowest = 100;
+  let last = { x: sim.player.x, z: sim.player.z, at: 0 };
   while ((sim.phase === 'combat' || sim.phase === 'intermission') && clock < TIME_LIMIT) {
     if (sim.extractionPending) {
       sim.chooseExtraction('extract');
@@ -82,6 +86,12 @@ function play(area, difficulty, rover) {
     }
     const input = think(sim, rover, memory, clock);
     if (!deployed && sim.phase === 'combat' && clock > 3) input.deploy = deployed = true;
+    // Barely moved for half a second while trying to: something low is in the way, so hop it.
+    if (clock - last.at > .5) {
+      const trying = Math.hypot(input.moveX ?? 0, input.moveZ ?? 0) > .5;
+      if (trying && distance(last, sim.player) < .8) input.jump = true;
+      last = { x: sim.player.x, z: sim.player.z, at: clock };
+    }
     sim.step(STEP, input);
     clock += STEP;
     for (const event of sim.events) {
@@ -103,7 +113,7 @@ function hiddenByTissue(sim, player, enemy) {
 function think(sim, rover, memory, clock) {
   const { player } = sim;
   const input = {};
-  const enemies = sim.enemies.filter(enemy => !enemy.hidden && (enemy.type !== 'colony' || sim.valve?.exposed));
+  const enemies = sim.enemies.filter(enemy => !enemy.hidden && sim.colonyExposed?.(enemy) !== false);
   const pressure = node => enemies.filter(enemy => enemy.node === node && distance(enemy, node) < 14).length *
     (1 + (100 - node.health) / 50);
   const node = [...sim.nodes].sort(rover
@@ -152,6 +162,12 @@ function think(sim, rover, memory, clock) {
     input.fire = Math.random() < .8;
   }
   let goal = target && distance(target, node) < 12 ? node : target ?? node;
+  // A heart colony is shot from in front of its valve, never walked up to.
+  if (target?.type === 'colony') {
+    const valve = HEART_VALVES[target.valveIndex];
+    goal = { x: valve.x - valve.ox * 11 + valve.lx * 1.5, z: valve.z - valve.oz * 11 + valve.lz * 1.5 };
+    if (distance(goal, player) > 3) steer(player, goal.x, goal.z, input, true);
+  }
   if (target?.type === 'guard') {
     goal = { x: target.x - Math.sin(target.heading) * 4, z: target.z - Math.cos(target.heading) * 4 };
   }
