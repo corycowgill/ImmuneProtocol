@@ -1046,10 +1046,19 @@ function lightShafts(root, color, count, random) {
       void main() { vHeight = position.y; vec4 mv = modelViewMatrix * vec4(position, 1.0);
       vNormalView = normalize(normalMatrix * normal); vView = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
     fragmentShader: `uniform vec3 tint; uniform float time; varying float vHeight; varying vec3 vNormalView; varying vec3 vView;
-      void main() { float fall = smoothstep(-22.0, -2.0, vHeight) * (1.0 - smoothstep(-2.0, 0.0, vHeight));
-      float edge = pow(abs(dot(vNormalView, vView)), 1.6);
-      float flicker = 0.85 + 0.15 * sin(time * 0.7 + vHeight * 0.3);
-      gl_FragColor = vec4(tint, fall * edge * 0.075 * flicker); }`,
+      float shaftHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float shaftNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+        return mix(mix(shaftHash(i), shaftHash(i + vec2(1, 0)), f.x), mix(shaftHash(i + vec2(0, 1)), shaftHash(i + vec2(1, 1)), f.x), f.y); }
+      void main() {
+        // Fades in from the canopy and out well before the floor, so no hard rim shows at either end.
+        float fall = smoothstep(-21.0, -9.0, vHeight) * (1.0 - smoothstep(-3.0, 0.0, vHeight));
+        // A steep falloff toward the silhouette feathers the cone's sides away.
+        float facing = abs(dot(vNormalView, vView));
+        float edge = pow(facing, 3.2);
+        // Drifting dust breaks the beam into soft vertical streaks.
+        float dust = .55 + .45 * shaftNoise(vec2(atan(vNormalView.x, vNormalView.z) * 3.0, vHeight * .12 - time * .15));
+        float flicker = 0.85 + 0.15 * sin(time * 0.7 + vHeight * 0.3);
+        gl_FragColor = vec4(tint, fall * edge * dust * 0.07 * flicker); }`,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
   for (let i = 0; i < count; i++) {

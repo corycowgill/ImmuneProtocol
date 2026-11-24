@@ -246,7 +246,19 @@ export class CanvasUiRenderer {
     if (kind === 'stat') {
       this.box(r, '#142028c9', null);
       this.text(item.text.toUpperCase(), { x: r.x + 12, y: r.y + 10, w: r.w - 24, h: 16 }, 10, t.muted, 600);
-      return this.text(item.detail, { x: r.x + 12, y: r.y + 28, w: r.w - 24, h: r.h - 30 }, 24, item.color ?? t.paper, 800, 'left', Infinity, 1.04);
+      if (item.bar == null) return this.text(item.detail, { x: r.x + 12, y: r.y + 28, w: r.w - 24, h: r.h - 30 }, 24, item.color ?? t.paper, 800, 'left', Infinity, 1.04);
+      // An Armory stat: value, the change a previewed part would make, and a bar that fills toward
+      // "better", with the gain in green or the loss in red on top of it.
+      const better = item.change === 'better', worse = item.change === 'worse';
+      const [value, diff] = [item.detail.replace(/[+−]\d.*$/, '').trim(), (item.detail.match(/[+−]\d.*$/) ?? [''])[0]];
+      const valueW = this.measure(value, 22, 800);
+      this.text(value, { x: r.x + 12, y: r.y + 26, w: r.w - 24, h: 26 }, 22, t.paper, 800, 'left', 1, 1.04);
+      if (diff) this.text(diff, { x: r.x + 18 + valueW, y: r.y + 32, w: r.w - 30 - valueW, h: 18 }, 13, better ? t.green : t.hot, 700, 'left', 1, 1.2);
+      const track = { x: r.x + 12, y: r.y + r.h - 14, w: r.w - 24, h: 5 };
+      this.box(track, '#ffffff14', null, 2);
+      this.box({ ...track, w: track.w * Math.max(0, Math.min(1, item.bar)) }, '#c8f794b0', null, 2);
+      if (item.delta > 0) this.box({ x: track.x + track.w * item.bar, y: track.y, w: track.w * item.delta, h: track.h }, better ? t.green : worse ? t.hot : t.muted, null, 2);
+      return;
     }
     if (kind === 'keyrow' && item.keys?.length) {
       // Bindings as keycaps, right-aligned, with any joining words muted between them.

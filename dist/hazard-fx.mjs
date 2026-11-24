@@ -258,7 +258,8 @@ function exhale(root, u) {
     alpha = inside * (streak * .4 * live + chevron * (.45 * warn * pulse + .5 * live) + rim * (.2 + .3 * warn * pulse) * max(warn, live));
   `, { additive: true });
   // Wind streaks: long thin ribbons flying down the corridor at different heights.
-  quadField(root, u, 320, /* glsl */ `
+  // Before the exhale only a few faint streaks stir; the gale itself stays strong.
+  quadField(root, u, 220, /* glsl */ `
     float speed = mix(-2.2, 24., live) * (.7 + seed.y * .6);
     float span = halfSize.y * 2.;
     float t = fract(seed.z + time * speed / span);
@@ -268,9 +269,9 @@ function exhale(root, u) {
     P.y = floorH(P.xz) + h + sin(time * 2.3 + seed.x * 20.) * .3;
     D = normalize(vec3(sin(time + seed.w * 9.) * .05, .02, sign(speed)));
     L = mix(.6, 4.5, live) * (.5 + seed.y);
-    W = .045 + seed.w * .05;
-    A = (live * .5 + warn * .15) * smoothstep(0., .08, t) * smoothstep(1., .9, t) * (1. - smoothstep(.85, 1., abs(lane.x)));
-    C = mix(tint, vec3(1.), .5);
+    W = .035 + seed.w * .04;
+    A = (live * .42 + warn * .05) * smoothstep(0., .08, t) * smoothstep(1., .9, t) * (1. - smoothstep(.85, 1., abs(lane.x)));
+    C = mix(tint, vec3(1., .86, .9), .3);
   `);
   // Haze gusts: large soft puffs drifting with the air, giving it body.
   quadField(root, u, 48, /* glsl */ `

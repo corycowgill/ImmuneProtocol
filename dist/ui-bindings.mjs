@@ -83,7 +83,10 @@ export class BrowserUiBindings {
         const child = children[i]; if (!this.shown(child)) continue;
         if (child.tagName === 'DT' && children[i + 1]?.tagName === 'DD') { stats.push({ kind: 'stat', text: this.text(child), detail: this.text(children[++i]) }); continue; }
         const dt = child.querySelector('dt'), dd = child.querySelector('dd');
-        if (dt && dd) stats.push({ kind: 'stat', text: this.text(dt), detail: this.text(dd) });
+        // Armory rows carry their bar: the current fill, the previewed change and whether it is better.
+        const bar = child.querySelector('.gs-bar-fill'), delta = child.querySelector('.gs-bar-delta');
+        if (dt && dd) stats.push({ kind: 'stat', text: this.text(dt), detail: this.text(dd),
+          ...(bar ? { bar: parseFloat(bar.style.width) / 100 || 0, delta: parseFloat(delta?.style.width) / 100 || 0, change: child.dataset.change ?? 'none' } : {}) });
         else { const block = this.block(child, excluded); if (block) stats.push(block); }
       }
       return grid(stats, 150, 3);

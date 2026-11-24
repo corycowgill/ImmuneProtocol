@@ -87,7 +87,7 @@ function buildMenu(ui, model, area, full, size) {
   ui.pane('menu-actions', nodes, { x: navX, y: navY, w: navW, h: h - navY - Math.max(16, h - area.y - area.h) });
   if (!phone && !landscape && model.operator) {
     const width = Math.min(330, area.w - navW - 70), sx = x + area.w - width, sy = h - 252;
-    if (width >= 220) pane(ui, 'operator', [heading(model.operator.progress, 38), text('MISSIONS SECURED', 11, T.muted), grid([{ kind: 'stat', text: 'Best score', detail: model.operator.best }, { kind: 'stat', text: 'Difficulty', detail: model.operator.difficulty }], 110, 2)], { x: sx, y: sy, w: width, h: 220 }, 'Operator record');
+    if (width >= 220) pane(ui, 'operator', [heading(model.operator.progress, 38), text('MISSIONS SECURED', 11, T.muted), grid([{ kind: 'stat', text: 'Best score', detail: /^[\s—–-]*$/.test(model.operator.best ?? '') ? 'No runs yet' : model.operator.best }, { kind: 'stat', text: 'Difficulty', detail: model.operator.difficulty }], 110, 2)], { x: sx, y: sy, w: width, h: 220 }, 'Operator record');
   }
 }
 
