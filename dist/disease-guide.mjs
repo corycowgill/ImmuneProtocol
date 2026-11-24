@@ -3,6 +3,7 @@ import { publishUiFrame, uiViewport } from './ui-media.mjs';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { ENEMY_MODELS, animatePathogen, loadEnemyModel, pathogenMotion } from './enemy-models.mjs';
 import { SPECIES, speciesHabitats } from './simulation.mjs';
+import { MicroscopeBackdrop } from './microscope-view.mjs';
 
 // The main menu's disease guide: every pathogen's scanned model (animated, drag to
 // turn), its field description, live stats from the simulation, where it attacks,
@@ -176,7 +177,8 @@ function element(tag, className, text) {
   return node;
 }
 
-// A small turntable scene that shows one animated pathogen at a time.
+// A small turntable scene that shows one animated pathogen at a time, as a specimen in a petri
+// dish under the microscope (microscope-view.mjs).
 class PathogenViewer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -200,6 +202,7 @@ class PathogenViewer {
     rim.position.set(-2, 2, -4);
     const fill = new THREE.HemisphereLight(0x9cc4ff, 0x3a1d22, .7);
     this.scene.add(key, rim, fill);
+    this.backdrop = new MicroscopeBackdrop(this.scene);
     this.turntable = new THREE.Group();
     this.scene.add(this.turntable);
     this.yaw = .5;
@@ -227,6 +230,8 @@ class PathogenViewer {
 
   async show(type) {
     this.type = type;
+    this.backdrop.setSpecimen(type, PATHOGENS.find(entry => entry.type === type)?.name ?? type);
+    this.needsFit = true;
     const template = await loadEnemyModel(type);
     if (this.type !== type || this.disposed) return;
     this.turntable.clear();
@@ -280,20 +285,25 @@ class PathogenViewer {
       this.camera.aspect = width / height;
       // Fit the actual specimen to its canvas stage, including room for yaw.
       // Flat drones can fill a wide phone stage without shrinking into an icon.
-      const halfHeight = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)), halfWidth = halfHeight * this.camera.aspect;
+      // The specimen fits inside the round field of view, not the whole canvas.
+      const halfHeight = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)), halfWidth = halfHeight * Math.min(this.camera.aspect, 1);
       const b = this.previewBounds;
-      const distance = b ? Math.max(b.y / (2 * halfHeight), Math.hypot(b.x, b.z) / (2 * halfWidth)) * 1.3 + b.z / 2 : Math.max(5.2, 1.45 / halfWidth);
+      const distance = b ? Math.max(b.y / (2 * halfHeight), Math.hypot(b.x, b.z) / (2 * halfWidth)) * 1.25 + b.z / 2 : Math.max(5.2, 1.45 / halfWidth);
       this.camera.position.setLength(distance);
       this.camera.updateProjectionMatrix();
       this.needsFit = false;
     }
+    this.backdrop.resize(this.canvas.width, this.canvas.height);
+    if (!reduceMotion) this.backdrop.update(dt);
     this.renderer.render(this.scene, this.camera);
+    this.backdrop.renderOverlay(this.renderer);
     publishUiFrame(this.canvas);
     requestAnimationFrame(this.frame);
   }
 
   dispose() {
     this.disposed = true;
+    this.backdrop.dispose();
     this.environment.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
