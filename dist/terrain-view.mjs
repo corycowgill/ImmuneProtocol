@@ -35,7 +35,8 @@ const plaque = look => new THREE.MeshPhysicalMaterial({
 const FLOOR_UV = 4.6; // world metres per floor UV unit (arena-scene floorGeometry)
 function floorMatched(floor, look) {
   const material = new THREE.MeshPhysicalMaterial({ vertexColors: true });
-  material.color.copy(floor.color);
+  // The floor is lifted by its own ground shading (detail, caustics); match its overall brightness.
+  material.color.copy(floor.color).multiplyScalar(1.22);
   for (const key of ['map', 'normalMap', 'roughnessMap']) if (floor[key]) material[key] = floor[key];
   if (floor.normalScale) material.normalScale.copy(floor.normalScale);
   material.roughness = floor.roughness ?? look[3];
@@ -93,7 +94,7 @@ function colorize(geometry, top, look, shadeOnly = false, tideline = 0) {
     const up = THREE.MathUtils.clamp(y / Math.max(.1, top), 0, 1);
     if (shadeOnly) {
       // Occlusion toward the foot, faint streaks, and (stomach) a dark wet band where the acid sits.
-      const shade = (.5 + .5 * up ** .7) * (.92 + n * .1) * (n > .38 ? .86 : 1);
+      const shade = (.74 + .26 * up ** .7) * (.94 + n * .08) * (n > .38 ? .9 : 1);
       const wet = tideline ? 1 - .45 * Math.exp(-(((y - tideline) / .12) ** 2)) : 1;
       color.setRGB(shade * wet, shade * wet * (tideline ? .97 : 1), shade * wet * (tideline ? .9 : 1));
       color.toArray(colors, i * 3);
