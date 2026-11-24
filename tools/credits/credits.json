@@ -1,0 +1,46 @@
+{
+  "title": "IMMUNE PROTOCOL",
+  "subtitle": "A Hallucinated Games production",
+  "roles": [
+    ["Creative director", "Cory Cowgill", "Typed \"Do it.\" and \"Ok do it\" more times than any director in history"],
+    ["Lead engineer", "Claude", "An AI that has never seen a white blood cell, but has read about them a lot"],
+    ["Development studio", "One cloud container", "No game developer's computer was switched on in the making of this game"],
+    ["Build system", "None", "The dist folder ships straight to production. It is fine. It is probably fine."],
+    ["QA department", "A headless browser on a software GPU", "Rendering at roughly one frame per coffee break"],
+    ["Performance testing", "\"Performance is fine.\"", "— the Creative Director, after one run"],
+    ["Deployment engineer", "GitHub Pages", "\"No artifacts named github-pages were found.\" Re-run. Re-run. Re-run."],
+    ["Cache invalidation specialist", "\"Try a hard refresh.\"", ""],
+    ["Autocorrect liaison", "\"nowgtgstvwe ipdstedvthevwlswarm\"", "Translated by the engineering team as: \"now it actually helps against the swarm\""],
+    ["Turret balance", "Nerfed from carbine, to half, to one third", "The turret has filed a formal complaint. You can now drag it anywhere, as compensation."],
+    ["Medical accuracy consultant", "Vibes", "Please do not use this game to study for medical school"],
+    ["Antibody grenade design", "The immune system, but explosive", "Do not try this at home. Or in a President."],
+    ["Crawler", "Inspired by a robotic spider", "No spiders were harmed. Several nanobots were."],
+    ["Enemy intent indicators", "Removed by request", "The pathogens no longer announce \"FLANKING\". They just flank."],
+    ["Level design", "Plaque", "Lots and lots of plaque"],
+    ["Ending cinematic", "Wan 2.2 on borrowed ZeroGPUs", "Fifty-six seconds per shot. Every shot."],
+    ["Voice of the doctor", "Cloned by Chatterbox", "The real doctor is still asking who signed the release form"],
+    ["The President", "Himself", "Unconscious for most of production. A true professional."]
+  ],
+  "specialThanks": {
+    "lines": [
+      "The President's actual immune system, which did most of the real work",
+      "Every pathogen that held still for a screenshot"
+    ],
+    "roles": [
+      ["Beta testers · critical feedback division", "Cory's two boys", [
+        "Played every build. Survived none of them. Blamed the controller.",
+        "Notes from the testing floor: \"Too hard.\" \"Too easy.\" \"Why is there a butt level?\"",
+        "Bugs reported: 412. Real bugs: 6. Little brother pressing Pause: 406.",
+        "Paid in screen time. Already negotiating a raise."
+      ]],
+      ["Chief morale officer", "Cory's wife", [
+        "For her unwavering support, and her honest review:",
+        "\"The games may be slop. But the Hallucinated Games domain name? Pure gold.\"",
+        "Five stars. For the domain."
+      ]]
+    ],
+    "closing": "You, nanonaut. Thanks for playing."
+  },
+  "disclaimer": "No presidents were permanently harmed in the making of this game.",
+  "end": "THANK YOU FOR PLAYING"
+}
