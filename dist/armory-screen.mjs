@@ -71,6 +71,7 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
   const panelTitle = byId('armory-panel-title');
   const panelNote = byId('armory-panel-note');
   const subtabs = byId('armory-subtabs');
+  const items = byId('armory-items');
   const options = byId('armory-options');
   const reset = byId('armory-reset');
 
@@ -405,6 +406,28 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
     }));
   }
 
+  // Gunsmith and Customize edit one item at a time; this row switches between the two carried
+  // weapons and the auto-turret without going back to the Weapons tab.
+  function itemsRow() {
+    items.hidden = state.mode === 'weapons';
+    if (items.hidden) return items.replaceChildren();
+    const loadout = getLoadout();
+    items.replaceChildren(...['primary', 'secondary', 'turret'].map(slot => {
+      const name = slot === 'turret' ? TURRET_TYPE.name : WEAPON_TYPES[loadout.arsenal[slot]].name;
+      const tab = element(document, 'button', 'gs-item', (slot === 'turret' ? 'Turret' : slot === 'primary' ? 'Primary' : 'Secondary') + ' · ' + name);
+      tab.type = 'button';
+      tab.dataset.item = slot;
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', String(slot === state.editing));
+      tab.addEventListener('click', () => {
+        if (state.editing === slot) return;
+        state.editing = slot;
+        draw();
+      });
+      return tab;
+    }));
+  }
+
   function draw() {
     state.preview = null;
     const current = edited();
@@ -429,6 +452,7 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
     // Rebuilding the list would drop keyboard focus; put it back on the same option.
     const focused = [...options.children].indexOf(document.activeElement);
     const scroll = options.scrollTop;
+    itemsRow();
     ({ weapons: weaponsPanel, gunsmith: gunsmithPanel, customize: customizePanel })[state.mode]();
     options.scrollTop = scroll;
     if (focused >= 0) options.children[Math.min(focused, options.children.length - 1)]?.focus({ preventScroll: true });

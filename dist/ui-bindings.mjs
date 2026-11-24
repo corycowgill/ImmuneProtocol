@@ -175,8 +175,12 @@ export class BrowserUiBindings {
       model.left = [canvas ? { kind: 'preview', id: this.id(this.get('armory-preview')), action: this.id(this.get('armory-preview')), src: this.resource(canvas), height: 220 } : null, heading(this.value('armory-weapon-name')), { kind: 'text', text: this.value('armory-weapon-detail'), size: 12 }, this.block(this.get('armory-stats'))].filter(Boolean);
       const parts = this.controls('#armory-subtabs button');
       const selected = parts.find(p => p.selected) ?? parts[0];
-      model.contextKey = root.dataset.mode + ':' + selected?.action + ':' + this.value('armory-weapon-name');
-      model.body = [this.block(this.get('coop-armory-status')), parts.length ? { kind: 'choice', id: '@armory-part', action: '@armory-part', actionOptions: true, label: root.dataset.mode === 'gunsmith' ? 'ATTACHMENT SLOT' : root.dataset.mode === 'customize' ? 'FINISH CATEGORY' : 'WEAPON SLOT', value: selected?.action, options: parts.map((p, i) => ({ value: p.action, text: (root.dataset.mode === 'weapons' ? (['Primary · ', 'Secondary · ', 'Turret · '][i] ?? '') : '') + p.text, disabled: p.disabled })) } : heading(this.value('armory-panel-title')), this.block(this.get('armory-options')), this.block(root.querySelector('.armory-loadout'))].filter(Boolean);
+      model.contextKey = root.dataset.mode + ':' + root.dataset.editing + ':' + selected?.action + ':' + this.value('armory-weapon-name');
+      // In Gunsmith and Customize, which item is being edited: either weapon or the auto-turret.
+      const items = this.controls('#armory-items button');
+      const item = items.find(control => control.selected);
+      const editing = items.length ? { kind: 'choice', id: '@armory-item', action: '@armory-item', actionOptions: true, label: 'EDITING', value: item?.action, options: items.map(control => ({ value: control.action, text: control.text })) } : null;
+      model.body = [this.block(this.get('coop-armory-status')), editing, parts.length ? { kind: 'choice', id: '@armory-part', action: '@armory-part', actionOptions: true, label: root.dataset.mode === 'gunsmith' ? 'ATTACHMENT SLOT' : root.dataset.mode === 'customize' ? 'FINISH CATEGORY' : 'WEAPON SLOT', value: selected?.action, options: parts.map((p, i) => ({ value: p.action, text: (root.dataset.mode === 'weapons' ? (['Primary · ', 'Secondary · ', 'Turret · '][i] ?? '') : '') + p.text, disabled: p.disabled })) } : heading(this.value('armory-panel-title')), this.block(this.get('armory-options')), this.block(root.querySelector('.armory-loadout'))].filter(Boolean);
     } else if (id === 'mission-dialog') {
       model.defaultFocus = this.id(this.get('deploy-practice'));
       model.sidebar = this.controls('#mission-gallery button').map(item => {

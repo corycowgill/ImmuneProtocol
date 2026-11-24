@@ -85,6 +85,10 @@ dialog.armory-panel[data-mode="gunsmith"] .gs-plate strong{font-size:clamp(20px,
 .gs-panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:16px 22px 10px}
 .gs-panel-head h3{margin:0;font:800 30px/1 var(--display);text-transform:uppercase}
 .gs-panel-head span{color:#8f857d;font:500 10px/1.3 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.gs-items{display:flex;gap:5px;padding:0 22px 10px}
+.gs-items[hidden]{display:none}
+.gs-item{flex:1 1 0;min-width:0;padding:6px 8px;border:1px solid #d7c5ab3d;background:#171112;color:var(--paper);font:600 11px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.06em;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs-item[aria-selected="true"]{border-color:var(--green);background:#232e1d;color:var(--green)}
 .gs-subtabs{display:flex;flex-wrap:wrap;gap:5px;padding:0 22px 12px;border-bottom:1px solid #d7c5ab2e}
 .gs-chip{padding:7px 11px;border:1px solid #d7c5ab3d;background:#171112;color:#cfc4ba;font:500 10px/1.2 var(--mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
 .gs-chip:hover{border-color:#c8f79480;color:var(--paper)}

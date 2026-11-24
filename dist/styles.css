@@ -1005,7 +1005,7 @@ kbd{font:500 11px var(--mono);border:1px solid #9c8b7773;color:#e4decf;backgroun
 .guide-card[aria-selected="true"]{border-color:#c8f79498;background:#232b1f}
 .guide-card[aria-selected="true"] strong{color:var(--green)}
 .guide-stage{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
-.guide-viewer{position:relative;min-height:0;border:1px solid var(--line);background:radial-gradient(circle at 50% 45%,#40231f,#150d0f 70%)}
+.guide-viewer{position:relative;min-height:0;border:1px solid var(--line);background:#050302}
 .guide-viewer canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
 .guide-viewer canvas:active{cursor:grabbing}
 .guide-hint{position:absolute;left:12px;bottom:12px;color:var(--muted);font:500 10px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;pointer-events:none}
