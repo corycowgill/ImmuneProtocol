@@ -557,6 +557,7 @@ async function openCoop() {
     coopHost = await verifyCoopHost();
   }
   if (!coopDialog.open) return;
+  coopDialog.dataset.offline = String(!coopHost);
   if (!coopHost) {
     setCoopStatus('Open the multiplayer server’s game URL to create or join a room.');
     return;
@@ -672,7 +673,8 @@ async function launch(area, run = null, drill = null, onlineState = null, checkp
     delete game.dataset.valve;
     for (const branch of Object.values(branches)) branch.marker.hidden = true;
     lastFrame = 0;
-    session.damageTimer = 0;
+    session.damageTimer = session.killTimer = 0;
+    session.damageFrom = null;
     resetHud();
     session.restoredNode = null;
     session.hitTimer = 0;
@@ -1178,7 +1180,9 @@ function playFrame(now) {
     }
     if (session.options['invert-y']) input.lookY = -input.lookY;
     session.hitTimer = Math.max(0, session.hitTimer - dt);
+    session.killTimer = Math.max(0, session.killTimer - dt);
     session.damageTimer = Math.max(0, session.damageTimer - dt);
+    if (session.damageFrom && (session.damageFrom.remaining -= dt) <= 0) session.damageFrom = null;
     if (session.announcementTimer > 0) {
       session.announcementTimer -= dt;
       if (session.announcementTimer <= 0) alertBox.replaceChildren();

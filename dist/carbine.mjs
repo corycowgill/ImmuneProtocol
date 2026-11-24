@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import { createMuzzleFlash, createHoloReticle } from './shot-fx.mjs';
 import { DEFAULT_WEAPON_LOADOUT, normalizeWeaponLoadout } from './weapon-mods.mjs';
 
 export const FINISH_COLORS = {
@@ -204,7 +205,10 @@ export function createCarbine({ showHands = true } = {}) {
   });
   mesh(opticHousing, metal, 0, .142, -.153,factorySight);
   panel(.071,.038,.004,.0015,glass,0,.142,-.143,factorySight);
-  mesh(new THREE.SphereGeometry(.0029,12,8),green,0,.142,-.137,factorySight);
+  // The lit reticle sits just behind the glass so it reads over the scene through the window.
+  const factoryReticle = createHoloReticle(.03);
+  factoryReticle.position.set(0,.142,-.138);
+  factorySight.add(factoryReticle);
   for (const x of [-.045, .045]) {
     tube(.0054,.003,edge,x,.125,-.091,factorySight);
     tube(.0054,.003,edge,x,.154,-.091,factorySight);
@@ -296,7 +300,9 @@ export function createCarbine({ showHands = true } = {}) {
     depth: .016, bevelEnabled: true, bevelThickness: .003, bevelSize: .003, bevelSegments: 2,
   }),ivory,0,opticY,-.134,reflexSight);
   panel(.071,.035,.003,.001,glass,0,opticY,-.123,reflexSight);
-  mesh(new THREE.SphereGeometry(.0025,12,8),green,0,opticY,-.117,reflexSight);
+  const reflexReticle = createHoloReticle(.026, 0xff6a52);
+  reflexReticle.position.set(0,opticY,-.118);
+  reflexSight.add(reflexReticle);
   for (const x of [-.04,.04]) tube(.006,.010,edge,x,.114,-.104,reflexSight);
 
   const rapidReceiver = attachment('receiver', 'rapid-receiver');
@@ -461,11 +467,8 @@ export function createCarbine({ showHands = true } = {}) {
   const muzzle = new THREE.Object3D();
   muzzle.position.set(0,.025,barrelSockets.standard+muzzleTips.standard);
   model.add(muzzle);
-  const flash = new THREE.Group();
-  const blast = new THREE.MeshBasicMaterial({ color: 0xffe5a2, transparent: true, opacity: .88, toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false });
-  const cone = mesh(new THREE.ConeGeometry(.057,.28,6),blast,0,0,-.14,flash);
-  cone.rotation.x = -Math.PI / 2;
-  flash.visible = false;
+  // A layered star, petal and core flash (shot-fx.mjs), re-rolled every shot.
+  const flash = createMuzzleFlash();
   muzzle.add(flash);
 
   let currentLoadout = DEFAULT_WEAPON_LOADOUT;

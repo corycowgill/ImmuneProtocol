@@ -77,7 +77,7 @@ export class BrowserUiBindings {
     if (tag === 'PROGRESS' || el.getAttribute('role') === 'meter') return { kind: 'meter', text: el.getAttribute('aria-label') ?? '', value: el.value ?? Number(el.getAttribute('aria-valuenow')), max: el.max ?? Number(el.getAttribute('aria-valuemax') || 100) };
     if (/^H[1-6]$/.test(tag) || tag === 'LEGEND') return heading(this.text(el));
     if (tag === 'DL') {
-      if (el.classList.contains('controls-list')) return { kind: 'stack', children: [...el.children].map(row => ({ kind: 'keyrow', text: this.text(row.querySelector('dt')), detail: clean([...row.querySelector('dd').childNodes].map(n => n.nodeName === 'KBD' ? ' ' + n.textContent + ' ' : n.textContent).join('')) })) };
+      if (el.classList.contains('controls-list')) return { kind: 'stack', children: [...el.children].map(row => ({ kind: 'keyrow', text: this.text(row.querySelector('dt')), detail: clean([...row.querySelector('dd').childNodes].map(n => n.nodeName === 'KBD' ? ' ' + n.textContent + ' ' : n.textContent).join('')), keys: [...row.querySelector('dd').childNodes].map(n => n.nodeName === 'KBD' ? { key: clean(n.textContent) } : { text: clean(n.textContent) }).filter(part => part.key || part.text) })) };
       const children = [...el.children], stats = [];
       for (let i = 0; i < children.length; i++) {
         const child = children[i]; if (!this.shown(child)) continue;
@@ -197,6 +197,14 @@ export class BrowserUiBindings {
       const intelligence = this.blocks(detail, new Set([counterplay]));
       model.intel = [...intelligence.slice(0, 1), ...(counterplay ? [heading('Countermeasures'), this.block(counterplay)] : []), ...intelligence.slice(1)];
       for (const node of model.intel) if (node.kind === 'grid') { node.minColumn = 105; node.maxColumns = 3; }
+    } else if (id === 'coop-dialog' && root.dataset.offline === 'true') {
+      // No game server: a designed empty state instead of a lone status line.
+      model.contextKey = 'offline';
+      model.body = [
+        { kind: 'heading', text: 'Squad link offline', size: 34 },
+        { kind: 'text', text: 'Online co-op runs through the Immune Protocol game server, and this copy of the game was opened without one. Up to three operators can defend the host together once it is running.', size: 15, color: '#a8b7bf' },
+        { kind: 'text', text: 'Play online: open the hosted co-op build, or start a local server with npm run serve:coop and open the address it prints.', size: 13, color: '#8fe4dd' },
+      ];
     } else if (id === 'coop-dialog' && this.shown(this.get('coop-entry'))) {
       model.contextKey = 'entry';
       model.body = [this.block(this.get('coop-intro')), grid([this.control(this.get('coop-name')), this.control(this.get('coop-code'))], 280, 2), grid([this.control(this.get('coop-create')), this.control(this.get('coop-join')?.querySelector('button'))], 200, 2), this.block(this.get('coop-status'))].filter(Boolean);
@@ -252,7 +260,7 @@ export class BrowserUiBindings {
     const nodes = [...root.querySelectorAll('[data-tissue-node]')].filter(el => this.shown(el)).map(el => ({ name: this.text(el.querySelector('[data-node-name]')), value: Number(el.querySelector('[data-node-meter]').getAttribute('aria-valuenow')), danger: el.classList.contains('under-attack') || el.classList.contains('critical') }));
     const markers = [...root.querySelectorAll('.objective-marker,.objective-edge,.attacker-marker,.inlet-marker')].filter(el => this.shown(el)).map(el => {
       const edge = el.classList.contains('objective-edge'), quiet = el.classList.contains('quiet') || el.classList.contains('compact');
-      return { x: parseFloat(edge ? el.style.getPropertyValue('--objective-x') : el.style.left), y: parseFloat(edge ? el.style.getPropertyValue('--objective-y') : el.style.top), text: this.text(el).replace(/(\d+ m)/, '\n$1'), kind: el.dataset.kind, edge, quiet, attacker: el.classList.contains('attacker-marker'), color: getComputedStyle(el).color };
+      return { x: parseFloat(edge ? el.style.getPropertyValue('--objective-x') : el.style.left), y: parseFloat(edge ? el.style.getPropertyValue('--objective-y') : el.style.top), text: this.text(el).replace(/\s*·\s*$/, '').replace(/\s*·?\s*(\d+ m)/, '\n$1'), kind: el.dataset.kind, edge, quiet, angle: edge ? parseFloat(el.style.getPropertyValue('--objective-angle')) : null, attacker: el.classList.contains('attacker-marker'), color: getComputedStyle(el).color };
     }).filter(m => Number.isFinite(m.x + m.y));
     const paths = [...root.querySelectorAll('svg[style*="position:fixed"] path')].filter(el => el.parentElement.style.display !== 'none').map(el => ({ path: el.getAttribute('d') || '', fill: el.getAttribute('fill') === 'none' ? '#0000' : el.getAttribute('fill'), color: el.getAttribute('stroke') }));
     let special = null;
@@ -268,13 +276,17 @@ export class BrowserUiBindings {
     return { id: 'game', type: 'combat', touch: !this.get('touch-controls').hidden, actions, hud: {
       nodes, markers, paths, special, health: parseFloat(t('health-value')), ammo: t('ammo-value'), weapon: t('equipment-label'), mode: t('wave-mode'), wave: t('wave-value'), threats: t('threats'), ammoState: t('reload-state'), reload: this.shown(this.get('reload-progress')) ? Number(this.get('reload-progress').value) : 0,
       repair: this.shown(this.get('repair-meter')) ? Number(this.get('repair-meter').getAttribute('aria-valuenow')) : 0,
-      ally: visibleText('coop-match-status') || visibleText('coop-hud'), hazard: visibleText('organ-hazard') ? [t('organ-hazard-label'), visibleText('organ-hazard-time')].filter(Boolean).join(' · ') : '', notice: visibleText('encounter-card'), training: visibleText('training-hint') || visibleText('ability-hint'), alert: visibleText('game-alert') || visibleText('wave-outro'), surge: visibleText('junction-surge'), prompt: visibleText('action-prompt'), score: t('scoreboard'), turret: t('turret-status-value'), weaponStrip: t('weapon-strip'),
+      ally: visibleText('coop-match-status') || visibleText('coop-hud'), hazard: visibleText('organ-hazard') ? [t('organ-hazard-label'), visibleText('organ-hazard-time')].filter(Boolean).join(' · ') : '', notice: visibleText('encounter-card'), training: visibleText('training-hint') || visibleText('ability-hint'), alert: visibleText('game-alert') || visibleText('wave-outro'), surge: visibleText('junction-surge'), prompt: visibleText('action-prompt'), score: [...(this.get('scoreboard')?.children ?? [])].map(row => { const [name, points, kills] = [...row.children].map(part => this.text(part)); return `${name} ${points}  ·  ${kills}`.toUpperCase(); }).join('     ') || t('scoreboard'),
+      magazine: { size: Number(this.get('ammo-value')?.dataset.size) || 0, count: Number(this.get('ammo-value')?.dataset.count) || 0, hidden: !!this.get('ammo-value')?.hidden },
+      weaponSlots: [...(this.get('weapon-strip')?.children ?? [])].map(item => ({ key: this.text(item.firstElementChild), name: this.text(item.lastElementChild), active: item.dataset.active === 'true' })).filter(slot => slot.name), turret: t('turret-status-value'), weaponStrip: t('weapon-strip'),
       abilities: this.shown(this.get('ability-hud')) ? (({ grenades, stuns, dash, bash, keys }) => ({ grenades: +grenades, stuns: +stuns, dash: +dash, bash: +bash, keys: (keys ?? '').split('|') }))(this.get('ability-hud').dataset) : null,
       supply: this.shown(this.get('junction-supply')) ? this.controls('[data-junction-supply]') : [], supplyNote: t('junction-supply-note'),
       scope: this.get('scope-overlay')?.dataset.visible === 'true', hit: Number(this.get('hit-marker')?.style.opacity) > 0,
+      hitStrength: Number(this.get('hit-marker')?.style.opacity) || 0, crit: !!this.get('hit-marker')?.classList.contains('critical'), kill: Number(this.get('hit-marker')?.dataset.kill) || 0,
+      damageBearing: this.get('damage-flash')?.dataset.bearing ? Number(this.get('damage-flash').dataset.bearing) : null, damageStrength: Number(this.get('damage-flash')?.dataset.strength) || 0,
       aiming: this.get('reticle')?.classList.contains('aim'),
       spread: parseFloat(this.get('reticle')?.style.getPropertyValue('--offset')) || 8, damage: Number(this.get('damage-flash')?.style.opacity) || 0,
-      muted: root.querySelector('[data-mute]')?.getAttribute('aria-pressed') === 'true',
+      muted: root.querySelector('[data-mute]')?.getAttribute('aria-pressed') === 'true', locked: !!document.pointerLockElement,
     } };
   }
 }

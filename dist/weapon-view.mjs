@@ -32,6 +32,7 @@ export function updateWeapon(world, sim, dt, input, aiming, reduceMotion) {
     pose.recoil = Math.min(1.24 * Math.max(1, kick * .8), pose.recoil + (reduceMotion ? .43 : 1) * kick);
     pose.flash = reduceMotion ? 0 : .037;
     flash.rotation.z = world.random() * TAU;
+    flash.userData.fire?.(world.random);
   }
   const aim = pose.aim;
   const reload = sim.reloadProgress;
@@ -48,9 +49,9 @@ export function updateWeapon(world, sim, dt, input, aiming, reduceMotion) {
   const hip = world.carbine.hipOffset;
   model.position.set(
     lerp(hipX + hip.x, -world.weaponSight.x, aim) + walk * .022 - pose.swayX * sway - reloadTilt * .075,
-    lerp(-.255 + hip.y, -world.weaponSight.y, aim) + idle + step * .011 + pose.swayY * sway
+    lerp(-.27 + hip.y, -world.weaponSight.y, aim) + idle + step * .011 + pose.swayY * sway
       + reloadTilt * .07 - pose.lowered * .42 - pose.recoil * .014 - pose.swap * .34,
-    lerp(-.60 + hip.z, -.61 + hip.z * .6, aim) + pose.recoil * .068 - reloadTilt * .13,
+    lerp(-.64 + hip.z, -.61 + hip.z * .6, aim) + pose.recoil * .068 - reloadTilt * .13,
   );
   model.rotation.set(
     lerp(.12, 0, aim) + pose.recoil * .065 + reloadTilt * .12 - seat * .047 - pose.lowered * .63 - pose.swayY - pose.swap * .7,
@@ -141,7 +142,10 @@ export function addShot(world, event, flashStrength, reduceMotion) {
     ? new THREE.Vector3(event.x, event.y, event.z)
     : new THREE.Vector3(0, 0, -36).applyQuaternion(world.camera.quaternion).add(world.camera.position);
   if (event.rocket) world.explosions.launch(start, end, event.travel, reduceMotion);
-  else if (!event.blast) world.addTracer(start, end, world.shotMaterial, event.weapon === 'sniper' ? .12 : .064);
+  else if (!event.blast) {
+    const [life, width, tail] = event.weapon === 'sniper' ? [.2, .06, 40] : event.pellet ? [.08, .022, 3.5] : [.09, .036, 9];
+    world.addTracer(start, end, world.shotMaterial, life, width, tail);
+  }
   if (!event.pellet) {
     world.shotLight.intensity = (event.weapon === 'sniper' || event.weapon === 'shotgun' ? 70 : 42) * flashStrength;
     world.shotLight.position.copy(start);
@@ -150,24 +154,16 @@ export function addShot(world, event, flashStrength, reduceMotion) {
   else if (!event.rocket && !event.blast) world.impacts?.shotMiss(start, end, event.weapon, reduceMotion, event.pellet);
 }
 
-export function addTracer(world, start, end, material, remaining) {
-  const shot = world.tracerPool.pop();
-  if (!shot) return;
-  const position = shot.line.geometry.attributes.position;
-  position.setXYZ(0, start.x, start.y, start.z);
-  position.setXYZ(1, end.x, end.y, end.z);
-  position.needsUpdate = true;
-  shot.line.material = material;
-  shot.line.visible = true;
-  shot.remaining = remaining;
-  world.shots.push(shot);
+// color is a hex colour; life in seconds; width and tail in metres.
+export function addTracer(world, start, end, color, life, width = .028, tail = 6) {
+  world.tracers.add(start, end, color, life, width, tail);
 }
 
 export function addTeammateShot(world, event, reduceMotion) {
   if (event.blast || !world.teammateView.fire(event.playerId, reduceMotion, world.teammateMuzzle)) return;
   const end = new THREE.Vector3(event.x, event.y, event.z);
   if (event.rocket) world.explosions.launch(world.teammateMuzzle, end, event.travel, reduceMotion);
-  else world.addTracer(world.teammateMuzzle, end, world.teammateShotMaterial, .074);
+  else world.addTracer(world.teammateMuzzle, end, world.teammateShotMaterial, .085, .026, 7);
   if (event.hit) world.burst(end.x, end.y, end.z, event.crit ? 0xffc875 : 0xff765a, reduceMotion ? 4 : 8, 2.6);
   else if (!event.rocket) world.impacts?.shotMiss(world.teammateMuzzle, end, event.weapon, reduceMotion, event.pellet);
 }
@@ -178,6 +174,6 @@ export function addTurretShot(world, event, reduceMotion) {
   const dz = z - event.z;
   world.turretView.fire(reduceMotion, Math.atan2(dx, dz), Math.atan2(y - event.y, Math.hypot(dx, dz)));
   const start = world.turretView.muzzle.getWorldPosition(world.turretMuzzle);
-  world.addTracer(start, new THREE.Vector3(x, y, z), world.turretShotMaterial, .081);
+  world.addTracer(start, new THREE.Vector3(x, y, z), world.turretShotMaterial, .09, .03, 6);
   world.burst(x, y, z, 0xf49b62, reduceMotion ? 3 : 11, 2.2);
 }

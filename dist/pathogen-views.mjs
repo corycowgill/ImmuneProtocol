@@ -4,7 +4,7 @@
 import * as THREE from './vendor/three.module.js';
 import { createGuardCarapace } from './organ-world.mjs';
 import { OBJECTIVE } from './simulation.mjs';
-import { animatePathogen, pathogenMotion } from './enemy-models.mjs';
+import { addPathogenRim, animatePathogen, pathogenMotion } from './enemy-models.mjs';
 import { BOSS_FLOATS } from './level-bosses.mjs';
 import { membraneMaps } from './arena-textures.mjs';
 import { TAU, UP, floorHeight, groundLevel, baseFloorHeight, addMesh } from './arena-scene.mjs';
@@ -160,7 +160,10 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       const model = world.enemyTemplate(enemy.type).clone();
       const membrane = model.getObjectByName('attack-membrane');
       const clonedMembrane = membrane ? membrane.material.clone() : null;
-      if (clonedMembrane) membrane.material = clonedMembrane;
+      if (clonedMembrane) {
+        clonedMembrane.userData.pathogenRim = false;
+        membrane.material = addPathogenRim(clonedMembrane);
+      }
       world.scene.add(model);
       const shadow = new THREE.Mesh(world.shadowGeometry, world.shadowMaterial);
       shadow.rotation.x = -Math.PI / 2;
@@ -420,7 +423,10 @@ export function updateProjectiles(world, projectiles, reduceMotion) {
       view = {
         model: addMesh(world.scene, world.sporeDroplet, world.sporeDropletMaterial),
         trail: addMesh(world.scene, world.sporeTrail, world.sporeTrailMaterial),
+        // A hot halo so the spit reads as a glowing threat, not a matte ball.
+        halo: new THREE.Sprite(world.sporeHaloMaterial),
       };
+      world.scene.add(view.halo);
       world.projectileViews.set(projectile.id, view);
     }
     view.present = true;
@@ -429,6 +435,8 @@ export function updateProjectiles(world, projectiles, reduceMotion) {
     view.model.position.set(projectile.x, projectile.y, projectile.z);
     view.model.scale.set(radius * .88, radius * .88, radius * 1.35);
     if (direction.lengthSq() > 0) view.model.quaternion.setFromUnitVectors(FORWARD, direction);
+    view.halo.position.copy(view.model.position);
+    view.halo.scale.setScalar(radius * (5 + (reduceMotion ? 0 : Math.sin(world.clock * 31 + projectile.id) * .6)));
     view.trail.visible = world.quality !== 'low' && !reduceMotion;
     if (view.trail.visible) {
       view.trail.position.copy(view.model.position).addScaledVector(direction, -radius * 1.48);
@@ -438,7 +446,7 @@ export function updateProjectiles(world, projectiles, reduceMotion) {
   }
   for (const [id, view] of world.projectileViews) {
     if (view.present) continue;
-    world.scene.remove(view.model, view.trail);
+    world.scene.remove(view.model, view.trail, view.halo);
     world.projectileViews.delete(id);
   }
 }

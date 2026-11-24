@@ -148,7 +148,14 @@ export function applyEvents() {
       session.hitTimer = 0.19;
       hitMarker.classList.toggle('critical', Boolean(event.crit));
     }
-    if (event.type === 'damage' && event.target === 'player') session.damageTimer = 0.46;
+    if (event.type === 'kill' && event.source === 'player' && (event.playerId == null || event.playerId === session.sim.player.id)) {
+      session.killTimer = 0.34;
+    }
+    if (event.type === 'damage' && event.target === 'player' && (event.playerId == null || event.playerId === session.sim.player.id)) {
+      session.damageTimer = 0.46;
+      // Where the hit came from, for the directional indicator; it fades over a second.
+      if (Number.isFinite(event.x) && Number.isFinite(event.z)) session.damageFrom = { x: event.x, z: event.z, remaining: 1.1 };
+    }
     if (event.type === 'damage' && event.target === 'tissue') {
       if (event.nodeId) nodeHitUntil.set(event.nodeId, session.sim.clock + .9);
       if (session.restoredNode?.id === event.nodeId) session.restoredNode = null;

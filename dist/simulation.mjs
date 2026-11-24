@@ -1569,6 +1569,7 @@ export class Simulation {
     this.creditPlayer(suit, score + (critical ? 35 : 0), true);
     this.events.push({
       type: 'kill', id: target.id, enemyType: target.type, source, x: target.x, y: target.y, z: target.z,
+      ...(suit?.id != null ? { playerId: suit.id } : {}),
       ...(target.boss ? { boss: target.boss } : target.segmentOf ? { segment: true } : target.nest ? { nest: true } : {}),
     });
     if (target.boss) {

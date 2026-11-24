@@ -27,9 +27,12 @@ export const session = {
   armoryScreen: null,
   // HUD feedback set by field events and read each frame: the hit marker and damage flash
   // timers, the node just restored to full, the centre announcement's remaining time, and when
-  // the Shellback hint may show again.
+  // the Shellback hint may show again. A kill confirmation and the direction of the last hit on
+  // the suit (in world x/z) are kept alongside them.
   hitTimer: 0,
+  killTimer: 0,
   damageTimer: 0,
+  damageFrom: null,
   restoredNode: null,
   announcementTimer: 0,
   guardHintUntil: 0,

@@ -555,6 +555,10 @@ export function drawHud() {
   setText(equipmentLabel, session.sim.repairing ? 'TISSUE SEALER' : session.sim.switching > 0 ? 'DRAWING ' + weaponName(session.sim) : weaponName(session.sim));
   ammoValue.hidden = reserveValue.hidden = session.sim.repairing;
   setText(ammoValue, pad(player.ammo));
+  // The canvas HUD draws one tick per round in the magazine.
+  const magazineSize = String(session.sim.magazineSize ?? '');
+  if (ammoValue.dataset.size !== magazineSize) ammoValue.dataset.size = magazineSize;
+  if (ammoValue.dataset.count !== String(player.ammo)) ammoValue.dataset.count = String(player.ammo);
   let ammoStatus = 'ready';
   let ammoMessage = '';
   if (!session.sim.repairing) {
@@ -919,6 +923,14 @@ export function drawBranches() {
 export function drawCombatFeedback(aiming) {
   reticle.classList.toggle('aim', aiming);
   drawWeaponHud(session.sim, aiming, session.world.weaponPose.aim > .86);
-  hitMarker.style.opacity = String(clamp(session.hitTimer * 7, 0, 1));
+  hitMarker.style.opacity = String(clamp(Math.max(session.hitTimer * 7, session.killTimer * 4), 0, 1));
+  hitMarker.dataset.kill = session.killTimer > 0 ? String(clamp(session.killTimer / .34, 0, 1)) : '';
+  // Bearing of the last hit on the suit relative to where it faces: 0 ahead, positive to the right.
+  const from = session.damageFrom, player = session.sim.player;
+  if (from) {
+    const dx = from.x - player.x, dz = from.z - player.z, s = Math.sin(player.yaw), c = Math.cos(player.yaw);
+    damageFlash.dataset.bearing = String(Math.atan2(dx * c - dz * s, -dx * s - dz * c));
+    damageFlash.dataset.strength = String(clamp(from.remaining / 1.1, 0, 1));
+  } else damageFlash.dataset.bearing = damageFlash.dataset.strength = '';
   damageFlash.style.opacity = String(session.damageTimer * (session.reduceMotion ? 0.42 : 1.6) * (session.options?.['damage-flash'] ?? 1));
 }

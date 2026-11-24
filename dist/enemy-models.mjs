@@ -38,6 +38,31 @@ export const ENEMY_MODELS = Object.freeze({
   'boss-screamer': { size: 1, glow: 0x1c2e4a },
 });
 
+// A fresnel rim light shared by every pathogen material, so silhouettes separate from tissue of
+// the same hue. world.mjs sets the colour and strength per arena (setPathogenRim).
+const RIM = { pathogenRim: { value: new THREE.Color(0x9fd8ff) }, pathogenRimStrength: { value: .9 } };
+export function setPathogenRim(color, strength) {
+  RIM.pathogenRim.value.setHex(color);
+  RIM.pathogenRimStrength.value = strength;
+}
+export function addPathogenRim(material) {
+  if (!material || material.userData.pathogenRim || !('emissive' in material)) return material;
+  material.userData.pathogenRim = true;
+  const previous = material.onBeforeCompile;
+  material.onBeforeCompile = (shader, renderer) => {
+    previous?.call(material, shader, renderer);
+    Object.assign(shader.uniforms, RIM);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', 'uniform vec3 pathogenRim;\nuniform float pathogenRimStrength;\nvoid main() {')
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        float rimFacing = 1. - saturate(dot(normalize(normal), normalize(vViewPosition)));
+        totalEmissiveRadiance += pathogenRim * pathogenRimStrength * rimFacing * rimFacing * rimFacing;`);
+  };
+  const key = material.customProgramCacheKey?.bind(material);
+  material.customProgramCacheKey = () => (key ? key() : '') + '|pathogen-rim';
+  return material;
+}
+
 // glTF clips keyed by the shared morph geometry, so every clone of a template finds its clip.
 const clips = new WeakMap();
 const loads = new Map();
@@ -60,6 +85,7 @@ function prepare(type, gltf) {
     if (track.name.startsWith(meshName + '.')) track.name = 'attack-membrane' + track.name.slice(meshName.length);
   }
   if (clip && mesh.morphTargetDictionary) clips.set(mesh.geometry, clip);
+  gltf.scene.traverse(part => { if (part.isMesh) [part.material].flat().forEach(addPathogenRim); });
   const root = new THREE.Group();
   root.name = type + ' pathogen';
   gltf.scene.scale.setScalar(size);

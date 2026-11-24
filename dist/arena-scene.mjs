@@ -385,7 +385,8 @@ export function makeRoom(scene, tile, normal, glow, random) {
     return material;
   };
 
-  const floor = addMesh(scene, floorGeometry(), skin({ vertexColors: true, roughness: .46 }));
+  // A rougher coat on the floor breaks the bulb's reflection into wet sheen instead of a white pool.
+  const floor = addMesh(scene, floorGeometry(), skin({ vertexColors: true, roughness: .56, clearcoatRoughness: .52 }));
   const wall = addMesh(scene, wallGeometry(), skin({ vertexColors: true, side: THREE.DoubleSide, roughness: .56 }));
 
   const roof = new THREE.PlaneGeometry(CHAMBER_WIDTH * 2, CHAMBER_DEPTH * 2, 54, 76);
@@ -403,7 +404,7 @@ export function makeRoom(scene, tile, normal, glow, random) {
   const canopy = addMesh(scene, roof, skin({ color: 0x9e6768, side: THREE.DoubleSide, roughness: .66 }));
 
   const lobeMaterial = skin({ color: 0xeca5a3, roughness: .41, clearcoat: .55 });
-  const vesselMaterial = skin({ color: 0xdb7f82, roughness: .36, clearcoat: .78 });
+  const vesselMaterial = skin({ color: 0xdb7f82, roughness: .4, clearcoat: .78, clearcoatRoughness: .45 });
   const tinyVesselMaterial = skin({ color: 0xdf9193, roughness: .32, clearcoat: .68 });
   const lobe = texturedLobe(1, 32, 20, .24);
   const transform = new THREE.Object3D();
@@ -486,7 +487,7 @@ export function makeRoom(scene, tile, normal, glow, random) {
     cilia.setColorAt(i, new THREE.Color().setRGB(.57 + random() * .42, .46 + random() * .38, .41 + random() * .38));
   }
 
-  const bulb = new THREE.PointLight(0xffb07c, 310, 34, 2);
+  const bulb = new THREE.PointLight(0xffb07c, 200, 34, 2);
   bulb.position.set(3.5, 3.8, -30.5);
   arteryDetails.add(bulb);
   const backGlow = sprite(glow, 0xffae65, 18, .75);

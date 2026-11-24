@@ -189,7 +189,8 @@ function bloodstream(root, random, place, time) {
   }
   instanced(root, disc, cell, cells, { name: 'red-cell-drifts' });
   // Platelets: small pale discs scattered over the floor.
-  const platelet = bioMaterial('leukocyte', [1, 1], { color: 0xf0c890, roughness: .35, clearcoat: .6, emissive: 0x402008, emissiveIntensity: .25 });
+  // Platelets sit wet and amber in the blood rather than reading as pale gravel.
+  const platelet = bioMaterial('leukocyte', [1, 1], { color: 0xb8805e, roughness: .42, clearcoat: .7, emissive: 0x401408, emissiveIntensity: .2 });
   const platelets = [];
   for (let i = 0; i < 420; i++) {
     const spot = place.inside(-1);

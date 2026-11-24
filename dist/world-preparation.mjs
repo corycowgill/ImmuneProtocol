@@ -79,11 +79,11 @@ export async function prepareScenes(world, areas, onProgress) {
   world.renderer.setSize(160, 90, false);
   world.renderer.initTexture(world.scene.environment);
   try {
-    for (const shot of world.tracerPool) shot.line.visible = true;
+    for (const mesh of world.tracers.meshes) mesh.visible = true;
     world.syncLights();
     await compileFor(world, world.scene, world.camera, 'scene');
     world.renderer.render(world.scene, world.camera);
-    for (const shot of world.tracerPool) shot.line.visible = false;
+    for (const mesh of world.tracers.meshes) mesh.visible = false;
     warmTextures(world.weaponScene);
     const armory = new Simulation('artery');
     armory.start();

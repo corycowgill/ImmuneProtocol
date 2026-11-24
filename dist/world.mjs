@@ -21,7 +21,13 @@ import { createSquadView } from './squad-view.mjs';
 import { COOP_MAX_PLAYERS } from './coop-protocol.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 import { Simulation, arenaObstacles, JUNCTION_GASH_SITES, JUNCTION_INLETS, OBJECTIVE, SPECIES, TISSUE_NODES } from './simulation.mjs';
-import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion } from './enemy-models.mjs';
+import { ENEMY_MODELS, animatePathogen, loadEnemyModels, pathogenMotion, setPathogenRim } from './enemy-models.mjs';
+
+// The pathogen rim light per arena: a colour that contrasts with the arena's dominant hue.
+const PATHOGEN_RIMS = {
+  artery: [0xb8d8f0, .42], junction: [0xb8d8f0, .4], heart: [0xb8d4f0, .4], lungs: [0xfff0e0, .25], stomach: [0xb0e0f0, .35],
+  intestines: [0xb8e0f0, .38], colon: [0xc0e0f0, .35], lymph: [0xffe0b8, .3], ear: [0xffdcc0, .3], brain: [0xd8f8c0, .32],
+};
 import { RenderScale } from './render-scale.mjs';
 import { LOW_MEMORY, loadTexture } from './asset-loading.mjs';
 import { ARENA_GROWTH } from './arena-scale.mjs';
@@ -32,6 +38,7 @@ import { randomSource, configureTile, glowTexture, cloudTexture, fallbackTissue,
 import { TAU, UP, floorHeight, baseFloorHeight, setTerrainArea, shapeFloor, texturedLobe, redCellGeometry, sprite, setInstance, addMesh, makeRoom, makeAtmosphere, makeTissue, makeJunctionField, biologicalMaterial } from './arena-scene.mjs';
 import { prepareAll as prepareAllOf, prepareScenes as prepareScenesOf, capturePreview as capturePreviewOf, prepareArea as prepareAreaOf, prepareMission as prepareMissionOf } from './world-preparation.mjs';
 import { enemyTemplate as enemyTemplateOf, dressGuardModel as dressGuardModelOf, updateEnemies as updateEnemiesOf, releaseEnemyView as releaseEnemyViewOf, poseEnemyAttack as poseEnemyAttackOf, updateTethers as updateTethersOf, updateProjectiles as updateProjectilesOf } from './pathogen-views.mjs';
+import { TracerPool } from './shot-fx.mjs';
 import { updateWeapon as updateWeaponOf, updateRepairTool as updateRepairToolOf, addShot as addShotOf, addTracer as addTracerOf, addTeammateShot as addTeammateShotOf, addTurretShot as addTurretShotOf } from './weapon-view.mjs';
 
 // Every lit pixel walks all of the arena's point lights, and most of them are out of range of
@@ -59,7 +66,7 @@ export class World {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !LOW_MEMORY, powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.18;
+    this.renderer.toneMappingExposure = 1.14;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.scene = new THREE.Scene();
@@ -84,7 +91,6 @@ export class World {
     this.teammateMuzzle = new THREE.Vector3();
     this.scene.add(this.teammateView.root);
     this.particles = [];
-    this.shots = [];
     this.lastEvents = null;
 
     const ambient = new THREE.HemisphereLight(0xf6d4ba, 0x5c3c4e, .93);
@@ -125,7 +131,8 @@ export class World {
         part.receiveShadow = true;
       }
     });
-    this.weaponScene.add(new THREE.HemisphereLight(0xf9ded4, 0x66313b, 1.16));
+    this.weaponAmbient = new THREE.HemisphereLight(0xf9ded4, 0x66313b, 1.16);
+    this.weaponScene.add(this.weaponAmbient);
     this.weaponKey = new THREE.DirectionalLight(0xffcfb4, 1.72);
     this.weaponKey.castShadow = true;
     this.weaponKey.target.position.set(.13, -.2, -.82);
@@ -135,7 +142,7 @@ export class World {
     this.weaponKey.shadow.normalBias = .003;
     this.weaponRim = new THREE.DirectionalLight(0xaed5db, 1.04);
     this.weaponRim.position.set(.7, .8, -.6);
-    const weaponBounce = new THREE.DirectionalLight(0xffd8c7, 1.24);
+    const weaponBounce = this.weaponBounce = new THREE.DirectionalLight(0xffd8c7, 1.24);
     weaponBounce.position.set(-.95, .28, .8);
     this.weaponFlash = new THREE.PointLight(0xffc776, 0, 2.3, 2);
     this.weaponScene.add(this.weaponKey, this.weaponKey.target, this.weaponRim, weaponBounce, this.weaponFlash);
@@ -203,13 +210,19 @@ export class World {
     this.sporeDroplet = texturedLobe(1, 18, 12, .11);
     this.sporeTrail = new THREE.SphereGeometry(1, 9, 6);
     this.sporeDropletMaterial = biologicalMaterial(0xca659e, normal, {
-      emissive: 0xb32687, emissiveIntensity: .84, clearcoat: .96,
+      emissive: 0xd8329e, emissiveIntensity: 2.2, clearcoat: .96,
       roughness: .36, clearcoatRoughness: .16,
     });
     this.sporeTrailMaterial = new THREE.MeshBasicMaterial({
       color: 0xe280bd, transparent: true, opacity: .25,
       depthWrite: false,
     });
+    this.sporeHaloMaterial = new THREE.SpriteMaterial({
+      map: this.glow, color: new THREE.Color(0xff5fbf).multiplyScalar(2.2), transparent: true, opacity: .85,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    this.sporeTrailMaterial.color.multiplyScalar(1.8);
+    this.sporeTrailMaterial.blending = THREE.AdditiveBlending;
     this.projectileDirection = new THREE.Vector3();
     this.makeHeart = () => {
       const maps = membraneMaps(26701, [238, 181, 170]);
@@ -243,34 +256,29 @@ export class World {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(this.particlePositions, 3).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute('color', new THREE.BufferAttribute(this.particleColors, 3).setUsage(THREE.DynamicDrawUsage));
+    // Each droplet has its own size, shrinking as it fades (see updateParticles).
+    this.particleSizes = new Float32Array(MAX_PARTICLES);
+    geometry.setAttribute('pSize', new THREE.BufferAttribute(this.particleSizes, 1).setUsage(THREE.DynamicDrawUsage));
     geometry.setDrawRange(0, 0);
-    this.particleCloud = new THREE.Points(geometry, new THREE.PointsMaterial({
-      map: this.glow, vertexColors: true, size: .135, opacity: .95,
+    const particleMaterial = new THREE.PointsMaterial({
+      map: this.glow, vertexColors: true, size: .16, opacity: .95,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    }));
+    });
+    particleMaterial.onBeforeCompile = shader => {
+      shader.vertexShader = shader.vertexShader
+        .replace('void main() {', 'attribute float pSize;\nvoid main() {')
+        .replace('gl_PointSize = size;', 'gl_PointSize = size * pSize;');
+    };
+    particleMaterial.customProgramCacheKey = () => 'sized-particles';
+    this.particleCloud = new THREE.Points(geometry, particleMaterial);
     this.particleCloud.frustumCulled = false;
     this.scene.add(this.particleCloud);
 
-    this.shotMaterial = new THREE.LineBasicMaterial({
-      color: 0xbcffb2,
-      transparent: true,
-      opacity: .76,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    this.tracerPool = Array.from({ length: 96 }, () => {
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3).setUsage(THREE.DynamicDrawUsage));
-      const line = new THREE.Line(geometry, this.shotMaterial);
-      line.frustumCulled = false;
-      line.visible = false;
-      this.scene.add(line);
-      return { line, remaining: 0 };
-    });
-    this.teammateShotMaterial = this.shotMaterial.clone();
-    this.teammateShotMaterial.color.setHex(0xbcefff);
-    this.turretShotMaterial = this.shotMaterial.clone();
-    this.turretShotMaterial.color.setHex(0xffbd78);
+    // Tracer streaks for the suit's own fire, a teammate's and the turret's (shot-fx.mjs).
+    this.tracers = new TracerPool(this.scene, 96);
+    this.shotMaterial = 0xd6ffc4;
+    this.teammateShotMaterial = 0xbcefff;
+    this.turretShotMaterial = 0xffc27e;
     this.width = this.height = 0;
     this.renderScale = new RenderScale();
     this.lastRender = 0;
@@ -390,14 +398,16 @@ export class World {
     this.scene.add(this.terrainView);
     canopy.scale.y = heart ? .54 : junction ? .63 : profile ? .85 : 1;
     this.scene.background.setHex(profile?.background ?? (heart ? 0x26181f : junction ? 0x1d1115 : 0x230f11));
-    this.scene.fog.color.setHex(profile?.fog ?? (heart ? 0x3c2228 : junction ? 0x332528 : 0x462524));
+    this.scene.fog.color.setHex(profile?.fog ?? (heart ? 0x3c2228 : junction ? 0x332528 : 0x3a2228));
     // Larger arenas need thinner haze so the far side of the chamber still reads.
     this.scene.fog.density = (profile?.density ?? (heart ? .024 : junction ? .029 : .030)) * .64;
 
     const { ambient, backlight, fill, warm, side } = this.areaLights;
     ambient.color.setHex(profile?.back ?? 0xf6d4ba);
-    ambient.groundColor.setHex(profile?.low ?? 0x5c3c4e);
-    fill.color.setHex(profile?.key ?? 0xb3c9e3);
+    ambient.groundColor.setHex(profile?.low ?? 0x6e4a5c);
+    // The bloodstream arenas get a strong cool fill so shadows separate from the red key light.
+    fill.color.setHex(profile?.key ?? 0x8fb8e8);
+    fill.intensity = profile ? .77 : 1.05;
     backlight.color.setHex(profile?.back ?? (heart ? 0xeab5b9 : junction ? 0xd2a79e : 0xffbd9e));
     backlight.intensity = heart ? .89 : junction ? 1.13 : 1.4;
     warm.color.setHex(profile?.accent ?? 0xff8969);
@@ -410,15 +420,19 @@ export class World {
     clouds.forEach(({ cloud }, index) => cloud.material.color.setHex(profile?.atmosphere ?? (index > 4 ? 0xb77266 : 0xfac597)));
     this.deaths?.clear();
     this.post?.setArea(this.area);
+    setPathogenRim(...(PATHOGEN_RIMS[this.area] ?? PATHOGEN_RIMS.artery));
+    // The weapon picks up the arena: sky from its mist, ground and bounce from its fog and floor,
+    // so the gun sits in the world instead of in a neutral studio.
+    const mist = new THREE.Color().setRGB(...(this.post?.look.mist ?? [.62, .3, .28]));
+    this.weaponAmbient.color.setHex(0xf9ded4).lerp(mist, .4);
+    this.weaponAmbient.groundColor.copy(this.scene.fog.color).multiplyScalar(1.6);
+    this.weaponBounce.color.copy(this.scene.fog.color).lerp(new THREE.Color(0xffd8c7), .45);
+    this.weaponBounce.intensity = 1.5;
     this.obstacles = arenaObstacles(this.area);
     this.impacts?.setArea(this.area);
     this.updateEnemies([], 0);
     this.updateProjectiles([], false);
-    for (const shot of this.shots) {
-      shot.line.visible = false;
-      this.tracerPool.push(shot);
-    }
-    this.shots.length = 0;
+    this.tracers.clear();
     this.particles.length = 0;
     this.shotLight.intensity = 0;
     this.lastEvents = null;
@@ -503,7 +517,7 @@ export class World {
   // Player options from the settings menu (game-settings.mjs).
   applyOptions(options) {
     if (!options) return;
-    this.renderer.toneMappingExposure = 1.18 * options.brightness;
+    this.renderer.toneMappingExposure = 1.14 * options.brightness;
     this.fieldOfView = options['field-of-view'];
     const fixed = options['resolution-scale'] === 'auto' ? null : Number(options['resolution-scale']);
     if (fixed !== this.fixedScale) {
@@ -750,6 +764,8 @@ export class World {
         vy: (.25 + this.random() * .66) * speed,
         vz: Math.sin(angle) * speed,
         r: this.palette.r, g: this.palette.g, b: this.palette.b, life, remaining: life,
+        // A few large soft droplets among many fine ones; all start bright enough to bloom.
+        size: this.random() < .18 ? 1.5 + this.random() * .9 : .45 + this.random() * .7,
       });
     }
   }
@@ -763,20 +779,26 @@ export class World {
       particle.y += particle.vy * dt;
       particle.z += particle.vz * dt;
       particle.vy -= 2.4 * dt;
+      // Fluid drag: the spray bursts out fast and hangs before it falls.
+      const drag = Math.exp(-dt * 3.2);
+      particle.vx *= drag; particle.vz *= drag;
       const index = count * 3;
       const fade = particle.remaining / particle.life;
+      this.particleSizes[count] = particle.size * (.35 + .65 * fade);
       this.particlePositions[index] = particle.x;
       this.particlePositions[index + 1] = particle.y;
       this.particlePositions[index + 2] = particle.z;
-      this.particleColors[index] = particle.r * fade;
-      this.particleColors[index + 1] = particle.g * fade;
-      this.particleColors[index + 2] = particle.b * fade;
+      const glow = fade * (1 + fade * .9);
+      this.particleColors[index] = particle.r * glow;
+      this.particleColors[index + 1] = particle.g * glow;
+      this.particleColors[index + 2] = particle.b * glow;
       this.particles[count++] = particle;
     }
     this.particles.length = count;
     const geometry = this.particleCloud.geometry;
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.color.needsUpdate = true;
+    geometry.attributes.pSize.needsUpdate = true;
     geometry.setDrawRange(0, count);
   }
 
@@ -880,17 +902,7 @@ export class World {
         }
       }
     }
-    let count = 0;
-    for (const shot of this.shots) {
-      shot.remaining -= dt;
-      if (shot.remaining <= 0) {
-        shot.line.visible = false;
-        this.tracerPool.push(shot);
-      } else {
-        this.shots[count++] = shot;
-      }
-    }
-    this.shots.length = count;
+    this.tracers.update(dt, this.camera);
     this.shotLight.intensity *= Math.exp(-dt * 28);
   }
 

@@ -35,6 +35,8 @@ export function buildUiScreen(model, size, safe, state, measure) {
   if (model.type === 'intro') {
     ui.add({ kind: 'image', src: model.src }, full);
     const skipWidth = model.skipLabel ? 172 : 144;
+    // A dark pill keeps the prompt readable over bright video frames.
+    ui.add({ kind: 'panel', color: '#05080acc', border: '#ffffff2e' }, { x: w - right - skipWidth - 4, y: h - bottom - 50, w: skipWidth + 8, h: 52 });
     ui.add(button(model.skip ?? 'intro:skip', model.skipLabel ?? 'Skip intro', { variant: 'ghost', icon: 'arrow' }), { x: w - right - skipWidth, y: h - bottom - 48, w: skipWidth, h: 48 });
   } else if (model.type === 'loading') {
     const compact = h < 500, width = Math.min(650, area.w), y = top + (compact ? 10 : h * .14);
@@ -44,7 +46,7 @@ export function buildUiScreen(model, size, safe, state, measure) {
     ui.add(title, { x, y: y + 44, w: width, h: titleH });
     ui.add(text(model.detail, compact ? 14 : 16, T.muted), { x, y: y + 56 + titleH, w: width, h: 64 });
     const py = Math.max(y + titleH + 126, h - bottom - (model.failed ? 139 : 110));
-    ui.flow([text(model.status, 13, T.muted), { kind: 'meter', text: model.failed ? 'PREPARATION INTERRUPTED' : 'PREPARING INSERTION', value: model.progress, detail: model.progress + '%', color: model.failed ? T.hot : T.green }, ...(model.failed ? [button('loading:retry', 'Retry loading', { primary: true, icon: 'reset' })] : [text(model.quote, 12, T.muted)])], { x, y: py, w: width, h: h - py - bottom }, full);
+    ui.flow([text(model.status, 13, T.muted), { kind: 'meter', text: model.failed ? 'PREPARATION INTERRUPTED' : 'PREPARING INSERTION', value: model.progress, detail: model.progress + '%', color: model.failed ? T.hot : T.green, thick: 5, glowHead: true }, ...(model.failed ? [button('loading:retry', 'Retry loading', { primary: true, icon: 'reset' })] : [text(model.quote, 12, T.muted)])], { x, y: py, w: width, h: h - py - bottom }, full);
   } else if (model.type === 'menu') buildMenu(ui, model, area, full, size);
   else if (model.type === 'combat') buildCombat(ui, model, area, full, size, state, measure);
   else if (['new-campaign-dialog', 'ui-recovery'].includes(model.id)) buildConfirmation(ui, model, area, full, size);
@@ -201,6 +203,11 @@ function buildCombat(ui, model, area, full, size, state, measure) {
   const { w, h } = size, d = model.hud, compact = compactHud(w, h, model.touch), portrait = h > w;
   const x = area.x, top = area.y, right = w - area.x - area.w, bottom = h - area.y - area.h;
   ui.add({ kind: 'look', id: 'game:look', action: 'game:look', focusable: false }, full);
+  // Screen-edge feedback sits under every panel: the hit vignette, the bearing of the last hit and
+  // the low-integrity pulse.
+  if (d.damage > 0 || d.damageStrength > 0 || (Number.isFinite(d.health) && d.health <= 30)) {
+    ui.add({ kind: 'vitals', damage: d.damage, bearing: d.damageBearing, strength: d.damageStrength, health: d.health }, full);
+  }
   if (d.scope) ui.add({ kind: 'scope' }, full);
   for (const path of d.paths) ui.add({ kind: 'path', ...path }, full);
   for (const marker of d.markers) {
@@ -208,66 +215,78 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     const font = compact ? 10 : 11, height = marker.quiet ? 14 : lines(marker.text, width - 8, measure, font).length * font * 1.3 + 8;
     const reservedTop = compact ? top + (portrait ? (d.special ? 235 : 165) : d.special ? 112 : 83) : top + 120;
     const markerY = Math.max(reservedTop, Math.min(h - bottom - 170 - height, marker.y - (marker.edge ? height / 2 : height)));
-    ui.add({ kind: 'label', text: marker.quiet ? '◇' : marker.text, color: marker.color, size: font, box: marker.edge || marker.attacker }, { x: Math.max(2, Math.min(w - width - 2, marker.x - width / 2)), y: markerY, w: width, h: height });
+    const rect = { x: Math.max(2, Math.min(w - width - 2, marker.x - width / 2)), y: markerY, w: width, h: height };
+    if (marker.attacker) ui.add({ kind: 'label', text: marker.text, color: marker.color, size: font, box: true }, rect);
+    else ui.add({ kind: 'marker', text: marker.quiet ? '' : marker.text, color: marker.color, size: font, edge: marker.edge, angle: marker.angle, quiet: marker.quiet }, rect);
   }
   const nodeWidth = compact ? (portrait ? area.w : Math.min(238, w / 2 - (d.special ? Math.min(250, w * .34) : 150) / 2 - x - 12)) : 252;
   const nodeTop = compact && portrait ? top + (d.special ? 111 : 48) : top;
   const nodeHeight = compact ? 32 : 34 + d.nodes.length * 33;
-  ui.add({ kind: 'panel', color: '#141411ad' }, { x, y: nodeTop, w: nodeWidth, h: nodeHeight });
-  if (!compact) ui.add(text('TISSUE NODES', 12, '#e5d9c6'), { x: x + 12, y: nodeTop + 9, w: nodeWidth - 24, h: 18 });
+  ui.add({ kind: 'panel', hud: true, accent: '#8fe4dd' }, { x, y: nodeTop, w: nodeWidth, h: nodeHeight });
+  if (!compact) ui.add({ ...text('TISSUE NODES', 10, '#9fb5b0'), weight: 700, tracking: 1.6 }, { x: x + 14, y: nodeTop + 10, w: nodeWidth - 24, h: 18 });
   d.nodes.forEach((node, i) => {
     const cw = (nodeWidth - 16 - (d.nodes.length - 1) * 9) / d.nodes.length;
-    ui.add({ kind: 'meter', text: node.name, value: node.value, size: compact ? 9 : 11, color: node.danger ? '#ff977d' : ['#c8f794', '#8fe4dd', '#dbafef'][i] }, compact ? { x: x + 8 + i * (cw + 9), y: nodeTop + 5, w: cw, h: 25 } : { x: x + 12, y: nodeTop + 33 + i * 33, w: nodeWidth - 24, h: 29 });
+    ui.add({ kind: 'meter', text: node.name, value: node.value, size: compact ? 9 : 11, segments: compact ? 0 : 20, thick: compact ? 3 : 4, color: node.danger ? '#ff977d' : ['#c8f794', '#8fe4dd', '#dbafef'][i] }, compact ? { x: x + 8 + i * (cw + 9), y: nodeTop + 5, w: cw, h: 25 } : { x: x + 12, y: nodeTop + 33 + i * 33, w: nodeWidth - 24, h: 29 });
   });
   const waveW = d.special ? (compact ? Math.min(250, portrait ? area.w - 110 : w * .34) : Math.min(340, w * .34)) : compact ? 150 : 190;
   const waveX = portrait && compact ? x : (w - waveW) / 2;
   if (d.special) {
     const panel = d.special;
-    ui.add({ kind: 'panel' }, { x: waveX, y: top, w: waveW, h: compact ? 100 : 145 });
+    ui.add({ kind: 'panel', hud: true, accent: '#e7aac2' }, { x: waveX, y: top, w: waveW, h: compact ? 100 : 145 });
     ui.add(heading(panel.title, compact ? 18 : 27), { x: waveX + 8, y: top + 6, w: waveW - 16, h: 28 });
     ui.add(text(panel.detail, compact ? 10 : 12, '#e6c9de'), { x: waveX + 8, y: top + (compact ? 32 : 44), w: waveW - 16, h: 58 });
-    if (panel.health != null) ui.add({ kind: 'meter', text: panel.phase ?? '', value: panel.health, size: 9, color: '#e7aac2' }, { x: waveX + 8, y: top + (compact ? 65 : 104), w: waveW - 16, h: 29 });
+    if (panel.health != null) ui.add({ kind: 'meter', text: panel.phase ?? '', value: panel.health, size: 9, segments: 30, thick: 6, color: '#ff8fae' }, { x: waveX + 8, y: top + (compact ? 65 : 104), w: waveW - 16, h: 29 });
   } else {
-    ui.add({ kind: 'panel', color: '#14141170' }, { x: waveX, y: top, w: waveW, h: compact ? 45 : 93 });
-    if (!compact) ui.add(text(d.mode, 10), { x: waveX, y: top + 3, w: waveW, h: 18 });
+    ui.add({ kind: 'panel', hud: true, accent: '#ffc888' }, { x: waveX, y: top, w: waveW, h: compact ? 45 : 93 });
+    if (!compact) ui.add({ ...text(d.mode, 10, '#c9b9a4'), align: 'center', weight: 700, tracking: 1.4 }, { x: waveX, y: top + 7, w: waveW, h: 18 });
     ui.add({ ...heading(d.wave, compact ? 24 : 42), align: 'center' }, { x: waveX, y: top + (compact ? 0 : 20), w: waveW, h: 43 });
-    ui.add({ ...text(d.threats, compact ? 9 : 10), align: 'center' }, { x: waveX, y: top + (compact ? 30 : 69), w: waveW, h: 16 });
+    ui.add({ ...text(d.threats, compact ? 9 : 10, '#ffc888'), align: 'center', weight: 600, tracking: .8 }, { x: waveX, y: top + (compact ? 30 : 69), w: waveW, h: 16 });
   }
   const act = model.actions;
-  ui.add({ ...act.mute, text: d.muted ? '♪ Off' : '♪' }, { x: w - right - 94, y: top, w: 44, h: 44 });
-  ui.add({ ...act.pause, text: 'Ⅱ' }, { x: w - right - 44, y: top, w: 44, h: 44 });
+  // Desktop controls stay out of the fight: while the mouse is captured, Escape pauses instead.
+  if (!d.locked || model.touch) {
+    ui.add({ ...act.mute, text: d.muted ? '♪ Off' : '♪' }, { x: w - right - 94, y: top, w: 44, h: 44 });
+    ui.add({ ...act.pause, text: 'Ⅱ' }, { x: w - right - 44, y: top, w: 44, h: 44 });
+  }
   const healthW = compact ? 104 : 180, healthH = compact ? 44 : 100;
-  ui.add({ kind: 'panel', color: '#141411b0' }, { x, y: h - bottom - healthH, w: healthW, h: healthH });
-  if (!compact) ui.add(text('SUIT INTEGRITY', 11), { x: x + 10, y: h - bottom - 90, w: healthW - 20, h: 18 });
-  ui.add({ ...heading(d.health + '%', compact ? 28 : 46), color: d.health <= 25 ? '#ff977d' : '#c8f794' }, { x: x + 8, y: h - bottom - (compact ? 40 : 68), w: healthW - 16, h: 40 });
-  ui.add({ kind: 'meter', value: d.health, color: d.health <= 25 ? '#ff977d' : '#c8f794', text: '', detail: '' }, { x: x + 8, y: h - bottom - 10, w: healthW - 16, h: 11 });
+  const healthColor = d.health <= 25 ? '#ff977d' : d.health <= 50 ? '#ffd27a' : '#c8f794';
+  ui.add({ kind: 'panel', hud: true, accent: healthColor }, { x, y: h - bottom - healthH, w: healthW, h: healthH });
+  if (!compact) ui.add({ ...text('SUIT INTEGRITY', 10, '#9fb5b0'), weight: 700, tracking: 1.6 }, { x: x + 12, y: h - bottom - 90, w: healthW - 20, h: 18 });
+  ui.add({ ...heading(d.health + '%', compact ? 28 : 46), color: healthColor }, { x: x + 10, y: h - bottom - (compact ? 40 : 68), w: healthW - 16, h: 40 });
+  ui.add({ kind: 'meter', value: d.health, color: healthColor, text: '', detail: '', segments: compact ? 10 : 20, thick: compact ? 3 : 5 }, { x: x + 10, y: h - bottom - (compact ? 10 : 13), w: healthW - 20, h: 11 });
   const ammoW = compact ? 114 : 210, ammoH = compact ? 56 : 112;
   const ammoX = compact && model.touch && !portrait ? w - right - 182 - ammoW : w - right - ammoW;
   const ammoY = h - bottom - ammoH - (compact && portrait && model.touch ? 110 : 0);
-  ui.add({ kind: 'panel', color: '#141411b0' }, { x: ammoX, y: ammoY, w: ammoW, h: ammoH });
-  ui.add(text(d.weapon, compact ? 9 : 12), { x: ammoX + 8, y: ammoY + 5, w: ammoW - 16, h: 18 });
-  ui.add({ ...heading(d.ammo, compact ? 28 : 46), align: 'right', color: d.ammoState ? '#ffc888' : '#c8f794' }, { x: ammoX + 8, y: ammoY + 18, w: ammoW - 16, h: 42 });
+  ui.add({ kind: 'panel', hud: true, accent: d.ammoState ? '#ffc888' : '#c8f794' }, { x: ammoX, y: ammoY, w: ammoW, h: ammoH });
+  ui.add({ ...text(d.weapon, compact ? 9 : 10, '#9fb5b0'), weight: 700, tracking: 1.4 }, { x: ammoX + 12, y: ammoY + 8, w: ammoW - 20, h: 18 });
+  ui.add({ ...heading(d.ammo, compact ? 28 : 46), align: 'right', color: d.ammoState ? '#ffc888' : '#eaf8d4' }, { x: ammoX + 8, y: ammoY + 18, w: ammoW - 18, h: 42 });
+  if (!compact && d.magazine?.size > 0) ui.add({ kind: 'rounds', ...d.magazine, color: d.ammoState ? '#ffc888' : '#c8f794' }, { x: ammoX + 12, y: ammoY + 64, w: ammoW - 24, h: 10 });
   if (d.ammoState) ui.add(text(d.ammoState, 9, '#ffc888'), { x: ammoX + 8, y: ammoY + ammoH - 12, w: ammoW - 16, h: 12 });
   if (d.reload > 0) ui.add({ kind: 'meter', value: d.reload, text: '', detail: '' }, { x: ammoX + 8, y: ammoY + ammoH - 7, w: ammoW - 16, h: 8 });
   if (!compact) {
-    ui.add({ ...text(d.score, 11), align: 'right' }, { x: w - right - 250, y: top + 54, w: 250, h: 20 });
+    ui.add({ ...text(d.score, 11, '#d7e6e1'), align: 'right', weight: 600, tracking: .6 }, { x: w - right - 250, y: top + 54, w: 250, h: 20 });
     ui.add({ ...text(d.turret, 10, '#8fe4dd'), align: 'right' }, { x: ammoX, y: ammoY + ammoH - 20, w: ammoW - 10, h: 16 });
-    ui.add(text(d.weaponStrip, 11), { x: ammoX + 8, y: ammoY - 26, w: ammoW - 16, h: 24 });
+    if (d.weaponSlots?.length) ui.add({ kind: 'slots', slots: d.weaponSlots }, { x: ammoX, y: ammoY - 30, w: ammoW, h: 24 });
   } else if (!model.touch) ui.add({ ...text(d.turret, 9, '#8fe4dd'), align: 'right' }, { x: ammoX, y: ammoY - 18, w: ammoW, h: 16 });
   if (d.abilities) {
     // Above the suit panel: grenades and stun charges as pips, dash and bash as charge bars.
     const a = d.abilities, [gKey, sKey, dKey, bKey] = a.keys ?? [];
-    const pw = compact ? 104 : 180, py = h - bottom - healthH - (compact ? 30 : 50);
-    ui.add({ kind: 'panel', color: '#141411a0' }, { x, y: py, w: pw, h: compact ? 26 : 44 });
-    const pips = (n, max) => '◆'.repeat(Math.max(0, n)) + '◇'.repeat(Math.max(0, max - n));
-    const label = (key, name) => (key && !compact ? key + ' ' : '') + name;
-    ui.add(text(label(gKey, 'GRN') + ' ' + pips(a.grenades, Math.max(2, a.grenades)), compact ? 8 : 10, a.grenades ? '#9dffd2' : '#7d8a80'), { x: x + 6, y: py + 3, w: pw / 2 - 6, h: 14 });
-    ui.add(text(label(sKey, 'STN') + ' ' + pips(a.stuns, Math.max(1, a.stuns)), compact ? 8 : 10, a.stuns ? '#a9e6ff' : '#7d8a80'), { x: x + pw / 2, y: py + 3, w: pw / 2 - 6, h: 14 });
-    if (!compact) {
-      ui.add(text(label(dKey, 'DASH'), 9, a.dash >= 1 ? '#e5f4cb' : '#8a9488'), { x: x + 6, y: py + 19, w: 60, h: 12 });
-      ui.add({ kind: 'meter', value: a.dash * 100, color: a.dash >= 1 ? '#c8f794' : '#6f8064', text: '', detail: '' }, { x: x + 6, y: py + 31, w: pw / 2 - 12, h: 8 });
-      ui.add(text(label(bKey, 'BASH'), 9, a.bash >= 1 ? '#e5f4cb' : '#8a9488'), { x: x + pw / 2, y: py + 19, w: 60, h: 12 });
-      ui.add({ kind: 'meter', value: a.bash * 100, color: a.bash >= 1 ? '#ffd27a' : '#806a4a', text: '', detail: '' }, { x: x + pw / 2, y: py + 31, w: pw / 2 - 6, h: 8 });
+    const pw = compact ? 104 : 180, py = h - bottom - healthH - (compact ? 30 : 56);
+    if (compact) {
+      ui.add({ kind: 'panel', hud: true, accent: '#9dffd2' }, { x, y: py, w: pw, h: 26 });
+      const pips = (n, max) => '◆'.repeat(Math.max(0, n)) + '◇'.repeat(Math.max(0, max - n));
+      ui.add(text('GRN ' + pips(a.grenades, Math.max(2, a.grenades)), 8, a.grenades ? '#9dffd2' : '#7d8a80'), { x: x + 6, y: py + 3, w: pw / 2 - 6, h: 14 });
+      ui.add(text('STN ' + pips(a.stuns, Math.max(1, a.stuns)), 8, a.stuns ? '#a9e6ff' : '#7d8a80'), { x: x + pw / 2, y: py + 3, w: pw / 2 - 6, h: 14 });
+    } else {
+      // Four tiles: grenade and stun show their charges as pips, dash and bash a recharge sweep.
+      const gap = 4, tw = (pw - gap * 3) / 4;
+      const tiles = [
+        { icon: 'grenade', key: gKey, count: a.grenades, max: Math.max(2, a.grenades), color: '#9dffd2' },
+        { icon: 'stun', key: sKey, count: a.stuns, max: Math.max(1, a.stuns), color: '#a9e6ff' },
+        { icon: 'dash', key: dKey, charge: a.dash, color: '#c8f794' },
+        { icon: 'bash', key: bKey, charge: a.bash, color: '#ffd27a' },
+      ];
+      tiles.forEach((tile, i) => ui.add({ kind: 'ability', ...tile }, { x: x + i * (tw + gap), y: py, w: tw, h: 48 }));
     }
   }
   const allyY = compact ? (portrait ? nodeTop + (d.hazard ? 76 : 39) : top + 37) : nodeTop + nodeHeight + 8;
@@ -291,7 +310,7 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     ui.add({ kind: 'label', text: d.prompt, box: true, size: 11 }, { x: (w - width) / 2, y: h - bottom - (portrait ? 202 : 86), w: width, h: 38 });
     if (d.repair > 0) ui.add({ kind: 'meter', text: '', detail: '', value: d.repair }, { x: (w - width) / 2 + 8, y: h - bottom - (portrait ? 171 : 55), w: width - 16, h: 8 });
   }
-  if ((!d.aiming && !d.scope) || d.hit) ui.add({ kind: 'reticle', offset: d.spread, hit: d.hit, color: d.hit ? '#fff8b2' : '#e5f4cb' }, { x: w / 2 - 15, y: h / 2 - 15, w: 30, h: 30 });
+  if ((!d.aiming && !d.scope) || d.hit) ui.add({ kind: 'reticle', offset: d.spread, hit: d.hit ? d.hitStrength || 1 : 0, crit: d.crit, kill: d.kill, aiming: d.aiming || d.scope, color: '#eaf8d4' }, { x: w / 2 - 40, y: h / 2 - 40, w: 80, h: 80 });
   if (model.touch) {
     const by = h - bottom - 95, bx = w - right - 166;
     ui.add({ kind: 'stick', id: 'game:stick', action: 'game:stick' }, { x: x + 5, y: h - bottom - 141, w: 92, h: 92 });
@@ -307,5 +326,4 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     ui.add({ kind: 'panel' }, { x: (w - width) / 2 - 8, y: top + 84, w: width + 16, h: height });
     ui.pane('supply', [heading('Regroup / field support', 20), text(d.supplyNote, 11), grid(d.supply, 140, 2)], { x: (w - width) / 2, y: top + 94, w: width, h: height - 20 });
   }
-  if (d.damage > 0) ui.add({ kind: 'panel', color: '#ff3120', alpha: Math.min(.26, d.damage * .8) }, full);
 }

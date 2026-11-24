@@ -30,14 +30,16 @@ const VERTEX = /* glsl */ `
 
 // Each arena's look. Tint, lift and gain are linear multipliers; mist is in metres.
 const BASE = {
-  bloom: .55, threshold: .95, knee: .6, saturation: 1.08, contrast: 1.06, tint: [1, 1, 1], lift: [0, 0, 0], gain: [1, 1, 1],
-  ao: .65, vignette: .3, aberration: .0005, grain: .03, mist: [.55, .32, .3], mistDensity: 0.005, mistHeight: 1.1, mistReach: 45,
+  bloom: .7, threshold: .95, knee: .6, saturation: 1.08, contrast: 1.06, tint: [1, 1, 1], lift: [0, 0, 0], gain: [1, 1, 1],
+  // Split toning: added to the shadows (cool) and highlights (warm) after tone mapping.
+  shadowTone: [0, .008, .022], highlightTone: [.012, .006, -.008],
+  ao: .65, vignette: .3, aberration: .00014, grain: .03, mist: [.55, .32, .3], mistDensity: 0.005, mistHeight: 1.1, mistReach: 45,
 };
 export const LOOKS = Object.freeze({
-  artery: { ...BASE, saturation: .94, tint: [.98, .99, 1], lift: [.012, .004, .006], gain: [1.02, .98, .96], mist: [.62, .26, .24], mistDensity: 0.02 },
-  junction: { ...BASE, saturation: .94, tint: [.98, .99, 1], lift: [.01, .003, .006], mist: [.55, .24, .24], mistDensity: 0.016 },
+  artery: { ...BASE, saturation: .93, contrast: 1.08, tint: [.99, .99, 1], lift: [.006, .006, .012], gain: [1.04, .98, .96], mist: [.55, .25, .25], mistDensity: 0.019, shadowTone: [0, .008, .02] },
+  junction: { ...BASE, saturation: .93, contrast: 1.08, tint: [.98, .99, 1], lift: [.006, .005, .012], mist: [.52, .24, .25], mistDensity: 0.016, shadowTone: [0, .008, .02] },
   heart: { ...BASE, bloom: .62, saturation: .95, tint: [1, .99, 1], lift: [.016, .002, .004], gain: [1.04, .95, .94], mist: [.6, .18, .2], mistDensity: 0.019 },
-  lungs: { ...BASE, saturation: 1.02, tint: [1, .99, 1.03], lift: [.006, .004, .012], gain: [1.02, 1, 1.04], mist: [.78, .6, .66], mistDensity: 0.014, mistHeight: 1.7 },
+  lungs: { ...BASE, saturation: 1.02, contrast: 1.14, tint: [1, .99, 1.03], lift: [0, 0, .006], gain: [1.02, 1, 1.04], mist: [.78, .6, .66], mistDensity: 0.010, mistHeight: 1.7, mistReach: 32 },
   stomach: { ...BASE, tint: [1.03, 1.01, .93], lift: [.01, .008, 0], gain: [1.04, 1.02, .92], mist: [.62, .5, .26], mistDensity: 0.019 },
   intestines: { ...BASE, saturation: .92, tint: [.98, .99, 1.01], lift: [.012, .004, .006], mist: [.72, .4, .38], mistDensity: 0.017 },
   colon: { ...BASE, tint: [1.02, 1, .92], lift: [.008, .008, 0], gain: [1.02, 1.02, .9], mist: [.5, .44, .26], mistDensity: 0.020, mistHeight: 1.1 },
@@ -175,7 +177,7 @@ export class PostFX {
       uniform sampler2D tInput, tBloom;
       uniform vec2 resolution;
       uniform float time, exposure, bloom, saturation, contrast, vignette, aberration, grain, rush, focus;
-      uniform vec3 tint, lift, gain;
+      uniform vec3 tint, lift, gain, shadowTone, highlightTone;
       varying vec2 vUv;
       vec3 RRTAndODTFit(vec3 v) {
         vec3 a = v * (v + .0245786) - .000090537;
@@ -212,6 +214,8 @@ export class PostFX {
         float luma = dot(color, vec3(.2126, .7152, .0722));
         color = mix(vec3(luma), color, saturation);
         color = (color - .5) * contrast + .5;
+        // Cool shadows and warm highlights keep a one-hue arena from collapsing into a single tone.
+        color += shadowTone * (1. - smoothstep(0., .45, luma)) + highlightTone * smoothstep(.55, 1., luma);
         // A dodged hit: the world drains toward cold steel for a moment, the centre stays sharp.
         color = mix(color, vec3(luma) * vec3(.82, .96, 1.12), focus * .7 * smoothstep(.0, .25, edge));
         color *= 1. - (vignette + focus * .35) * smoothstep(.12, .62, edge * 1.6);
@@ -225,6 +229,7 @@ export class PostFX {
       time: { value: 0 }, exposure: { value: 1 }, bloom: { value: .5 }, saturation: { value: 1 }, contrast: { value: 1 },
       vignette: { value: .3 }, aberration: { value: 0 }, grain: { value: 0 }, rush: { value: 0 }, focus: { value: 0 },
       tint: { value: new THREE.Vector3(1, 1, 1) }, lift: { value: new THREE.Vector3() }, gain: { value: new THREE.Vector3(1, 1, 1) },
+      shadowTone: { value: new THREE.Vector3() }, highlightTone: { value: new THREE.Vector3() },
     });
   }
 
@@ -334,6 +339,8 @@ export class PostFX {
     finish.tint.value.set(...look.tint);
     finish.lift.value.set(...look.lift);
     finish.gain.value.set(...look.gain);
+    finish.shadowTone.value.set(...look.shadowTone);
+    finish.highlightTone.value.set(...look.highlightTone);
     this.pass(this.finish, null);
     renderer.autoClear = autoClear;
   }

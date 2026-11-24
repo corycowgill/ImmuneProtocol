@@ -4,6 +4,7 @@
 // gloves come from carbine.mjs.
 import * as THREE from './vendor/three.module.js';
 import { ACCENT_COLORS, FINISH_COLORS, createCarbine, finishTexture } from './carbine.mjs';
+import { createHoloReticle } from './shot-fx.mjs';
 import {
   DEFAULT_WEAPON_LOADOUT, WEAPON_CHARMS, WEAPON_DECALS, WEAPON_STICKERS, WEAPON_SKINS, normalizeWeaponLoadout,
 } from './weapon-mods.mjs';
@@ -247,7 +248,9 @@ function addSlotParts(root, kit, spec) {
   mesh(new THREE.ExtrudeGeometry(hood, { depth: .014, bevelEnabled: true, bevelThickness: .002, bevelSize: .002, bevelSegments: 2 }),
     kit.shell, 0, reflexY, optic.z - .01, reflex);
   panel(w * 1.5, w * 1.1, .003, .001, kit.glass, 0, reflexY + w * .1, optic.z, reflex);
-  mesh(new THREE.SphereGeometry(.0024, 10, 8), kit.accent, 0, reflexY + w * .1, optic.z + .006, reflex);
+  const reticle = createHoloReticle(w * .9, 0xff6a52);
+  reticle.position.set(0, reflexY + w * .1, optic.z + .005);
+  reflex.add(reticle);
   sightHeights['reflex-sight'] = reflexY + w * .1;
 
   variant('receiver', 'standard');
