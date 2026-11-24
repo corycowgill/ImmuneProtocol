@@ -347,6 +347,10 @@
         <div id="reticle" class="reticle" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>
         <div id="hit-marker" class="hit-marker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         <div class="mission-guidance">
+          <div id="ability-hint" class="training-hint" role="status" aria-atomic="true" hidden>
+            <strong id="ability-hint-title"></strong>
+            <p id="ability-hint-detail"></p>
+          </div>
           <div id="training-hint" class="training-hint" role="status" aria-atomic="true" hidden>
             <strong id="training-title"></strong>
             <p id="training-detail"></p>
@@ -381,7 +385,7 @@
           </div>
           <div id="campaign-equipped" class="campaign-equipped" hidden></div>
           <div id="ability-hud" class="ability-hud" data-grenades="2" data-stuns="1" data-dash="1" data-bash="1" hidden><span id="ability-grenades">Grenade ×2</span> <span id="ability-stuns">Stun ×1</span></div>
-          <div id="turret-status" class="turret-status" hidden><kbd aria-hidden="true">Q</kbd><span id="turret-status-value">TURRET READY</span></div>
+          <div id="turret-status" class="turret-status" hidden><kbd aria-hidden="true" data-bind="turret">Q</kbd><span id="turret-status-value">TURRET READY</span></div>
         </div>
         <div id="field-hint" class="field-hint">WASD MOVE <span></span> R RELOAD <span></span> E REPAIR</div>
         <div id="controller-field-hint" class="field-hint controller-field-hint" hidden aria-hidden="true">LS MOVE <span></span> RS LOOK <span></span> X RELOAD <span></span> LB REPAIR</div>
@@ -579,21 +583,21 @@
         <details id="keyboard-manual" open>
           <summary>Keyboard and mouse</summary>
           <dl class="controls-list">
-            <div><dt>Move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dd></div>
+            <div><dt>Move</dt><dd><kbd data-bind="forward">W</kbd><kbd data-bind="left">A</kbd><kbd data-bind="back">S</kbd><kbd data-bind="right">D</kbd></dd></div>
             <div><dt>Look</dt><dd><kbd>Mouse</kbd><kbd>Arrow keys</kbd></dd></div>
-            <div><dt>Fire</dt><dd><kbd>Left click</kbd><kbd>Enter</kbd></dd></div>
-            <div><dt>Jump</dt><dd><kbd>Space</kbd></dd></div>
-            <div><dt>Dash (dodges hits)</dt><dd><kbd>C</kbd></dd></div>
-            <div><dt>Bash</dt><dd><kbd>V</kbd><kbd>F</kbd></dd></div>
-            <div><dt>Antibody grenade</dt><dd><kbd>G</kbd></dd></div>
-            <div><dt>Stun charge</dt><dd><kbd>T</kbd></dd></div>
+            <div><dt>Fire</dt><dd><kbd>Left click</kbd><kbd data-bind="fire">Enter</kbd></dd></div>
+            <div><dt>Jump</dt><dd><kbd data-bind="jump">Space</kbd></dd></div>
+            <div><dt>Dash (dodges hits)</dt><dd><kbd data-bind="dash">C</kbd></dd></div>
+            <div><dt>Bash</dt><dd><kbd data-bind="melee">V</kbd></dd></div>
+            <div><dt>Antibody grenade</dt><dd><kbd data-bind="grenade">G</kbd></dd></div>
+            <div><dt>Stun charge</dt><dd><kbd data-bind="stun">T</kbd></dd></div>
             <div><dt>Aim down sights</dt><dd><kbd>Hold right click</kbd></dd></div>
-            <div><dt>Sprint</dt><dd><kbd>Shift</kbd></dd></div>
-            <div><dt>Reload</dt><dd><kbd>R</kbd></dd></div>
-            <div><dt>Repair tissue</dt><dd><kbd>Hold E</kbd></dd></div>
-            <div><dt>Deploy turret</dt><dd><kbd>Q</kbd></dd></div>
-            <div><dt>Move turret</dt><dd>Hold <kbd>Q</kbd> and walk</dd></div>
-            <div><dt>Pause</dt><dd><kbd>Esc</kbd><kbd>P</kbd></dd></div>
+            <div><dt>Sprint</dt><dd><kbd data-bind="sprint">Shift</kbd></dd></div>
+            <div><dt>Reload</dt><dd><kbd data-bind="reload">R</kbd></dd></div>
+            <div><dt>Repair tissue</dt><dd><kbd data-bind="repair" data-bind-prefix="Hold ">Hold E</kbd></dd></div>
+            <div><dt>Deploy turret</dt><dd><kbd data-bind="turret">Q</kbd></dd></div>
+            <div><dt>Move turret</dt><dd>Hold <kbd data-bind="turret">Q</kbd> and walk</dd></div>
+            <div><dt>Pause</dt><dd><kbd>Esc</kbd><kbd data-bind="pause">P</kbd></dd></div>
           </dl>
         </details>
         <details id="touch-manual">
@@ -621,10 +625,15 @@
             <div><dt>Repair tissue</dt><dd><kbd>Hold LB</kbd></dd></div>
             <div><dt>Deploy turret</dt><dd><kbd>RB</kbd></dd></div>
             <div><dt>Move turret</dt><dd>Hold <kbd>RB</kbd> and walk</dd></div>
+            <div><dt>Jump</dt><dd><kbd>A</kbd></dd></div>
+            <div><dt>Dash (dodges hits)</dt><dd><kbd>B</kbd></dd></div>
+            <div><dt>Bash</dt><dd><kbd>Click right stick</kbd></dd></div>
+            <div><dt>Antibody grenade</dt><dd><kbd>D-pad ↑</kbd></dd></div>
+            <div><dt>Stun charge</dt><dd><kbd>D-pad ↓</kbd></dd></div>
             <div><dt>Pause or resume</dt><dd><kbd>Menu ☰</kbd></dd></div>
             <div><dt>Navigate menus</dt><dd><kbd>D-pad</kbd> or <kbd>Left stick</kbd></dd></div>
             <div><dt>Select or go back</dt><dd><kbd>A</kbd><kbd>B</kbd></dd></div>
-            <div><dt>Junction support</dt><dd><kbd>←</kbd> Amber <kbd>→</kbd> Teal <kbd>↑</kbd> Ammo <kbd>↓</kbd> Turret</dd></div>
+            <div><dt>Junction support</dt><dd><kbd>←</kbd> Amber <kbd>→</kbd> Teal <kbd>↑</kbd> Ammo</dd></div>
           </dl>
         </details>
       </section>

@@ -185,6 +185,7 @@ export class GameUi {
       if (pane) { this.kinetic.delete(pane.id); this.scroll(pane.id, e.deltaY * (e.deltaMode === 1 ? 18 : e.deltaMode === 2 ? pane.rect.h : 1)); }
     }, { passive: false });
     window.addEventListener('keydown', e => {
+      if (document.documentElement.dataset.rebinding) return;
       if (!this.active || (e.target === this.editor && !['Escape', 'Enter', 'Tab'].includes(e.key))) return;
       if (this.model?.type === 'combat' && !this.state.popup && e.key !== 'Tab' && !(this.state.showFocus && ['Enter', ' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key))) { this.state.showFocus = false; return; }
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', ' ', 'Escape', 'Tab', 'PageDown', 'PageUp', 'Home', 'End'].includes(e.key)) return;

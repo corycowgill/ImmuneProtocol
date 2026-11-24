@@ -9,6 +9,7 @@ import { session } from './session.mjs';
 import { byId, isTouch, setText } from './dom.mjs';
 import { gameUi } from './ui-browser.mjs';
 import { turretStatus, junctionSupply, supplyButtons, drawJunctionStatus, drawTurretHud } from './hud.mjs';
+import { actionFor } from './keybinds.mjs';
 
 // What is held and what was tapped since the last frame, plus pointer and controller state.
 export const controls = {
@@ -41,7 +42,8 @@ export const keys = new Set();
 export const touch = { fire: false, repair: false, reload: false, carry: false, x: 0, z: 0 };
 export const input = { moveX: 0, moveZ: 0, lookX: 0, lookY: 0, fire: false, reload: false, repair: false, deploy: false, carry: false, sprint: false, aim: false, swap: false,
   jump: false, dash: false, melee: false, grenade: false, stun: false };
-const controlKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyR', 'KeyQ', 'KeyP', 'Space', 'KeyC', 'KeyV', 'KeyF', 'KeyG', 'KeyT', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'Escape']);
+// Keys the game always owns in play; everything else follows the player's bindings (keybinds.mjs).
+const fixedKeys = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape']);
 const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo' };
 const supplyPad = { left: 'left', right: 'right', up: 'ammo' };
 const supplyPadLabels = { left: '←', right: '→', ammo: '↑', turret: '↓' };
@@ -238,34 +240,32 @@ window.addEventListener('keydown', event => {
     }
     return;
   }
-  const wanted = { Digit1: 'primary', Digit2: 'secondary' }[event.code];
-  if (wanted) {
+  const action = actionFor(event.code);
+  if (action === 'primary' || action === 'secondary') {
     event.preventDefault();
-    if (!event.repeat && !session.sim.tutorial && session.sim.weaponLoadout?.slot !== wanted) controls.swapTap = true;
+    if (!event.repeat && !session.sim.tutorial && session.sim.weaponLoadout?.slot !== action) controls.swapTap = true;
     return;
   }
-  if (!controlKeys.has(event.code)) return;
+  if (!action && !fixedKeys.has(event.code)) return;
   // In play every control key belongs to the game, even if a hidden menu button still holds focus.
   event.preventDefault();
-  if ((event.code === 'Escape' || event.code === 'KeyP') && !event.repeat) {
+  if ((event.code === 'Escape' || action === 'pause') && !event.repeat) {
     commands.pause();
     return;
   }
-  if (!event.repeat && event.code === 'Enter') controls.fireTap = true;
   if (!event.repeat) {
-    const tap = { Space: 'jumpTap', KeyC: 'dashTap', KeyV: 'meleeTap', KeyF: 'meleeTap', KeyG: 'grenadeTap', KeyT: 'stunTap' }[event.code];
+    const tap = { fire: 'fireTap', jump: 'jumpTap', dash: 'dashTap', melee: 'meleeTap', grenade: 'grenadeTap', stun: 'stunTap', reload: 'reloadTap' }[action];
     if (tap) controls[tap] = true;
   }
-  if (!event.repeat && event.code === 'KeyR') controls.reloadTap = true;
-  if (!event.repeat && event.code === 'KeyQ' && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
-  // Holding Q on a placed turret drags it; the press that deploys one does not also pick it up.
-  if (!event.repeat && event.code === 'KeyQ') controls.keyCarry = !!session.sim.turret;
+  if (!event.repeat && action === 'turret' && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
+  // Holding the turret key on a placed turret drags it; the press that deploys one does not also pick it up.
+  if (!event.repeat && action === 'turret') controls.keyCarry = !!session.sim.turret;
   keys.add(event.code);
 });
 
 window.addEventListener('keyup', event => {
   keys.delete(event.code);
-  if (event.code === 'KeyQ') controls.keyCarry = false;
+  if (actionFor(event.code) === 'turret') controls.keyCarry = false;
 });
 
 window.addEventListener('wheel', event => {

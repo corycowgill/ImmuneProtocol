@@ -13,6 +13,7 @@ export const OPTIONS = Object.freeze([
   { id: 'invert-y', group: 'Controls', type: 'toggle', label: 'Invert vertical look', value: false },
   { id: 'aim-sensitivity', group: 'Controls', type: 'range', label: 'Aim sensitivity', min: .3, max: 1.5, step: .05, value: 1, format: times },
   { id: 'controller-sensitivity', group: 'Controls', type: 'range', label: 'Controller look speed', min: .5, max: 2, step: .05, value: 1, format: times },
+  { id: 'ability-hints', group: 'Controls', type: 'toggle', label: 'Ability hints', value: true },
   { id: 'aim-mode', group: 'Controls', type: 'select', label: 'Aim down sights', value: 'hold', options: [['hold', 'Hold'], ['toggle', 'Toggle']] },
   // Video
   { id: 'brightness', group: 'Video', type: 'range', label: 'Brightness', min: .6, max: 1.6, step: .05, value: 1, format: percent },

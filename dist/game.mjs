@@ -28,6 +28,9 @@ import { createUpgradeCards, drawIntel, drawLoadout, drawOperatorCard } from './
 import './interface-setup.mjs';
 import { session } from './session.mjs';
 import { createSettings } from './game-settings.mjs';
+import { isDown } from './keybinds.mjs';
+import { createKeybindSettings } from './keybind-settings.mjs';
+import { clearAbilityHints, resetAbilityHints, updateAbilityHints } from './ability-hints.mjs';
 import { briefingPlaying, playCampaignBriefing, playCampaignEnding, playCredits, playMissionBriefing } from './campaign-briefing.mjs';
 import { byId, isTouch, reducedMotion, pad, clamp, setText } from './dom.mjs';
 import { bestKey, muteKey, junctionKey, heartKey, tutorialKey, sensitivityKey, qualityKey, checkpointKey, unlockedKey, practiceLoadoutKey, weaponLoadoutKey, weaponModKey, weaponFinishKey, coopNameKey, megaVirusKey, musicVolumeKey, effectsVolumeKey, readSetting, writeSetting } from './settings-store.mjs';
@@ -165,8 +168,11 @@ function applyOptions(values) {
   if (session.paused && session.world) session.world.render(session.sim, 0, input, session.reduceMotion);
 }
 const options = createSettings(byId('settings-dialog'), applyOptions);
+const keybinds = createKeybindSettings(byId('settings-dialog'));
 byId('settings-reset').addEventListener('click', () => {
   options.reset();
+  keybinds.reset();
+  resetAbilityHints();
   session.sensitivity = 1;
   writeSetting(sensitivityKey, 1);
   syncSettings();
@@ -997,6 +1003,7 @@ function drawNodeBreakdown(container, nodes) {
 
 function finish() {
   session.running = false;
+  clearAbilityHints();
   aiDebug.update(session.sim, performance.now(), false);
   extractionDialog.close();
   clearControls();
@@ -1103,24 +1110,24 @@ function frame(now) {
   const simDt = dt * (!session.onlineRun && timeWarp.until > now ? timeWarp.scale : 1);
   if (!session.paused) {
     const controller = controls.xboxState;
-    input.moveX = clamp(Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + touch.x + (controller?.moveX ?? 0), -1, 1);
-    input.moveZ = clamp(Number(keys.has('KeyW')) - Number(keys.has('KeyS')) + touch.z + (controller?.moveZ ?? 0), -1, 1);
+    input.moveX = clamp(Number(isDown(keys, 'right')) - Number(isDown(keys, 'left')) + touch.x + (controller?.moveX ?? 0), -1, 1);
+    input.moveZ = clamp(Number(isDown(keys, 'forward')) - Number(isDown(keys, 'back')) + touch.z + (controller?.moveZ ?? 0), -1, 1);
     input.lookX += (Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft'))) * dt * 825;
     input.lookY += (Number(keys.has('ArrowDown')) - Number(keys.has('ArrowUp'))) * dt * 650;
     input.lookX += (controller?.lookX ?? 0) * dt * 1150 * session.sensitivity * session.options['controller-sensitivity'];
     input.lookY += (controller?.lookY ?? 0) * dt * 920 * session.sensitivity * session.options['controller-sensitivity'];
-    input.fire = controls.fireTap || controls.leftButton || touch.fire || keys.has('Enter') || !!controller?.fire;
+    input.fire = controls.fireTap || controls.leftButton || touch.fire || isDown(keys, 'fire') || !!controller?.fire;
     input.jump = controls.jumpTap;
     input.dash = controls.dashTap;
     input.melee = controls.meleeTap;
     input.grenade = controls.grenadeTap;
     input.stun = controls.stunTap;
-    input.reload = controls.reloadTap || keys.has('KeyR') || touch.reload;
-    input.repair = keys.has('KeyE') || touch.repair || !!controller?.repair;
+    input.reload = controls.reloadTap || isDown(keys, 'reload') || touch.reload;
+    input.repair = isDown(keys, 'repair') || touch.repair || !!controller?.repair;
     input.deploy = controls.deployTap;
     input.carry = !!(controls.keyCarry || controls.padCarry || touch.carry) && !!session.sim.turret;
     input.swap = controls.swapTap;
-    input.sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') || !!controller?.sprint;
+    input.sprint = isDown(keys, 'sprint') || !!controller?.sprint;
     const aimHeld = controls.rightButton || !!controller?.aim;
     if (session.options['aim-mode'] === 'toggle') {
       if (aimHeld && !aimWasHeld) aimLatched = !aimLatched;
@@ -1158,6 +1165,7 @@ function frame(now) {
       if (session.sim.phase !== phase || session.sim.tutorial !== tutorial || session.sim.valve?.colonyDefeated !== colonyDefeated ||
         (session.sim.gastric && session.sim.phase === 'intermission' && (session.sim.enemies.length > 0) !== enemiesActive)) syncMusic();
       applyEvents();
+      updateAbilityHints(simDt);
       controls.fireTap = false;
       controls.reloadTap = false;
       controls.deployTap = false;

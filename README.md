@@ -297,6 +297,12 @@ The Arterial Junction now has real height. A plaque overlook with a walkable ram
 
 The grenade and stun counts and the dash and bash charge bars sit above your suit integrity. In co-op each suit has its own abilities.
 
+Every keyboard binding can be changed in **Settings > Key bindings**: press an action's button, then the new key (Esc cancels). Choosing a key another action already uses swaps the two. Esc always pauses and the arrow keys always look, so you can never lock yourself out. The field manual, HUD and hints always show your current keys. **Reset key bindings** restores the defaults. Controller buttons are fixed.
+
+The first time each move would help, a short hint shows the key for it: dash when a pathogen first winds up at you, jump next to raised ground, raised ground when an acid flood, contraction or squeeze is coming, bash when a pathogen latches nearby, a grenade into a crowd, a stun charge when a node is swarmed, and dragging the turret. Each appears once. Turn them off with **Settings > Controls > Ability hints**; **Reset to defaults** shows them all again.
+
+Pathogens also use height. Spore throwers lob their spit in an arc over raised ground and at a suit standing up on it, and spit that runs into raised ground splashes against it. Floating pathogens rise toward a suit on a perch, so high ground is an advantage, not a hiding place. Crawlers still cannot climb.
+
 When mouse capture is unavailable, drag the view to look. On touchscreens, move with the joystick, drag to look, and use the action buttons.
 
 All screens now use a shared canvas interface, including menus, armory, guide, co-op, combat, pause, loading and mission reports. Game panes handle scrolling, selectors and focus without browser page scrolling or native select menus. Native text entry is retained for callsigns, room codes and invite links. The reusable models, layout, input and rendering boundaries are documented in [Canvas game interface](docs/canvas-ui.md).

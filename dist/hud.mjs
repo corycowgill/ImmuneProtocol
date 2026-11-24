@@ -11,6 +11,7 @@ import { compactHud, shortNodeName, importantNode, fieldTargets } from './hud-la
 import { floorHeight } from './arena-scene.mjs';
 import { session } from './session.mjs';
 import { ABILITIES } from './abilities.mjs';
+import { actionKey } from './keybinds.mjs';
 import { byId, isTouch, reducedMotion, pad, clamp, setText } from './dom.mjs';
 import { missionName } from './mission-text.mjs';
 
@@ -315,7 +316,7 @@ export function drawAbilityHud() {
   set('stuns', String(state.stuns));
   set('dash', (1 - state.dashCooldown / ABILITIES.dash.cooldown).toFixed(2));
   set('bash', (1 - state.meleeCooldown / ABILITIES.melee.cooldown).toFixed(2));
-  set('keys', gamepad ? 'D-pad up|D-pad down|B|RS' : isTouch ? '|||' : 'G|T|C|V');
+  set('keys', gamepad ? 'D-pad up|D-pad down|B|RS' : isTouch ? '|||' : ['grenade', 'stun', 'dash', 'melee'].map(actionKey).join('|'));
 }
 
 export function drawTurretHud() {
