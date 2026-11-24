@@ -576,7 +576,7 @@ function nutrientDrift(root, glow, count, random, color) {
 
 // ---------------------------------------------------------------- large intestine microbiome
 
-function microbiome(root, time, random, nodes, obstacles, glow) {
+function microbiome(root, time, random, nodes, obstacles, glow, keepOff = []) {
   const palettes = [0x9fd15a, 0xe2b04c, 0xb98ad6, 0x6fc2b0, 0xd9785a];
   const colonies = [];
   for (const [x, z, size] of obstacles) colonies.push([x, z, size * 1.1, true]);
@@ -586,7 +586,10 @@ function microbiome(root, time, random, nodes, obstacles, glow) {
     const x = Math.cos(angle) * (FLOOR_X - 2) * r;
     const z = Math.sin(angle) * (FLOOR_Z - 2) * r;
     if (nodes.some(node => Math.hypot(node.x - x, node.z - z) < 7)) continue;
-    colonies.push([x, z, 1.4 + random() * 2.2, false]);
+    const size = 1.4 + random() * 2.2;
+    // Colonies grow on the floor, not over raised ground.
+    if (keepOff.some(([ox, oz, radius]) => Math.hypot(ox - x, oz - z) < radius + size + .5)) continue;
+    colonies.push([x, z, size, false]);
   }
   // Biofilm mounds anchor the obstacle positions.
   const mound = bioMaterial('biofilm', [7, 4], { color: 0xd8c69a, roughness: .26, clearcoat: 1, clearcoatRoughness: .12,
@@ -1119,7 +1122,7 @@ export function createLevelProps(area, { glow, floorHeight, nodes = [], obstacle
   }
 
   if (area === 'colon') {
-    const biome = microbiome(root, time, random, nodes, obstacles, glow);
+    const biome = microbiome(root, time, random, nodes, obstacles, glow, keepOff);
     updates.push((dt, sim) => {
       const phase = sim?.organ?.phase;
       biome(dt, time.value, phase === 'active' ? 1 : phase === 'warning' ? .5 : 0);
