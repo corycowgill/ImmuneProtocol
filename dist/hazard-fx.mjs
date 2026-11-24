@@ -617,8 +617,9 @@ function overload(root, u) {
 const HAZARDS = {
   lungs: { build: exhale, tint: 0xa8d4ff, accent: 0xffffff },
   stomach: { build: acid, tint: 0xb4e83a, accent: 0x4a6a0a, lightFloor: true },
-  intestines: { build: (root, u) => contraction(root, u, 'x'), tint: 0xd85a50, accent: 0x5a1418 },
-  colon: { build: (root, u) => contraction(root, u, 'z'), tint: 0xc46a58, accent: 0x40160e },
+  // The crests stop short of the raised ground that rides them out (terrain.mjs HAZARD_CLEARANCE).
+  intestines: { build: (root, u) => contraction(root, u, 'x'), tint: 0xd85a50, accent: 0x5a1418, crest: 1.7 },
+  colon: { build: (root, u) => contraction(root, u, 'z'), tint: 0xc46a58, accent: 0x40160e, crest: .9 },
   lymph: { build: macrophageZone, tint: 0x3fd8a0, accent: 0xffb84a, lightFloor: true },
   ear: { build: resonance, tint: 0x28c8f0, accent: 0x7a8cff, lightFloor: true },
   brain: { build: overload, tint: 0xa458ff, accent: 0xff7ad8 },
@@ -682,7 +683,7 @@ export function createHazardFX(area, root, floorHeight) {
       const fill = draining ? Math.min(1, (gastric.level ?? 0) / .68) : u.live.value * .92 + u.warn.value * .08;
       u.level.value = -.32 + .66 * fill;
     }
-    u.crestHeight.value = 4.4 * u.live.value + .6 * u.warn.value;
+    u.crestHeight.value = (spec.crest ?? 4.4) * u.live.value + .6 * u.warn.value;
     if (fx.rings) {
       fx.rings.forEach((ring, index) => {
         const t = reduced ? (index + .5) / fx.rings.length : (time * .55 + index / fx.rings.length) % 1;

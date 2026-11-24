@@ -34,6 +34,22 @@ function grownRidge(x1, z1, x2, z2, width, top) {
   return ridge(a, b, c, d, width, top);
 }
 
+// A stepped terrace: concentric shelves 0.38 m apart, so it can be walked to the top.
+function terrace(x, z, radii) {
+  return radii.map((radius, index) => shelf(x, z, radius, .38 * (index + 1)));
+}
+// A haustral fold (a ridge a jump tall) with walk-up pads beside it every few metres.
+function fold(x1, z1, x2, z2) {
+  const pieces = [ridge(x1, z1, x2, z2, 1.6, 1.05)];
+  const length = Math.hypot(x2 - x1, z2 - z1);
+  const nx = -(z2 - z1) / length, nz = (x2 - x1) / length;
+  for (let t = .15; t < 1; t += .35) {
+    const side = Math.round(t * 10) % 2 ? 1 : -1;
+    pieces.push(shelf(x1 + (x2 - x1) * t + nx * side * 1.7, z1 + (z2 - z1) * t + nz * side * 1.7, .9, .4));
+  }
+  return pieces;
+}
+
 export const TERRAIN = Object.freeze({
   artery: Object.freeze([
     // Overlooks: one per node, off to the side, each with a walkable ramp skirt.
@@ -156,18 +172,19 @@ export const TERRAIN = Object.freeze({
     mound(1.8, 61.0, 2.6, 0.80, 2.4),
     shelf(14.4, 60.4, 1.9, 0.98),
   ].map(Object.freeze)),
-  // Intestines: villus terraces, stepped so you can walk up them. Their crowns stand above the
-  // contraction that sweeps the centre.
+  // Intestines: villus terraces, six walkable steps of 0.38 m up to 2.28 m. The contraction's crest
+  // reaches about 1.7 m, so the top two tiers ride it out.
   intestines: Object.freeze([
-    shelf(0, -20, 3.4, .38), shelf(0, -20, 2.4, .76), shelf(0, -20, 1.5, 1.14),
-    shelf(1, 14, 3.2, .38), shelf(1, 14, 2.2, .76), shelf(1, 14, 1.4, 1.14),
+    ...terrace(0, -20, [4.4, 3.8, 3.2, 2.6, 2, 1.4]),
+    ...terrace(1, 14, [4.2, 3.6, 3, 2.4, 1.8, 1.3]),
     mound(-32, -16, 2.2, .9, 2.8),
   ].map(Object.freeze)),
-  // Colon: haustral folds running with the bowel. Climb one and the squeeze passes under you.
+  // Colon: haustral folds running with the bowel, a jump tall, with walk-up pads alongside. On a
+  // fold's crest the squeeze passes beneath you.
   colon: Object.freeze([
-    ridge(-30, -6, -30, 14, 1.5, .7),
-    ridge(18, -32, 18, -16, 1.5, .7),
-    ridge(1, 4, 1, 22, 1.5, .7),
+    ...fold(-30, -6, -30, 14),
+    ...fold(18, -32, 18, -16),
+    ...fold(1, 4, 1, 22),
     mound(36, 10, 2.2, .9, 2.8),
   ].map(Object.freeze)),
   // Lymph node: a tiered lookout in the middle of the follicle, rises by the flank nodes.
@@ -197,7 +214,7 @@ export const TERRAIN = Object.freeze({
 
 // Raised ground that lifts the suit clear of an arena's hazard: from this foot height the acid,
 // the contraction or the squeeze passes beneath it.
-export const HAZARD_CLEARANCE = Object.freeze({ stomach: .5, intestines: 1, colon: .55 });
+export const HAZARD_CLEARANCE = Object.freeze({ stomach: .5, intestines: 1.85, colon: .95 });
 // A turret this high in the inner ear stands above the resonance.
 export const RESONANCE_CLEARANCE = 1.4;
 

@@ -285,8 +285,8 @@ The Arterial Junction now has real height. A plaque overlook with a walkable ram
 | Heart Valve | A balcony to shoot down through the valve from, and a rise by the side node. |
 | Lungs | Alveolar platforms that rise and fall about 0.8 m with every breath (no turret on them), and bronchial ridges along the airway. |
 | Stomach | Acid floods the whole chamber in surges. 78 rugae islands are scattered everywhere: one beside each node and valve for repairs, a backbone so you are never more than a few seconds from safety, walk-up mounds, and small stepping pads for jump chains. Standing on any of them keeps you out of the acid. |
-| Intestines | Two stepped villus terraces you can walk up. Their crowns stand above the contraction. |
-| Colon | Haustral folds you can climb to ride out the squeeze. |
+| Intestines | Two stepped villus terraces, six walkable steps up to 2.28 m. The contraction's crest reaches about 1.7 m, so the top two tiers ride it out. |
+| Colon | Haustral folds a jump tall (1.05 m), with walk-up pads beside them. On a fold's crest the squeeze passes beneath you. |
 | Lymph Node | A three-tier lookout in the middle of the follicle. |
 | Inner Ear | The cochlea: a spiral stair to a 2.5 m perch. A turret on the perch stands above the resonance and never jams. |
 | Neural Cortex | A walkway of raised synapse pads between the nodes, each a jump apart. |
