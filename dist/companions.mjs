@@ -1,5 +1,5 @@
 // Nano companions. Every suit brings one: the auto-turret (simulation.mjs places, carries and fires
-// it) or the medic drone here. The drone hovers at its suit's shoulder and mends, a little at a
+// it) or the medic drone here. The drone flies just ahead of its suit's right shoulder and mends, a little at a
 // time, whichever suit or tissue node in its field has lost the most. It can be stationed over a
 // spot (the turret control) and called back the same way. It never fights, cannot be hurt, and
 // in the Inner Ear the resonance jams it exactly as it jams a turret on the floor.
@@ -7,8 +7,10 @@ import { DRONE_BASE, droneStats, normalizeCompanion, normalizeDroneBuild } from 
 import { RESONANCE_CLEARANCE, groundHeight } from './terrain.mjs';
 
 export const DRONE_RULES = Object.freeze({
-  hover: 2.1, // metres above the ground beneath it
-  follow: { side: 1.15, back: .85 }, // where it rides relative to its suit's view
+  hover: 2.45, // metres above the ground beneath it: above the suit's eye line, clear of its shots
+  // Where it rides relative to its suit's view: ahead and to the right, so it sits in the upper
+  // right of the view. A negative `back` is in front.
+  follow: { side: 1.35, back: -2.1 },
   retarget: .5, // seconds between choosing who to mend
   catchUp: 4.5, // how sharply it closes on its anchor
   teleport: 30, // farther than this behind its suit and it skips ahead (a respawn, a checkpoint)
@@ -40,7 +42,7 @@ function anchorFor(sim, drone, suit) {
   if (drone.mode === 'station' && drone.station) return drone.station;
   const { player } = suit;
   const yaw = player.yaw ?? 0;
-  // The view looks along (-sin yaw, -cos yaw); ride over the right shoulder, a little behind.
+  // The view looks along (-sin yaw, -cos yaw); ride off the right shoulder, ahead of it.
   const { side, back } = DRONE_RULES.follow;
   return { x: player.x + Math.cos(yaw) * side + Math.sin(yaw) * back, z: player.z - Math.sin(yaw) * side + Math.cos(yaw) * back };
 }
