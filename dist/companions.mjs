@@ -7,7 +7,7 @@ import { DRONE_BASE, droneStats, normalizeCompanion, normalizeDroneBuild } from 
 import { RESONANCE_CLEARANCE, groundHeight } from './terrain.mjs';
 
 export const DRONE_RULES = Object.freeze({
-  hover: 2.45, // metres above the ground beneath it: above the suit's eye line, clear of its shots
+  hover: 2.25, // metres above the ground beneath it: above the suit's eye line, clear of its shots
   // Where it rides relative to its suit's view: ahead and to the right, so it sits in the upper
   // right of the view. A negative `back` is in front.
   follow: { side: 1.35, back: -2.1 },
