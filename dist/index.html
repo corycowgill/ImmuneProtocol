@@ -723,11 +723,11 @@
       <button id="profile-import" class="button outline" type="button"><strong>Restore from backup</strong><span>Add an operator from a saved backup file</span></button>
       <input id="profile-import-file" type="file" accept=".json,application/json" hidden>
       <section id="profile-editor" aria-label="Active operator">
+        <label for="profile-language">Language</label>
+        <select id="profile-language"></select>
         <label for="profile-name">Callsign</label>
         <input id="profile-name" type="text" maxlength="16" autocomplete="off" spellcheck="false">
         <p id="profile-name-note"></p>
-        <label for="profile-language">Language</label>
-        <select id="profile-language"></select>
         <div id="profile-emblems" role="radiogroup" aria-label="Emblem"></div>
         <button id="profile-export" class="button outline" type="button"><strong>Back up operator</strong><span>Download this save to keep it safe or move it to another device</span></button>
         <button id="profile-delete" class="button outline" type="button">Delete operator</button>
@@ -735,6 +735,13 @@
       <footer class="profiles-actions">
         <button id="profile-done" class="button primary" type="button">Continue</button>
       </footer>
+    </dialog>
+
+    <dialog id="language-dialog" class="panel" aria-labelledby="language-title" aria-describedby="language-note">
+      <p class="eyebrow">Choose your language</p>
+      <h2 id="language-title" tabindex="-1">Language</h2>
+      <p id="language-note">You can change it at any time in Operators.</p>
+      <div id="language-options" role="radiogroup" aria-labelledby="language-title"></div>
     </dialog>
 
     <dialog id="profile-delete-dialog" class="panel" aria-labelledby="profile-delete-title" aria-describedby="profile-delete-detail">

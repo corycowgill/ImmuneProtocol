@@ -11,7 +11,7 @@ import { session } from './session.mjs';
 import { byId, setText } from './dom.mjs';
 import { gameUi } from './ui-browser.mjs';
 import { LANGUAGES, LANGUAGE_EVENT, language } from './i18n.mjs';
-import { chooseLanguage } from './language.mjs';
+import { askLanguage, chooseLanguage } from './language.mjs';
 
 const dialog = byId('profiles-dialog');
 const list = byId('profiles-list');
@@ -119,12 +119,14 @@ export function openProfiles(mode = 'manage') {
   dialog.showModal();
 }
 
-// After startup: a shared browser asks who is playing; a brand-new player names their operator.
+// After startup: a shared browser asks who is playing; a brand-new player first picks a language,
+// then names their operator.
 export function promptOperatorAtStartup(intro) {
   const mode = profiles.profiles.length > 1 ? 'choose' : profiles.fresh ? 'setup' : null;
   if (!mode) return;
-  if (intro?.open) intro.addEventListener('close', () => openProfiles(mode), { once: true });
-  else openProfiles(mode);
+  const open = () => mode === 'setup' ? askLanguage().then(() => openProfiles(mode)) : openProfiles(mode);
+  if (intro?.open) intro.addEventListener('close', open, { once: true });
+  else open();
 }
 
 nameField.maxLength = PROFILE_NAME_LENGTH;
@@ -145,7 +147,12 @@ newButton.addEventListener('click', () => {
   profiles.select(profile.id);
   dispatchEvent(new Event(PROFILE_EVENT));
   render();
-  setText(nameNote, 'New operator created with a fresh save. Give them a callsign and an emblem.');
+  // A new operator picks their language first, then a callsign and an emblem.
+  askLanguage().then(() => {
+    render();
+    setText(nameNote, 'New operator created with a fresh save. Give them a callsign and an emblem.');
+    nameField.focus();
+  });
 });
 
 deleteButton.addEventListener('click', () => {

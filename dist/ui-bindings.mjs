@@ -252,9 +252,10 @@ export class BrowserUiBindings {
         ...[...root.querySelectorAll('[data-profile-id]')].map(el => ({ ...this.control(el), ...this.profileModel?.card(el.dataset.profileId), kind: 'profile-card', height: 96 })),
         this.control(this.get('profile-new')), this.control(this.get('profile-import'))].filter(Boolean);
       const note = this.value('profile-name-note');
-      model.body = [{ kind: 'section', text: 'Active operator' }, this.control(this.get('profile-name')),
-        ...(note ? [{ kind: 'text', text: note, size: 13, color: /already|needs|not an|newer|could not|Delete one|no saved/.test(note) ? '#ff977d' : '#a8b7bf' }] : []),
+      model.body = [{ kind: 'section', text: 'Active operator' },
         { kind: 'section', text: 'Language' }, this.control(this.get('profile-language')),
+        { kind: 'section', text: 'Callsign' }, this.control(this.get('profile-name')),
+        ...(note ? [{ kind: 'text', text: note, size: 13, color: /already|needs|not an|newer|could not|Delete one|no saved/.test(note) ? '#ff977d' : '#a8b7bf' }] : []),
         { kind: 'section', text: 'Emblem' },
         grid([...root.querySelectorAll('[data-emblem]')].map(el => ({ ...this.control(el), kind: 'emblem', color: active?.color, height: 92 })), 82, 7),
         { kind: 'section', text: 'Save data' }, this.control(this.get('profile-export')),
@@ -275,6 +276,13 @@ export class BrowserUiBindings {
       model.pauseActions = model.footer.map(item => ({ ...item, tone: item.id === 'dom:quit' ? 'danger' : undefined }));
       model.footer = [];
       model.defaultFocus = this.id(this.get('resume'));
+    } else if (id === 'language-dialog') {
+      // Every language in its own script; a choice is required, so there is no way back.
+      model.canBack = false;
+      model.title = this.text(root.querySelector('h2'));
+      model.body = [{ kind: 'text', text: this.value('language-note'), size: 14, color: '#a8b7bf' },
+        grid(this.controls('#language-options button', root), 190, 2)];
+      model.defaultFocus = this.id(root.querySelector('[data-language][aria-checked="true"]') ?? root.querySelector('[data-language]'));
     } else if (id === 'new-campaign-dialog') {
       model.body = [this.block(this.get('new-campaign-detail'))].filter(Boolean);
       model.defaultFocus = model.footer[0]?.id;
