@@ -411,6 +411,163 @@ export function drawDecal(context, width, height, id) {
       context.beginPath(); context.arc(cx, cy, (80 + ring * 70) * s, -.5, .5); context.stroke();
     }
     context.globalAlpha = 1;
+  } else if (id === 'capsids') {
+    // Spiked capsids in a row, shrinking toward the muzzle.
+    for (let i = 0; i < 6; i++) {
+      const r = (34 - i * 3.4) * s, cx = width - (52 + i * 82) * s, cy = 64 * s;
+      context.strokeStyle = decal.accent;
+      context.lineWidth = 4 * s;
+      for (let k = 0; k < 10; k++) {
+        const a = k / 10 * TAU + i * .3;
+        context.beginPath();
+        context.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+        context.lineTo(cx + Math.cos(a) * r * 1.38, cy + Math.sin(a) * r * 1.38);
+        context.stroke();
+        context.fillStyle = decal.accent;
+        context.beginPath(); context.arc(cx + Math.cos(a) * r * 1.42, cy + Math.sin(a) * r * 1.42, 4.5 * s, 0, TAU); context.fill();
+      }
+      context.fillStyle = decal.ink;
+      context.beginPath(); context.arc(cx, cy, r, 0, TAU); context.fill();
+      context.fillStyle = decal.accent;
+      for (const [dx, dy] of [[-.35, -.2], [.3, -.3], [.05, .35]]) {
+        context.beginPath(); context.arc(cx + dx * r, cy + dy * r, r * .16, 0, TAU); context.fill();
+      }
+    }
+  } else if (id === 'helix') {
+    // Two phase-shifted strands with rungs between them.
+    const amp = 34 * s, wave = 150 * s, strand = (phase, x) => 64 * s + Math.sin(x / wave * TAU + phase) * amp;
+    context.lineWidth = 4 * s;
+    for (let x = 10 * s; x < width; x += 15 * s) {
+      context.strokeStyle = Math.round(x / (15 * s)) % 2 ? decal.ink : decal.accent;
+      context.globalAlpha = .75;
+      context.beginPath(); context.moveTo(x, strand(0, x)); context.lineTo(x, strand(Math.PI, x)); context.stroke();
+    }
+    context.globalAlpha = 1;
+    context.lineWidth = 9 * s;
+    for (const [phase, color] of [[0, decal.ink], [Math.PI, decal.accent]]) {
+      context.strokeStyle = color;
+      context.beginPath();
+      for (let x = 0; x <= width; x += 4 * s) context.lineTo(x, strand(phase, x));
+      context.stroke();
+    }
+  } else if (id === 'claws') {
+    // Three ragged slashes, a red undercoat showing round each one.
+    for (const [color, grow] of [[decal.accent, 1.6], [decal.ink, 1]]) {
+      context.fillStyle = color;
+      for (let i = 0; i < 3; i++) {
+        const x0 = (130 + i * 70) * s, x1 = x0 + 150 * s, y0 = 12 * s, y1 = 116 * s;
+        const half = (16 - Math.abs(i - 1) * 4) * s * grow;
+        context.beginPath();
+        context.moveTo(x0, y1);
+        context.quadraticCurveTo((x0 + x1) / 2 - half, (y0 + y1) / 2 - half * .6, x1, y0);
+        context.quadraticCurveTo((x0 + x1) / 2 + half, (y0 + y1) / 2 + half * .6, x0, y1);
+        context.fill();
+      }
+    }
+  } else if (id === 'pixels') {
+    // A pixel grid that thins out toward the muzzle.
+    const random = randomSource(2718), cell = 16 * s;
+    for (let x = 0; x < width; x += cell) {
+      const density = Math.pow(x / width, 1.6);
+      for (let y = 16 * s; y < 112 * s; y += cell) {
+        if (random() > density) continue;
+        context.fillStyle = random() < .7 ? decal.ink : decal.accent;
+        context.fillRect(x + s, y + s, cell - 2 * s, cell - 2 * s);
+      }
+    }
+  } else if (id === 'lightning') {
+    const random = randomSource(77);
+    const points = [[width, 64 * s]];
+    for (let x = width - 50 * s; x > 0; x -= (40 + random() * 30) * s) points.push([x, (24 + random() * 80) * s]);
+    points.push([0, 64 * s]);
+    for (const [color, line, blur] of [[decal.accent, 16, 18], [decal.ink, 6, 8]]) {
+      context.strokeStyle = color;
+      context.shadowColor = color;
+      context.shadowBlur = blur * s;
+      context.lineWidth = line * s;
+      context.beginPath();
+      for (const [x, y] of points) context.lineTo(x, y);
+      context.stroke();
+    }
+  } else if (id === 'stars') {
+    const star = (cx, cy, r) => {
+      context.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 5, d = i % 2 ? r * .45 : r;
+        context.lineTo(cx + Math.cos(a) * d, cy + Math.sin(a) * d);
+      }
+      context.closePath(); context.fill();
+    };
+    for (const [x, y, r] of [[90, 46, 30], [250, 84, 22], [380, 40, 17], [470, 82, 12]]) {
+      const tail = context.createLinearGradient(x * s, 0, (x + 150) * s, 0);
+      tail.addColorStop(0, decal.accent); tail.addColorStop(1, 'rgba(0,0,0,0)');
+      context.fillStyle = tail;
+      context.beginPath();
+      context.moveTo(x * s, (y - r * .5) * s); context.lineTo((x + 150) * s, y * s); context.lineTo(x * s, (y + r * .5) * s);
+      context.fill();
+      context.fillStyle = decal.ink;
+      star(x * s, y * s, r * s);
+    }
+  } else if (id === 'caution') {
+    // Quarantine tape: a band with diagonal hatching at the ends and a stencilled warning.
+    context.fillStyle = decal.accent;
+    context.fillRect(0, 22 * s, width, 84 * s);
+    context.fillStyle = decal.ink;
+    context.fillRect(0, 28 * s, width, 5 * s);
+    context.fillRect(0, 95 * s, width, 5 * s);
+    context.font = '800 ' + 50 * s + 'px ' + TEXT_FONT;
+    context.textBaseline = 'middle';
+    context.textAlign = 'center';
+    context.fillText('CONTAGION · DO NOT CROSS', width / 2, 65 * s, width - 30 * s);
+  } else if (id === 'pinstripe') {
+    // A long hand-painted loop with a curl inside each end and a diamond at the centre.
+    const left = 40 * s, right = width - 40 * s, r = 16 * s, cy = 64 * s;
+    context.strokeStyle = decal.ink;
+    context.lineWidth = 4 * s;
+    context.beginPath();
+    context.moveTo(left, cy - r);
+    context.lineTo(right, cy - r);
+    context.arc(right, cy, r, -Math.PI / 2, Math.PI / 2);
+    context.lineTo(left, cy + r);
+    context.arc(left, cy, r, Math.PI / 2, Math.PI * 1.5);
+    context.stroke();
+    for (const [x, dir] of [[left, 1], [right, -1]]) {
+      context.beginPath();
+      for (let t = 0; t <= 1; t += .05) {
+        const a = t * TAU * 1.2, d = (1 - t) * r * .7;
+        context.lineTo(x + dir * (r * .2 + Math.cos(a) * d), cy + Math.sin(a) * d);
+      }
+      context.stroke();
+    }
+    context.fillStyle = decal.accent;
+    context.beginPath();
+    context.moveTo(width / 2, 40 * s); context.lineTo(width / 2 + 24 * s, 64 * s); context.lineTo(width / 2, 88 * s); context.lineTo(width / 2 - 24 * s, 64 * s);
+    context.closePath(); context.fill();
+    context.fillStyle = decal.ink;
+    context.beginPath(); context.arc(width / 2, cy, 6 * s, 0, TAU); context.fill();
+  } else if (id === 'crosses') {
+    for (let i = 0; i < 5; i++) {
+      const cx = (56 + i * 100) * s, cy = 64 * s, arm = 15 * s, reach = 38 * s;
+      context.fillStyle = decal.ink;
+      context.beginPath(); context.arc(cx, cy, 46 * s, 0, TAU); context.fill();
+      context.fillStyle = decal.accent;
+      context.fillRect(cx - arm, cy - reach, arm * 2, reach * 2);
+      context.fillRect(cx - reach, cy - arm, reach * 2, arm * 2);
+    }
+  } else if (id === 'resonance') {
+    // Stacked sine waves that grow toward the muzzle, like a resonance pulse.
+    for (let line = 0; line < 4; line++) {
+      context.strokeStyle = line % 2 ? decal.accent : decal.ink;
+      context.shadowColor = context.strokeStyle;
+      context.shadowBlur = 6 * s;
+      context.lineWidth = (6 - line) * s;
+      context.beginPath();
+      for (let x = 0; x <= width; x += 3 * s) {
+        const amp = (8 + (1 - x / width) * 34) * s * (1 - line * .18);
+        context.lineTo(x, 64 * s + Math.sin(x / (38 * s) + line * .9) * amp);
+      }
+      context.stroke();
+    }
   } else if (id === 'splatter') {
     const random = randomSource(66);
     for (const color of [decal.ink, decal.accent, '#b7f24a']) {

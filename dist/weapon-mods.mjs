@@ -84,6 +84,16 @@ export const WEAPON_FINISHES = {
   crimson: { name: 'Crimson', color: '#8d4642' },
   moss: { name: 'Moss', color: '#666e48' },
   desert: { name: 'Desert', color: '#b69b72' },
+  gunmetal: { name: 'Gunmetal', color: '#5d636a' },
+  midnight: { name: 'Midnight navy', color: '#2e3b58' },
+  cobalt: { name: 'Cobalt', color: '#3f63b0' },
+  teal: { name: 'Deep teal', color: '#2f6266' },
+  toxic: { name: 'Toxic lime', color: '#8fb83a' },
+  plum: { name: 'Plum', color: '#5e3b5c' },
+  bubblegum: { name: 'Bubblegum', color: '#d77fa8' },
+  rose: { name: 'Rose gold', color: '#c08a7d' },
+  copper: { name: 'Burnt copper', color: '#a65e3a' },
+  ash: { name: 'Ash gray', color: '#8e9192' },
   // Achievement rewards (achievements.mjs REWARDS).
   surgical: { name: 'Surgical steel', color: '#a9b8bf' },
   presidential: { name: 'Presidential gold', color: '#b8913a' },
@@ -154,6 +164,16 @@ export const WEAPON_DECALS = {
   splatter: { name: 'Paint splatter', detail: 'Pink, cyan and lime splashes.', ink: '#ff5fa2', accent: '#3ad6e8' },
   ecg: { name: 'Heartbeat', detail: 'A glowing ECG trace down the side.', ink: '#6bff8f', accent: '#1d7f3c' },
   blast: { name: 'Blast radius', detail: 'Shockwave rings from a five-kill rocket.', ink: '#ffb02e', accent: '#ff5a2a' },
+  capsids: { name: 'Capsid parade', detail: 'A row of spiked viruses, marching single file.', ink: '#ff6f61', accent: '#f4f0e8' },
+  helix: { name: 'Double helix', detail: 'A DNA strand running the length of the gun.', ink: '#7cddff', accent: '#ff4fd8' },
+  claws: { name: 'Claw marks', detail: 'Three torn slashes, as if something fought back.', ink: '#f4f0e8', accent: '#d6262c' },
+  pixels: { name: 'Pixel fade', detail: 'Squares dissolving from the stock forward.', ink: '#75f1b4', accent: '#3ad6e8' },
+  lightning: { name: 'Lightning', detail: 'A glowing bolt from stock to muzzle.', ink: '#fff7c2', accent: '#7c9cff' },
+  stars: { name: 'Shooting stars', detail: 'Gold stars with streaking tails.', ink: '#f7cf55', accent: '#ff8a1f' },
+  caution: { name: 'Contagion tape', detail: 'Quarantine tape: do not cross.', ink: '#151412', accent: '#f2c84b' },
+  pinstripe: { name: 'Pinstripe', detail: 'Hand-painted lines with a curl at each end.', ink: '#f4f0e8', accent: '#ffb54c' },
+  crosses: { name: 'Medic crosses', detail: 'A row of red crosses for the tissue menders.', ink: '#f4f0e8', accent: '#e23b3b' },
+  resonance: { name: 'Resonance', detail: 'Stacked sound waves from the inner ear.', ink: '#bc8cff', accent: '#7cddff' },
 };
 
 // Charms hang from the weapon and give a buff while that weapon is in your hands.

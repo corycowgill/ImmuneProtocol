@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { createMuzzleFlash, createHoloReticle } from './shot-fx.mjs';
-import { DEFAULT_WEAPON_LOADOUT, normalizeWeaponLoadout } from './weapon-mods.mjs';
+import { DEFAULT_WEAPON_LOADOUT, WEAPON_ACCENTS, WEAPON_FINISHES, normalizeWeaponLoadout } from './weapon-mods.mjs';
 import { makeWeathered } from './weapon-skins.mjs';
 
 export const FINISH_COLORS = {
@@ -18,6 +18,33 @@ export const ACCENT_COLORS = {
   violet: { cell: 0x9363be, emitter: 0xc38ef0, glass: 0x83639f, cover: 0x9272ae },
   ice: { cell: 0x58a3bc, emitter: 0x6dd9ec, glass: 0x6899ae, cover: 0x6aa7bd },
 };
+
+// Finishes and accents without a hand-tuned palette above (the newer catalog colours and the
+// achievement rewards) derive one from their catalog colour.
+const mixHex = (from, to, amount, scale = 1) => new THREE.Color(from).lerp(new THREE.Color(to), amount).multiplyScalar(scale).getHex();
+const derived = new Map();
+export function finishPalette(id) {
+  if (FINISH_COLORS[id]) return FINISH_COLORS[id];
+  if (!derived.has('finish:' + id)) {
+    const color = WEAPON_FINISHES[id]?.color ?? '#beb6a3';
+    derived.set('finish:' + id, {
+      shell: new THREE.Color(color).getHex(), steel: mixHex(color, 0x7d8588, .55),
+      receiver: mixHex(color, 0x2a2e31, .7, .9), trim: mixHex(color, 0xc4c6c2, .5),
+    });
+  }
+  return derived.get('finish:' + id);
+}
+export function accentPalette(id) {
+  if (ACCENT_COLORS[id]) return ACCENT_COLORS[id];
+  if (!derived.has('accent:' + id)) {
+    const color = WEAPON_ACCENTS[id]?.color ?? '#75f1b4';
+    derived.set('accent:' + id, {
+      cell: mixHex(color, 0x000000, 0, .68), emitter: mixHex(color, 0x000000, 0, .95),
+      glass: mixHex(color, 0x557766, .4, .66), cover: mixHex(color, 0x808080, .2, .7),
+    });
+  }
+  return derived.get('accent:' + id);
+}
 
 export function finishTexture(kind) {
   const size = 192;
@@ -502,14 +529,14 @@ export function createCarbine({ showHands = true } = {}) {
     }
     if (next.magazine !== currentLoadout.magazine) magazineGrip.copy(magazineGrips[next.magazine]);
     if (next.finish !== currentLoadout.finish) {
-      const palette = FINISH_COLORS[next.finish];
+      const palette = finishPalette(next.finish);
       ivory.color.setHex(palette.shell);
       metal.color.setHex(palette.steel);
       dark.color.setHex(palette.receiver);
       edge.color.setHex(palette.trim);
     }
     if (next.accent !== currentLoadout.accent) {
-      const accent = ACCENT_COLORS[next.accent];
+      const accent = accentPalette(next.accent);
       green.color.setHex(accent.cell);
       green.emissive.setHex(accent.emitter);
       glass.color.setHex(accent.glass);

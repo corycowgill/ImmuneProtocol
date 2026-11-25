@@ -3,7 +3,7 @@
 // skins, side decals, receiver stickers and hanging charms. The carbine's slot parts and the
 // gloves come from carbine.mjs.
 import * as THREE from './vendor/three.module.js';
-import { ACCENT_COLORS, FINISH_COLORS, createCarbine, finishTexture } from './carbine.mjs';
+import { accentPalette, createCarbine, finishPalette, finishTexture } from './carbine.mjs';
 import { createHoloReticle } from './shot-fx.mjs';
 import {
   DEFAULT_WEAPON_LOADOUT, WEAPON_CHARMS, WEAPON_DECALS, WEAPON_STICKERS, WEAPON_SKINS, normalizeWeaponLoadout,
@@ -99,12 +99,12 @@ function createKit() {
 }
 
 function paint(kit, build) {
-  const palette = FINISH_COLORS[build.finish];
+  const palette = finishPalette(build.finish);
   dressShell(kit.shell, build.skin, palette.shell, texture('polymer'));
   kit.steel.color.setHex(palette.steel);
   kit.dark.color.setHex(palette.receiver);
   kit.edge.color.setHex(palette.trim);
-  const accent = ACCENT_COLORS[build.accent];
+  const accent = accentPalette(build.accent);
   kit.accent.color.setHex(accent.cell);
   kit.accent.emissive.setHex(accent.emitter);
   kit.glass.color.setHex(accent.glass);
@@ -1006,7 +1006,7 @@ export function createArsenalView({ showHands = true } = {}) {
       carbine.setLoadout({ ...next, barrel: next.barrel === 'standard' ? 'short-barrel' : 'standard' });
       carbine.setLoadout(next);
     }
-    if (active === 'carbine') dressShell(carbine.shell, next.skin, FINISH_COLORS[next.finish].shell, carbinePolymer);
+    if (active === 'carbine') dressShell(carbine.shell, next.skin, finishPalette(next.finish).shell, carbinePolymer);
     decal.visible = Boolean(WEAPON_DECALS[next.decal].ink);
     if (decal.visible) {
       decal.geometry = decalGeometry(decor.decal);

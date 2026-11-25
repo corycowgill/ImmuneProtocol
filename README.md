@@ -84,9 +84,9 @@ Every weapon spreads its shots in a cone. Aiming down sights (hold right click o
 
 The **Armory** is a gunsmith bench with three tabs. The weapon floats over a maintenance pad on a hospital lab workbench — reagent bottles, culture dishes, blood tubes, a pegboard of tools and a patient monitor behind it — and turns when you drag it, above stat bars for the current build. Like the co-op lobby's lab, the bench is modelled in Blender with its lighting baked into one texture (`tools/armory/build_bench.py`, output in `dist/assets/armory/`). **Weapons** picks your primary and secondary. **Gunsmith** pins a callout to each attachment point on the weapon — barrel, muzzle, optic, receiver and magazine; pick one to list its three options, each with a picture and its gains and losses. **Customize** covers finish, accent, skin, decal, sticker and charm. Pointing at or focusing any option previews its effect on the stat bars in green and red before you equip it. Parts change damage, fire rate, spread, zoom, capacity, and reload speed, scaled to each weapon. Each weapon also has its own cosmetics:
 
-- **Body finish** and **accent color**.
+- **Body finish**: Factory ivory, Obsidian, Arctic, Crimson, Moss, Desert, Gunmetal, Midnight navy, Cobalt, Deep teal, Toxic lime, Plum, Bubblegum, Rose gold, Burnt copper or Ash gray, and an **accent color**.
 - **Skins** that wrap the polymer furniture in a pattern: Tiger, Zebra, Winter camo, Woodland camo, Urban digital, Carbon fiber, and the glowing Cyberpunk and Molten core. The body finish still colors the metal.
-- **Decals** printed along the side: Racing stripes, Hot rod flames, Kill tally, Hazard chevrons, Circuit traces, Barcode, Unit 07, or Paint splatter. On the Phage Launcher they wrap around the tube.
+- **Decals** printed along the side: Racing stripes, Hot rod flames, Kill tally, Hazard chevrons, Circuit traces, Barcode, Unit 07, Paint splatter, Capsid parade, Double helix, Claw marks, Pixel fade, Lightning, Shooting stars, Contagion tape, Pinstripe, Medic crosses, or Resonance. On the Phage Launcher they wrap around the tube.
 - **Stickers** printed on the receiver: Biohazard, Happy virus, Voltage, Big heart, Pathogen skull, Gold star, Hallucinated crest, Double helix, Antibody, Hot shot, Snowflake, Tiger paw, Crosshair, Lab cat, Pizza slice, Rainbow, or Peace.
 - **Charms** that dangle and swing beside your support hand and buff the weapon while it's in your hands:
 
@@ -227,7 +227,7 @@ Several players can share one computer and browser, each with their own save. Th
 
 - switch operator (the title screen, campaign route, best score, loadout and achievements change straight away, with no reload);
 - create a **New operator** with a fresh save (up to eight per browser);
-- change the active operator's **callsign** (up to 16 characters, unique on the device) and **emblem**: fourteen pathogen portraits, plus eight boss emblems earned through achievements;
+- change the active operator's **callsign** (up to 16 characters, unique on the device) and **emblem**: fourteen pathogen portraits, a helmet close-up of each co-op suit (Vanguard, Wraith, Lifeline and Bathysphere, rendered from the suit models into `dist/assets/suits/helmets/`), plus eight boss emblems earned through achievements;
 - **Delete operator**, after a confirmation that names what will be lost. The last operator cannot be deleted;
 - **Back up operator** downloads the active operator's save as a small `.json` file, and **Restore from backup** adds it back as a new operator, on this browser or another device. Restoring never overwrites an existing operator; a clashing callsign gets a number. A backup holds only that operator's progress, never device settings, and the game rejects files that are not operator backups or are from a newer version.
 

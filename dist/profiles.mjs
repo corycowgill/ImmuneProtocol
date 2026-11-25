@@ -27,18 +27,23 @@ export const PROFILE_KEYS = Object.freeze([
 ]);
 const SCOPED = new Set(PROFILE_KEYS);
 
-// Emblems are pathogen portraits the game already ships.
+// Emblems are the pathogen portraits the game already ships, plus a helmet close-up of each
+// co-op suit (rendered from the suit models into assets/suits/helmets).
 export const PROFILE_EMBLEMS = Object.freeze([
   { id: 'virus', name: 'Virion' }, { id: 'phage', name: 'Phage' }, { id: 'bacillus', name: 'Bacillus' },
   { id: 'spore', name: 'Spore' }, { id: 'flagellate', name: 'Flagellate' }, { id: 'amoeba', name: 'Amoeba' },
   { id: 'blister', name: 'Blister' }, { id: 'filovirus', name: 'Filovirus' }, { id: 'guard', name: 'Shellback' },
   { id: 'splitter', name: 'Splitter' }, { id: 'colony', name: 'Colony' }, { id: 'crawler', name: 'Crawler' },
   { id: 'rogue-bot', name: 'Rogue Bot' }, { id: 'nest', name: 'Brood Nest' },
+  { id: 'helmet-vanguard', name: 'Vanguard', src: 'assets/suits/helmets/vanguard.webp' },
+  { id: 'helmet-wraith', name: 'Wraith', src: 'assets/suits/helmets/wraith.webp' },
+  { id: 'helmet-lifeline', name: 'Lifeline', src: 'assets/suits/helmets/lifeline.webp' },
+  { id: 'helmet-bathysphere', name: 'Bathysphere', src: 'assets/suits/helmets/bathysphere.webp' },
   // Boss emblems are achievement rewards (achievements.mjs REWARDS).
   { id: 'boss-colossus', name: 'Colossus' }, { id: 'boss-thrombus', name: 'Thrombus' }, { id: 'boss-leech', name: 'Leech' },
   { id: 'boss-tapeworm', name: 'Tapeworm' }, { id: 'boss-macrophage', name: 'Macrophage' }, { id: 'boss-screamer', name: 'Screamer' },
   { id: 'boss-bloom', name: 'Mold Crown' }, { id: 'boss-drill', name: 'Pylori Drill' },
-].map(emblem => Object.freeze({ ...emblem, src: 'assets/enemies/portraits/' + emblem.id + '.webp' })));
+].map(emblem => Object.freeze({ src: 'assets/enemies/portraits/' + emblem.id + '.webp', ...emblem })));
 const EMBLEM_IDS = new Set(PROFILE_EMBLEMS.map(emblem => emblem.id));
 // Accent colours for the emblem ring, so operators are told apart at a glance.
 export const PROFILE_COLORS = Object.freeze(['#c8f794', '#8fe4dd', '#ffb37a', '#dbafef', '#ff8fae', '#f4c94e', '#9cc3ff', '#ff977d']);
