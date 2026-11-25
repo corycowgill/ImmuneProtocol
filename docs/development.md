@@ -41,11 +41,14 @@ To run the co-op server instead, see [Online co-op server](#online-co-op-server)
 | `npm run test:bosses` / `npm run benchmark:bosses` | Boss regressions and benchmark. |
 | `npm run test:rogue-bot` | Rogue Bot checks. `node --test server/crawler.test.mjs` runs the Crawler's. |
 | `npm run test:achievements` | Achievement rules against the real simulation. |
+| `npm run test:companions` | Companion choice, per-suit turrets, drone following, stationing and mending, co-op snapshots and checkpoints. |
 | `npm run test:endless` | Endless wave growth, boss waves, scaling, the field cap and saved records. |
 | `node --test server/profiles.test.mjs` | Operator profile migration, isolation, naming, deletion and recovery. |
 | `npm run test:render` | Resource reuse, reset and render-scale regression tests. |
 | `npm run balance` | Plays every mission headlessly with two scripted strategies on each difficulty (see below). |
 | `npm run verify:loading` | Serves a browser report that exercises every arena and weapon (see [Loading](#loading-memory-and-performance)). |
+
+`npm run balance -- --companion drone` plays with the medic drone instead of the turret (the bot never stations it). For experiments without editing the game, `BALANCE_REPAIR=11` sets the sealer's tissue per pulse and `BALANCE_DRONE=1,1` the drone's suit and tissue mending per second. The bot also reports how many of its losses were to its suit failing.
 
 `npm run balance` uses two strategies. The anchor guards the weakest node. The rover runs to the node under the most pressure and switches targets when Shellbacks block its shots. The script prints win rates and the lowest tissue integrity per run, and exits with an error if a mission is never won on some difficulty. Narrow it with `npm run balance -- --difficulty hard --trials 20 stomach colon`. The bot is [`tools/balance/balance-bot.mjs`](../tools/balance/balance-bot.mjs).
 
@@ -124,10 +127,12 @@ flowchart LR
 | [`dist/weapon-mods.mjs`](../dist/weapon-mods.mjs), [`dist/armory-art.mjs`](../dist/armory-art.mjs) | The five weapons, their parts, stickers and charms, the two-weapon loadout and its saved-build validation, and armory images rendered from the same 3D parts used in combat. |
 | [`dist/arsenal-models.mjs`](../dist/arsenal-models.mjs), [`dist/arsenal-ui.mjs`](../dist/arsenal-ui.mjs) | 3D models for the sniper rifle, shotgun, rocket launcher, and pistol with every part variant, receiver stickers and swinging charms; the weapon strip, spread crosshair, scope overlay, swap controls, and armory loadout picker. |
 | [`dist/explosions.mjs`](../dist/explosions.mjs) | Rocket flights with smoke trails, and explosions with a fireball, flash, smoke column, ground shockwave, sparks, light, and camera shake. |
-| [`dist/repair-tool.mjs`](../dist/repair-tool.mjs) | The 3D tissue sealer that replaces the carbine while the player repairs the wound. |
+| [`dist/repair-tool.mjs`](../dist/repair-tool.mjs) | The 3D tissue sealer that replaces the carbine while the player repairs the wound, with the guns' cosmetics (`setBuild`). |
 | [`dist/heart-chamber.mjs`](../dist/heart-chamber.mjs) | The Heart Valve layout: the four valves, their beat, wounds, colony spots and solid footprints, and the sleeve ray test the simulation uses for shots. |
 | [`dist/heart-valve.mjs`](../dist/heart-valve.mjs) | The four moving valves: sleeves, leaflets, throat lights and blood cells. The scene follows the same timing as the simulation's shot and repair windows. |
-| [`dist/turret.mjs`](../dist/turret.mjs) | The 3D auto-turret with its aiming mount, deployment animation, and recoil. |
+| [`dist/turret.mjs`](../dist/turret.mjs) | The 3D auto-turret with its aiming mount, deployment animation, and recoil. The world keeps one per possible squad member. |
+| [`dist/companions.mjs`](../dist/companions.mjs) | The medic drone's rules: following, stationing, choosing whom to mend, mending, the calm rule and Inner Ear jamming. Turrets stay in `simulation.mjs`, now owned per suit. |
+| [`dist/drone.mjs`](../dist/drone.mjs) | The drone as drawn: its Blender model in the weapon kit's materials, cosmetics, hover, banking, rotors and the mending beam. |
 | [`dist/rogue-bot.mjs`](../dist/rogue-bot.mjs) | Rogue Bot and Crawler laser rules (`CRAWLER_LASER` holds the Crawler's). See [rogue-bot.md](rogue-bot.md). |
 | [`dist/profiles.mjs`](../dist/profiles.mjs), [`dist/profile-system.mjs`](../dist/profile-system.mjs) | Operator profiles: the per-player save namespace, migration and recovery; the title-screen chip, Operators screen and startup prompt. |
 | [`dist/achievements.mjs`](../dist/achievements.mjs), [`dist/achievement-ui.mjs`](../dist/achievement-ui.mjs), [`dist/achievement-system.mjs`](../dist/achievement-system.mjs) | Achievement definitions and rules fed by simulation events; the unlock toast and Achievements screen models; saved progress, chime and menu wiring. |
@@ -152,6 +157,8 @@ Phones use a compact HUD in landscape and portrait. Healthy node markers stay su
 **Wave scale.** Every wave fields five times the pathogens it was first written with. Every arena is a third larger in each direction than it was first laid out (110 × 154 m), and suits move about 20% faster to match.
 
 **Endless mode.** [`dist/endless.mjs`](../dist/endless.mjs) wraps a freshly constructed solo `Simulation` the way `applyDifficulty` does, before `start()`, so the simulation knows nothing about it. It keeps the roster one generated wave ahead of play, which lets the difficulty wrapper reshape generated waves like authored ones, and keeps `waves` above `wave` so no wave is ever final. Wave *n* repeats an authored template (the arena's waves in order, then cycling through the harder second half) to `1 + 0.12(n − 1)` times its length, never fewer than three more pathogens than the wave before; the cadence shrinks by 3.5% a wave down to half; `createEnemy`, `damageNode` and suit hits in `damageTarget` scale by +5% health and +3% damage a wave. Every fifth wave calls `spawnLevelBoss` once its roster is out, adding 25% boss health per return. `captureCheckpoint` returns `null`, and `spawn` defers arrivals past 80 living pathogens into a backlog that keeps each arrival's spawn slot. All tuning lives in `ENDLESS_RULES`. Records are saved per operator under `immune-protocol.endless-records`.
+
+**Nano companions.** A loadout's `arsenal.companion` is `turret` or `drone`, with `arsenal.turret` and `arsenal.drone` builds and `arsenal.sealer` cosmetics (`weapon-mods.mjs`: `DRONE_BASE`, `DRONE_SLOTS`, `droneStats`, `SEALER_BASE`). Each suit owns its `turret`, `turretCharges` and `drone`; in solo the suit is the `Simulation` itself, so `sim.turret` works as before, and `sim.turrets` / `sim.drones` list every one. `useCompanion(suit)` places a turret or stations / recalls a drone. Co-op snapshots send the player's own `turret`, `drone` and `companion`, plus every `turrets` and `drones` entry for drawing; wave checkpoints keep each suit's turret and its build. Balance: the drone mends 1 point a second, and a suit only after 2 seconds without losing health (`DRONE_RULES.calm`). On Medium with 8 trials per mission and strategy, the bot won 60 of 160 with the turret and 72 with the drone (79 without the calm rule); the sealer at 11, 13 and 15 per pulse won 63, 60 and 62, so it was left at 13.
 
 **Raised ground** is defined in [`dist/terrain.mjs`](../dist/terrain.mjs).
 
@@ -262,6 +269,16 @@ Each boss is its own model, sculpted in Blender by `tools/enemies/build_bosses.p
 The Rogue Bot is an NMD-07 surgical drone built in Blender with worn medical-white ceramic armor, titanium, brass fittings, ducted stabilizers, folded surgical instruments and red compromised optics. It has baked albedo, roughness/metallic, normal and emission maps, subtle servo animation, and cannon recoil. `blender -b -P tools/enemies/build_rogue_bot.py` rebuilds its GLB and Cycles guide portrait; set `ROGUE_BOT_OUTPUT` to choose where its editable `.blend` studio and larger render are saved. It appears in eight missions, uses normal health/score/difficulty rules and co-op targeting, and can provide ranged support in Predator Packs. [Rogue Bot behavior, assets and validation](rogue-bot.md) describes the integration.
 
 The Crawler is the NMD-11, built in Blender by `tools/enemies/build_crawler.py` with the Rogue Bot's materials and bake: a ceramic thorax and armoured abdomen with medical markings, a short laser emitter under a cluster of red camera eyes, folded surgical pincers, and eight jointed titanium legs with brass joints. The body is the baked `attack-membrane` mesh; each leg is its own node (`crawler-leg-L-0` to `crawler-leg-R-3`) pivoted at the hip, so the game runs them in an alternating tetrapod gait matched to its speed, and crouches and splays them while it locks on. `blender -b -P tools/enemies/build_crawler.py` rebuilds its GLB and guide portrait (`CRAWLER_OUTPUT` chooses where the `.blend` and larger render go). It shares the Rogue Bot's laser code with its own rules (`CRAWLER_LASER` in `dist/rogue-bot.mjs`) and joins Predator Packs.
+
+### Medic drone
+
+The medic drone is modelled in Blender by `tools/companions/build_drone.py`, which reuses the weapon builder's kit, finishing, bake and export (`tools/weapons/build_weapons.py`):
+
+```sh
+blender -b -P tools/companions/build_drone.py -- [--render]
+```
+
+It writes `dist/assets/companions/drone.glb` and its occlusion and edge-wear atlas `drone-weathering.webp`. The GLB has a `body` node, four `rotor-0` to `rotor-3` nodes pivoted at their hubs (the game spins them about Y), and an `emitter` node at the beam's origin, with materials named after the weapon kit roles so finishes, accents and skins paint it. `tools/companions/drone-mounts.json` records the flat panels where `drone.mjs` places decals and the sticker, and the charm's hang point.
 
 ### Co-op suits
 

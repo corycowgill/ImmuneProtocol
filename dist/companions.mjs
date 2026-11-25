@@ -13,6 +13,7 @@ export const DRONE_RULES = Object.freeze({
   catchUp: 4.5, // how sharply it closes on its anchor
   teleport: 30, // farther than this behind its suit and it skips ahead (a respawn, a checkpoint)
   scorePerPoint: 8, // tissue it mends scores like a sealer repair
+  calm: 2, // seconds a suit must go without losing health before a drone mends it
 });
 
 const TISSUE = 100;
@@ -83,7 +84,7 @@ function chooseTarget(sim, drone) {
   let need = 0;
   for (const suit of sim.activeSuits()) {
     const { player } = suit;
-    if (player.health <= 0 || player.health >= HEALTH || !within(drone, player.x, player.z, radius)) continue;
+    if (player.health <= 0 || player.health >= HEALTH || !within(drone, player.x, player.z, radius) || hurting(sim, player)) continue;
     const lost = (HEALTH - player.health) / HEALTH;
     if (lost > need) {
       need = lost;
@@ -187,7 +188,7 @@ function stillValid(sim, drone) {
   const { radius } = drone.stats;
   if (drone.targetKind === 'suit') {
     const player = sim.activeSuits().find(member => (member.player.id ?? 'solo') === drone.targetId)?.player;
-    return !!player && player.health > 0 && player.health < HEALTH && within(drone, player.x, player.z, radius);
+    return !!player && player.health > 0 && player.health < HEALTH && within(drone, player.x, player.z, radius) && !hurting(sim, player);
   }
   if (drone.targetKind === 'node') {
     const node = sim.nodes.find(item => item.id === drone.targetId);
@@ -203,8 +204,23 @@ function insideHazard(actor, hazard) {
     : Math.abs(dx) <= hazard.width / 2 && Math.abs(dz) <= hazard.depth / 2;
 }
 
+// Whether a suit lost health in the last DRONE_RULES.calm seconds.
+function hurting(sim, player) {
+  return sim.clock - (sim.suitHurtAt?.get(player.id ?? 'solo') ?? -Infinity) < DRONE_RULES.calm;
+}
+
 export function stepDrones(sim, dt) {
-  for (const suit of sim.activeSuits()) if (suit.drone) stepDrone(sim, suit.drone, suit, dt);
+  const suits = sim.activeSuits();
+  if (!suits.some(suit => suit.drone)) return;
+  // Note when each suit last lost health, from any source (pathogens, lasers, hazards).
+  sim.suitHurtAt ??= new Map();
+  sim.suitHealthSeen ??= new Map();
+  for (const { player } of suits) {
+    const id = player.id ?? 'solo';
+    if (player.health < (sim.suitHealthSeen.get(id) ?? player.health) - 1e-9) sim.suitHurtAt.set(id, sim.clock);
+    sim.suitHealthSeen.set(id, player.health);
+  }
+  for (const suit of suits) if (suit.drone) stepDrone(sim, suit.drone, suit, dt);
 }
 
 // Plain copies for co-op snapshots and the renderer.

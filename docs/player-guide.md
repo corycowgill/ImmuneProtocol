@@ -10,7 +10,8 @@ Everything you need to play: modes, missions, bosses, weapons, controls, co-op a
 - [Checkpoints](#checkpoints)
 - [Difficulty](#difficulty)
 - [Weapons and the Armory](#weapons-and-the-armory)
-- [The auto-turret](#the-auto-turret)
+- [Nano companions: turret or medic drone](#nano-companions-turret-or-medic-drone)
+- [The tissue sealer](#the-tissue-sealer)
 - [Controls](#controls)
 - [Suit abilities](#suit-abilities)
 - [Organ hazards and raised ground](#organ-hazards-and-raised-ground)
@@ -99,7 +100,7 @@ The campaign starts in the bloodstream, then moves through the lungs, stomach, s
 | Intestinal Bend | Defend three nodes in a swaying villus forest and climb the villus terraces to ride out the pressure wave that sweeps the whole bend. |
 | Colonic Reservoir | Hold three nodes in the microbiome while haustral squeezes sweep the chamber from side to side. |
 | Lymph Node | A patrolling macrophage digests every pathogen it touches, and crushes suits. Lure infections into its path while you hold three nodes. |
-| Inner Ear | Place your turret outside the resonance zones to keep it firing. Resonance rotates between three nodes. |
+| Inner Ear | Place your turret, or station your drone, outside the resonance zones to keep it working. Resonance rotates between three nodes. |
 | Neural Cortex | Survive two waves, then fight the Mega Virus as its connected bodies take turns exposing their cores. |
 
 ### Capillary Junction
@@ -185,7 +186,7 @@ Every weapon spreads its shots in a cone. Aiming down sights (hold right click o
 
 The Armory is a gunsmith bench on a hospital lab workbench. The weapon floats over a maintenance pad and turns when you drag it, above stat bars for the current build. It is open from the title menu, the deployment briefing and the report between missions; it stays closed during a mission, where each wave is followed by a short countdown to the next. It has three tabs:
 
-- **Weapons** picks your primary and secondary, and lists your **Auto-turret** (see [below](#the-auto-turret)).
+- **Weapons** picks your primary and secondary, your **nano companion** (the auto-turret or the medic drone, see [below](#nano-companions-turret-or-medic-drone)) and lists your **tissue sealer** (see [below](#the-tissue-sealer)). A row of item tabs in Gunsmith and Customize switches between all four.
 - **Gunsmith** pins a callout to each attachment point on the weapon — barrel, muzzle, optic, receiver and magazine; pick one to list its three options, each with a picture and its gains and losses. Parts change damage, fire rate, spread, zoom, capacity, and reload speed, scaled to each weapon.
 - **Customize** covers finish, accent, skin, decal, sticker and charm.
 
@@ -216,17 +217,45 @@ Pointing at or focusing any option previews its effect on the stat bars in green
 
 More finishes, accents, skins, stickers and decals are unlocked by [achievements](#achievements).
 
-## The auto-turret
+## Nano companions: turret or medic drone
+
+Every suit brings one nano companion. Pick it in the Armory's Weapons tab under **Companion**; the choice is saved with your loadout and shown on the deployment briefing. In co-op each player picks their own, so a squad can field two turrets and a drone, three drones, or any mix.
+
+### The auto-turret
 
 You can deploy one turret per mission on clear ground ahead of you, or place it twice on Easy. Hold the turret control (Q, RB, or the touch Move button) at any time to pick it up: it slides along the clear ground in front of you and holds fire until you release. It fires on automatic at a third of the Needle Carbine's rate (22 damage about three times a second), at targets within 20 meters that it has a clear line to. It favours pathogens latched onto tissue, its hits slow pathogens, and it can knock a given pathogen out of an attack once every 1.6 seconds. Put it near an approach to the node you plan to leave. A turret placed on raised ground gains 12% range per metre of height.
 
-Select the Auto-turret in the Armory's Weapons tab to fit its own parts in Gunsmith:
+Fit its parts in Gunsmith:
 
 - **Barrel**: heavy for damage or short for rate.
 - **Receiver**: cryo for a longer slow, or shock to stagger attacks every second.
 - **Sensor**: long-range to 26 m, or close-in for faster fire.
 
-Dress it in Customize with the same finishes, accents, skins, decals, stickers and charms as your guns. A charm's damage buff carries over to the turret. The turret you place uses your build, in co-op too.
+Dress it in Customize with the same finishes, accents, skins, decals, stickers and charms as your guns. A charm's damage buff carries over to the turret. The turret you place uses your build, in co-op too, and every player who brought a turret places their own.
+
+### The medic drone
+
+The medic drone is a small quad-rotor medic that rides over your right shoulder and follows you everywhere, banking as it flies. It mends one target at a time: whichever suit (yours or a teammate's) or tissue node within 8 m of it has lost the most, with a green beam from its belly emitter. Mending is deliberately slow: **1 point a second**, against about 16 a second from the tissue sealer, so it tops a defence up between pushes rather than saving one in the middle of a fight. It mends a suit only once that suit has gone **2 seconds without being hit**, so it can't out-heal a pathogen chewing on you, and it waits out a suit's hits by mending a nearby node instead. It follows the sealer's rules: no mending through the Neural Cortex overload, and a heart wound only while its valve is shut. It never fights and can't be hurt. In the Inner Ear the resonance jams it, as it jams a turret on the floor, unless it hovers over the cochlea's perch.
+
+Press the turret control (Q, RB, or the touch **Station** button) to **station** the drone where it is: it holds that spot and keeps mending around it, for example over the node you are about to leave. Press again (**Recall**) to bring it back to your shoulder. The HUD shows what it is doing: following, stationed, mending a suit or tissue, or jammed. Mended tissue scores like a sealer repair.
+
+Fit its parts in Gunsmith:
+
+| Slot | Options |
+| --- | --- |
+| Emitter | **Field** (1 point a second on suits and tissue), **Triage** (suits 40% faster, tissue 40% slower) or **Graft** (tissue 40% faster, suits 40% slower) |
+| Field | **Service** (8 m), **Wide** (11 m, 15% slower) or **Focus** (5 m, 15% faster) |
+| Rotors | **Service**, **Sprint** (flies 35% faster, mends 5% slower) or **Heavy** (flies 30% slower, mends 10% faster) |
+
+Dress it in Customize like a gun: finish, accent, skin, decals along its sides, a sticker on its top deck, and a charm hanging under its back-left arm. A charm's damage buff carries over as extra mending, the way it carries over to turret damage.
+
+**Turret or drone?** The turret holds one approach hard and protects tissue. The drone keeps your suit alive and patches whatever is near it. In headless balance tests on Medium, a scripted player that never dodges won slightly more often with the drone (because suit damage is what usually ends its runs), and lost more of its missions to tissue failing; with the turret it lost more to its suit failing.
+
+## The tissue sealer
+
+The tissue sealer is your repair tool: hold Repair (E, LB) by a damaged tissue node, an open gash, a blocked bronchus or a gastric valve. Each pulse every 0.82 seconds restores 13 tissue (about 16 a second) within 5.4 m; the Fast Sealer field upgrade raises it to 18 a pulse, Easy adds 30% and Hard takes 15%. You can't fire while sealing. In balance tests, moving the sealer between 11 and 15 a pulse made no measurable difference to win rates, so its numbers are unchanged: missions are lost in the fighting, not in the repairs.
+
+Select **Sealer** in the Armory to paint it like your guns in Customize: finish (which also tints its frame and fittings), accent (its reagent cell, sight glass and indicator), skin, decals along both sides of its housing, a sticker on its top deck, and a charm swinging from its front collar. On the sealer these are cosmetic: a charm never changes how it repairs.
 
 ## Controls
 
@@ -244,7 +273,7 @@ Dress it in Customize with the same finishes, accents, skins, decals, stickers a
 | Sprint | Shift | Click the left stick |
 | Reload | R | X |
 | Repair | Hold E near a damaged tissue node or open gash | Hold LB |
-| Deploy auto-turret | Q | RB |
+| Deploy auto-turret, or station / recall the medic drone | Q | RB |
 | Drag the placed turret to a new spot | Hold Q | Hold RB |
 | Switch weapon | 1 / 2 or mouse wheel | Y |
 | Pause | Esc or P | Menu ☰ |
@@ -372,7 +401,7 @@ In the lobby, each player picks a suit: **Vanguard** (heavy assault armor), **Wr
 
 After each mission, all players ready up at the shared checkpoint. A win unlocks the next deployment in the room, while a loss lets the squad retry the current mission. Each deployment starts with fresh suits and supplies and keeps every player's weapon loadout. The squad extracts after stabilizing Capillary Junction and earns a combined campaign report after the final boss. Campaign progress belongs to the active room.
 
-Each suit has its own two weapons, builds, ammo, and health. Co-op missions always use the Medium difficulty. You share the tissue nodes, one turret, the wave timer, and the mission score. Teammates see your shots, rockets, and explosions. If one suit goes down, it returns at the next wave if a surviving teammate clears the current one. Waves follow each other after a short countdown; the Armory is available in the lobby and at the checkpoint between missions. The game keeps a score for each player — points for the pathogens they neutralize and the tissue they repair — and shows it on screen beside the team total, in the mission report, and as campaign totals when the campaign ends. Wave-clear bonuses and turret kills count toward the team score only. The game holds your place for up to 75 seconds after a disconnect.
+Each suit has its own two weapons, builds, ammo, health and nano companion: its own turret to place, or its own medic drone, which mends teammates as well as you. Co-op missions always use the Medium difficulty. You share the tissue nodes, the wave timer, and the mission score. Teammates see your shots, rockets, and explosions. If one suit goes down, it returns at the next wave if a surviving teammate clears the current one. Waves follow each other after a short countdown; the Armory is available in the lobby and at the checkpoint between missions. The game keeps a score for each player — points for the pathogens they neutralize and the tissue they repair — and shows it on screen beside the team total, in the mission report, and as campaign totals when the campaign ends. Wave-clear bonuses and turret kills count toward the team score only. The game holds your place for up to 75 seconds after a disconnect.
 
 To host your own co-op server, see [Host online co-op on Render](development.md#host-online-co-op-on-render).
 

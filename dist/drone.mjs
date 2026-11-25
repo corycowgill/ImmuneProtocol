@@ -10,12 +10,14 @@ import { decalTexture } from './weapon-skins.mjs';
 
 // Flat panels on the model for cosmetics (tools/companions/drone-mounts.json), in its own metres.
 const MOUNTS = {
+  // Decal art is a 4:1 strip; it sits in the middle of each 74 x 42 mm side panel.
   decals: [
-    { x: -.081, y: .012, z: .02, width: .15, height: .046, side: -1 },
-    { x: .081, y: .012, z: .02, width: .15, height: .046, side: 1 },
+    { x: -.087, y: .004, z: -.0075, width: .074, height: .0185, side: -1 },
+    { x: .087, y: .004, z: -.0075, width: .074, height: .0185, side: 1 },
   ],
-  sticker: { x: 0, y: .102, z: .045, size: .06 },
-  charm: { x: -.2, y: -.03, z: -.12 },
+  sticker: { x: 0, y: .078, z: -.036, size: .04 },
+  // The eyelet under the back-left arm.
+  charm: { x: -.1167, y: -.0335, z: .1167 },
 };
 const ROTORS = ['rotor-0', 'rotor-1', 'rotor-2', 'rotor-3'];
 
@@ -98,7 +100,7 @@ export function createDroneView(glow, { beam = true } = {}) {
   sticker.visible = false;
   hover.add(sticker);
   const { pivot: charmPivot, charms } = createCharms();
-  charmPivot.scale.setScalar(2.4);
+  charmPivot.scale.setScalar(1.6);
   charmPivot.position.set(MOUNTS.charm.x, MOUNTS.charm.y, MOUNTS.charm.z);
   hover.add(charmPivot);
 

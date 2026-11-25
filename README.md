@@ -1,6 +1,6 @@
 # Immune Protocol
 
-A browser FPS about a nano-soldier injected into a patient. Defend two or three tissue nodes in each of ten missions. Place an auto-turret to cover one approach while you defend the others. The campaign starts in the bloodstream, then moves through the lungs, stomach, small intestine, colon, a lymph node, the inner ear, and the brain.
+A browser FPS about a nano-soldier injected into a patient. Defend two or three tissue nodes in each of ten missions. Bring an auto-turret to cover one approach while you defend the others, or a medic drone that follows you and slowly mends suits and tissue. The campaign starts in the bloodstream, then moves through the lungs, stomach, small intestine, colon, a lymph node, the inner ear, and the brain.
 
 [Play on GitHub Pages](https://corycowgill.github.io/ImmuneProtocol/) · [Play online co-op](https://immune-protocol-coop.onrender.com/) · [Watch the demo](https://corycowgill.github.io/ImmuneProtocol/demo/)
 
@@ -8,7 +8,7 @@ A browser FPS about a nano-soldier injected into a patient. Defend two or three 
 
 - **A ten-mission campaign** through the body, each with its own organ hazard, raised ground and a boss to finish it: from the Thrombus Titan in the artery to the Mega Virus in the brain. Each wave is a checkpoint.
 - **Swarms that think.** Pathogens see, hear, remember and coordinate, and waves mix six encounter patterns you read from the pathogens themselves, not from on-screen labels. Brood nests and antibody caches pull you away from your nodes.
-- **Five weapons and a turret to build.** Carry any two of the carbine, sniper rifle, shotgun, rocket launcher and pistol. Fit parts in the Armory's gunsmith bench and dress them in finishes, skins, decals, stickers and stat-boosting charms.
+- **Five weapons and a nano companion to build.** Carry any two of the carbine, sniper rifle, shotgun, rocket launcher and pistol, plus an auto-turret or a medic drone. Fit parts in the Armory's gunsmith bench and dress them, and your tissue sealer, in finishes, skins, decals, stickers and charms.
 - **Suit abilities:** dash with a perfect-dodge window, jump, bash, antibody grenades and stun charges.
 - **Endless mode:** hold one arena against waves that never stop, each bigger, faster and tougher than the last, with the boss returning every fifth wave.
 - **Easy, Medium and Hard**, plus Free Mode and Mega Virus practice.
@@ -44,7 +44,7 @@ Open [http://127.0.0.1:8017](http://127.0.0.1:8017). There's no dependency insta
 | Sprint | Shift | Click the left stick |
 | Reload | R | X |
 | Repair | Hold E | Hold LB |
-| Deploy or move the turret | Q (hold to drag) | RB (hold to drag) |
+| Deploy or move the turret; station or recall the drone | Q (hold to drag the turret) | RB |
 | Switch weapon | 1 / 2 or mouse wheel | Y |
 | Pause | Esc or P | Menu ☰ |
 

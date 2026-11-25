@@ -117,11 +117,18 @@ test('it slowly mends the most damaged suit or node in its field', () => {
   fly(sim, 3);
   sim.player.health = 60;
   node.health = 90;
+  // Setting health counts as a hit, so the drone first waits out its calm period.
+  fly(sim, DRONE_RULES.calm + .1);
+  const before = sim.player.health;
+  const tissueBefore = node.health;
   fly(sim, 10);
-  const suitRate = (sim.player.health - 60) / 10;
+  const suitRate = (sim.player.health - before) / 10;
   assert.ok(Math.abs(suitRate - DRONE_BASE.suitHeal) < .15, `suit mended ${suitRate.toFixed(2)}/s`);
-  assert.equal(node.health, 90, 'one target at a time: the suit had lost more');
+  // It re-picks every half second, so the node may get a moment more before it switches.
+  assert.ok(node.health - tissueBefore <= DRONE_RULES.retarget * DRONE_BASE.tissueHeal + 1e-9, 'one target at a time: the suit had lost more');
+  assert.ok(tissueBefore > 90, 'while the suit was still taking its breath, the node was mended');
   sim.player.health = 100;
+  node.health = 90;
   fly(sim, 10);
   const tissueRate = (node.health - 90) / 10;
   assert.ok(Math.abs(tissueRate - DRONE_BASE.tissueHeal) < .15, `tissue mended ${tissueRate.toFixed(2)}/s`);
@@ -134,6 +141,20 @@ test('it slowly mends the most damaged suit or node in its field', () => {
   far.health = 50;
   fly(sim, 5);
   assert.equal(far.health, 50);
+});
+
+test('it waits for a suit to go two seconds without a hit before mending it', () => {
+  const sim = solo();
+  fly(sim, 2);
+  sim.player.health = 70;
+  fly(sim, 1);
+  for (let i = 0; i < 4; i++) {
+    sim.player.health -= 1;
+    fly(sim, .5);
+  }
+  assert.ok(sim.player.health <= 66.01, 'no mending while it keeps getting hit');
+  fly(sim, DRONE_RULES.calm + 3);
+  assert.ok(sim.player.health > 66.5, 'mending resumes once the suit is clear');
 });
 
 test('the Inner Ear resonance jams a drone near the floor', () => {
@@ -170,7 +191,7 @@ test('in co-op every suit brings its own companion and drones mend teammates', (
   fly(sim, 3);
   a.player.health = 40;
   fly(sim, 5);
-  assert.ok(a.player.health > 44, 'the teammate is mended');
+  assert.ok(a.player.health > 40 + (5 - DRONE_RULES.calm) * .8, 'the teammate is mended');
   const snapshot = sim.snapshotFor('a');
   assert.equal(snapshot.turrets.length, 2);
   assert.equal(snapshot.drones.length, 1);

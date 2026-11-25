@@ -357,14 +357,16 @@ export const normalizeCompanion = id => typeof id === 'string' && Object.hasOwn(
 
 // The medic drone hovers by its suit and mends one target at a time: the suit or tissue node in
 // its field that has lost the most. Healing is deliberately slow (about one point a second), so
-// it keeps a defence topped up between pushes rather than replacing the tissue sealer.
+// it keeps a defence topped up between pushes rather than replacing the tissue sealer, and it only
+// mends a suit that has gone a moment without being hit (DRONE_RULES.calm), so it cannot out-heal a
+// fight in progress.
 // Part changes are multipliers on these numbers (see droneStats).
-export const DRONE_BASE = Object.freeze({ suitHeal: 1.2, tissueHeal: 1, radius: 8, speed: 9 });
+export const DRONE_BASE = Object.freeze({ suitHeal: 1, tissueHeal: 1, radius: 8, speed: 9 });
 export const DRONE_SLOTS = {
   emitter: {
     name: 'Emitter',
     options: {
-      standard: { name: 'Field emitter', detail: 'Mends suits at 1.2 and tissue at 1 point a second.' },
+      standard: { name: 'Field emitter', detail: 'Mends a suit or tissue node by 1 point a second.' },
       'triage-emitter': { name: 'Triage emitter', detail: 'Mends suits 40% faster. Mends tissue 40% slower.', changes: { suitHeal: .4, tissueHeal: -.4 } },
       'graft-emitter': { name: 'Graft emitter', detail: 'Mends tissue 40% faster. Mends suits 40% slower.', changes: { suitHeal: -.4, tissueHeal: .4 } },
     },

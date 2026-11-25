@@ -37,6 +37,25 @@ os.makedirs(bw.OUT, exist_ok=True)
 os.makedirs(bw.WORK, exist_ok=True)
 
 to_b = bw.to_b
+
+# The drone is seen from metres away: two bevel segments are plenty and halve the count.
+_object = bw.Kit._object
+
+
+def _lean_object(self, bm, mat, bevel, segments, angle, cuts, smooth):
+    return _object(self, bm, mat, bevel, min(segments, 2), angle, cuts, smooth)
+
+
+bw.Kit._object = _lean_object
+_lathe = bw.Kit.lathe
+SEGMENT_SCALE = .5
+
+
+def _lean_lathe(self, profile, mat, center=(0, 0), axis='z', segments=40, bevel=0, cuts=(), smooth=True):
+    return _lathe(self, profile, mat, center, axis, max(12, int(segments * SEGMENT_SCALE)), bevel, cuts, smooth)
+
+
+bw.Kit.lathe = _lean_lathe
 TAU = math.tau
 
 # Rotor hubs, in node order.
@@ -83,7 +102,7 @@ def ring_points(hw, top, bot, n, e):
     return out
 
 
-def loft(k, z0, z1, mat, stations=14, n=64, scale=1., bevel=.0025, segments=3, cuts=(), ease=0):
+def loft(k, z0, z1, mat, stations=12, n=40, scale=1., bevel=.0025, segments=3, cuts=(), ease=0):
     """A pod segment from z0 to z1 with flat end caps; ease>0 packs stations at z0, <0 at z1."""
     bm = bmesh.new()
     rings = []
@@ -112,6 +131,7 @@ def revolve(k, profile, mat, center=(0, 0), axis='y', segments=64, arc=None, rad
     bm = bmesh.new()
     full = arc is None
     a0, a1 = arc if arc else (0, TAU)
+    segments = max(8, int(segments * SEGMENT_SCALE))
     count = segments if full else segments + 1
     rings = []
     for i in range(count):
@@ -141,18 +161,42 @@ def revolve(k, profile, mat, center=(0, 0), axis='y', segments=64, arc=None, rad
     return k._object(bm, mat, bevel, 2, 40, (), True)
 
 
-def screw_y(k, x, y, z, r=.0042, d=1, mat='edge'):
+def screw_y(k, x, y, z, r=.0042, d=1, mat='edge', slot=True):
     """A screw head standing on a face that looks up (d=1) or down (d=-1)."""
     return k.lathe([(0, y - .0015 * d), (r * .85, y - .0015 * d), (r, y), (r, y + .0018 * d),
-                    (r * .7, y + .0028 * d), (0, y + .0028 * d)], mat, center=(x, z), axis='y', segments=18,
-                   cuts=[bw.cutter_box((x, y + .0028 * d, z), (r * 1.6, .003, .0012))])
+                    (r * .7, y + .0028 * d), (0, y + .0028 * d)], mat, center=(x, z), axis='y', segments=12,
+                   cuts=[bw.cutter_box((x, y + .0028 * d, z), (r * 1.6, .003, .0012))] if slot else ())
 
 
-def screw_z(k, x, y, z, r=.0042, d=1, mat='edge'):
+def screw_z(k, x, y, z, r=.0042, d=1, mat='edge', slot=True):
     """A screw head on a face that looks back (d=1, +z) or forward (d=-1)."""
     return k.lathe([(0, z - .0015 * d), (r * .85, z - .0015 * d), (r, z), (r, z + .0018 * d),
-                    (r * .7, z + .0028 * d), (0, z + .0028 * d)], mat, center=(x, y), axis='z', segments=18,
-                   cuts=[bw.cutter_box((x, y, z + .0028 * d), (r * 1.6, .0012, .003))])
+                    (r * .7, z + .0028 * d), (0, z + .0028 * d)], mat, center=(x, y), axis='z', segments=12,
+                   cuts=[bw.cutter_box((x, y, z + .0028 * d), (r * 1.6, .0012, .003))] if slot else ())
+
+
+def cutter_text(text, position, size, side=-1, depth=.0012, resolution=3):
+    """bw.cutter_text with coarser letter curves, which keeps the engraving light."""
+    curve = bpy.data.curves.new('text', 'FONT')
+    curve.body = text
+    curve.size = size
+    curve.extrude = depth
+    curve.align_x = 'CENTER'
+    curve.align_y = 'CENTER'
+    curve.space_character = 1.08
+    curve.resolution_u = resolution
+    obj = bpy.data.objects.new('text', curve)
+    bpy.context.scene.collection.objects.link(obj)
+    columns = ((0, -1, 0), (0, 0, 1), (side, 0, 0)) if side < 0 else ((0, 1, 0), (0, 0, 1), (side, 0, 0))
+    from mathutils import Matrix
+    rotation = Matrix((columns[0], columns[1], columns[2])).transposed().to_4x4()
+    obj.matrix_world = Matrix.Translation(to_b(*position)) @ rotation
+    bw.select([obj])
+    bpy.ops.object.convert(target='MESH')
+    obj = bpy.context.view_layer.objects.active
+    obj['is_cutter'] = True
+    obj.hide_render = True
+    return obj
 
 
 def spin(obj, angle):
@@ -175,23 +219,23 @@ def build_pod(k):
     # Shell panels: nose, mid and tail, split by seams. A glowing status ring fills the
     # front seam, a dark core the rear one.
     eye = bw.cutter_cylinder((0, .002, Z_NOSE - .01), .032, .06, axis='z', segments=40)
-    loft(k, Z_NOSE, -.08, 'shell', stations=16, ease=-1, cuts=[eye])
-    loft(k, -.085, -.071, 'accent', stations=4, n=48, scale=.986, bevel=0)
+    loft(k, Z_NOSE, -.08, 'shell', stations=12, ease=-1, cuts=[eye])
+    loft(k, -.085, -.071, 'accent', stations=3, n=40, scale=.986, bevel=0)
     # Mid panel: two seams down the back, either side of the top sticker plate.
     seams = [bw.cutter_box((side * .047, pod_top(-.01, .047), -.01), (.0016, .012, .2)) for side in (-1, 1)]
-    loft(k, -.076, .056, 'shell', stations=16, cuts=seams)
-    loft(k, .051, .065, 'dark', stations=4, n=48, scale=.975, bevel=0)
+    loft(k, -.076, .056, 'shell', stations=10, cuts=seams)
+    loft(k, .051, .065, 'dark', stations=3, n=40, scale=.975, bevel=0)
     vents = [bw.cutter_slot((side * .074, .002 + i * .012, .094), .034, .0062, .03)
              for side in (-1, 1) for i in range(3)]
-    loft(k, .06, Z_TAIL, 'shell', stations=12, ease=1, cuts=vents)
+    loft(k, .06, Z_TAIL, 'shell', stations=10, ease=1, cuts=vents)
 
     # Side decal panels (flat, facing +-x) with a marking strip below.
     for side in (-1, 1):
         k.profile([(-.0505, -.0225), (.0355, -.0225), (.0355, .0305), (-.0505, .0305)], .014, 'dark',
                   x=side * .08, radius=.006, bevel=.0012)
-        text = bw.cutter_text('MEDEVAC-3', (side * .083, -.036, -.0075), .0085, side=side, depth=.0014, bold=True)
+        text = cutter_text('MEDEVAC-3', (side * .083, -.036, -.0075), .0085, side=side, depth=.0014)
         k.profile([(-.0505, -.0435), (.0355, -.0435), (.0355, -.0285), (-.0505, -.0285)], .012, 'steel',
-                  x=side * .077, radius=.003, bevel=.001, cuts=[text])
+                  x=side * .077, radius=.003, steps=3, bevel=0, cuts=[text])
         # Accent status strip along the top of each decal panel.
         k.box((side * .0838, .036, -.0075), (.004, .0035, .07), 'accent', bevel=.0008)
 
@@ -228,7 +272,7 @@ def build_eye(k):
     zf = Z_NOSE
     k.lathe([(0, zf + .035), (.0312, zf + .035), (.0312, zf + .002), (0, zf + .002)], 'dark', center=c, axis='z')
     revolve(k, [(.0255, zf + .003), (.0255, zf - .004), (.029, zf - .0085), (.0355, zf - .0085), (.0385, zf - .005),
-                (.0385, zf + .002), (.0355, zf + .004)], 'steel', center=c, axis='z', segments=56, radius=.0012)
+                (.0385, zf + .002), (.0355, zf + .004)], 'steel', center=c, axis='z', segments=56, radius=.0012, steps=1)
     revolve(k, [(.0235, zf + .006), (.0235, zf - .002), (.0258, zf - .002), (.0258, zf + .006)], 'edge', center=c,
             axis='z', segments=48)
     revolve(k, [(.0135, zf + .009), (.0135, zf + .006), (.022, zf + .006), (.022, zf + .009)], 'accent', center=c,
@@ -264,7 +308,7 @@ def build_arms(k):
         spin(led, angle)
         for off in (-.011, .011):
             p = Vector(at(.118, 0)) + Vector((-d.z, 0, d.x)) * off
-            screw_y(k, p.x, .0305, p.z, r=.0036)
+            screw_y(k, p.x, .0305, p.z, r=.0036, slot=False)
         build_duct(k, sx * HUB, sz * HUB, angle)
 
 
@@ -272,18 +316,14 @@ def build_duct(k, hx, hz, angle):
     c = (hx, hz)
     # Duct ring: rounded lip on top, slight flare below.
     revolve(k, [(.0795, -.024), (.0795, .017), (.0835, .026), (.09, .027), (.0945, .022), (.0945, -.014),
-                (.0905, -.026), (.083, -.027)], 'shell', center=c, segments=72, radius=.003)
+                (.0905, -.026), (.083, -.027)], 'shell', center=c, segments=84, radius=.003, steps=1)
     # Dark liner inside, a steel lip ring, and a glowing arc on the outward face.
-    revolve(k, [(.0778, -.021), (.0778, .015), (.08, .015), (.08, -.021)], 'dark', center=c, segments=72)
-    revolve(k, [(.0822, .0255), (.0822, .0285), (.0918, .0285), (.0918, .0255)], 'edge', center=c, segments=72,
-            radius=.0008)
+    revolve(k, [(.0778, -.021), (.0778, .015), (.08, .015), (.08, -.021)], 'dark', center=c, segments=48)
+    revolve(k, [(.0822, .0255), (.0822, .0285), (.0918, .0285), (.0918, .0255)], 'edge', center=c, segments=84)
     out = math.atan2(hz, hx)
-    for i in range(6):
-        a = out + math.pi / 6 + i * math.pi / 3
-        screw_y(k, hx + math.cos(a) * .087, .0285, hz + math.sin(a) * .087, r=.0028)
     revolve(k, [(.0935, -.0035), (.0935, .0035), (.0962, .0035), (.0962, -.0035)], 'accent', center=c, segments=24,
-            arc=(out - .75, out + .75), radius=.0006)
-    revolve(k, [(.0935, -.0155), (.0935, -.0105), (.0958, -.0105), (.0958, -.0155)], 'dark', center=c, segments=72)
+            arc=(out - .75, out + .75))
+    revolve(k, [(.0935, -.0155), (.0935, -.0105), (.0958, -.0105), (.0958, -.0155)], 'dark', center=c, segments=48)
     # Motor pod under the rotor, held by four struts.
     k.lathe([(0, -.038), (.012, -.038), (.0175, -.035), (.022, -.026), (.0232, -.012), (.021, -.0065), (0, -.0065)],
             'dark', center=c, axis='y', segments=40)
@@ -307,15 +347,14 @@ def build_belly(k):
             center=c, axis='y', segments=48)
     k.lathe([(0, -.075), (.027, -.075), (.0255, -.084), (.021, -.094), (0, -.094)], 'dark', center=c, axis='y',
             segments=48)
-    revolve(k, [(.0255, -.0785), (.0285, -.0785), (.0285, -.0825), (.025, -.0825)], 'edge', center=c, segments=48,
-            radius=.0006)
+    revolve(k, [(.0255, -.0785), (.0285, -.0785), (.0285, -.0825), (.025, -.0825)], 'edge', center=c, segments=48)
     revolve(k, [(.0125, -.091), (.021, -.091), (.0225, -.094), (.0215, -.1), (.019, -.1015), (.0135, -.1015),
-                (.0125, -.098)], 'steel', center=c, segments=48, radius=.0008)
+                (.0125, -.098)], 'steel', center=c, segments=40)
     k.lathe([(0, -.091), (.0128, -.091), (.0128, -.093), (.01, -.0965), (0, -.0975)], 'accent', center=c, axis='y',
             segments=32)
     for i in range(4):
         a = math.pi / 4 + i * math.pi / 2
-        screw_y(k, math.cos(a) * .039, -.068, zc + math.sin(a) * .039, r=.0033, d=-1)
+        screw_y(k, math.cos(a) * .039, -.068, zc + math.sin(a) * .039, r=.0033, d=-1, slot=False)
     # Intake grilles fore and aft of the emitter.
     for z in (-.066, .044):
         grille = [bw.cutter_box((0, -.0705, z + (i - 1.5) * .007), (.05, .006, .0032)) for i in range(4)]
@@ -351,7 +390,7 @@ def build_canister(k):
         k.lathe([(0, za), (.0205, za), (.0225, za + .002), (.0225, zb - .002), (.0205, zb), (0, zb)], 'steel',
                 center=c, axis='z', segments=40,
                 cuts=[bw.cutter_box((math.cos(a) * .0228, y + math.sin(a) * .0228, (za + zb) / 2),
-                                    (.003, .003, .02), rotate=('z', a)) for a in [i * TAU / 12 for i in range(12)]])
+                                    (.003, .003, .02), rotate=('z', a)) for a in [i * TAU / 8 for i in range(8)]])
         zt = zb if s > 0 else za
         k.lathe([(0, zt), (.008, zt), (.0085, zt + s * .003), (0, zt + s * .003)], 'edge', center=c, axis='z',
                 segments=24)
@@ -498,7 +537,26 @@ if __name__ == '__main__':
     views = [a[7:] for a in args if a.startswith('--view=')] or list(VIEWS)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     build()
+    if '--count' in args:
+        dg = bpy.context.evaluated_depsgraph_get()
+        rows = []
+        for o in [o for o in bpy.data.objects if o.type == 'MESH' and not o.get('is_cutter')]:
+            m = o.evaluated_get(dg).to_mesh()
+            m.calc_loop_triangles()
+            rows.append((len(m.loop_triangles), o.name, o.data.materials[0].name, tuple(round(v, 3) for v in o.matrix_world @ Vector(o.bound_box[0]))))
+        rows.sort(reverse=True)
+        bym = {}
+        for r in rows:
+            bym[r[2]] = bym.get(r[2], 0) + r[0]
+        print('BYMAT', bym, len(rows))
+        print('TOTAL', sum(r[0] for r in rows))
+        for r in rows[:int(os.environ.get('ROWS', 30))]:
+            print('ROW', *r)
+        sys.exit(0)
     if '--quick' in args:
+        meshes = [o for o in bpy.data.objects if o.type == 'MESH' and not o.get('is_cutter')]
+        bw.select(meshes)
+        bpy.ops.object.shade_smooth_by_angle(angle=math.radians(35))
         render_views(views, samples=24)
         sys.exit(0)
     nodes, parts = bw.finish('drone')
