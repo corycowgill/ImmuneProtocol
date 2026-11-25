@@ -1,0 +1,386 @@
+# Immune Protocol player guide
+
+Everything you need to play: modes, missions, bosses, weapons, controls, co-op and settings. For building, testing and asset pipelines, see the [development guide](development.md).
+
+- [Getting started](#getting-started)
+- [Modes and progression](#modes-and-progression)
+- [How a mission plays](#how-a-mission-plays)
+- [Campaign missions](#campaign-missions)
+- [Bosses](#bosses)
+- [Checkpoints](#checkpoints)
+- [Difficulty](#difficulty)
+- [Weapons and the Armory](#weapons-and-the-armory)
+- [The auto-turret](#the-auto-turret)
+- [Controls](#controls)
+- [Suit abilities](#suit-abilities)
+- [Organ hazards and raised ground](#organ-hazards-and-raised-ground)
+- [Pathogens and the disease guide](#pathogens-and-the-disease-guide)
+- [Achievements](#achievements)
+- [Operator profiles](#operator-profiles)
+- [Online co-op](#online-co-op)
+- [Settings](#settings)
+- [Ending, credits and music](#ending-credits-and-music)
+
+## Getting started
+
+[Play on GitHub Pages](https://corycowgill.github.io/ImmuneProtocol/), or [play online co-op](https://immune-protocol-coop.onrender.com/). You need a browser that supports WebGL 2. The game runs on desktop with keyboard and mouse or an Xbox controller, and on phones and tablets with touch controls.
+
+The game opens with an illustrated lab loading screen while it prepares weapons, pathogens, suits and arenas; its progress bar shows how far along it is, with rotating dispatches from the lab. The Hallucinated Games studio intro plays over it before the main menu. Use Skip intro, press Escape, or open the game with `?nointro` to go straight to the menu. Skipping the intro still waits for preparation to finish. If a required model or artwork fails to load, the game shows a retry screen rather than letting you deploy with missing assets. Each deployment, restart and mission transition has its own short loading screen too.
+
+Your first Arterial Junction deployment begins with one guided breach. Shoot the bacillus off the tissue, move into repair range, and hold Repair until the wound seals. The second node and turret become available as the rest of Wave 1 begins. Training uses the stock carbine until the breach is sealed. The browser remembers completed training for later deployments.
+
+The first time each move would help, a short hint shows the key for it: dash when a pathogen first winds up at you, jump next to raised ground, raised ground when an acid flood, contraction or squeeze is coming, bash when a pathogen latches nearby, a grenade into a crowd, a stun charge when a node is swarmed, and dragging the turret. Each appears once. Turn them off with **Settings > Controls > Ability hints**; **Reset to defaults** shows them all again.
+
+## Modes and progression
+
+The title screen lists every mode in one menu and an operator card that shows your campaign route, best score, difficulty and equipped weapons.
+
+**Campaign.** Choose **Start campaign** (or **Continue campaign**) to open the deployment briefing: the mission route with secured and locked missions, the arena, its waves, tissue nodes and hazard, the pathogens you will face, and your difficulty, field upgrade and loadout, with a shortcut to the Armory. Select **Begin campaign** to deploy. Between missions, equip one field upgrade. Your browser saves completed missions and the chosen upgrade at each checkpoint. **Continue campaign** shows the next mission and takes you back to its start. The final report shows the tissue preserved in all ten missions, total score, and pathogens neutralized.
+
+You can start any mission you have reached, not only the next one: pick it in the deployment screen. Replaying an earlier mission keeps your results before it and replaces the later ones as you play on; starting a mission you reached in an earlier campaign records the missions you skipped with no score.
+
+| Field upgrade | Effect |
+| --- | --- |
+| Fast Sealer | Restores 18 tissue points per repair pulse. |
+| Deep Magazine | Adds 12 rounds to the equipped magazine. |
+| Insulated Suit | Reduces suit damage from stomach acid, intestinal pressure waves, and haustral squeezes by 40%. |
+| Turret Stabilizer | Extends the turret's slow from 1.4 to 2.2 seconds. |
+
+**Free Mode** opens the same deployment briefing with every mission available. Select a mission, set difficulty, field upgrade and loadout, then select **Deploy**. Free Mode runs leave your campaign checkpoint, mission progression, and best score intact.
+
+**Practice Mega Virus.** Reaching the Mega Virus in Neural Cortex in either mode unlocks this option, which starts directly at Wave 3 with fresh supplies.
+
+**Online co-op** is covered [below](#online-co-op).
+
+## How a mission plays
+
+Each mission asks you to defend two or three tissue nodes. Each node has its own integrity meter and direction marker, and losing any node ends the mission. Tissue nodes are solid cover for pathogens too: your shots stop at a node, so a pathogen on its far side needs a clear line around it. A suit standing in a node to repair it can still fire outward.
+
+**The swarm.** Every wave fields five times the pathogens it was first written with, arriving close together, so the arena fills up and the fight should feel close to overrun. More pathogens commit to attacks at once (up to four on Easy, six on Medium and seven on Hard), and each strike from an ordinary pathogen does less damage, so a swarm is survivable when you fight it and lethal when you ignore it. Bosses keep their own damage. On Medium, the Intestinal Bend and Colonic Reservoir send their waves a little more slowly. Your score and kills are shown in the top right during a mission.
+
+**Reading the swarm.** Ordinary waves mix **Swarm Pincers, Spore Crossfire, Colony Convoys, Decoy Rushes, Tissue Sieges and Predator Packs** using their existing enemies. Nothing on screen names an encounter, marks where it will enter or labels what a pathogen is doing: you read the swarm from the pathogens themselves, their windups and their sounds. Groups compress into short pushes with breathing room afterward. Fresh deployments vary the mix, while wave-checkpoint retries keep the same one.
+
+Pathogens think for themselves. They see and hear you, remember where you were, route around obstacles and coordinate with nearby colony members. Lungers surround targets, spitters strafe and use cover, bacteria split their approaches to tissue, and armoured guards can protect wounded colony members. If you hide, they investigate your last known position.
+
+**Brood nests.** Missions give you reasons to leave your node. From the second wave on (the first in two-wave missions), a brood nest takes root on the far side of the arena and hatches a fast larva every few seconds, up to eight; the last wave roots two. A wave is not clear until every nest is destroyed, and the player who destroys one scores 600.
+
+**Antibody caches.** Partway through each wave a cache drifts in for 45 seconds: the first suit to reach it gets 40 suit integrity, a full magazine and 250 score.
+
+Nests and caches are marked on screen, with an arrow at the screen edge when they are out of view. The training breach, Heart Valve, Capillary Junction and the Mega Virus keep their own scripted objectives instead.
+
+**The arenas.** The playable floor is 110 × 154 m, with tissue nodes 40–60 m apart, and pathogens enter 20 m or more from the node they attack. The artery floor is broken up by ten clots that block movement and line of sight for you and force pathogens to flow around them. Tissue organs, villus groves, biofilm mounds and crystal clusters do the same in the organ arenas. When the last pathogen of a wave dies, a short countdown runs before the next wave, the Armory or the mission report, so you can see the area clear.
+
+**Combat feedback.** Shots leave their mark. A round that misses lands where it would really strike the floor, the chamber wall or a clot and leaves a puncture wound in the tissue, with a flash of light, a puff of tissue mist and sparks (the Lancet also chips fragments loose). A pathogen you hit flashes, is knocked back along the shot and sprays its own fluid. Rockets scorch the ground where they burst. Marks fade after about half a minute. Your muzzle flash lights the tissue around you, and a hit on your own suit jolts the camera (not with reduced motion). Each species has its own death animation, debris and sound, from viruses that swell and rupture to drones that short out and blow apart.
+
+**Pause.** The pause screen shows the wave, score, tissue and objective, and offers **Restart mission**, **Restart from wave N**, Settings, Achievements, the field manual, and **Quit to main menu**, which asks you to press it twice.
+
+## Campaign missions
+
+The campaign starts in the bloodstream, then moves through the lungs, stomach, small intestine, colon, a lymph node, the inner ear, and the brain. Every organ hazard raises a pulsing curtain around its zone during its warning.
+
+| Mission | What to watch for |
+| --- | --- |
+| Arterial Junction | Learn to intercept attackers and repair the core before defending three nodes through five waves, under a river of red blood cells pumped through a beating valve. |
+| Capillary Junction | Read the Amber and Teal attack forecasts, deploy support between waves, and choose whether to stay for Overtime. |
+| Heart Valve | Four valves open in turn around a full-size chamber. Sprint between them, shoot the colonies through each opening and seal the four wounds while their valves are shut. |
+| Bronchial Fork | Survive three waves, reopen both bronchi, and keep them open through a full breath. |
+| Gastric Chamber | Close the intake and drain the acid basin under fire, then defend the newly exposed lower passage. |
+| Intestinal Bend | Defend three nodes in a swaying villus forest and climb the villus terraces to ride out the pressure wave that sweeps the whole bend. |
+| Colonic Reservoir | Hold three nodes in the microbiome while haustral squeezes sweep the chamber from side to side. |
+| Lymph Node | A patrolling macrophage digests every pathogen it touches, and crushes suits. Lure infections into its path while you hold three nodes. |
+| Inner Ear | Place your turret outside the resonance zones to keep it firing. Resonance rotates between three nodes. |
+| Neural Cortex | Survive two waves, then fight the Mega Virus as its connected bodies take turns exposing their cores. |
+
+### Capillary Junction
+
+Capillary Junction has three waves with staggered attacks. The HUD names the next targeted node, the incoming pathogen, and the time until it enters. In Wave 3, an Amber virus rush arrives six seconds before the Teal bacillus breach.
+
+During each break, use **1** to reinforce Amber, **2** to reinforce Teal, or **3** to start the next wave with a full magazine. You can also select the options on screen, or use the controller's D-pad: left reinforces Amber, right reinforces Teal, and up selects Load magazines. Reinforcement starts when the first attacker enters the chosen inlet.
+
+In the breach wave, a bacillus tear can leave a gash that keeps draining tissue after the attacker dies. Move to the marked wound and hold Repair. Completed sealing pulses stay applied when you stop to fight or dodge. If a gash is still open after the last enemy falls, seal it to extract.
+
+After securing Capillary Junction, choose **Extract** to bank the result or **Stay for overtime**. Both nodes, your remaining suit health and ammo, and your turret carry into overtime. Stop the Teal breach, clear the Amber spore pressure, and seal any gash to earn 2,000 bonus points. If you lose in overtime, retry Capillary Junction from Wave 1.
+
+### Heart Valve
+
+Four valves (Mitral, Tricuspid, Aortic and Pulmonary) sit at the edges of a full-size chamber, each with a tissue wound a few metres in front of its mouth and three spore colonies rooted on the floor behind it. The valves beat a quarter-cycle apart, so their open windows roll around the chamber: each opens for 3.6 s and shuts for 7.2 s. While a valve is open its colonies spit through the aperture at its wound, or at a suit standing in line with it, and each time it opens on living colonies it spews a spore out into the chamber. Shots, rockets and grenades only reach the colonies through an open aperture; the sleeve's muscle stops everything else. A wound can only be sealed while its own valve is shut. Flank patrols, Rogue Bots and Crawlers among them, come in from the four quarters between the valves. Four papillary muscles and two clots give cover on the long runs, so sprint and dash between valves. Each wound's marker says how long until its valve opens. The mission ends when every colony and flank threat is gone and all four wounds are restored.
+
+### Bronchial Fork
+
+Move to each blocked bronchus after the third wave and hold Repair to reopen it. Completed pulses carry over while you stop to fight. Once both bronchi are open, keep both tissue nodes at **45% integrity or higher** through one full breath. If integrity drops below 45%, that side clogs again. Watch the exhale timer when crossing the central airway, and clear any surviving pathogens before leaving.
+
+### Gastric Chamber
+
+Acid surges flood the entire chamber, so get onto one of the rugae islands during each warning and fight from island to island while it lasts. Clear the first wave, then hold Repair at the intake on the west bank. Closing it diverts acid into the drain channel. Cross to the east bank and hold Repair at the drain valve. Completed pulses carry over if you stop to fight. Once the basin empties, watch the lower passage behind the insertion point. The final wave uses it to flank both tissue nodes.
+
+### Neural Cortex and the Mega Virus
+
+The Mega Virus is Neural Cortex's third wave. Its connected membranes protect three cores. Follow the pulse to the core about to open, then shoot the exposed tissue. When the shell closes, clear spawned viruses, reload, and repair. Neural overload blocks repairs at the highlighted node during exposure. In the final phase, Shellbacks and Splitters pressure opposite sides. Clear any survivors after the boss falls.
+
+## Bosses
+
+Every mission ends with a boss. Once the final wave has sent its last pathogen the boss arrives, a health bar replaces the wave counter, and the wave cannot clear until it is dead. Killing one scores 2,500 for the suit that lands the last shot. Bosses have more health against a larger co-op squad.
+
+| Mission | Boss | How it fights | How to beat it |
+| --- | --- | --- | --- |
+| Arterial Junction | Thrombus Titan | Armoured from every side (shots do 40%). Lines up a suit and charges in a straight line. | Sidestep so the charge carries it into the arena wall. It is stunned for about four seconds and takes 170% damage. |
+| Capillary Junction | Capillary Leech | Latches onto a node, drains it and heals itself. | Deal 13% of its health while it is latched to knock it loose and stagger it; it then heads for the other node. |
+| Heart Valve | Twelve colonies | Rooted on the floor behind the four valves, three each. | Shoot them while their valve is open. |
+| Bronchial Fork | Mold Crown | Circles overhead out of melee reach, firing six-shot spore volleys at suits, lobbing at the weakest node and seeding spitters. | Keep moving under the volleys and shoot upward between them. |
+| Gastric Chamber | Pylori Drill | Burrows where nothing can hit it, trailing a tremor, then erupts under a node or a suit. | Follow the tremor, get clear of the eruption, and punish it during the seven seconds it stays up. |
+| Intestinal Bend | Tapeworm | A head leading seven segments on a circuit of the nodes, biting each as it passes. The head takes 8% damage while any segment survives and speeds up as they die. | Destroy every segment, then the exposed head. |
+| Colonic Reservoir | Biofilm Colossus | Regrows health after five seconds without being hit, sheds brood at 75%, 50% and 25%, and slams suits within nine metres. | Keep someone firing at all times and back off when the slam warning shows. |
+| Lymph Node | Rogue Macrophage | Drags a suit toward itself to engulf it, and eats any pathogen that touches it to heal. | Deal 5% of its health during the pull to break it and stagger it. Keep the swarm away from it. |
+| Inner Ear | Otolith Screamer | Hovers and charges a sonic pulse that hits every suit it has a clear line to. Below half health it relocates and pulses faster. | Be behind an obstacle when the pulse fires. |
+| Neural Cortex | Mega Virus | Three cores (see [above](#neural-cortex-and-the-mega-virus)). | Shoot the exposed core. |
+
+Boss attacks are read from the boss itself: its windup, glow and sound. The boss bar shows only its name and health, with no attack callouts, danger overlays or countdowns. Ground bosses route around terrain; clots can stop the Titan's charge, cover can break the Macrophage's pull, and the Screamer stays still during its pulse warning. While a boss is using a major attack, fewer minions attack at once. Half-health phases change the pressure but keep readable windups, and the Drill, Colossus and Screamer leave clear punish windows. The Heart colony warns before tearing, and Mega Virus rockets must still reach the exposed core they were aimed at.
+
+## Checkpoints
+
+Each wave is a checkpoint. If a mission fails after the first wave, the report offers **Retry from wave N**: the mission resumes at the start of the wave you lost, with the score, kills, tissue node integrity, turret and junction support exactly as they were when that wave began, and the field cleared. Suits come back with at least half their integrity. **Restart mission** starts over from wave 1. The pause menu also has **Restart from wave N**. In the Bronchial Fork the final airway objective is its own checkpoint, and in Capillary Junction so is Overtime. In co-op, readying up after a loss retries the squad from the checkpoint, with every suit's score and integrity restored.
+
+## Difficulty
+
+Choose **Easy**, **Medium**, or **Hard** on the deployment briefing. Hover, focus, or select an option to see exactly what it changes. The choice is saved in the browser and applies when each campaign or Free Mode mission starts, so you can change it between missions. The pause screen and mission report name the difficulty you're playing. Medium is the standard balance that every mission is tuned around.
+
+| | Easy | Medium | Hard |
+| --- | --- | --- | --- |
+| Pathogens per wave | One in three removed | Standard | One extra for every seven, except in Gastric Chamber |
+| Spawn timing | 30% slower | Standard | 10% faster |
+| Pathogen and Mega Virus health | −25% | Standard | +15% |
+| Tissue damage | −35% | Standard | +10% in two-node arenas, standard in three-node arenas |
+| Suit damage, including hazards | −40% | Standard | +15% |
+| Tissue restored per repair pulse | +30% | Standard | −15% |
+| Auto-turret placements | Two, so you can move it once | One | One |
+
+Capillary Junction thins or reinforces each surge but always keeps the pathogen that triggers its forecast, and Overtime follows the same rules. The Heart Valve colonies and flank patrol, the bronchus and gastric counterattacks, the lower-passage flank, and the Mega Virus brood keep their numbers and timing; only their health and damage change. Online co-op always plays Medium. The best score on the main menu counts runs from every difficulty.
+
+## Weapons and the Armory
+
+You carry two weapons, a primary and a secondary, from the first mission. Pick any two different weapons in the **Armory**. Switch between them with **1** and **2**, the mouse wheel, **Y** on a controller, or the **Swap** button on touchscreens. Each weapon keeps its own magazine when you switch. Drawing a weapon takes a moment, and you can't fire until it's up. Missions start with the primary. Every weapon has unlimited reserve ammunition.
+
+| Weapon | Role | How it plays |
+| --- | --- | --- |
+| Needle Carbine | Assault | Accurate automatic fire, 30 rounds. The default primary. |
+| Lancet Rifle | Sniper | 110 damage per bolt-action shot, once a second, 5 rounds. Deep zoom and a scope overlay when aimed, with near-perfect accuracy; wild from the hip. |
+| Burst Scattergun | Shotgun | Nine pellets per shell, 6 shells. Devastating up close; damage falls off sharply past 7 m and bottoms out at 22 m. |
+| Phage Launcher | Rocket | Two rockets that fly visibly and burst on impact, splashing every pathogen within about 5 m (Shellback armor doesn't stop splash). Very slow 3.9 s reload. |
+| Sting Pistol | Sidearm | Light 11-damage rounds at 830 rounds a minute, 16 per magazine, half-second reload, and a little extra move speed. The default secondary. |
+
+Every weapon spreads its shots in a cone. Aiming down sights (hold right click or LT) narrows the cone and zooms in, and the crosshair widens and narrows with the current spread. The Lancet's scope zooms furthest.
+
+### The Armory
+
+The Armory is a gunsmith bench on a hospital lab workbench. The weapon floats over a maintenance pad and turns when you drag it, above stat bars for the current build. It is open from the title menu, the deployment briefing and the report between missions; it stays closed during a mission, where each wave is followed by a short countdown to the next. It has three tabs:
+
+- **Weapons** picks your primary and secondary, and lists your **Auto-turret** (see [below](#the-auto-turret)).
+- **Gunsmith** pins a callout to each attachment point on the weapon — barrel, muzzle, optic, receiver and magazine; pick one to list its three options, each with a picture and its gains and losses. Parts change damage, fire rate, spread, zoom, capacity, and reload speed, scaled to each weapon.
+- **Customize** covers finish, accent, skin, decal, sticker and charm.
+
+Pointing at or focusing any option previews its effect on the stat bars in green and red before you equip it. Builds for all five weapons are saved in the browser and work alongside your field upgrade. Each weapon has its own cosmetics:
+
+- **Body finish**: Factory ivory, Obsidian, Arctic, Crimson, Moss, Desert, Gunmetal, Midnight navy, Cobalt, Deep teal, Toxic lime, Plum, Bubblegum, Rose gold, Burnt copper or Ash gray, and an **accent color**.
+- **Skins** that wrap the polymer furniture in a pattern: Tiger, Zebra, Winter camo, Woodland camo, Urban digital, Carbon fiber, and the glowing Cyberpunk and Molten core. The body finish still colors the metal.
+- **Decals** printed along the side: Racing stripes, Hot rod flames, Kill tally, Hazard chevrons, Circuit traces, Barcode, Unit 07, Paint splatter, Capsid parade, Double helix, Claw marks, Pixel fade, Lightning, Shooting stars, Contagion tape, Pinstripe, Medic crosses, or Resonance. On the Phage Launcher they wrap around the tube.
+- **Stickers** printed on the receiver: Biohazard, Happy virus, Voltage, Big heart, Pathogen skull, Gold star, Hallucinated crest, Double helix, Antibody, Hot shot, Snowflake, Tiger paw, Crosshair, Lab cat, Pizza slice, Rainbow, or Peace.
+- **Charms** that dangle and swing beside your support hand and buff the weapon while it's in your hands:
+
+| Charm | Buff | Effect |
+| --- | --- | --- |
+| Lucky clover | Luck | Critical hit zones 30% larger |
+| Macrophage fang | Strength | +10% damage |
+| Quicksilver hourglass | Reload speed | Reloads 20% faster, swaps 25% faster |
+| Flagellum feather | Movement speed | +8% move speed |
+| Steady eye | Accuracy | 30% tighter spread |
+| Ration capsule | Capacity | 25% larger magazines |
+| Gambler's die | Fortune | Critical hit zones 18% larger, +4% damage |
+| Antibody | Precision | +6% damage, 10% tighter spread |
+| Frost crystal | Composure | Reloads 10% faster, 12% tighter spread |
+| Heart locket | Agility | +5% move speed, swaps 20% faster |
+| Tiger claw | Ferocity | +7% damage, critical zones 10% larger |
+| Berserker skull | Fury | +15% damage, but 12% wider spread |
+| Spare cell | Endurance | 15% larger magazines, reloads 8% faster |
+| Shooting star | All-rounder | +3% damage, 5% faster reloads, +3% move speed, 5% tighter spread |
+
+More finishes, accents, skins, stickers and decals are unlocked by [achievements](#achievements).
+
+## The auto-turret
+
+You can deploy one turret per mission on clear ground ahead of you, or place it twice on Easy. Hold the turret control (Q, RB, or the touch Move button) at any time to pick it up: it slides along the clear ground in front of you and holds fire until you release. It fires on automatic at a third of the Needle Carbine's rate (22 damage about three times a second), at targets within 20 meters that it has a clear line to. It favours pathogens latched onto tissue, its hits slow pathogens, and it can knock a given pathogen out of an attack once every 1.6 seconds. Put it near an approach to the node you plan to leave. A turret placed on raised ground gains 12% range per metre of height.
+
+Select the Auto-turret in the Armory's Weapons tab to fit its own parts in Gunsmith:
+
+- **Barrel**: heavy for damage or short for rate.
+- **Receiver**: cryo for a longer slow, or shock to stagger attacks every second.
+- **Sensor**: long-range to 26 m, or close-in for faster fire.
+
+Dress it in Customize with the same finishes, accents, skins, decals, stickers and charms as your guns. A charm's damage buff carries over to the turret. The turret you place uses your build, in co-op too.
+
+## Controls
+
+| Action | Keyboard and mouse | Xbox controller |
+| --- | --- | --- |
+| Move | WASD | Left stick |
+| Look | Mouse or arrow keys | Right stick |
+| Fire | Left click or Enter | Hold RT |
+| Jump | Space | A |
+| Dash (dodges hits during the first 0.3 s) | C | B |
+| Bash | V or F | Click the right stick |
+| Antibody grenade | G | D-pad up |
+| Stun charge | T | D-pad down |
+| Aim | Hold right click | Hold LT |
+| Sprint | Shift | Click the left stick |
+| Reload | R | X |
+| Repair | Hold E near a damaged tissue node or open gash | Hold LB |
+| Deploy auto-turret | Q | RB |
+| Drag the placed turret to a new spot | Hold Q | Hold RB |
+| Switch weapon | 1 / 2 or mouse wheel | Y |
+| Pause | Esc or P | Menu ☰ |
+
+**Rebinding.** Every keyboard binding can be changed in **Settings > Key bindings**: press an action's button, then the new key (Esc cancels). Choosing a key another action already uses swaps the two. Esc always pauses and the arrow keys always look, so you can never lock yourself out. The field manual, HUD and hints always show your current keys. **Reset key bindings** restores the defaults. Controller buttons can be changed the same way in **Settings > Controller buttons**: choose an action, release the button you chose it with, then press the new one. Menu always pauses and the menus keep A, B and the D-pad, so you cannot lock yourself out; **Reset controller buttons** restores the defaults. During a Capillary Junction break the D-pad still picks support.
+
+**Controller.** Connect an Xbox controller to your device and press a button with the game tab focused. Use the D-pad or left stick to navigate menus, **A** to select, and **B** to go back. Enter co-op callsigns and room codes with your keyboard.
+
+**Touch.** On touchscreens, move with the joystick, drag to look, and use the action buttons. When mouse capture is unavailable, drag the view to look. Phones use a compact HUD in landscape and portrait: tissue bars across the top, small health and ammo readouts, and touch buttons in the lower corners. Score remains available in Pause.
+
+If your browser blocks audio until you interact, click the game or press a key once to turn it on.
+
+## Suit abilities
+
+The grenade and stun counts and the dash and bash charge bars sit above your suit integrity. In co-op each suit has its own abilities.
+
+- **Dash** throws the suit about 5 m in the direction you are moving (backwards if you are standing still). Any hit that lands in the first 0.3 s is dodged outright: in solo play time slows for a beat and the view drains to steel while you reposition. It recharges in 1.1 s. A pathogen winding up is the moment to dash.
+- **Jump** clears about a metre: hop a crawler or a spore's burst. You keep steering in the air.
+- **Bash** swings the weapon butt in front of you. It deals 36 damage, knocks pathogens back several metres and staggers them, and tears off any pathogen latched onto a tissue node within 4 m, even behind you. It recharges in 0.7 s.
+- **Antibody grenade** arcs where you aim, bounces, and bursts after 1.5 s or on contact with a pathogen: 150 damage in a 6 m blast that also throws smaller pathogens off the tissue they held. You carry two, restocked at every wave start, and each antibody cache adds one (up to three).
+- **Stun charge** sticks to the first pathogen it touches or rests where it lands, then discharges: every pathogen within 7 m freezes for 3.2 s and drops its attack. Bosses and nests are only slowed. You carry one, restocked every wave (up to two).
+
+## Organ hazards and raised ground
+
+Organ hazards are a real threat to your suit, not just a nuisance: a full acid surge in the stomach costs about a third of your integrity, and the gut's contraction, the colon's squeeze and the macrophage's crush hit harder still. The lungs' exhale batters you as it pushes you back, and the inner ear's resonance shakes your suit while it slows you. Raised ground that clears a hazard is the best way to ride it out, and the Insulated Suit field upgrade still cuts acid, contraction and squeeze damage by 40%.
+
+Every arena has raised ground. The suit walks up steps under 0.42 m and up ramps, jumps onto anything up to about 1.1 m, and drops off edges. Crawlers walk the floor and must go around raised ground, so high ground keeps them off you. Floating pathogens drift over it and rise toward a suit on a perch, and spore throwers lob their spit in an arc over raised ground and at a suit standing on it, so high ground is an advantage, not a hiding place. Grenades and stun charges bounce off its edges and settle on top. A turret placed on raised ground gains 12% range per metre of height.
+
+| Arena | Raised ground |
+| --- | --- |
+| Arterial Junction | A plaque overlook with a walkable ramp beside each node, a tall shelf in the middle you have to jump onto for a view over all three nodes, and low ridges across the inlet lanes to hop over or stand on. |
+| Capillary Junction | Overlooks outside both nodes, a shelf between them, ridges on the way in. |
+| Heart Valve | A shelf at the hub to see every valve from, overlooks in two far quarters, and low ridges to hop on the runs between valves. |
+| Lungs | Alveolar platforms that rise and fall about 0.8 m with every breath (no turret on them), and bronchial ridges along the airway. |
+| Stomach | Acid floods the whole chamber in surges. 78 rugae islands are scattered everywhere: one beside each node and valve for repairs, a backbone so you are never more than a few seconds from safety, walk-up mounds, and small stepping pads for jump chains. Standing on any of them keeps you out of the acid. |
+| Intestines | The contraction sweeps the whole bend, so eleven stepped villus terraces stand across it, each six walkable steps up to 2.28 m. The crest reaches about 1.7 m, so the top two tiers ride it out. Nowhere in the wave's path is more than about 22 m from a terrace. |
+| Colon | Haustral folds a jump tall (1.05 m), with walk-up pads beside them. On a fold's crest the squeeze passes beneath you. |
+| Lymph Node | A three-tier lookout in the middle of the follicle. |
+| Inner Ear | The cochlea: a spiral stair to a 2.5 m perch. A turret on the perch stands above the resonance and never jams. |
+| Neural Cortex | A walkway of raised synapse pads between the nodes, each a jump apart. |
+
+## Pathogens and the disease guide
+
+Open **Disease guide** on the main menu to browse every pathogen. Each entry shows its animated 3D model (drag to turn it, or choose **Provoke** to see its attack windup), a description and counter tactics, its health, speed, damage and score, the missions it attacks in, and three facts. The stats and mission lists come straight from the game rules, so they stay current.
+
+Biological pathogens lunge, latch or spit:
+
+- **Lungers** coil, then leap at a fixed landing point. Viruses coil before lunging; step sideways during the windup to evade.
+- **Latchers** ignore your suit, grab a tissue node and tear. Bacilli head straight for the tissue, brace, and tear until you dislodge them.
+- **Ranged** pathogens hang back and spit. Spores swell before spitting a slow projectile; step sideways during the windup.
+- **Shellbacks** guard their front. Aim for exposed tissue from the side or rear.
+- **Splitters** break into two smaller attackers on death, so keep the area in sight after the first kill.
+
+The hacked **Rogue Bot** hunts human players with a laser cannon: its aiming line commits for a 0.95-second warning, then fires once and cools down. Sidestep or use solid cover. It never attacks or damages tissue. Its ground-running sibling, the **Crawler**, sprints across the floor on eight legs, circles in close and fires a short surgical laser after a brief 0.5-second lock that reaches only 9 m. Keep your distance or step across its line, then shoot it while it recovers.
+
+| Pathogen | Behavior | First seen in |
+| --- | --- | --- |
+| Crown Virus | Lunger | Arterial Junction |
+| Spitting Spore | Ranged | Arterial Junction |
+| Bacillus | Latcher | Arterial Junction |
+| Valve Colony | Rooted behind a heart valve, spits through it while it is open | Heart Valve |
+| Phage Lander | Lunger, lighter and quicker | Arterial Junction, Wave 4 |
+| Filovirus | Latcher, tears a little faster | Arterial Junction, Wave 4 |
+| Blister Mortar | Ranged, tougher than a spore | Arterial Junction, Wave 5 |
+| Shellback | Latcher with an armored front | Bronchial Fork |
+| Splitter | Lunger that splits in two on death | Bronchial Fork |
+| Whiptail | Lunger, sturdier and harder hitting | Gastric Chamber |
+| Amoeba | Latcher, slow and very tough | Gastric Chamber |
+| Rogue Cell | Latcher, hits hard | Lymph Node |
+| Rogue Bot | Player-only laser drone, patrols and uses cover | Arterial Junction, Wave 3 |
+| Crawler | Fast eight-legged ground drone with a short-range laser, player-only | Arterial Junction, Wave 4 |
+
+## Achievements
+
+Fifty-six achievements, worth 1,000 points in all, work like console achievements and trophies. Each has its own artwork, a tier (**bronze**, **silver**, **gold** or **platinum**) and a score. When you earn one, an **Achievement unlocked** banner pops in with the art, the trophy and the score, plays a chime and a light rumble, then folds away; several in a row queue up. In a mission it sits under the wave panel, clear of the crosshair; in menus it appears low in the centre. Earn every other achievement for the platinum, **Immune Protocol**. See [every tile](achievement-artwork.png).
+
+Open **Achievements** from the main menu or the pause screen. The overview shows your completion ring, score and trophy count per tier, what you earned most recently and what you are closest to; tabs (or a picker on narrow screens) group the rest into Campaign, Combat, Bosses, Field ops and Mastery. Locked achievements show their art dimmed under a lock, and counting ones show a progress bar. Select one for large art, its tier, score and date earned. Two are hidden until you earn them.
+
+| Category | Examples |
+| --- | --- |
+| Campaign | Secure each of the ten missions (*Clot Buster*, *Be Still, My Heart*, *Iron Stomach*, *Hear Me Out* …), finish the campaign (*The President Is Safe*), win on Hard (*House Call*) and win every mission on Hard (*Chief of Medicine*). |
+| Combat | Kill milestones from *Patient Zero* to *Pandemic Over* (25,000), 1,000 critical hits, a milestone for each weapon, five kills with one rocket (*Collateral Damage*), four with one grenade, fifteen in five seconds (*Fever Pitch*), melee kills, a six-pathogen stun and 25 perfect dodges. |
+| Bosses | Your first boss, then each boss's own trick: run the Thrombus Titan into a wall (*Off the Wall*), knock the Leech loose, destroy all seven Tapeworm segments, break the Macrophage's pull; defeat the Mega Virus and every boss (*Rogues' Gallery*). |
+| Field ops | Brood nests, antibody caches, sealed gashes, tissue restored, turret kills, a co-op win, studying 12 pathogens in the Disease guide, and deploying a weapon with a skin, decal, sticker and charm. |
+| Mastery | Win with every node at full integrity, with your suit at 10% or less, without deploying the turret, after a checkpoint retry, through Capillary Overtime, with each field upgrade; score 75,000 and 100,000 in one mission. |
+
+Twenty-two **rewards** are locked until their achievement is earned. They are cosmetic only and never change how a weapon handles. The Armory's Customize tab lists them with a lock and the achievement that unlocks them. Achievement cards, the detail view and the unlock banner name the reward.
+
+| Reward | Earned by |
+| --- | --- |
+| Skins: Bloodstream, Neural net (glows), Outbreak, Prismatic (holographic) | *Clot Buster*, *Mind Over Matter*, *Pandemic Over*, *Immune Protocol* |
+| Finishes: Surgical steel, Presidential gold, Platinum | *Chief of Medicine*, *The President Is Safe*, *Immune Protocol* |
+| Accents: Code red, Viral magenta | *House Call*, *Going Viral* |
+| Stickers: Trophy, Field medic, Squad up | *Rogues' Gallery*, *Tissue Engineer*, *Squad Goals* |
+| Decals: Heartbeat, Blast radius | *Vital Signs*, *Collateral Damage* |
+| Boss operator emblems: Biofilm Colossus, Thrombus Titan, Capillary Leech, Tapeworm, Rogue Macrophage, Otolith Screamer, Mold Crown, Pylori Drill | *Giant Slayer*, *Off the Wall*, *Leech Removal*, *The Worm Has Turned*, *Indigestion*, *Final Diagnosis*, *Take a Deep Breath*, *Iron Stomach* |
+
+Achievements count in the campaign, Free Mode and co-op. In co-op, your own kills, hits, dodges and pickups count for you; squad events such as sealed gashes and bosses count for everyone. Hard-mode achievements need solo runs, because co-op always plays Medium. Mega Virus practice earns *Going Viral* but not the Neural Cortex. Progress is saved in the browser for the active operator profile, every few seconds during play and at the end of each mission.
+
+## Operator profiles
+
+Several players can share one computer and browser, each with their own save. The operator chip at the top right of the title screen shows who is playing; select it to open **Operators**, where you can:
+
+- switch operator (the title screen, campaign route, best score, loadout and achievements change straight away, with no reload);
+- create a **New operator** with a fresh save (up to eight per browser);
+- change the active operator's **callsign** (up to 16 characters, unique on the device) and **emblem**: a helmet close-up of each co-op suit first (Vanguard, Wraith, Lifeline and Bathysphere), then fourteen pathogen portraits, plus eight boss emblems earned through achievements;
+- **Delete operator**, after a confirmation that names what will be lost. The last operator cannot be deleted;
+- **Back up operator** downloads the active operator's save as a small `.json` file, and **Restore from backup** adds it back as a new operator, on this browser or another device. Restoring never overwrites an existing operator; a clashing callsign gets a number. A backup holds only that operator's progress, never device settings, and the game rejects files that are not operator backups or are from a newer version.
+
+Each operator card shows missions secured, achievements and points, best score and when they last deployed. When more than one operator uses the browser, startup asks **Who's deploying?**; on a brand-new browser it offers to name the first operator.
+
+| Kept per operator | Shared by the device |
+| --- | --- |
+| Campaign checkpoint and unlocked missions, best score, Mega Virus practice unlock, training, briefings and ability hints already seen, weapons, parts and cosmetics, Free Mode field upgrade, difficulty, co-op callsign and suit, achievements and their progress | Graphics, audio levels and mute, look sensitivity, gameplay and accessibility settings, keyboard and controller bindings |
+
+Saves live in your browser's storage, so clearing site data erases them. Use **Back up operator** to keep a copy. A browser that saved progress before profiles existed moves that save into the first operator, named after its co-op callsign if it had one.
+
+## Online co-op
+
+Two or three players share all ten missions in one room, from Arterial Junction to the Mega Virus fight in Neural Cortex. On the [co-op server's game page](https://immune-protocol-coop.onrender.com/), open **Online co-op**, enter a callsign, and choose **Create room**. Send the invite link to one or two friends. They open it, enter callsigns, and choose **Join room**. The room holds up to three players and starts when all joined players choose **Ready**, with a minimum of two. Invite a third player before the pair readies up; matches do not accept new players after deployment.
+
+The free server can take about a minute to wake after 15 minutes of inactivity, and rooms are lost if the server restarts.
+
+In the lobby, each player picks a suit: **Vanguard** (heavy assault armor), **Wraith** (stealth infiltrator), **Lifeline** (field corpsman), or **Bathysphere** (deep-dive pressure suit). Once you're in a room, the lobby becomes a full-screen miniaturization lab in a futuristic hospital: all joined players stand in their suits on the reduction pads of the shrinking machine, beside a holographic patient with the injection site marked, the injection capsule and live operator consoles. A ready player's pad lights up, and when the squad is ready the machine charges. Your teammates see your suit during missions. Suits can be changed in the lobby or at a mission checkpoint, and the browser remembers your choice.
+
+After each mission, all players ready up at the shared checkpoint. A win unlocks the next deployment in the room, while a loss lets the squad retry the current mission. Each deployment starts with fresh suits and supplies and keeps every player's weapon loadout. The squad extracts after stabilizing Capillary Junction and earns a combined campaign report after the final boss. Campaign progress belongs to the active room.
+
+Each suit has its own two weapons, builds, ammo, and health. Co-op missions always use the Medium difficulty. You share the tissue nodes, one turret, the wave timer, and the mission score. Teammates see your shots, rockets, and explosions. If one suit goes down, it returns at the next wave if a surviving teammate clears the current one. Waves follow each other after a short countdown; the Armory is available in the lobby and at the checkpoint between missions. The game keeps a score for each player — points for the pathogens they neutralize and the tissue they repair — and shows it on screen beside the team total, in the mission report, and as campaign totals when the campaign ends. Wave-clear bonuses and turret kills count toward the team score only. The game holds your place for up to 75 seconds after a disconnect.
+
+To host your own co-op server, see [Host online co-op on Render](development.md#host-online-co-op-on-render).
+
+## Settings
+
+Settings is available from the main menu and pause screen. All settings are saved in the browser, and **Reset to defaults** restores every one.
+
+| Group | Options |
+| --- | --- |
+| Controls | Look sensitivity (mouse, touch and the right stick), invert vertical look, aim sensitivity (multiplies look speed while aiming down sights), controller look speed, hold or toggle aim, and ability hints. |
+| Key bindings and controller buttons | Rebind every action (see [Controls](#controls)). |
+| Video | Graphics quality (Low reduces rendering load), brightness, field of view (55–90°; optics keep their relative zoom), resolution scale (Dynamic, or a fixed 100/85/70/50%), frame-rate limit (display rate, 144, 120, 60 or 30 FPS), bloom, ambient occlusion, vignette, film grain, chromatic aberration (these five apply on High), and an on-screen frame-rate counter. |
+| Audio | Master, music, effects and ambience volume, and mute all audio. |
+| Accessibility | Camera shake strength, damage flash strength, and reduce motion (match the system setting, or force it on or off). |
+
+With Dynamic resolution, the game renders at a lower resolution when the frame rate drops below about 50 fps, down to 60% per axis, and sharpens again once it has headroom. Phones and tablets default to Low graphics unless you choose otherwise. If a heavy scene still runs slowly, try Low graphics.
+
+## Ending, credits and music
+
+Win the Neural Cortex to finish the campaign. Before the final report, a short ending plays: the President wakes and laughs, the doctor celebrates, and a nanonaut returns from the shrink chamber, closing on "The President is safe." The credits roll after it. Both can be skipped like the briefings, and the main menu's **Credits** option replays the credits at any time.
+
+The original soundtrack fades between **Arterial Drift** in the menu and between waves, and **Immune Response** during combat. It starts after you interact with the game. The speaker button mutes both the soundtrack and sound effects.
