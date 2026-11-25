@@ -108,7 +108,10 @@ test('a capitalised label run into a sentence, and verbatim text', async () => {
 });
 
 test('a known phrase after a prefix built in code', () => {
-  useLocale('de', { strings: { ' TO CLOSE INTAKE VALVE': ' UM DAS ZULAUFVENTIL ZU SCHLIESSEN', HOLD: 'HALTE' }, templates: { 'HOLD {0}': 'HALTE {0}' } });
+  useLocale('de', { strings: { 'TO CLOSE INTAKE VALVE': 'UM DAS ZULAUFVENTIL ZU SCHLIESSEN', HOLD: 'HALTE' },
+    templates: { 'HOLD {0}': 'HALTE {0}', '{0} VALVE': '{0}-KLAPPE' } });
+  // The loose '{0} VALVE' template loses to the longer known phrase.
   assert.equal(translate('HOLD E TO CLOSE INTAKE VALVE'), 'HALTE E UM DAS ZULAUFVENTIL ZU SCHLIESSEN');
+  assert.equal(translate('MITRAL VALVE'), 'MITRAL-KLAPPE');
   useLocale('en', null);
 });

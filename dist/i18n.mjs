@@ -113,6 +113,8 @@ function lookup(text, depth = 0) {
     const upper = table.upper.get(text);
     if (upper !== undefined) return upper;
   }
+  // A known phrase at the end with something in front of it ("HOLD E" + " TO CLOSE INTAKE VALVE").
+  const tail = knownTail(text, depth);
   for (const template of table.templates) {
     if (!text.includes(template.anchor) && !(caps && text.includes(template.anchor.toUpperCase()))) continue;
     let match = template.exact.exec(text);
@@ -121,8 +123,12 @@ function lookup(text, depth = 0) {
       match = template.caps.exec(text);
       upper = !!match;
     }
-    if (match) return fill(template, match.slice(1), depth, upper && !allCaps(template.value));
+    if (!match) continue;
+    // A loose template ("{0} VALVE") gives way to a known phrase that covers more of the text.
+    if (tail && tail.covered > template.weight) return tail.text;
+    return fill(template, match.slice(1), depth, upper && !allCaps(template.value));
   }
+  if (tail) return tail.text;
   for (const separator of SEPARATORS) {
     if (!text.includes(separator)) continue;
     const parts = text.split(separator);
@@ -142,8 +148,12 @@ function lookup(text, depth = 0) {
     const translated = sentences.map(sentence => lookup(sentence, depth + 1));
     if (translated.some(sentence => sentence != null)) return sentences.map((sentence, index) => translated[index] ?? sentence).join(' ');
   }
-  // Last resort: a known phrase at the end with something in front of it ("HOLD E" + " TO CLOSE
-  // INTAKE VALVE"). Try the longest known tail first.
+  return null;
+}
+
+// The longest known phrase (two words or more) that ends `text`, translated with whatever is in
+// front of it: { text, covered } where `covered` counts the phrase's non-space characters.
+function knownTail(text, depth) {
   const spaces = [...text.matchAll(/ /g)].map(match => match.index).slice(0, 8);
   for (const index of spaces) {
     const tail = text.slice(index + 1);
@@ -151,7 +161,7 @@ function lookup(text, depth = 0) {
     const known = table.strings.get(tail) ?? table.strings.get(' ' + tail) ?? (allCaps(tail) ? table.upper.get(tail) : undefined);
     if (known === undefined) continue;
     const head = text.slice(0, index);
-    return (lookup(head, depth + 1) ?? head) + ' ' + known.trim();
+    return { text: (lookup(head, depth + 1) ?? head) + ' ' + known.trim(), covered: tail.replace(/\s/g, '').length };
   }
   return null;
 }
