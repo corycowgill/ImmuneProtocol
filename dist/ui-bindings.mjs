@@ -249,12 +249,13 @@ export class BrowserUiBindings {
       model.defaultFocus = this.id(root.querySelector('[data-profile-id][aria-checked="true"]') ?? this.get('profile-done'));
       model.left = [{ kind: 'section', text: 'Operators on this device' },
         ...[...root.querySelectorAll('[data-profile-id]')].map(el => ({ ...this.control(el), ...this.profileModel?.card(el.dataset.profileId), kind: 'profile-card', height: 96 })),
-        this.control(this.get('profile-new'))].filter(Boolean);
+        this.control(this.get('profile-new')), this.control(this.get('profile-import'))].filter(Boolean);
       const note = this.value('profile-name-note');
       model.body = [{ kind: 'section', text: 'Active operator' }, this.control(this.get('profile-name')),
-        ...(note ? [{ kind: 'text', text: note, size: 13, color: /already|needs/.test(note) ? '#ff977d' : '#a8b7bf' }] : []),
+        ...(note ? [{ kind: 'text', text: note, size: 13, color: /already|needs|not an|newer|could not|Delete one|no saved/.test(note) ? '#ff977d' : '#a8b7bf' }] : []),
         { kind: 'section', text: 'Emblem' },
         grid([...root.querySelectorAll('[data-emblem]')].map(el => ({ ...this.control(el), kind: 'emblem', color: active?.color, height: 92 })), 82, 7),
+        { kind: 'section', text: 'Save data' }, this.control(this.get('profile-export')),
         ...(this.shown(this.get('profile-delete')) ? [{ ...this.control(this.get('profile-delete')), tone: 'danger' }] : []),
       ].filter(Boolean);
     } else if (id === 'profile-delete-dialog') {

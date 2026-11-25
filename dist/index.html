@@ -699,11 +699,14 @@
       <h2 id="profiles-title" tabindex="-1">Operators</h2>
       <div id="profiles-list" role="radiogroup" aria-label="Operators"></div>
       <button id="profile-new" class="button outline" type="button"><strong>New operator</strong><span id="profile-new-detail">Start a fresh save on this device</span></button>
+      <button id="profile-import" class="button outline" type="button"><strong>Restore from backup</strong><span>Add an operator from a saved backup file</span></button>
+      <input id="profile-import-file" type="file" accept=".json,application/json" hidden>
       <section id="profile-editor" aria-label="Active operator">
         <label for="profile-name">Callsign</label>
         <input id="profile-name" type="text" maxlength="16" autocomplete="off" spellcheck="false">
         <p id="profile-name-note"></p>
         <div id="profile-emblems" role="radiogroup" aria-label="Emblem"></div>
+        <button id="profile-export" class="button outline" type="button"><strong>Back up operator</strong><span>Download this save to keep it safe or move it to another device</span></button>
         <button id="profile-delete" class="button outline" type="button">Delete operator</button>
       </section>
       <footer class="profiles-actions">

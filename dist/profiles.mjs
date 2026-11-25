@@ -11,6 +11,9 @@ import { ACHIEVEMENT_STORAGE_KEY, parseRecord, ACHIEVEMENTS } from './achievemen
 export const PROFILE_INDEX_KEY = 'immune-protocol.profiles';
 export const MAX_PROFILES = 8;
 export const PROFILE_NAME_LENGTH = 16;
+export const BACKUP_FORMAT = 'immune-protocol-operator';
+// The largest single saved value a backup may carry (a full achievement record is a few KB).
+const MAX_VALUE = 200000;
 const PREFIX = 'immune-protocol.';
 
 // Every saved key that belongs to a player rather than the device.
@@ -31,6 +34,10 @@ export const PROFILE_EMBLEMS = Object.freeze([
   { id: 'blister', name: 'Blister' }, { id: 'filovirus', name: 'Filovirus' }, { id: 'guard', name: 'Shellback' },
   { id: 'splitter', name: 'Splitter' }, { id: 'colony', name: 'Colony' }, { id: 'crawler', name: 'Crawler' },
   { id: 'rogue-bot', name: 'Rogue Bot' }, { id: 'nest', name: 'Brood Nest' },
+  // Boss emblems are achievement rewards (achievements.mjs REWARDS).
+  { id: 'boss-colossus', name: 'Colossus' }, { id: 'boss-thrombus', name: 'Thrombus' }, { id: 'boss-leech', name: 'Leech' },
+  { id: 'boss-tapeworm', name: 'Tapeworm' }, { id: 'boss-macrophage', name: 'Macrophage' }, { id: 'boss-screamer', name: 'Screamer' },
+  { id: 'boss-bloom', name: 'Mold Crown' }, { id: 'boss-drill', name: 'Pylori Drill' },
 ].map(emblem => Object.freeze({ ...emblem, src: 'assets/enemies/portraits/' + emblem.id + '.webp' })));
 const EMBLEM_IDS = new Set(PROFILE_EMBLEMS.map(emblem => emblem.id));
 // Accent colours for the emblem ring, so operators are told apart at a glance.
@@ -113,7 +120,8 @@ export class ProfileStore {
   }
 
   blank(name, taken, color) {
-    const emblem = PROFILE_EMBLEMS[Math.floor(this.random() * PROFILE_EMBLEMS.length)].id;
+    const free = PROFILE_EMBLEMS.filter(emblem => !emblem.id.startsWith('boss-'));
+    const emblem = free[Math.floor(this.random() * free.length)].id;
     return { id: newId(taken, this.random), name, emblem, color, created: this.now(), lastPlayed: 0 };
   }
 
@@ -195,6 +203,39 @@ export class ProfileStore {
     if (this.index.active === id) this.index.active = this.index.profiles[0].id;
     this.save();
     return true;
+  }
+
+  // A portable copy of one operator's save, for a backup file.
+  exportProfile(id) {
+    const profile = this.find(id);
+    if (!profile) return null;
+    const save = {};
+    for (const key of PROFILE_KEYS) {
+      const value = this.get(profileKey(id, key));
+      if (value != null) save[key.slice(PREFIX.length)] = value;
+    }
+    return { format: BACKUP_FORMAT, version: 1, exported: new Date(this.now()).toISOString(),
+      operator: { name: profile.name, emblem: profile.emblem }, save };
+  }
+
+  // Adds a backup as a new operator (never over an existing one). Returns { profile } or { error }.
+  importProfile(data) {
+    if (!data || typeof data !== 'object' || data.format !== BACKUP_FORMAT || !data.save || typeof data.save !== 'object' || Array.isArray(data.save)) {
+      return { error: 'That file is not an Immune Protocol operator backup.' };
+    }
+    if (data.version > 1) return { error: 'That backup is from a newer version of the game.' };
+    if (!this.canCreate) return { error: 'This device already has ' + MAX_PROFILES + ' operators. Delete one to restore a backup.' };
+    const allowed = new Set(PROFILE_KEYS.map(key => key.slice(PREFIX.length)));
+    const entries = Object.entries(data.save).filter(([key, value]) => allowed.has(key) && typeof value === 'string' && value.length <= MAX_VALUE);
+    if (!entries.length) return { error: 'That backup has no saved progress in it.' };
+    let name = cleanProfileName(data.operator?.name) || this.nextName();
+    for (let n = 2; this.nameTaken(name); n++) name = cleanProfileName(cleanProfileName(data.operator?.name).slice(0, PROFILE_NAME_LENGTH - 4) + ' (' + n + ')');
+    const profile = this.create(name);
+    if (!profile) return { error: 'The backup could not be restored.' };
+    if (EMBLEM_IDS.has(data.operator?.emblem)) profile.emblem = data.operator.emblem;
+    for (const [key, value] of entries) this.set(profileKey(profile.id, PREFIX + key), value);
+    this.save();
+    return { profile };
   }
 
   // What a profile card shows: missions secured, achievements, score and best run.

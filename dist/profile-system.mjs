@@ -6,6 +6,7 @@
 import { profiles } from './settings-store.mjs';
 import { MAX_PROFILES, PROFILE_COLORS, PROFILE_EMBLEMS, PROFILE_NAME_LENGTH, cleanProfileName } from './profiles.mjs';
 import { achievements } from './achievement-system.mjs';
+import { ACHIEVEMENT_BY_ID, rewardFor } from './achievements.mjs';
 import { session } from './session.mjs';
 import { byId, setText } from './dom.mjs';
 import { gameUi } from './ui-browser.mjs';
@@ -65,14 +66,17 @@ function render() {
     button.dataset.emblem = emblem.id;
     button.setAttribute('role', 'radio');
     button.setAttribute('aria-checked', String(emblem.id === active?.emblem));
-    button.setAttribute('aria-label', emblem.name + ' emblem');
+    const reward = rewardFor('emblem', emblem.id), lockedEmblem = reward && !achievements.hasReward('emblem', emblem.id) && emblem.id !== active?.emblem;
+    button.disabled = !!lockedEmblem;
+    button.setAttribute('aria-label', emblem.name + ' emblem' + (lockedEmblem ? ', locked: earn ' + ACHIEVEMENT_BY_ID[reward.achievement].name : ''));
+    if (lockedEmblem) button.title = 'Earn ' + ACHIEVEMENT_BY_ID[reward.achievement].name;
     const image = document.createElement('img');
     image.src = emblem.src;
     image.alt = '';
     const label = document.createElement('strong');
     label.textContent = emblem.name;
     button.append(image, label);
-    button.addEventListener('click', () => { if (profiles.setEmblem(profiles.active.id, emblem.id)) render(); });
+    button.addEventListener('click', () => { if (achievements.hasReward('emblem', emblem.id) && profiles.setEmblem(profiles.active.id, emblem.id)) render(); });
     return button;
   }));
   if (document.activeElement !== nameField) nameField.value = active?.name ?? '';
@@ -147,6 +151,42 @@ gameUi.setProfileModel({
   chip: () => profiles.active && { ...profileCardData(profiles.active), profileId: profiles.active.id },
   card: id => profiles.find(id) && profileCardData(profiles.find(id)),
 });
+// Backups: one operator's save as a JSON file, restored as a new operator on any device.
+byId('profile-export').addEventListener('click', () => {
+  achievements.flush();
+  const backup = profiles.exportProfile(profiles.active.id);
+  if (!backup) return;
+  const slug = backup.operator.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'operator';
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
+  link.download = 'immune-protocol-' + slug + '-' + backup.exported.slice(0, 10) + '.json';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+  setText(nameNote, 'Backup of ' + backup.operator.name + ' downloaded. Use Restore from backup to load it on this or another device.');
+});
+
+const importFile = byId('profile-import-file');
+byId('profile-import').addEventListener('click', () => {
+  if (!profiles.canCreate) return setText(nameNote, 'This device already has ' + MAX_PROFILES + ' operators. Delete one to restore a backup.');
+  importFile.value = '';
+  importFile.click();
+});
+importFile.addEventListener('change', async () => {
+  const file = importFile.files?.[0];
+  if (!file) return;
+  let data = null;
+  try { data = file.size <= 2_000_000 ? JSON.parse(await file.text()) : null; } catch { data = null; }
+  const result = profiles.importProfile(data);
+  if (result.error) { setText(nameNote, result.error); render(); return; }
+  achievements.flush();
+  profiles.select(result.profile.id);
+  dispatchEvent(new Event(PROFILE_EVENT));
+  render();
+  setText(nameNote, 'Restored ' + result.profile.name + ' from the backup and switched to them.');
+});
+
 done.addEventListener('click', () => dialog.close());
 byId('profile-open').addEventListener('click', () => openProfiles());
 dialog.addEventListener('close', () => setText(nameNote, ''));

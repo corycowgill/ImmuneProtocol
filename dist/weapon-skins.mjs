@@ -16,6 +16,10 @@ const SKIN_LOOK = {
   cyberpunk: { scale: 8, roughness: .3, metalness: .35, glow: .9 },
   carbon: { scale: 22, roughness: .28, metalness: .3 },
   molten: { scale: 6, roughness: .74, metalness: .05, glow: 1.1 },
+  bloodstream: { scale: 6, roughness: .42, metalness: .08 },
+  neural: { scale: 7, roughness: .36, metalness: .2, glow: .85 },
+  outbreak: { scale: 6, roughness: .5, metalness: .08 },
+  prismatic: { scale: 5, roughness: .16, metalness: .75, glow: .35 },
 };
 
 function randomSource(seed) {
@@ -172,6 +176,80 @@ export function drawSkin(context, size, id) {
         }
       }
     }
+  } else if (id === 'bloodstream') {
+    // Biconcave red cells (a ring with a darker dimple) drifting over pale plasma.
+    const tone = tilingNoise(17, 6, 1, 3);
+    fillPixels(context, size, (u, v) => mix([238, 200, 170], [226, 178, 148], smooth(-.6, .8, tone(u, v))));
+    const random = randomSource(1201);
+    for (let i = 0; i < 26; i++) {
+      const x = random() * size, y = random() * size, r = size * (.045 + random() * .035), tilt = random() * Math.PI;
+      for (const [ox, oy] of [[0, 0], [-size, 0], [size, 0], [0, -size], [0, size]]) {
+        context.save();
+        context.translate(x + ox, y + oy); context.rotate(tilt); context.scale(1, .72 + random() * .2);
+        const g = context.createRadialGradient(0, 0, r * .15, 0, 0, r);
+        g.addColorStop(0, '#7a0f14'); g.addColorStop(.45, '#b3202a'); g.addColorStop(.8, '#d8363a'); g.addColorStop(1, '#8a1318');
+        context.fillStyle = g;
+        context.beginPath(); context.arc(0, 0, r, 0, TAU); context.fill();
+        context.restore();
+      }
+    }
+  } else if (id === 'neural') {
+    // Dark tissue: each neuron sends glowing axons to its nearest neighbours, wrapping at the
+    // edges so the tile repeats seamlessly.
+    context.fillStyle = '#0b0a1c';
+    context.fillRect(0, 0, size, size);
+    const random = randomSource(3301);
+    const cells = Array.from({ length: 22 }, () => [random() * size, random() * size, random() < .5 ? '#ff4fd8' : '#4fc8ff']);
+    const offsets = [-size, 0, size];
+    context.lineCap = 'round';
+    for (const [x, y, color] of cells) {
+      const near = cells.flatMap(([tx, ty]) => offsets.flatMap(ox => offsets.map(oy => [tx + ox, ty + oy])))
+        .map(([tx, ty]) => [tx, ty, Math.hypot(tx - x, ty - y)]).filter(([, , d]) => d > 1).sort((p, q) => p[2] - q[2]).slice(0, 3);
+      for (const [tx, ty] of near) {
+        const bend = (random() - .5) * size * .12;
+        for (const ox of offsets) for (const oy of offsets) {
+          const path = () => { context.beginPath(); context.moveTo(x + ox, y + oy); context.quadraticCurveTo((x + tx) / 2 + ox + bend, (y + ty) / 2 + oy - bend, tx + ox, ty + oy); };
+          path(); context.strokeStyle = color + '40'; context.lineWidth = size / 60; context.stroke();
+          path(); context.strokeStyle = color; context.lineWidth = size / 240; context.stroke();
+        }
+      }
+    }
+    for (const [x, y] of cells) for (const ox of offsets) for (const oy of offsets) {
+      const cx = x + ox, cy = y + oy, r = size / 26;
+      const g = context.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(.35, '#ffd1f6'); g.addColorStop(1, '#ff4fd800');
+      context.fillStyle = g; context.fillRect(cx - r, cy - r, r * 2, r * 2);
+    }
+  } else if (id === 'outbreak') {
+    // Spiked capsids, like the virions on the briefings, over hazard green.
+    const tone = tilingNoise(905, 7, 1, 3);
+    fillPixels(context, size, (u, v) => mix([46, 74, 30], [104, 150, 40], smooth(-.7, .9, tone(u, v))));
+    const random = randomSource(907);
+    for (let i = 0; i < 16; i++) {
+      const x = random() * size, y = random() * size, r = size * (.04 + random() * .035);
+      for (const [ox, oy] of [[0, 0], [-size, 0], [size, 0], [0, -size], [0, size]]) {
+        const cx = x + ox, cy = y + oy;
+        context.strokeStyle = '#e6463a'; context.fillStyle = '#ff6a4e'; context.lineWidth = r * .18;
+        for (let k = 0; k < 12; k++) {
+          const a = k / 12 * TAU;
+          context.beginPath(); context.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+          context.lineTo(cx + Math.cos(a) * r * 1.45, cy + Math.sin(a) * r * 1.45); context.stroke();
+          context.beginPath(); context.arc(cx + Math.cos(a) * r * 1.5, cy + Math.sin(a) * r * 1.5, r * .16, 0, TAU); context.fill();
+        }
+        const g = context.createRadialGradient(cx - r * .3, cy - r * .3, r * .1, cx, cy, r);
+        g.addColorStop(0, '#f4e8d6'); g.addColorStop(1, '#9a8a74');
+        context.fillStyle = g; context.beginPath(); context.arc(cx, cy, r, 0, TAU); context.fill();
+      }
+    }
+  } else if (id === 'prismatic') {
+    // Holographic foil: rainbow bands bent by noise, with fine diffraction lines.
+    const warp = tilingNoise(4242, 8, 1, 3);
+    fillPixels(context, size, (u, v, x, y) => {
+      const phase = (u + v) * 2 + .6 * warp(u, v);
+      const r = 200 + 55 * Math.sin(TAU * phase), g = 200 + 55 * Math.sin(TAU * phase + 2.1), b = 210 + 45 * Math.sin(TAU * phase + 4.2);
+      const line = (x + y) % 6 < 1 ? 18 : 0;
+      return [Math.min(255, r + line), Math.min(255, g + line), Math.min(255, b + line)];
+    });
   } else {
     // Plain polymer, as a neutral swatch.
     context.fillStyle = '#bdb8ab';
@@ -297,6 +375,42 @@ export function drawDecal(context, width, height, id) {
     // Stencil bridges cut through the numerals.
     context.globalCompositeOperation = 'destination-out';
     context.fillRect(20 * s, 64 * s, 120 * s, 6 * s);
+  } else if (id === 'ecg') {
+    // An ECG trace with a soft glow, repeating along the whole print.
+    context.shadowColor = decal.ink;
+    context.shadowBlur = 12 * s;
+    context.strokeStyle = decal.accent;
+    context.lineWidth = 3 * s;
+    context.beginPath(); context.moveTo(0, 64 * s); context.lineTo(width, 64 * s); context.stroke();
+    context.strokeStyle = decal.ink;
+    context.lineWidth = 8 * s;
+    context.beginPath();
+    context.moveTo(0, 64 * s);
+    for (let x = 0; x < width; x += 170 * s) {
+      context.lineTo(x + 40 * s, 64 * s); context.lineTo(x + 52 * s, 48 * s); context.lineTo(x + 62 * s, 64 * s);
+      context.lineTo(x + 78 * s, 64 * s); context.lineTo(x + 88 * s, 14 * s); context.lineTo(x + 102 * s, 112 * s);
+      context.lineTo(x + 112 * s, 64 * s); context.lineTo(x + 170 * s, 64 * s);
+    }
+    context.stroke();
+  } else if (id === 'blast') {
+    // A starburst with shockwave rings spreading toward the muzzle.
+    const cx = 80 * s, cy = 64 * s;
+    context.fillStyle = decal.accent;
+    context.beginPath();
+    for (let i = 0; i < 24; i++) {
+      const a = i / 24 * TAU, r = (i % 2 ? 26 : 56) * s;
+      context.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    }
+    context.closePath(); context.fill();
+    context.fillStyle = decal.ink;
+    context.beginPath(); context.arc(cx, cy, 22 * s, 0, TAU); context.fill();
+    context.strokeStyle = decal.ink;
+    for (let ring = 0; ring < 5; ring++) {
+      context.lineWidth = (9 - ring * 1.4) * s;
+      context.globalAlpha = 1 - ring * .16;
+      context.beginPath(); context.arc(cx, cy, (80 + ring * 70) * s, -.5, .5); context.stroke();
+    }
+    context.globalAlpha = 1;
   } else if (id === 'splatter') {
     const random = randomSource(66);
     for (const color of [decal.ink, decal.accent, '#b7f24a']) {

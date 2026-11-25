@@ -198,6 +198,17 @@ Open **Achievements** from the main menu or the pause screen. The overview shows
 | Field ops | Brood nests, antibody caches, sealed gashes, tissue restored, turret kills, a co-op win, studying 12 pathogens in the Disease guide, and deploying a weapon with a skin, decal, sticker and charm. |
 | Mastery | Win with every node at full integrity, with your suit at 10% or less, without deploying the turret, after a checkpoint retry, through Capillary Overtime, with each field upgrade; score 75,000 and 100,000 in one mission. |
 
+Twenty-two **rewards** are locked until their achievement is earned. They are cosmetic only and never change how a weapon handles. The Armory's Customize tab lists them with a lock and the achievement that unlocks them. Achievement cards, the detail view and the unlock banner name the reward.
+
+| Reward | Earned by |
+| --- | --- |
+| Skins: Bloodstream, Neural net (glows), Outbreak, Prismatic (holographic) | *Clot Buster*, *Mind Over Matter*, *Pandemic Over*, *Immune Protocol* |
+| Finishes: Surgical steel, Presidential gold, Platinum | *Chief of Medicine*, *The President Is Safe*, *Immune Protocol* |
+| Accents: Code red, Viral magenta | *House Call*, *Going Viral* |
+| Stickers: Trophy, Field medic, Squad up | *Rogues' Gallery*, *Tissue Engineer*, *Squad Goals* |
+| Decals: Heartbeat, Blast radius | *Vital Signs*, *Collateral Damage* |
+| Boss operator emblems: Biofilm Colossus, Thrombus Titan, Capillary Leech, Tapeworm, Rogue Macrophage, Otolith Screamer, Mold Crown, Pylori Drill | *Giant Slayer*, *Off the Wall*, *Leech Removal*, *The Worm Has Turned*, *Indigestion*, *Final Diagnosis*, *Take a Deep Breath*, *Iron Stomach* |
+
 Achievements count in the campaign, Free Mode and co-op. In co-op, your own kills, hits, dodges and pickups count for you; squad events such as sealed gashes and bosses count for everyone. Hard-mode achievements need solo runs, because co-op always plays Medium. Mega Virus practice earns *Going Viral* but not the Neural Cortex. Progress is saved in the browser for the active operator profile (see below), batched every few seconds during play and at the end of each mission.
 
 The rules are in [`dist/achievements.mjs`](dist/achievements.mjs) with no DOM or rendering, so `node --test server/achievements.test.mjs` checks them against the real simulation. [`dist/achievement-ui.mjs`](dist/achievement-ui.mjs) holds the toast timeline and the screen model, the canvas renderer draws both, and [`dist/achievement-system.mjs`](dist/achievement-system.mjs) wires storage, sound and menus. The artwork is baked from the game's own art: pathogen and boss portraits, the organ holograms from the mission briefings, the field-upgrade renders, key art, and the five weapon models rendered in Blender, framed in each tier's metal with the HUD's clipped corners:
@@ -216,8 +227,9 @@ Several players can share one computer and browser, each with their own save. Th
 
 - switch operator (the title screen, campaign route, best score, loadout and achievements change straight away, with no reload);
 - create a **New operator** with a fresh save (up to eight per browser);
-- change the active operator's **callsign** (up to 16 characters, unique on the device) and **emblem**, one of fourteen pathogen portraits;
-- **Delete operator**, after a confirmation that names what will be lost. The last operator cannot be deleted.
+- change the active operator's **callsign** (up to 16 characters, unique on the device) and **emblem**: fourteen pathogen portraits, plus eight boss emblems earned through achievements;
+- **Delete operator**, after a confirmation that names what will be lost. The last operator cannot be deleted;
+- **Back up operator** downloads the active operator's save as a small `.json` file, and **Restore from backup** adds it back as a new operator, on this browser or another device. Restoring never overwrites an existing operator; a clashing callsign gets a number. A backup holds only that operator's progress, never device settings, and the game rejects files that are not operator backups or are from a newer version.
 
 Each operator card shows missions secured, achievements and points, best score and when they last deployed. When more than one operator uses the browser, startup asks **Who's deploying?**; on a brand-new browser it offers to name the first operator.
 
@@ -225,7 +237,7 @@ Each operator card shows missions secured, achievements and points, best score a
 | --- | --- |
 | Campaign checkpoint and unlocked missions, best score, Mega Virus practice unlock, training, briefings and ability hints already seen, weapons, parts and cosmetics, Free Mode field upgrade, difficulty, co-op callsign and suit, achievements and their progress | Graphics, audio levels and mute, look sensitivity, gameplay and accessibility settings, keyboard and controller bindings |
 
-A browser that saved progress before profiles existed moves that save into the first operator, named after its co-op callsign if it had one. Saves stay in `localStorage`: the operator list is `immune-protocol.profiles`, and each operator's keys are `immune-protocol.profile.<id>.<key>`. If the list is ever damaged, the game rebuilds an operator for every save it still finds. [`dist/profiles.mjs`](dist/profiles.mjs) holds these rules and [`dist/settings-store.mjs`](dist/settings-store.mjs) points every progress key at the active operator, so the rest of the game reads and writes its usual keys. `node --test server/profiles.test.mjs` covers migration, isolation, naming, deletion and recovery.
+A browser that saved progress before profiles existed moves that save into the first operator, named after its co-op callsign if it had one. Saves stay in `localStorage` (back them up to keep them through a cleared browser): the operator list is `immune-protocol.profiles`, and each operator's keys are `immune-protocol.profile.<id>.<key>`. If the list is ever damaged, the game rebuilds an operator for every save it still finds. [`dist/profiles.mjs`](dist/profiles.mjs) holds these rules and [`dist/settings-store.mjs`](dist/settings-store.mjs) points every progress key at the active operator, so the rest of the game reads and writes its usual keys. `node --test server/profiles.test.mjs` covers migration, isolation, naming, deletion and recovery.
 
 ## Online co-op
 

@@ -119,3 +119,41 @@ test('every emblem is a shipped portrait, and the settings store works without a
   assert.equal(store.readSetting('immune-protocol.best-score'), null);
   assert.doesNotThrow(() => store.writeSetting('immune-protocol.best-score', '1'));
 });
+
+test('a backup restores as a new operator with the same progress, on another device', () => {
+  const home = new MemoryStorage();
+  const profiles = make(home);
+  const id = profiles.active.id;
+  profiles.rename(id, 'Dr Byte');
+  profiles.setEmblem(id, 'phage');
+  home.setItem(profileKey(id, 'immune-protocol.best-score'), '61000');
+  home.setItem(profileKey(id, ACHIEVEMENT_STORAGE_KEY), JSON.stringify({ unlocked: { 'patient-zero': 1 } }));
+  home.setItem('immune-protocol.graphics-quality', 'low');
+  const backup = JSON.parse(JSON.stringify(profiles.exportProfile(id)));
+  assert.equal(backup.format, 'immune-protocol-operator');
+  assert.deepEqual(Object.keys(backup.save).sort(), ['achievements', 'best-score']);
+  assert.equal(backup.save['graphics-quality'], undefined, 'device settings are not in a backup');
+
+  const away = make(new MemoryStorage());
+  const { profile } = away.importProfile(backup);
+  assert.equal(profile.name, 'Dr Byte');
+  assert.equal(profile.emblem, 'phage');
+  assert.equal(away.summary(profile.id).best, 61000);
+  assert.equal(away.summary(profile.id).achievements, 1);
+  // Restoring again on the same device keeps both, with a distinct name.
+  assert.equal(away.importProfile(backup).profile.name, 'Dr Byte (2)');
+});
+
+test('restoring rejects other files, ignores unknown keys and respects the operator limit', () => {
+  const profiles = make(new MemoryStorage());
+  assert.match(profiles.importProfile(null).error, /not an Immune Protocol/);
+  assert.match(profiles.importProfile({ format: 'something-else', save: {} }).error, /not an Immune Protocol/);
+  assert.match(profiles.importProfile({ format: 'immune-protocol-operator', version: 9, save: { 'best-score': '1' } }).error, /newer version/);
+  assert.match(profiles.importProfile({ format: 'immune-protocol-operator', version: 1, save: { keybinds: '{}' } }).error, /no saved progress/);
+  const { profile } = profiles.importProfile({ format: 'immune-protocol-operator', version: 1, operator: { name: 'X', emblem: 'not-real' }, save: { 'best-score': '5', keybinds: '{"fire":"KeyZ"}', 'look-sensitivity': '9' } });
+  assert.equal(profiles.storage.getItem(profileKey(profile.id, 'immune-protocol.best-score')), '5');
+  assert.equal(profiles.storage.getItem('immune-protocol.keybinds'), null, 'nothing outside the operator save is written');
+  assert.ok(PROFILE_EMBLEMS.some(emblem => emblem.id === profile.emblem));
+  while (profiles.canCreate) profiles.create();
+  assert.match(profiles.importProfile({ format: 'immune-protocol-operator', version: 1, save: { 'best-score': '1' } }).error, /already has 8/);
+});

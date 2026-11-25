@@ -1,7 +1,7 @@
 // How achievements are presented: the "achievement unlocked" pop-up queue and the plain screen
 // model for the Achievements list. No DOM: the canvas renderer draws the toast and the screen,
 // ui-bindings hands the model to ui-screens like any other dialog.
-import { ACHIEVEMENTS, CATEGORIES, TIERS, PLATINUM_ID } from './achievements.mjs';
+import { ACHIEVEMENTS, CATEGORIES, TIERS, PLATINUM_ID, rewardsOf } from './achievements.mjs';
 
 // Toast timeline in seconds: the art pops in, the banner unrolls from it, holds, then folds away.
 export const TOAST_TIMING = Object.freeze({ pop: .32, unroll: .38, hold: 4.6, exit: .45 });
@@ -46,7 +46,7 @@ export function toastState(item, age, waiting = 0) {
   const text = clamp01((age - pop - unroll * .5) / .25) * (1 - leaving);
   const shine = clamp01((age - pop - unroll) / .9);
   return {
-    item, age, waiting, art: Math.max(0, art) * (1 - leaving * .35), open: open * (1 - ease(leaving)),
+    item, age, waiting, reward: rewardsOf(item.id).map(r => r.name).join(' + '), art: Math.max(0, art) * (1 - leaving * .35), open: open * (1 - ease(leaving)),
     text, alpha: 1 - leaving, lift: ease(leaving) * 18, shine: shine > 0 && shine < 1 ? shine : null,
   };
 }
@@ -64,6 +64,7 @@ function card(tracker, item) {
     achievement: item.id, tier: item.tier, points: item.points, unlocked, secret,
     text: secret ? 'Hidden achievement' : item.name,
     detail: secret ? 'Keep playing to reveal this one.' : item.description,
+    reward: secret ? '' : rewardsOf(item.id).map(reward => reward.name).join(' + '),
     src: secret ? 'assets/achievements/hidden.webp' : item.art,
     progress: !unlocked && !secret && progress && progress.goal > 1 ? progress : null,
     date: unlocked ? formatDate(tracker.unlockedAt(item.id)) : '',
@@ -113,6 +114,7 @@ export function detailNodes(tracker, item) {
       { kind: 'stat', text: 'Score', detail: item.points + ' G' },
       { kind: 'stat', text: 'Status', detail: unlocked ? 'Unlocked' : 'Locked' },
     ] },
+    ...(!secret && rewardsOf(item.id).length ? [{ kind: 'text', text: (unlocked ? 'Reward unlocked: ' : 'Reward: ') + rewardsOf(item.id).map(reward => reward.name).join(', ') + (unlocked ? '' : ' (locked until earned)'), size: 14, color: unlocked ? '#c8f794' : '#a8b7bf' }] : []),
     ...(unlocked ? [{ kind: 'text', text: 'Earned ' + formatDate(tracker.unlockedAt(item.id)), size: 13, color: TIERS[item.tier].color }] : []),
     ...(!unlocked && !secret && progress && progress.goal > 1 ? [{ kind: 'meter', text: 'PROGRESS', value: progress.value, max: progress.goal, detail: progress.value.toLocaleString() + ' / ' + progress.goal.toLocaleString(), color: TIERS[item.tier].color }] : []),
   ];

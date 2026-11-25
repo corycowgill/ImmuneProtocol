@@ -242,6 +242,13 @@ export class CanvasUiRenderer {
       const size = Math.min(r.w - 16, r.h - 30);
       this.emblem(item.src, r.x + r.w / 2, r.y + 8 + size / 2, size / 2, on ? color : '#ffffff30');
       this.text(item.text, { x: r.x + 4, y: r.y + r.h - 20, w: r.w - 8, h: 14 }, 10, on ? color : t.muted, 600, 'center', 1, 1.2);
+      if (item.disabled) {
+        // A boss emblem still to be earned; the item draws faded, the lock at full strength.
+        c.globalAlpha = 1;
+        const cy = r.y + 8 + size / 2;
+        this.box({ x: r.x + r.w / 2 - 14, y: cy - 14, w: 28, h: 28 }, '#060a0dd9', '#ffffff40', 14);
+        this.icon('lock', { x: r.x + r.w / 2 - 8, y: cy - 8, w: 16, h: 16 }, '#e9f0f2');
+      }
       return;
     }
     if (kind === 'achievement') return this.achievementCard(item, r, focused || hot);
@@ -538,7 +545,11 @@ export class CanvasUiRenderer {
     }
     const x = art.x + side + 14, w = r.x + r.w - 12 - x;
     this.text(item.text, { x, y: r.y + 11, w, h: 22 }, 16, earned ? t.paper : '#c6d1d5', 700, 'left', 1, 1.25);
-    this.text(item.detail, { x, y: r.y + 34, w, h: 36 }, 12, earned ? '#b9c7cc' : t.faint, 500, 'left', 2, 1.4);
+    if (item.reward) {
+      this.text(item.detail, { x, y: r.y + 34, w, h: 18 }, 12, earned ? '#b9c7cc' : t.faint, 500, 'left', 1, 1.4);
+      this.icon(earned ? 'check' : 'lock', { x, y: r.y + 54, w: 12, h: 12 }, earned ? t.green : t.muted);
+      this.text('REWARD · ' + item.reward.toUpperCase(), { x: x + 17, y: r.y + 54, w: w - 17, h: 14 }, 9, earned ? t.green : t.muted, 700, 'left', 1, 1.3, 'mono', .4);
+    } else this.text(item.detail, { x, y: r.y + 34, w, h: 36 }, 12, earned ? '#b9c7cc' : t.faint, 500, 'left', 2, 1.4);
     const by = r.y + r.h - 25;
     this.trophy({ x, y: by - 1, w: 16, h: 16 }, item.tier);
     const tierText = tier.name.toUpperCase() + '  ·  ' + item.points + ' G';
@@ -614,7 +625,8 @@ export class CanvasUiRenderer {
       this.trophy({ x: tx, y: y + (compact ? 9 : 12), w: 13, h: 13 }, item.tier);
       this.text(item.tier === 'platinum' ? 'PLATINUM ACHIEVEMENT' : 'ACHIEVEMENT UNLOCKED', { x: tx + 18, y: y + (compact ? 10 : 13), w: tw - 18, h: 13 }, compact ? 9 : 10, tier.color, 700, 'left', 1, 1.2, 'body', 1.4);
       this.text(item.name, { x: tx, y: y + (compact ? 26 : 31), w: tw, h: 28 }, compact ? 21 : 25, t.paper, 800, 'left', 1, 1.04);
-      if (!compact) this.text(tier.name.toUpperCase() + (state.waiting ? '  ·  +' + state.waiting + ' MORE' : ''), { x: tx, y: y + 58, w: tw, h: 12 }, 9, t.muted, 600, 'left', 1, 1.2, 'mono', .8);
+      const footer = state.reward ? 'UNLOCKED: ' + state.reward.toUpperCase() : tier.name.toUpperCase();
+      if (!compact) this.text(footer + (state.waiting ? '  ·  +' + state.waiting + ' MORE' : ''), { x: tx, y: y + 58, w: tw, h: 12 }, 9, state.reward ? t.green : t.muted, 600, 'left', 1, 1.2, 'mono', .8);
       const sx = x0 + width - scoreW - 10;
       c.save(); c.shadowColor = tier.color; c.shadowBlur = 10;
       this.text(item.points + 'G', { x: sx, y: y + H / 2 - (compact ? 13 : 16), w: scoreW, h: 34 }, compact ? 24 : 30, tier.light, 800, 'right', 1, 1.04);

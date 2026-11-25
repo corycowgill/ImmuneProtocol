@@ -1,7 +1,7 @@
 // Browser wiring for achievements: the saved record in localStorage, the unlock pop-up and its
 // chime, the main menu line, and the Achievements screen. The rules live in achievements.mjs and
 // the presentation models in achievement-ui.mjs.
-import { AchievementTracker, ACHIEVEMENT_STORAGE_KEY } from './achievements.mjs';
+import { AchievementTracker, ACHIEVEMENT_STORAGE_KEY, rewardsOf } from './achievements.mjs';
 import { AchievementToasts, achievementMenuDetail, achievementScreenModel } from './achievement-ui.mjs';
 import { readSetting, writeSetting } from './settings-store.mjs';
 import { gameUi } from './ui-browser.mjs';
@@ -49,7 +49,8 @@ function showToast(item) {
 
 achievements.onUnlock(item => {
   showToast(item);
-  live.textContent = 'Achievement unlocked: ' + item.name + '. ' + item.description + ' ' + item.points + ' points.';
+  const rewards = rewardsOf(item.id).map(reward => reward.name);
+  live.textContent = 'Achievement unlocked: ' + item.name + '. ' + item.description + ' ' + item.points + ' points.' + (rewards.length ? ' Reward: ' + rewards.join(', ') + '.' : '');
   session.audio?.achievement?.(item.tier);
   session.haptics?.event?.({ type: 'achievement' });
   refreshAchievementMenu();
