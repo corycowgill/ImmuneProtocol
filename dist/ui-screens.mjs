@@ -1,16 +1,16 @@
-import { verbatim } from './i18n.mjs';
+import { upper, verbatim } from './i18n.mjs';
 import { UiLayout, lines } from './ui-core.mjs';
 import { compactHud } from './hud-layout.mjs';
 import { UI_THEME as T } from './ui-theme.mjs';
 
 const text = (value, size = 15, color) => ({ kind: 'text', text: value, size, color });
-const heading = (value, size = 30) => ({ kind: 'heading', text: String(value ?? '').toUpperCase(), size });
+const heading = (value, size = 30) => ({ kind: 'heading', text: upper(value ?? ''), size });
 const section = value => ({ kind: 'section', text: value });
 const grid = (children, minColumn = 170, maxColumns = 6) => ({ kind: 'grid', children: children.filter(Boolean), minColumn, maxColumns });
 const button = (id, label, extra = {}) => ({ kind: 'button', id, action: id, text: label, size: 15, ...extra });
 const polish = node => !node ? node : ({ ...node,
   ...(node.kind === 'text' && node.size === 14 ? { size: 15 } : {}),
-  ...(node.kind === 'heading' && node.size <= 26 ? { text: node.text.toUpperCase(), size: 23, color: T.paper } : {}),
+  ...(node.kind === 'heading' && node.size <= 26 ? { text: upper(node.text), size: 23, color: T.paper } : {}),
   ...(node.kind === 'button' ? { size: 15 } : {}),
   ...(node.children ? { children: node.children.filter(Boolean).map(polish) } : {}),
 });
@@ -264,7 +264,7 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     ui.add({ ...heading(panel.title, compact ? 17 : 22), tracking: .6 }, { x: waveX + 14, y: top + 8, w: waveW - 90, h: 26 });
     ui.add({ ...text(Math.ceil(panel.health) + '%', compact ? 11 : 13, '#ffd0dc'), align: 'right', weight: 700 }, { x: waveX + waveW - 74, y: top + 12, w: 60, h: 18 });
     ui.add({ kind: 'meter', text: '', detail: '', value: panel.health, segments: 40, thick: compact ? 6 : 8, color: '#ff6f8f' }, { x: waveX + 14, y: top + (compact ? 30 : 36), w: waveW - 28, h: 16 });
-    if (panel.phase) ui.add({ ...text(panel.phase.toUpperCase(), 9, '#e6c9de'), weight: 700, tracking: 1.2 }, { x: waveX + 14, y: top + (compact ? 42 : 52), w: waveW - 28, h: 14 });
+    if (panel.phase) ui.add({ ...text(upper(panel.phase), 9, '#e6c9de'), weight: 700, tracking: 1.2 }, { x: waveX + 14, y: top + (compact ? 42 : 52), w: waveW - 28, h: 14 });
     if (detail) ui.add(text(detail, compact ? 10 : 11, '#e6c9de'), { x: waveX + 14, y: top + bh - 22, w: waveW - 28, h: 16 });
   } else if (d.special) {
     const panel = d.special;

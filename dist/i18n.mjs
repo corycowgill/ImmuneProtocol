@@ -197,6 +197,12 @@ export function translate(text) {
 }
 export const t = translate;
 
+// Display text in capitals: translated first, then capitalised by the language's own rules, so a
+// label is looked up as written ("Critical" the stat, not "CRITICAL" the node status).
+export function upper(text) {
+  return String(translate(text ?? '') ?? '').toLocaleUpperCase(htmlTag(current));
+}
+
 export function language() {
   return current;
 }

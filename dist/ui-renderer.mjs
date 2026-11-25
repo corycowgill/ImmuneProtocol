@@ -1,4 +1,4 @@
-import { isNonLatin, translate } from './i18n.mjs';
+import { isNonLatin, translate, upper } from './i18n.mjs';
 import { fitSize, lines, intersect, clamp } from './ui-core.mjs';
 import { UI_THEME, uiFace, uiLineHeight } from './ui-theme.mjs';
 import { TIERS } from './achievements.mjs';
@@ -115,7 +115,7 @@ export class CanvasUiRenderer {
     if (kind === 'panel') return item.hud ? this.hudPanel(r, item) : this.box(r, item.color ?? t.panel, item.border ?? t.line);
     if (kind === 'rule') return this.box(r, item.color ?? t.line, null, 0);
     if (kind === 'section') {
-      this.text(item.text.toUpperCase(), { ...r, h: 18 }, 11, t.muted, 600, 'left', 1, 1.3, 'body', 1.4);
+      this.text(upper(item.text), { ...r, h: 18 }, 11, t.muted, 600, 'left', 1, 1.3, 'body', 1.4);
       return this.box({ x: r.x, y: r.y + r.h - 3, w: r.w, h: 1 }, t.line, null, 0);
     }
     if (kind === 'icon') return this.icon(item.icon, r, item.color);
@@ -123,7 +123,7 @@ export class CanvasUiRenderer {
       this.box(r, '#0c151cbd', t.line); this.image(item.src, r, item.cover);
       if (item.caption) {
         this.box({ x: r.x, y: r.y + r.h - 34, w: r.w, h: 34 }, '#09121be8', null, 0);
-        this.text(item.caption.toUpperCase(), { x: r.x + 12, y: r.y + r.h - 27, w: r.w - 24, h: 26 }, 21, t.paper, 800, 'left', 1, 1.04);
+        this.text(upper(item.caption), { x: r.x + 12, y: r.y + r.h - 27, w: r.w - 24, h: 26 }, 21, t.paper, 800, 'left', 1, 1.04);
       }
       if (kind === 'preview') {
         // Viewfinder corners and a LIVE tag frame the turntable instead of a stray dash.
@@ -173,14 +173,14 @@ export class CanvasUiRenderer {
         const shift = active ? 14 : 4;
         if (item.icon) this.icon(item.icon, { x: r.x + shift, y: r.y + (r.h - 20) / 2, w: 20, h: 20 }, active ? t.green : t.muted);
         const size = item.size ?? 22;
-        this.text(String(item.text).toUpperCase(), { x: r.x + shift + (item.icon ? 32 : 0), y: r.y + (r.h - size * 1.05) / 2, w: r.w - shift - 40, h: size * 1.2 }, size, active ? '#f4ffe6' : t.paper, 800, 'left', 1, 1.05, undefined, .6);
+        this.text(upper(item.text), { x: r.x + shift + (item.icon ? 32 : 0), y: r.y + (r.h - size * 1.05) / 2, w: r.w - shift - 40, h: size * 1.2 }, size, active ? '#f4ffe6' : t.paper, 800, 'left', 1, 1.05, undefined, .6);
         return;
       }
       const tab = item.variant === 'tab', ghost = item.variant === 'ghost', destructive = item.tone === 'danger';
       const toggle = !item.primary && !tab && !ghost && !item.detail && /^(.+):\s*(ON|OFF)$/i.exec(item.text ?? '');
       if (toggle) {
         // An ON/OFF setting draws as a labelled switch rather than a button with a status suffix.
-        const on = toggle[2].toUpperCase() === 'ON';
+        const on = upper(toggle[2]) === 'ON';
         this.box(r, active ? '#1b2a31' : '#101b23e8', focused ? t.green : t.line);
         if (active) this.box({ x: r.x, y: r.y, w: 4, h: r.h }, t.green, null, 0);
         this.text(toggle[1], { x: r.x + 14, y: r.y + (r.h - 22) / 2, w: r.w - 90, h: 22 }, 15, t.paper, 600, 'left', 1);
@@ -216,7 +216,7 @@ export class CanvasUiRenderer {
       const size = item.size ?? 16, titleHeight = lines(item.text, textRect.w, this.measure, size, 600).length * size * 1.4;
       if (!item.detail) { textRect.y = r.y + Math.max(8, (r.h - titleHeight) / 2); textRect.h = r.h - (textRect.y - r.y); }
       const caps = !item.detail && !item.src && !item.swatch && String(item.text ?? '').length <= 26;
-      const th = this.text(caps ? String(item.text).toUpperCase() : item.text, textRect, caps ? size - 1 : size, ink, caps ? 700 : 600, 'left', Infinity, 1.4, undefined, caps ? .5 : 0);
+      const th = this.text(caps ? upper(item.text) : item.text, textRect, caps ? size - 1 : size, ink, caps ? 700 : 600, 'left', Infinity, 1.4, undefined, caps ? .5 : 0);
       if (item.detail) this.text(item.detail, { ...textRect, y: textRect.y + th + 5, h: r.h - padding * 2 - th - 5 }, 13, item.primary ? '#324631' : t.muted);
       if (item.selected && !tab) this.icon('check', { x: r.x + r.w - 27, y: r.y + (r.h - 15) / 2, w: 15, h: 15 }, t.green);
       else if (item.expanded != null) this.icon('down', { x: r.x + r.w - 28, y: r.y + (r.h - 18) / 2, w: 18, h: 18 }, t.muted);
@@ -296,7 +296,7 @@ export class CanvasUiRenderer {
     }
     if (kind === 'stat') {
       this.box(r, '#142028c9', null);
-      this.text(item.text.toUpperCase(), { x: r.x + 12, y: r.y + 10, w: r.w - 24, h: 16 }, 10, t.muted, 600);
+      this.text(upper(item.text), { x: r.x + 12, y: r.y + 10, w: r.w - 24, h: 16 }, 10, t.muted, 600);
       if (item.bar == null) return this.text(item.detail, { x: r.x + 12, y: r.y + 28, w: r.w - 24, h: r.h - 30 }, fitSize(item.detail, r.w - 24, this.measure), item.color ?? t.paper, 800, 'left', Infinity, 1.04);
       // An Armory stat: value, the change a previewed part would make, and a bar that fills toward
       // "better", with the gain in green or the loss in red on top of it.
@@ -365,7 +365,7 @@ export class CanvasUiRenderer {
       // The two carried weapons as key-capped chips, the drawn one lit.
       let x = r.x + r.w;
       for (const slot of [...item.slots].reverse()) {
-        const label = slot.name.toUpperCase(), width = this.measure(label, 10, 700) + 34;
+        const label = upper(slot.name), width = this.measure(label, 10, 700) + 34;
         x -= width;
         this.box({ x, y: r.y, w: width, h: r.h }, slot.active ? '#22301ed9' : '#0a0f12b3', slot.active ? t.green : '#ffffff26', 2);
         this.box({ x: x + 6, y: r.y + 5, w: 14, h: r.h - 10 }, null, slot.active ? t.green : '#ffffff55', 2);
@@ -388,7 +388,7 @@ export class CanvasUiRenderer {
       const tx = r.x + 16, ty = r.y + r.h / 2;
       c.strokeStyle = item.color; c.lineWidth = 1.6; c.lineJoin = 'round'; c.beginPath(); c.moveTo(tx, ty - 7); c.lineTo(tx + 8, ty + 6); c.lineTo(tx - 8, ty + 6); c.closePath(); c.stroke();
       c.fillStyle = item.color; c.fillRect(tx - .8, ty - 3, 1.6, 5); c.fillRect(tx - .8, ty + 3.4, 1.6, 1.6);
-      return this.text(item.text.toUpperCase(), { x: r.x + 32, y: r.y + (r.h - (item.size ?? 11) * 1.3) / 2, w: r.w - 38, h: r.h - 4 }, item.size ?? 11, item.color, 700, 'left', 1, 1.3, undefined, .6);
+      return this.text(upper(item.text), { x: r.x + 32, y: r.y + (r.h - (item.size ?? 11) * 1.3) / 2, w: r.w - 38, h: r.h - 4 }, item.size ?? 11, item.color, 700, 'left', 1, 1.3, undefined, .6);
     }
     if (kind === 'label') {
       if (item.box) this.box(r, '#151515c9', item.color ?? '#d4c9aa55', 2);
@@ -497,7 +497,7 @@ export class CanvasUiRenderer {
     this.box(r, active ? '#1d2d35e8' : '#0e171dcc', active ? t.green : '#ffffff22', 22);
     this.emblem(item.src, r.x + 22, r.y + r.h / 2, 16, color);
     this.text('OPERATOR', { x: r.x + 46, y: r.y + 7, w: r.w - 70, h: 12 }, 8, color, 700, 'left', 1, 1.2, 'mono', 1);
-    this.text(String(item.name ?? '').toUpperCase(), { x: r.x + 46, y: r.y + 18, w: r.w - 70, h: 20 }, 16, t.paper, 800, 'left', 1, 1.1, undefined, .4);
+    this.text(upper(item.name ?? ''), { x: r.x + 46, y: r.y + 18, w: r.w - 70, h: 20 }, 16, t.paper, 800, 'left', 1, 1.1, undefined, .4);
     this.icon('down', { x: r.x + r.w - 26, y: r.y + 14, w: 16, h: 16 }, active ? t.green : t.muted);
   }
   profileCard(item, r, focused) {
@@ -512,7 +512,7 @@ export class CanvasUiRenderer {
     this.emblem(item.src, r.x + 18 + radius, r.y + r.h / 2, radius, on ? color : '#ffffff40');
     const x = r.x + 32 + radius * 2, w = r.x + r.w - 14 - x;
     const badgeW = on ? 64 : 0;
-    this.text(String(item.name ?? item.text ?? '').toUpperCase(), { x, y: r.y + 12, w: w - badgeW, h: 26 }, 22, t.paper, 800, 'left', 1, 1.04, undefined, .4);
+    this.text(upper(item.name ?? item.text ?? ''), { x, y: r.y + 12, w: w - badgeW, h: 26 }, 22, t.paper, 800, 'left', 1, 1.04, undefined, .4);
     if (on) {
       this.box({ x: r.x + r.w - 14 - badgeW + 6, y: r.y + 14, w: badgeW - 6, h: 18 }, color + '26', color + '99', 9);
       this.text('ACTIVE', { x: r.x + r.w - 14 - badgeW + 6, y: r.y + 17, w: badgeW - 6, h: 12 }, 9, color, 700, 'center', 1, 1.2, 'mono', .8);
@@ -552,11 +552,11 @@ export class CanvasUiRenderer {
     if (item.reward) {
       this.text(item.detail, { x, y: r.y + 34, w, h: 18 }, 12, earned ? '#b9c7cc' : t.faint, 500, 'left', 1, 1.4);
       this.icon(earned ? 'check' : 'lock', { x, y: r.y + 54, w: 12, h: 12 }, earned ? t.green : t.muted);
-      this.text('REWARD · ' + item.reward.toUpperCase(), { x: x + 17, y: r.y + 54, w: w - 17, h: 14 }, 9, earned ? t.green : t.muted, 700, 'left', 1, 1.3, 'mono', .4);
+      this.text('REWARD · ' + upper(item.reward), { x: x + 17, y: r.y + 54, w: w - 17, h: 14 }, 9, earned ? t.green : t.muted, 700, 'left', 1, 1.3, 'mono', .4);
     } else this.text(item.detail, { x, y: r.y + 34, w, h: 36 }, 12, earned ? '#b9c7cc' : t.faint, 500, 'left', 2, 1.4);
     const by = r.y + r.h - 25;
     this.trophy({ x, y: by - 1, w: 16, h: 16 }, item.tier);
-    const tierText = tier.name.toUpperCase() + '  ·  ' + item.points + ' G';
+    const tierText = upper(tier.name) + '  ·  ' + item.points + ' G';
     this.text(tierText, { x: x + 21, y: by + 1, w: 130, h: 14 }, 10, earned ? tier.color : t.muted, 700, 'left', 1, 1.3, 'mono');
     const rightX = x + 21 + this.measure(tierText, 10, 700, 'mono') + 14, rightW = r.x + r.w - 12 - rightX;
     if (item.progress && rightW > 60) {
@@ -592,7 +592,7 @@ export class CanvasUiRenderer {
         const bx = tx + i * tw;
         this.trophy({ x: bx + tw / 2 - 15, y: r.y + 24, w: 30, h: 30 }, tier);
         this.text(count.earned + '/' + count.total, { x: bx, y: r.y + 62, w: tw, h: 20 }, 16, t.paper, 800, 'center', 1, 1.1);
-        this.text(TIERS[tier].name.toUpperCase(), { x: bx, y: r.y + 86, w: tw, h: 12 }, 8, TIERS[tier].color, 700, 'center', 1, 1.2, 'mono', .6);
+        this.text(upper(TIERS[tier].name), { x: bx, y: r.y + 86, w: tw, h: 12 }, 8, TIERS[tier].color, 700, 'center', 1, 1.2, 'mono', .6);
       });
     } else {
       let bx = x;
@@ -629,7 +629,7 @@ export class CanvasUiRenderer {
       this.trophy({ x: tx, y: y + (compact ? 9 : 12), w: 13, h: 13 }, item.tier);
       this.text(item.tier === 'platinum' ? 'PLATINUM ACHIEVEMENT' : 'ACHIEVEMENT UNLOCKED', { x: tx + 18, y: y + (compact ? 10 : 13), w: tw - 18, h: 13 }, compact ? 9 : 10, tier.color, 700, 'left', 1, 1.2, 'body', 1.4);
       this.text(item.name, { x: tx, y: y + (compact ? 26 : 31), w: tw, h: 28 }, compact ? 21 : 25, t.paper, 800, 'left', 1, 1.04);
-      const footer = state.reward ? 'UNLOCKED: ' + state.reward.toUpperCase() : tier.name.toUpperCase();
+      const footer = state.reward ? 'UNLOCKED: ' + upper(state.reward) : upper(tier.name);
       if (!compact) this.text(footer + (state.waiting ? '  ·  +' + state.waiting + ' MORE' : ''), { x: tx, y: y + 58, w: tw, h: 12 }, 9, state.reward ? t.green : t.muted, 600, 'left', 1, 1.2, 'mono', .8);
       const sx = x0 + width - scoreW - 10;
       c.save(); c.shadowColor = tier.color; c.shadowBlur = 10;
@@ -680,7 +680,7 @@ export class CanvasUiRenderer {
     c.strokeStyle = color; c.lineWidth = 1.5;
     diamond(x, base - 4, item.quiet ? 3 : 5, 'rgba(6,10,12,.55)');
     c.fillStyle = color; c.beginPath(); c.arc(x, base - 4, 1.4, 0, Math.PI * 2); c.fill();
-    if (item.text) this.text(item.text.toUpperCase(), { x: r.x - 10, y: r.y - 6, w: r.w + 20, h: r.h }, size - 1, color, 700, 'center', 2, 1.25, undefined, .6);
+    if (item.text) this.text(upper(item.text), { x: r.x - 10, y: r.y - 6, w: r.w + 20, h: r.h }, size - 1, color, 700, 'center', 2, 1.25, undefined, .6);
     c.restore();
   }
 
