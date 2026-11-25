@@ -947,7 +947,9 @@ function openDeployment(mode, run = null) {
     : next ? 'Your checkpoint is saved. Continue, or pick any mission you have reached to replay it.'
       : unlockedMission ? 'Begin from the bloodstream, or pick any mission you have reached. Skipped missions score nothing.'
         : 'Ten missions from the bloodstream to the brain. Review the briefing and your kit, then begin.');
-  setText(byId('deploy-go-label'), mode === 'free' ? 'Deploy' : next ? 'Continue campaign' : 'Begin campaign');
+  setText(byId('deploy-go-label'), mode !== 'campaign' ? 'Deploy' : next ? 'Continue campaign' : 'Begin campaign');
+  // The canvas gallery skips hidden elements, so Endless hides the Mega Virus drill outright.
+  megaVirusDeploy.closest('.boss-practice')?.toggleAttribute('hidden', endlessMode);
   practiceLoadout.value = mode === 'campaign' ? run.upgrade ?? 'standard' : savedPracticeLoadout();
   updatePracticeLoadout();
   for (const entry of missionEntries) {
