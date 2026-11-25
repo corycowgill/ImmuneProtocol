@@ -20,6 +20,7 @@ Everything you need to play: modes, missions, bosses, weapons, controls, co-op a
 - [Operator profiles](#operator-profiles)
 - [Online co-op](#online-co-op)
 - [Settings](#settings)
+- [Language](#language)
 - [Ending, credits and music](#ending-credits-and-music)
 
 ## Getting started
@@ -418,6 +419,12 @@ Settings is available from the main menu and pause screen. All settings are save
 | Accessibility | Camera shake strength, damage flash strength, and reduce motion (match the system setting, or force it on or off). |
 
 With Dynamic resolution, the game renders at a lower resolution when the frame rate drops below about 50 fps, down to 60% per axis, and sharpens again once it has headroom. Phones and tablets default to Low graphics unless you choose otherwise. If a heavy scene still runs slowly, try Low graphics.
+
+## Language
+
+The game is available in **English, Spanish (Español), German (Deutsch), French (Français), Simplified Chinese (中文) and Hindi (हिन्दी)**. The language belongs to your operator: open the operator chip on the title screen and pick it under **Language** in the active operator's settings (it is also offered when you set up a new operator). It changes at once, and each operator on the device keeps their own, so switching operator switches language too. A new operator starts in your browser's language when the game speaks it, and in English otherwise.
+
+Menus, the HUD and announcements, mission briefings and reports, the Armory, the Disease guide, achievements, settings and the field manual are translated. The cinematics (the studio intro, mission briefing videos and the ending) stay in English for now. Chinese and Hindi use your system's fonts for those scripts.
 
 ## Ending, credits and music
 

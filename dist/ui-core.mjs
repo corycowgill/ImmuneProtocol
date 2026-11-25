@@ -1,4 +1,5 @@
 import { uiLineHeight, uiWeight } from './ui-theme.mjs';
+import { CJK, translate } from './i18n.mjs';
 // Renderer/host independent UI geometry and input. Coordinates are logical pixels.
 export const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 export const inside = (r, x, y) => x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
@@ -6,20 +7,38 @@ export function intersect(a, b) {
   const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
   return { x, y, w: Math.max(0, Math.min(a.x + a.w, b.x + b.w) - x), h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - y) };
 }
+// Splits a paragraph into the units a line may break between: words, and in Chinese single
+// characters (which carry no spaces), keeping any punctuation with the character before it.
+function breakUnits(paragraph) {
+  if (!CJK.test(paragraph)) return paragraph.split(/\s+/).filter(Boolean).map(word => ({ word, space: true }));
+  const units = [];
+  for (const piece of paragraph.split(/(\s+)/)) {
+    if (!piece) continue;
+    if (/^\s+$/.test(piece)) { if (units.length) units[units.length - 1].spaceAfter = true; continue; }
+    for (const token of piece.match(/[\u3400-\u9FFF\uF900-\uFAFF][\u3000-\u303F\uFF00-\uFFEF]*|[^\u3400-\u9FFF\uF900-\uFAFF]+/g) ?? []) {
+      units.push({ word: token, space: false });
+    }
+  }
+  // A unit is joined to the one before it with a space only where the text had one.
+  return units.map((unit, index) => ({ word: unit.word, space: index > 0 && !!units[index - 1].spaceAfter }));
+}
+
+// The lines a text wraps to at `width`. The text is translated into the operator's language first.
 export function lines(text, width, measure, size = 14, weight = 500, face) {
   const metric = value => measure(value, size, weight, face);
   const out = [];
-  for (const paragraph of String(text ?? '').split('\n')) {
+  for (const paragraph of String(translate(text ?? '') ?? '').split('\n')) {
     let line = '';
-    for (const word of paragraph.split(/\s+/).filter(Boolean)) {
-      const next = line ? line + ' ' + word : word;
+    for (const { word, space } of breakUnits(paragraph)) {
+      const join = space ? ' ' : '';
+      const next = line ? line + join + word : word;
       if (line && metric(next) > width) { out.push(line); line = ''; }
       if (metric(word) > width) {
         for (const char of word) {
           if (line && metric(line + char) > width) { out.push(line); line = ''; }
           line += char;
         }
-      } else line = line ? line + ' ' + word : word;
+      } else line = line ? line + join + word : word;
     }
     out.push(line);
   }

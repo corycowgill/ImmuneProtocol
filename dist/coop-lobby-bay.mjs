@@ -1,3 +1,4 @@
+import { translate } from './i18n.mjs';
 import * as THREE from './vendor/three.module.js';
 import { publishUiFrame, uiViewport } from './ui-media.mjs';
 import { LOW_MEMORY, loadModel, loadTexture } from './asset-loading.mjs';
@@ -53,7 +54,7 @@ function screenFrame(c, w, h, title) {
   c.strokeRect(8, 8, w - 16, h - 16);
   c.fillStyle = '#5ff3e0';
   c.font = '600 22px "IBM Plex Mono", monospace';
-  c.fillText(title, 24, 42);
+  c.fillText(translate(title), 24, 42);
 }
 
 // The baked lab: one node per atlas, each drawn with its baked lighting and no lights of its own.
@@ -167,12 +168,12 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
     c.stroke();
     c.fillStyle = '#e6fbff';
     c.font = '800 54px "Barlow Condensed", Impact, sans-serif';
-    c.fillText(Math.round(72 + Math.sin(t * .7) * 3) + ' BPM', 24, 260);
+    c.fillText(translate(Math.round(72 + Math.sin(t * .7) * 3) + ' BPM'), 24, 260);
     c.font = '500 20px "IBM Plex Mono", monospace';
     c.fillStyle = '#ff8a73';
-    c.fillText('INFECTION: SPREADING', 250, 252);
+    c.fillText(translate('INFECTION: SPREADING'), 250, 252);
     c.fillStyle = '#5ff3e0';
-    c.fillText('SpO2 97%   TEMP 38.9 C', 250, 282);
+    c.fillText(translate('SpO2 97%   TEMP 38.9 C'), 250, 282);
   });
   const scale = liveScreen((c, w, h, t) => {
     screenFrame(c, w, h, 'REDUCTION ARRAY');
@@ -185,8 +186,8 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
     c.fillRect(24, 170, (w - 48) * scaleState.charge, 26);
     c.font = '500 20px "IBM Plex Mono", monospace';
     c.fillStyle = '#9ff7ff';
-    c.fillText('FIELD CHARGE ' + Math.round(scaleState.charge * 100) + '%', 24, 232);
-    c.fillText(scaleState.ready ? 'SQUAD LOCKED  ·  READY TO SHRINK' : 'AWAITING SQUAD', 24, 266);
+    c.fillText(translate('FIELD CHARGE ' + Math.round(scaleState.charge * 100) + '%'), 24, 232);
+    c.fillText(translate(scaleState.ready ? 'SQUAD LOCKED  ·  READY TO SHRINK' : 'AWAITING SQUAD'), 24, 266);
     c.fillStyle = Math.sin(t * 6) > 0 ? '#ffc06a' : '#ffc06a55';
     c.fillRect(w - 52, 28, 22, 22);
   });

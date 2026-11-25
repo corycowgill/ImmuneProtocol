@@ -1,3 +1,4 @@
+import { isNonLatin, translate } from './i18n.mjs';
 import { lines, intersect, clamp } from './ui-core.mjs';
 import { UI_THEME, uiFace, uiLineHeight } from './ui-theme.mjs';
 import { TIERS } from './achievements.mjs';
@@ -10,7 +11,7 @@ export class CanvasUiRenderer {
     this.canvas = canvas; this.c = canvas.getContext('2d', { alpha: true });
     if (!this.c) throw new Error('The game UI needs a 2D canvas context.');
     this.resource = resource;
-    this.measure = (text, size = 14, weight = 500, face) => { this.font(size, weight, face); return this.c.measureText(String(text)).width; };
+    this.measure = (text, size = 14, weight = 500, face) => { this.font(size, weight, face); return this.c.measureText(String(translate(text))).width; };
   }
   resize(w, h, ratio) {
     ratio = Math.max(1, ratio || 1);
@@ -26,6 +27,8 @@ export class CanvasUiRenderer {
   }
   text(text, r, size = 14, color = UI_THEME.paper, weight = 500, align = 'left', maxLines = Infinity, lineHeight = 1.4, face, tracking = 0) {
     if (!text) return;
+    // Letter spacing would pull Devanagari's joined letters apart and gap Chinese characters.
+    if (tracking && isNonLatin(translate(text))) tracking = 0;
     const c = this.c; this.font(size, weight, face); c.fillStyle = color; c.textBaseline = 'top'; c.textAlign = align;
     const metric = value => this.measure(value, size, weight, face) + Math.max(0, value.length - 1) * tracking;
     const list = lines(text, Math.max(8, r.w), metric, size, weight, face);

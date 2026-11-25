@@ -3,6 +3,8 @@ import { BrowserUiBindings } from './ui-bindings.mjs';
 import { buildUiScreen } from './ui-screens.mjs';
 import { hitTest, inside, nextFocus, clamp, UiPointers } from './ui-core.mjs';
 import { enableUiMedia, setUiViewport } from './ui-media.mjs';
+import { LANGUAGE_EVENT } from './i18n.mjs';
+import './language.mjs';
 
 export class GameUi {
   constructor() {
@@ -58,6 +60,8 @@ export class GameUi {
       if (records.some(r => !r.target.closest?.('#game-ui-access,#game-ui-editor,#game-ui,#game-ui-safe-area'))) this.dirty = true;
     }).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
     document.fonts.ready.then(() => this.invalidate());
+    // A new language changes every label and its layout.
+    addEventListener(LANGUAGE_EVENT, () => this.invalidate());
     for (const font of ['500 16px Inter', '600 16px Inter', '800 46px "Barlow Condensed"']) document.fonts.load(font).then(() => this.invalidate(), () => this.invalidate());
     const frame = now => {
       if (!this.combatDriven || this.bindings.active()?.id !== 'game') this.present(now);

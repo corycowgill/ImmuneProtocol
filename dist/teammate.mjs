@@ -1,3 +1,4 @@
+import { translate } from './i18n.mjs';
 import * as THREE from './vendor/three.module.js';
 import { createArsenalView } from './arsenal-models.mjs';
 import { suitModelVersion, suitParts } from './suits.mjs';
@@ -171,7 +172,7 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     context.fillStyle = tint;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillText(label, 140, 29, width - 16);
+    context.fillText(translate(label), 140, 29, width - 16);
     context.beginPath();
     context.moveTo(130, 51);
     context.lineTo(150, 51);

@@ -253,6 +253,7 @@ export class BrowserUiBindings {
       const note = this.value('profile-name-note');
       model.body = [{ kind: 'section', text: 'Active operator' }, this.control(this.get('profile-name')),
         ...(note ? [{ kind: 'text', text: note, size: 13, color: /already|needs|not an|newer|could not|Delete one|no saved/.test(note) ? '#ff977d' : '#a8b7bf' }] : []),
+        { kind: 'section', text: 'Language' }, this.control(this.get('profile-language')),
         { kind: 'section', text: 'Emblem' },
         grid([...root.querySelectorAll('[data-emblem]')].map(el => ({ ...this.control(el), kind: 'emblem', color: active?.color, height: 92 })), 82, 7),
         { kind: 'section', text: 'Save data' }, this.control(this.get('profile-export')),

@@ -23,7 +23,7 @@ export const PROFILE_KEYS = Object.freeze([
   'immune-protocol.practice-loadout', 'immune-protocol.weapon-loadout', 'immune-protocol.weapon-mod',
   'immune-protocol.weapon-finish', 'immune-protocol.coop-name', 'immune-protocol.mega-virus-reached',
   'immune-protocol.briefings-seen', 'immune-protocol.hints-seen', 'immune-protocol.difficulty',
-  'immune-protocol.coop-suit', 'immune-protocol.endless-records', ACHIEVEMENT_STORAGE_KEY,
+  'immune-protocol.coop-suit', 'immune-protocol.endless-records', 'immune-protocol.language', ACHIEVEMENT_STORAGE_KEY,
 ]);
 const SCOPED = new Set(PROFILE_KEYS);
 

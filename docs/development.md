@@ -12,6 +12,7 @@ How to run, test, profile, publish and extend the game, and how its assets are b
 - [Loading, memory and performance](#loading-memory-and-performance)
 - [Rendering and arena dressing](#rendering-and-arena-dressing)
 - [Asset pipelines](#asset-pipelines)
+- [Localization](#localization)
 - [Publish updates](#publish-updates)
 - [How it was built](#how-it-was-built)
 - [Further docs](#further-docs)
@@ -316,6 +317,30 @@ The weapon renders are committed in `tools/achievements/subjects/`, so only the 
 ### Story and ending
 
 The ending shots were animated from frames of the original briefings with Wan 2.2 image-to-video on Hugging Face ZeroGPU, and the doctor's lines were voiced with Chatterbox voice cloning from his intro narration. See [story briefings](story-briefings.md).
+
+## Localization
+
+The game is written in English and translated where text is drawn. [`dist/i18n.mjs`](../dist/i18n.mjs) holds the language list and `translate()`; the canvas interface passes everything it measures and paints through it (`lines()` in [`ui-core.mjs`](../dist/ui-core.mjs) and `measure()` / `text()` in [`ui-renderer.mjs`](../dist/ui-renderer.mjs)), and the few modules that draw straight onto their own canvases (the co-op lab screens, the guide's microscope, teammate name tags) call it themselves. So game modules keep writing English, and layout measures the translated text.
+
+`translate()` tries the exact text, then the same text in capitals (HUD callouts are upper-cased in code), then **templates** for text built by concatenation (`'Mission {0} of {1}'`, whose slots are translated on their own), then the text split at `·`, dashes, line breaks or sentence ends. Anything it cannot place stays English. Results are cached. Chinese wraps between characters (`lines()`), and letter-spaced labels are drawn without the spacing in Chinese and Devanagari. Fonts fall back to the system's Chinese and Devanagari faces (`UI_FONTS` in [`ui-theme.mjs`](../dist/ui-theme.mjs)).
+
+The language is stored per operator (`immune-protocol.language`, one of `PROFILE_KEYS`); [`dist/language.mjs`](../dist/language.mjs) loads it at startup and on an operator switch, defaulting to the browser's language. The picker is in the Operators screen.
+
+Translations live in `dist/locales/<id>.json` as `{ "strings": { english: translation }, "templates": { english: translation } }`.
+
+```sh
+npm ci
+```
+
+```sh
+npm run i18n:extract
+```
+
+```sh
+npm run i18n:check
+```
+
+`i18n:extract` ([`tools/i18n/extract.mjs`](../tools/i18n/extract.mjs), using acorn) rebuilds `dist/locales/catalog.json` from `dist/index.html` and the game modules: display-like string literals, plus concatenations and template literals as templates. `i18n:check` reports any catalog entry a locale is missing, a template whose slots differ, or an all-caps English string that lost its capitals. After changing English text, extract, translate the new entries in every locale, and check; `node --test server/i18n.test.mjs` runs the matcher's tests and the same coverage check. To add a language, add it to `LANGUAGES` in `i18n.mjs` and to `LOCALES` in `check.mjs`, and write its JSON.
 
 ## Publish updates
 

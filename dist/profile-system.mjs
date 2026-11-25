@@ -10,6 +10,8 @@ import { ACHIEVEMENT_BY_ID, rewardFor } from './achievements.mjs';
 import { session } from './session.mjs';
 import { byId, setText } from './dom.mjs';
 import { gameUi } from './ui-browser.mjs';
+import { LANGUAGES, LANGUAGE_EVENT, language } from './i18n.mjs';
+import { chooseLanguage } from './language.mjs';
 
 const dialog = byId('profiles-dialog');
 const list = byId('profiles-list');
@@ -20,6 +22,18 @@ const newButton = byId('profile-new');
 const deleteButton = byId('profile-delete');
 const deleteDialog = byId('profile-delete-dialog');
 const done = byId('profile-done');
+const languagePicker = byId('profile-language');
+// Each language is listed in its own name. A word joiner in front keeps the interface from
+// translating the names themselves.
+languagePicker.replaceChildren(...LANGUAGES.map(({ id, name, english }) => {
+  const option = document.createElement('option');
+  option.value = id;
+  option.textContent = '\u2060' + name + (name === english ? '' : ' · ' + english);
+  return option;
+}));
+languagePicker.addEventListener('change', () => chooseLanguage(languagePicker.value));
+// Switching operator loads their language a moment later; show it once it is in.
+addEventListener(LANGUAGE_EVENT, () => { if (dialog.open) render(); });
 
 export const PROFILE_EVENT = 'immune-protocol:profile';
 
@@ -80,6 +94,7 @@ function render() {
     return button;
   }));
   if (document.activeElement !== nameField) nameField.value = active?.name ?? '';
+  languagePicker.value = language();
   newButton.disabled = !profiles.canCreate;
   setText(byId('profile-new-detail'), profiles.canCreate ? 'Start a fresh save on this device' : 'Up to ' + MAX_PROFILES + ' operators per device');
   deleteButton.hidden = profiles.profiles.length <= 1;

@@ -1,3 +1,4 @@
+import { translate } from './i18n.mjs';
 // The disease guide's specimen view: the pathogen sits in a petri dish seen down a microscope.
 // Two flat layers frame the 3D model. Behind it, the lit circle of the microscope's field shows an
 // amber agar plate with bacterial colonies, out-of-focus cells and the curved wall of the dish.
@@ -159,7 +160,7 @@ export function paintEyepiece(context, width, height, label) {
   context.font = `600 ${Math.round(11 * unit)}px "IBM Plex Mono", monospace`;
   context.textAlign = 'center';
   context.textBaseline = 'top';
-  context.fillText('100 nm', barX + barW / 2, barY + 6 * unit);
+  context.fillText(translate('100 nm'), barX + barW / 2, barY + 6 * unit);
 
   // Slide label and magnification, in the dark corners outside the field.
   context.fillStyle = 'rgba(214,230,220,.62)';
@@ -167,9 +168,9 @@ export function paintEyepiece(context, width, height, label) {
   context.textAlign = 'left';
   const small = Math.round(Math.max(10, Math.min(13, radius / 22)));
   context.font = `500 ${small}px "IBM Plex Mono", monospace`;
-  context.fillText('OBJ 100× · OIL', small, small * 1.8);
+  context.fillText(translate('OBJ 100× · OIL'), small, small * 1.8);
   context.textAlign = 'right';
-  context.fillText(label, width - small, height - small);
+  context.fillText(translate(label), width - small, height - small);
 }
 
 // Holds both layers and the drifting specks for one WebGL viewer.

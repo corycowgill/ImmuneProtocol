@@ -15,6 +15,7 @@ A browser FPS about a nano-soldier injected into a patient. Defend two or three 
 - **Online co-op** for two or three players, with four suits and a shrinking-machine lobby.
 - **56 achievements** with baked artwork and cosmetic rewards, and separate **operator profiles** for players sharing one browser.
 - **Keyboard and mouse, Xbox controller and touch**, with rebindable controls and accessibility options.
+- **Six languages**: English, Spanish, German, French, Simplified Chinese and Hindi, chosen per operator.
 
 ## Guides
 
