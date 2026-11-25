@@ -31,10 +31,10 @@ import { session } from './session.mjs';
 import { createSettings } from './game-settings.mjs';
 import { isDown } from './keybinds.mjs';
 import { createKeybindSettings } from './keybind-settings.mjs';
-import { clearAbilityHints, resetAbilityHints, updateAbilityHints } from './ability-hints.mjs';
+import { clearAbilityHints, reloadAbilityHints, resetAbilityHints, updateAbilityHints } from './ability-hints.mjs';
 import { briefingPlaying, playCampaignBriefing, playCampaignEnding, playCredits, playMissionBriefing } from './campaign-briefing.mjs';
 import { byId, isTouch, reducedMotion, pad, clamp, setText } from './dom.mjs';
-import { bestKey, muteKey, junctionKey, heartKey, tutorialKey, sensitivityKey, qualityKey, checkpointKey, unlockedKey, practiceLoadoutKey, weaponLoadoutKey, weaponModKey, weaponFinishKey, coopNameKey, megaVirusKey, musicVolumeKey, effectsVolumeKey, readSetting, writeSetting } from './settings-store.mjs';
+import { bestKey, muteKey, junctionKey, heartKey, tutorialKey, sensitivityKey, qualityKey, checkpointKey, unlockedKey, practiceLoadoutKey, weaponLoadoutKey, weaponModKey, weaponFinishKey, coopNameKey, megaVirusKey, musicVolumeKey, effectsVolumeKey, readSetting, writeSetting, profiles } from './settings-store.mjs';
 import { campaignAreas, missions, missionName, nextMission } from './mission-text.mjs';
 import { game, hitMarker, turretStatus, touchTurret, gashMarker, gashEdge, junctionSupply, supplyButtons, branches, nodeHitUntil, drawJunctionStatus, drawTurretHud, resetHud, drawPlayerScores, drawHud, drawMarkers, drawAttackers, drawBranches, drawCombatFeedback } from './hud.mjs';
 import { alertBox, announce, applyEvents } from './field-events.mjs';
@@ -44,6 +44,7 @@ import {
 } from './controls.mjs';
 import { Haptics } from './haptics.mjs';
 import { achievements, refreshAchievementMenu } from './achievement-system.mjs';
+import { promptOperatorAtStartup } from './profile-system.mjs';
 import { armoryDialog, armoryEvents, armoryOpen, openArmory, setupArmory } from './armory-menu.mjs';
 
 const menu = byId('menu');
@@ -409,7 +410,7 @@ async function prepareGame() {
       const intro = byId('studio-intro');
       if (intro.open) intro.addEventListener('close', openCoop, { once: true });
       else openCoop();
-    }
+    } else promptOperatorAtStartup(byId('studio-intro'));
   } catch (error) {
     console.error('Could not prepare Immune Protocol', error);
     loadingScreen.fail(LOW_MEMORY
@@ -588,7 +589,7 @@ async function openCoop() {
     return;
   }
   if (code) coopCode.value = code;
-  coopName.value = readSetting(coopNameKey) ?? '';
+  coopName.value = readSetting(coopNameKey) ?? profiles.active?.name ?? '';
   const client = getCoopClient();
   if (LOW_MEMORY) {
     setCoopStatus('Preparing the miniaturization lab…');
@@ -706,6 +707,7 @@ async function launch(area, run = null, drill = null, onlineState = null, checkp
     session.guardHintUntil = 0;
     session.running = true;
     session.paused = false;
+    profiles.touch();
     achievements.missionStart({
       area, checkpoint: !!checkpoint, upgrade, online: session.onlineRun, bossPractice: !!drill?.bossPractice,
       loadout: session.weaponLoadout,
@@ -1544,6 +1546,33 @@ resultDialog.addEventListener('cancel', event => { event.preventDefault(); retur
 
 Object.assign(commands, { pause, syncMusic, selectJunctionSupply, toggleAiDebug: all => aiDebug.toggle(all) });
 // Changing weapons in the armory cancels a co-op ready, so teammates see the new loadout.
+// Another operator profile was chosen on the title screen: read its save in place of the last one.
+// Display, audio and control settings belong to the device and stay as they are.
+function reloadProfileState() {
+  if (session.running) return;
+  bestScore = Number(readSetting(bestKey)) || 0;
+  unlockedMission = Math.max(
+    campaignAreas.indexOf(readSetting(unlockedKey)),
+    readSetting(heartKey) === 'true' ? 2 : readSetting(junctionKey) === 'true' ? 1 : 0,
+  );
+  campaignCheckpoint = readCheckpoint();
+  megaVirusReached = readSetting(megaVirusKey) === 'true';
+  session.trainingComplete = readSetting(tutorialKey) === 'true';
+  session.weaponLoadout = readWeaponLoadout();
+  campaign = null;
+  practice = null;
+  selectedUpgrade = null;
+  practiceLoadout.value = savedPracticeLoadout();
+  updatePracticeLoadout();
+  reloadAbilityHints();
+  achievements.reload();
+  refreshAchievementMenu();
+  drawLoadout(byId('deploy-loadout'), session.weaponLoadout);
+  displayBest();
+  displayMissionAccess();
+}
+addEventListener('immune-protocol:profile', reloadProfileState);
+
 armoryEvents.changed = loadout => {
   if (coopClient?.localPlayer?.ready && ['lobby', 'finished'].includes(coopClient.room?.phase)) coopClient.setReady(false, loadout);
 };

@@ -73,6 +73,9 @@
           <span>Hallucinated Games</span>
         </a>
         <div class="header-actions">
+          <button id="profile-open" class="menu-tool" type="button" aria-label="Operator profiles" title="Switch or manage operators">
+            <span id="profile-chip-name">Operator</span>
+          </button>
           <button class="menu-tool" type="button" data-mute aria-pressed="false" aria-label="Mute audio" title="Mute audio">
             <svg aria-hidden="true"><use href="#sound"></use></svg><span aria-hidden="true" data-audio-label>Audio on</span>
           </button>
@@ -688,6 +691,33 @@
       <footer class="manual-actions">
         <button class="button primary" data-close="manual-dialog" type="button">Back to menu</button>
       </footer>
+    </dialog>
+
+    <dialog id="profiles-dialog" class="panel" aria-labelledby="profiles-title">
+      <button class="icon-button close-dialog" data-close="profiles-dialog" type="button" aria-label="Close operators"><svg aria-hidden="true"><use href="#close"></use></svg></button>
+      <p id="profiles-kicker" class="eyebrow">Operators on this device</p>
+      <h2 id="profiles-title" tabindex="-1">Operators</h2>
+      <div id="profiles-list" role="radiogroup" aria-label="Operators"></div>
+      <button id="profile-new" class="button outline" type="button"><strong>New operator</strong><span id="profile-new-detail">Start a fresh save on this device</span></button>
+      <section id="profile-editor" aria-label="Active operator">
+        <label for="profile-name">Callsign</label>
+        <input id="profile-name" type="text" maxlength="16" autocomplete="off" spellcheck="false">
+        <p id="profile-name-note"></p>
+        <div id="profile-emblems" role="radiogroup" aria-label="Emblem"></div>
+        <button id="profile-delete" class="button outline" type="button">Delete operator</button>
+      </section>
+      <footer class="profiles-actions">
+        <button id="profile-done" class="button primary" type="button">Continue</button>
+      </footer>
+    </dialog>
+
+    <dialog id="profile-delete-dialog" class="panel" aria-labelledby="profile-delete-title" aria-describedby="profile-delete-detail">
+      <h2 id="profile-delete-title">Delete operator?</h2>
+      <p id="profile-delete-detail"></p>
+      <div class="dialog-buttons">
+        <button class="button outline" type="button" data-close="profile-delete-dialog" autofocus>Keep operator</button>
+        <button id="confirm-profile-delete" class="button primary" type="button">Delete operator</button>
+      </div>
     </dialog>
 
     <dialog id="achievements-dialog" class="panel" aria-labelledby="achievements-title">

@@ -14,10 +14,13 @@ export class GameUi {
   setToastSource(source) { this.toastSource = source; }
   // The Achievements screen's plain model (achievement-ui.mjs), read when that dialog is open.
   setAchievementModel(source) { this.achievementModel = source; }
+  // Operator profiles: { chip(), card(id) } for the title-screen chip and the Operators screen.
+  setProfileModel(source) { this.profileModel = source; }
   start() {
     if (this.active) return;
     this.bindings = new BrowserUiBindings();
     this.bindings.achievementModel = () => this.achievementModel?.();
+    this.bindings.profileModel = { chip: () => this.profileModel?.chip(), card: id => this.profileModel?.card(id) };
     this.canvas = document.createElement('canvas'); this.canvas.id = 'game-ui'; this.canvas.tabIndex = -1; this.canvas.setAttribute('aria-hidden', 'true');
     this.renderer = new CanvasUiRenderer(this.canvas, key => this.resource(key));
     this.access = document.createElement('section'); this.access.id = 'game-ui-access'; this.access.setAttribute('aria-label', 'Immune Protocol interface');

@@ -108,6 +108,11 @@ export function clearAbilityHints() {
   turretPlacedAt = null;
 }
 
+// A different operator profile has its own list of hints already seen.
+export function reloadAbilityHints() {
+  try { seen = new Set(JSON.parse(readSetting(KEY) ?? '[]')); } catch { seen = new Set(); }
+}
+
 // Settings: show every hint again from the start.
 export function resetAbilityHints() {
   seen = new Set();

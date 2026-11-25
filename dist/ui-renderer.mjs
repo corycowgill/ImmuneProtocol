@@ -234,6 +234,16 @@ export class CanvasUiRenderer {
       }
       return;
     }
+    if (kind === 'profile-chip') return this.profileChip(item, r, focused || hot);
+    if (kind === 'profile-card') return this.profileCard(item, r, focused || hot);
+    if (kind === 'emblem') {
+      const on = item.selected, color = item.color ?? t.green;
+      this.box(r, on ? '#1c2d27f0' : active ? '#1a272ff0' : '#111b22e6', focused ? t.green : on ? color : t.line);
+      const size = Math.min(r.w - 16, r.h - 30);
+      this.emblem(item.src, r.x + r.w / 2, r.y + 8 + size / 2, size / 2, on ? color : '#ffffff30');
+      this.text(item.text, { x: r.x + 4, y: r.y + r.h - 20, w: r.w - 8, h: 14 }, 10, on ? color : t.muted, 600, 'center', 1, 1.2);
+      return;
+    }
     if (kind === 'achievement') return this.achievementCard(item, r, focused || hot);
     if (kind === 'achievement-summary') return this.achievementSummary(item, r);
     if (kind === 'achievement-art') {
@@ -454,6 +464,51 @@ export class CanvasUiRenderer {
 
   // A combat HUD frame: smoked glass that darkens toward the bottom, a hairline edge, a clipped
   // top-left corner and short accent brackets on the corners.
+  // An operator emblem: a pathogen portrait in a ringed disc.
+  emblem(src, cx, cy, radius, color) {
+    const c = this.c;
+    c.save();
+    const g = c.createRadialGradient(cx, cy - radius * .3, radius * .1, cx, cy, radius);
+    g.addColorStop(0, '#24343c'); g.addColorStop(1, '#0a1116');
+    c.beginPath(); c.arc(cx, cy, radius, 0, Math.PI * 2); c.fillStyle = g; c.fill();
+    c.save(); c.beginPath(); c.arc(cx, cy, radius - 1, 0, Math.PI * 2); c.clip();
+    const s = radius * 2.3; this.image(src, { x: cx - s / 2, y: cy - s / 2, w: s, h: s }, true);
+    c.restore();
+    c.lineWidth = Math.max(1.5, radius * .09); c.strokeStyle = color; c.beginPath(); c.arc(cx, cy, radius, 0, Math.PI * 2); c.stroke();
+    c.restore();
+  }
+  profileChip(item, r, active) {
+    const t = UI_THEME, color = item.color ?? t.green;
+    if (item.compact) {
+      if (active) this.box(r, '#ffffff14', null, 22);
+      return this.emblem(item.src, r.x + r.w / 2, r.y + r.h / 2, 17, color);
+    }
+    this.box(r, active ? '#1d2d35e8' : '#0e171dcc', active ? t.green : '#ffffff22', 22);
+    this.emblem(item.src, r.x + 22, r.y + r.h / 2, 16, color);
+    this.text('OPERATOR', { x: r.x + 46, y: r.y + 7, w: r.w - 70, h: 12 }, 8, color, 700, 'left', 1, 1.2, 'mono', 1);
+    this.text(String(item.name ?? '').toUpperCase(), { x: r.x + 46, y: r.y + 18, w: r.w - 70, h: 20 }, 16, t.paper, 800, 'left', 1, 1.1, undefined, .4);
+    this.icon('down', { x: r.x + r.w - 26, y: r.y + 14, w: 16, h: 16 }, active ? t.green : t.muted);
+  }
+  profileCard(item, r, focused) {
+    const c = this.c, t = UI_THEME, color = item.color ?? t.green, on = item.active;
+    const fill = c.createLinearGradient(r.x, 0, r.x + r.w, 0);
+    fill.addColorStop(0, on ? color + '2e' : '#111b22e8'); fill.addColorStop(.6, '#111b22e8'); fill.addColorStop(1, '#0c151ce8');
+    this.box(r, fill, null, 0);
+    this.hudPanel(r, { accent: focused ? t.green : on ? color : '#5d707a', top: '#0000', bottom: '#0000' });
+    if (focused) { c.strokeStyle = t.green; c.lineWidth = 2; c.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); }
+    if (on) this.box({ x: r.x, y: r.y + 8, w: 4, h: r.h - 16 }, color, null, 0);
+    const radius = Math.min(32, r.h / 2 - 10);
+    this.emblem(item.src, r.x + 18 + radius, r.y + r.h / 2, radius, on ? color : '#ffffff40');
+    const x = r.x + 32 + radius * 2, w = r.x + r.w - 14 - x;
+    const badgeW = on ? 64 : 0;
+    this.text(String(item.name ?? item.text ?? '').toUpperCase(), { x, y: r.y + 12, w: w - badgeW, h: 26 }, 22, t.paper, 800, 'left', 1, 1.04, undefined, .4);
+    if (on) {
+      this.box({ x: r.x + r.w - 14 - badgeW + 6, y: r.y + 14, w: badgeW - 6, h: 18 }, color + '26', color + '99', 9);
+      this.text('ACTIVE', { x: r.x + r.w - 14 - badgeW + 6, y: r.y + 17, w: badgeW - 6, h: 12 }, 9, color, 700, 'center', 1, 1.2, 'mono', .8);
+    }
+    this.text((item.stats ?? []).join('  ·  '), { x, y: r.y + 42, w, h: 16 }, 12, on ? '#d6e2e6' : t.muted, 600, 'left', 1, 1.3, 'mono');
+    this.text(item.detail, { x, y: r.y + 62, w, h: 16 }, 12, t.faint, 500, 'left', 1, 1.3);
+  }
   // A trophy cup in the tier's metal, like the trophy shown beside console achievements.
   trophy(r, tier) {
     const c = this.c, colors = TIERS[tier] ?? TIERS.bronze;

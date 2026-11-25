@@ -1,5 +1,12 @@
 // Settings and progress saved in the browser. Storage can be unavailable (private browsing,
 // blocked site data), so reads fall back to defaults and writes fail quietly.
+//
+// Progress belongs to the active operator profile (profiles.mjs): keys in PROFILE_KEYS are read and
+// written under that profile, so every caller keeps using the plain key names below.
+import { ProfileStore } from './profiles.mjs';
+
+const storage = (() => { try { return globalThis.localStorage ?? null; } catch { return null; } })();
+export const profiles = new ProfileStore(storage);
 
 export const bestKey = 'immune-protocol.best-score';
 export const muteKey = 'immune-protocol.muted';
@@ -21,9 +28,9 @@ export const effectsVolumeKey = 'immune-protocol.effects-volume';
 export const briefingsSeenKey = 'immune-protocol.briefings-seen';
 
 export function readSetting(key) {
-  try { return localStorage.getItem(key); } catch { return null; }
+  try { return storage?.getItem(profiles.scope(key)) ?? null; } catch { return null; }
 }
 
 export function writeSetting(key, value) {
-  try { localStorage.setItem(key, value); } catch { /* Private browsing may block storage. */ }
+  try { storage?.setItem(profiles.scope(key), value); } catch { /* Private browsing may block storage. */ }
 }
