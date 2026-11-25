@@ -58,12 +58,6 @@ const STYLE = `
 @keyframes outro-in{from{opacity:0;transform:translate(-50%,-10px) scale(.96)}to{opacity:1;transform:translateX(-50%)}}
 `;
 
-// Missions without a pre-rendered thumbnail; World renders their previews while it prepares arenas.
-export const RENDERED_PREVIEWS = Object.freeze({
-  colon: { title: 'Colonic Reservoir', before: 'ear' },
-  lymph: { title: 'Lymph Node', before: 'ear' },
-});
-
 function renameIds(root, from, to) {
   if (root.id) root.id = root.id.replace(from, to);
   for (const element of root.querySelectorAll('[id]')) element.id = element.id.replace(from, to);
@@ -229,29 +223,7 @@ export function installLevelHud(document) {
     alert.after(outro);
   }
 
-  const template = document.getElementById('deploy-intestines')?.closest('li');
-  for (const [area, { title, before }] of Object.entries(RENDERED_PREVIEWS)) {
-    if (!template || document.getElementById('deploy-' + area)) continue;
-    const item = template.cloneNode(true);
-    const button = item.querySelector('button');
-    button.id = 'deploy-' + area;
-    button.dataset.deployArea = area;
-    const image = item.querySelector('img');
-    image.removeAttribute('src');
-    image.dataset.previewArea = area;
-    item.querySelector('.mission-card-title').textContent = title;
-    document.getElementById('deploy-' + before).closest('li').before(item);
-  }
   const preview = document.getElementById('mission-preview-detail');
   if (preview) preview.textContent = 'Defend the core, lateral branch and venous wall through five waves in the bloodstream.';
 }
 
-// Swaps in the previews World rendered for missions without a shipped thumbnail.
-export function applyRenderedPreviews(document, previews) {
-  for (const image of document.querySelectorAll('img[data-preview-area]')) {
-    const source = previews?.[image.dataset.previewArea];
-    if (!source) continue;
-    image.src = source;
-    image.hidden = false;
-  }
-}

@@ -19,7 +19,7 @@ import { CoopClient, PUBLIC_COOP_ORIGIN, savedCoopSession, verifyCoopHost } from
 import { COOP_MIN_PLAYERS, COOP_MAX_PLAYERS, CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from './coop-protocol.mjs';
 import { GamepadInput } from './gamepad.mjs';
 import { GamepadMenu } from './gamepad-menu.mjs';
-import { applyRenderedPreviews, currentDifficulty } from './level-hud.mjs';
+import { currentDifficulty } from './level-hud.mjs';
 import { DIFFICULTIES } from './difficulty.mjs';
 import { COSMETIC_SLOTS, cosmeticArt, drawWeaponHud, weaponName } from './arsenal-ui.mjs';
 import { createArmoryScreen } from './armory-screen.mjs';
@@ -384,7 +384,6 @@ async function prepareGame() {
       ...missionThumbnails.map(image => image.decode().catch(() => { image.hidden = true; })),
       document.fonts.ready,
     ]);
-    applyRenderedPreviews(document, session.world.previews);
     loadingScreen.progress(81, 'Photographing the arsenal');
     await paintLoading();
     session.armoryArt = await prepareArmoryArt(session.world.renderer);

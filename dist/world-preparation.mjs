@@ -1,12 +1,10 @@
 // Getting the renderer ready before play: desktop startup prepares every arena; mobile
 // prepares one arena and defers the co-op lab. Both upload textures and compile shaders,
-// photograph available Free Mode
-// previews, and each deployment rehearses its own arena, hazards, effects and both carried
+// and each deployment rehearses its own arena, hazards, effects and both carried
 // weapons on a throwaway fixture, then waits for the GPU (prepareMission), so nothing stalls
 // once the mission starts. Called through World's methods of the same names.
 import { weaponModelsReady, prepareWeaponCosmetics } from './arsenal-models.mjs';
 import { COOP_SUITS, loadSuitModels } from './suits.mjs';
-import { RENDERED_PREVIEWS } from './level-hud.mjs';
 import { COOP_MAX_PLAYERS } from './coop-protocol.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
 import { Simulation, JUNCTION_GASH_SITES, SPECIES } from './simulation.mjs';
@@ -160,10 +158,6 @@ export async function prepareScenes(world, areas, onProgress) {
       await nextTask();
       const fixture = new Simulation(area);
       fixture.start();
-      if (Object.hasOwn(RENDERED_PREVIEWS, area)) {
-        await world.capturePreview(area, fixture);
-        await nextTask();
-      }
       await world.prepareArea(fixture, warmTextures);
       if (area === 'brain') {
         const finale = new Simulation('brain', { bossPractice: true });
@@ -174,53 +168,12 @@ export async function prepareScenes(world, areas, onProgress) {
       }
       onProgress(index + 3, total, 'Arena ready: ' + area.replaceAll('-', ' '));
     }
-    await Promise.all(Object.values(world.previewJobs ?? {}));
   } finally {
     world.renderer.shadowMap.enabled = world.weaponKey.castShadow = shadows;
     world.carbine.flash.visible = false;
     world.setWeaponLoadout(DEFAULT_WEAPON_LOADOUT);
     world.setArea(startArea);
     world.resize(true);
-  }
-}
-
-// Renders a 480 x 270 Free Mode thumbnail from just behind the insertion point.
-// The pixels are copied to a 2D canvas right after the draw; WebP encoding (toBlob) then runs
-// off the main thread, unlike toDataURL. world.previewJobs[area] settles when the URL is ready.
-export async function capturePreview(world, area, sim) {
-  world.previews ??= {};
-  world.previewJobs ??= {};
-  try {
-    const { x, z } = sim.player;
-    world.camera.position.set(x, 2.3, z + 8);
-    world.camera.rotation.set(-.06, 0, 0);
-    world.camera.aspect = 16 / 9;
-    world.camera.updateProjectionMatrix();
-    world.camera.updateMatrixWorld();
-    world.organEnvironment?.update(null, 2, false);
-    world.props?.update(null, 2, 1 / 60, false);
-    world.updateTissue(sim, 0, true);
-    world.renderer.setSize(480, 270, false);
-    world.syncLights();
-    await world.warmTextures?.(world.scene);
-    await world.renderer.compileAsync(world.scene, world.camera);
-    await gpuIdle(world.renderer);
-    world.renderer.setSize(480, 270, false);
-    world.renderer.render(world.scene, world.camera);
-    // Without preserveDrawingBuffer the canvas is copied in the same task as the draw. The GPU
-    // was drained above, so this copy only waits for the preview frame itself.
-    const copy = document.createElement('canvas');
-    copy.width = 480;
-    copy.height = 270;
-    copy.getContext('2d').drawImage(world.renderer.domElement, 0, 0, 480, 270);
-    world.previewJobs[area] = new Promise(resolve => copy.toBlob(blob => {
-      if (blob) world.previews[area] = URL.createObjectURL(blob);
-      resolve();
-    }, 'image/webp', .86));
-  } catch {
-    // Free Mode hides a card whose preview could not be drawn.
-  } finally {
-    world.renderer.setSize(160, 90, false);
   }
 }
 

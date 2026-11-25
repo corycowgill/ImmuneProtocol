@@ -17,7 +17,6 @@ import { createGuardCarapace, createOrganEnvironment, organProfile } from './org
 import { createMegaVirus } from './mega-virus.mjs';
 import { bioSurface, createLevelProps } from './level-props.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
-import { RENDERED_PREVIEWS } from './level-hud.mjs';
 import { createSquadView } from './squad-view.mjs';
 import { COOP_MAX_PLAYERS } from './coop-protocol.mjs';
 import { DEFAULT_WEAPON_LOADOUT, WEAPON_ORDER, WEAPON_SLOTS, loadoutWithWeapon } from './weapon-mods.mjs';
@@ -37,7 +36,7 @@ import { BOSS_FLOATS, LEVEL_BOSSES } from './level-bosses.mjs';
 import { chunkInstances, cullDecor } from './decor-chunks.mjs';
 import { randomSource, configureTile, glowTexture, cloudTexture, fallbackTissue, normalFromImage, membraneMaps, reflectionTexture } from './arena-textures.mjs';
 import { TAU, UP, floorHeight, baseFloorHeight, setTerrainArea, shapeFloor, texturedLobe, redCellGeometry, sprite, setInstance, addMesh, makeRoom, makeAtmosphere, makeTissue, makeJunctionField, biologicalMaterial } from './arena-scene.mjs';
-import { prepareAll as prepareAllOf, prepareScenes as prepareScenesOf, capturePreview as capturePreviewOf, prepareArea as prepareAreaOf, prepareMission as prepareMissionOf } from './world-preparation.mjs';
+import { prepareAll as prepareAllOf, prepareScenes as prepareScenesOf, prepareArea as prepareAreaOf, prepareMission as prepareMissionOf } from './world-preparation.mjs';
 import { enemyTemplate as enemyTemplateOf, dressGuardModel as dressGuardModelOf, updateEnemies as updateEnemiesOf, releaseEnemyView as releaseEnemyViewOf, poseEnemyAttack as poseEnemyAttackOf, updateTethers as updateTethersOf, updateProjectiles as updateProjectilesOf } from './pathogen-views.mjs';
 import { TracerPool } from './shot-fx.mjs';
 import { updateWeapon as updateWeaponOf, updateRepairTool as updateRepairToolOf, addShot as addShotOf, addTracer as addTracerOf, addTeammateShot as addTeammateShotOf, addTurretShot as addTurretShotOf } from './weapon-view.mjs';
@@ -303,11 +302,6 @@ export class World {
 
   async prepareScenes(...args) {
     return prepareScenesOf(this, ...args);
-  }
-
-  // Renders a 480 x 270 Free Mode thumbnail from just behind the insertion point.
-  capturePreview(...args) {
-    return capturePreviewOf(this, ...args);
   }
 
   async prepareArea(...args) {
