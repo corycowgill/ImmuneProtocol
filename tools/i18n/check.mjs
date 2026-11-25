@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DIR = join(ROOT, 'dist', 'locales');
-const LOCALES = ['es', 'de', 'fr', 'zh', 'hi'];
+const LOCALES = ['es', 'de', 'fr', 'zh', 'zh-TW', 'hi'];
 const CASED = new Set(['es', 'de', 'fr']);
 
 const catalog = JSON.parse(readFileSync(join(DIR, 'catalog.json'), 'utf8'));

@@ -1918,6 +1918,7 @@
   "{0} GASH · LEAKING": "DESGARRO {0} · FUGA",
   "{0} GASH OPEN": "DESGARRO {0} ABIERTO",
   "{0} GASH SEALED": "DESGARRO {0} SELLADO",
+  "{0} incoming": "{0} en camino",
   "{0} INCOMING": "LLEGA {0}",
   "{0} INLET": "ENTRADA {0}",
   "{0} INLET REINFORCED": "ENTRADA {0} REFORZADA",

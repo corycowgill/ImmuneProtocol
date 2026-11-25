@@ -60,9 +60,14 @@ test('Chinese wraps between characters; other scripts between words', () => {
 });
 
 test('the language list and the browser default', () => {
-  assert.deepEqual(LANGUAGES.map(item => item.id), ['en', 'es', 'de', 'fr', 'zh', 'hi']);
+  assert.deepEqual(LANGUAGES.map(item => item.id), ['en', 'es', 'de', 'fr', 'zh', 'zh-TW', 'hi']);
   assert.equal(preferredLanguage(['de-AT', 'en-US']), 'de');
   assert.equal(preferredLanguage(['zh-CN']), 'zh');
+  assert.equal(preferredLanguage(['zh-TW']), 'zh-TW');
+  assert.equal(preferredLanguage(['zh-HK']), 'zh-TW');
+  assert.equal(preferredLanguage(['zh-Hant-SG']), 'zh-TW');
+  assert.equal(preferredLanguage(['zh-Hans-TW']), 'zh');
+  assert.equal(preferredLanguage(['zh']), 'zh');
   assert.equal(preferredLanguage(['ja-JP']), 'en');
 });
 
@@ -113,5 +118,11 @@ test('a known phrase after a prefix built in code', () => {
   // The loose '{0} VALVE' template loses to the longer known phrase.
   assert.equal(translate('HOLD E TO CLOSE INTAKE VALVE'), 'HALTE E UM DAS ZULAUFVENTIL ZU SCHLIESSEN');
   assert.equal(translate('MITRAL VALVE'), 'MITRAL-KLAPPE');
+  useLocale('en', null);
+});
+
+test('a template slot does not swallow a list of parts', () => {
+  useLocale('de', { strings: { 'Armory opens in': 'Waffenkammer öffnet in' }, templates: { 'WAVE {0}': 'WELLE {0}', 'WAVE {0} CLEARED': 'WELLE {0} GESCHAFFT' } });
+  assert.equal(translate('WAVE 01 CLEARED · 4 · Armory opens in'), 'WELLE 01 GESCHAFFT · 4 · Waffenkammer öffnet in');
   useLocale('en', null);
 });

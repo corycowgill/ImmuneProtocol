@@ -6,7 +6,8 @@ export const UI_THEME = Object.freeze({
 });
 // The bundled faces cover Latin script. Chinese and Hindi fall through to the system's own fonts
 // for those scripts, listed after them (each glyph uses the first font that has it).
-const SCRIPTS = '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", "WenQuanYi Zen Hei", ' +
+const SCRIPTS = '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", ' +
+  '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Source Han Sans TC", "WenQuanYi Zen Hei", ' +
   '"Noto Sans Devanagari", "Nirmala UI", "Kohinoor Devanagari", "Devanagari Sangam MN", "Mangal"';
 export const UI_FONTS = Object.freeze({
   body: '"Inter", "Segoe UI", ' + SCRIPTS + ', sans-serif',

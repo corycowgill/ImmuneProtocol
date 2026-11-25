@@ -1918,6 +1918,7 @@
   "{0} GASH · LEAKING": "hud.mjs",
   "{0} GASH OPEN": "field-events.mjs",
   "{0} GASH SEALED": "field-events.mjs",
+  "{0} incoming": "simulation.mjs",
   "{0} INCOMING": "field-events.mjs",
   "{0} INLET": "field-events.mjs",
   "{0} INLET REINFORCED": "field-events.mjs",

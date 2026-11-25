@@ -18,6 +18,7 @@ export const LANGUAGES = Object.freeze([
   Object.freeze({ id: 'de', name: 'Deutsch', english: 'German', html: 'de' }),
   Object.freeze({ id: 'fr', name: 'Français', english: 'French', html: 'fr' }),
   Object.freeze({ id: 'zh', name: '中文（简体）', english: 'Chinese (Simplified)', html: 'zh-CN' }),
+  Object.freeze({ id: 'zh-TW', name: '中文（繁體）', english: 'Chinese (Traditional)', html: 'zh-TW' }),
   Object.freeze({ id: 'hi', name: 'हिन्दी', english: 'Hindi', html: 'hi' }),
 ]);
 export const DEFAULT_LANGUAGE = 'en';
@@ -27,10 +28,16 @@ export const LANGUAGE_EVENT = 'immune-protocol:language';
 export const isLanguage = id => LANGUAGES.some(language => language.id === id);
 export const normalizeLanguage = id => isLanguage(id) ? id : DEFAULT_LANGUAGE;
 
-// The browser's language, if the game speaks it; English otherwise.
+// Chinese written in Traditional characters: Taiwan, Hong Kong and Macau, or an explicit Hant tag.
+const TRADITIONAL = /^zh-(?:tw|hk|mo|hant)\b/;
+
+// The browser's language, if the game speaks it; English otherwise. Chinese follows the script the
+// region writes (Traditional for Taiwan, Hong Kong and Macau, Simplified elsewhere).
 export function preferredLanguage(list = globalThis.navigator?.languages ?? [globalThis.navigator?.language]) {
   for (const tag of list ?? []) {
-    const base = String(tag ?? '').toLowerCase().split('-')[0];
+    const lower = String(tag ?? '').toLowerCase();
+    if (TRADITIONAL.test(lower)) return 'zh-TW';
+    const base = lower.split('-')[0];
     if (isLanguage(base)) return base;
   }
   return DEFAULT_LANGUAGE;
@@ -124,11 +131,13 @@ function lookup(text, depth = 0) {
       upper = !!match;
     }
     if (!match) continue;
+    // A slot never swallows a "·" (or dash, bar, line break) the template does not have itself: such
+    // text is a list of parts, translated part by part below.
+    if (match.slice(1).some(part => SEPARATORS.some(separator => part.includes(separator) && !template.english.includes(separator)))) continue;
     // A loose template ("{0} VALVE") gives way to a known phrase that covers more of the text.
     if (tail && tail.covered > template.weight) return tail.text;
     return fill(template, match.slice(1), depth, upper && !allCaps(template.value));
   }
-  if (tail) return tail.text;
   for (const separator of SEPARATORS) {
     if (!text.includes(separator)) continue;
     const parts = text.split(separator);
@@ -148,6 +157,7 @@ function lookup(text, depth = 0) {
     const translated = sentences.map(sentence => lookup(sentence, depth + 1));
     if (translated.some(sentence => sentence != null)) return sentences.map((sentence, index) => translated[index] ?? sentence).join(' ');
   }
+  if (tail) return tail.text;
   return null;
 }
 

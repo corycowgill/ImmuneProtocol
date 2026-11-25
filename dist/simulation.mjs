@@ -1022,7 +1022,7 @@ export class Simulation {
     const target = node ? ' · ' + node.name : stop ? ' · ' + stop[2] : '';
     return {
       phase,
-      label: phase === 'recovery' ? hazard.name + ' in' : hazard.name + target,
+      label: phase === 'recovery' ? hazard.name + ' incoming' : hazard.name + target,
       detail: phase === 'active' ? hazard.effect : hazard.instruction + (phase === 'recovery' ? target : ''),
       remaining: hazard[phase],
       x: node?.x ?? stop?.[0] ?? hazard.x,
