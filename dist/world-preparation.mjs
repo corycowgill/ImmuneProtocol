@@ -15,8 +15,58 @@ import { NEST } from './field-objectives.mjs';
 import { LEVEL_BOSSES } from './level-bosses.mjs';
 import { floorHeight } from './arena-scene.mjs';
 import { LOW_MEMORY } from './asset-loading.mjs';
+import { gpuIdle } from './gpu-idle.mjs';
 
 const PRELOAD_INPUT = Object.freeze({ moveX: 0, moveZ: 0, lookX: 0, lookY: 0 });
+
+// Preparation hands the main thread back between pieces of GPU work, so the loading screen,
+// the intro and the browser itself keep responding. A task should stay near one frame.
+const SLICE_MS = 12;
+const yieldTask = () => new Promise(resolve => setTimeout(resolve, 0));
+let sliceStart = performance.now();
+let gpu = null;
+// `force` also lets the GPU drain queued uploads, compiles and draws before the next sync call.
+async function breathe(force = false) {
+  if (!force && performance.now() - sliceStart < SLICE_MS) return;
+  if (force && gpu) await gpuIdle(gpu, yieldTask);
+  else await yieldTask();
+  sliceStart = performance.now();
+}
+
+// Texture uploads (texImage2D) are synchronous; upload one texture at a time with yields in between.
+async function uploadTextures(world, textures, scene) {
+  const pending = [];
+  scene.traverse(object => {
+    if (!object.material) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      for (const texture of Object.values(material)) {
+        if (!texture?.isTexture || textures.has(texture)) continue;
+        textures.add(texture);
+        pending.push(texture);
+      }
+    }
+  });
+  gpu = world.renderer;
+  for (const texture of pending) {
+    await breathe(true);
+    world.renderer.initTexture(texture);
+  }
+}
+
+// Updates a frame without drawing it, compiles its programs with compileAsync (which links them
+// off the main thread where KHR_parallel_shader_compile is available), then draws it. Drawing
+// first would make the renderer compile and link every new program synchronously.
+async function rehearse(world, sim, dt) {
+  world.render(sim, dt, PRELOAD_INPUT, false, false, false);
+  await world.warmTextures(world.scene);
+  await world.warmTextures(world.weaponScene);
+  await compileFor(world, world.scene, world.camera, 'scene');
+  await compileFor(world, world.weaponScene, world.weaponCamera, 'weapon');
+  await breathe(true);
+  world.drawFrame(false);
+  await breathe(true);
+}
 
 // Shaders bake in whether they draw to the screen (tone mapped there) or into an HDR target, so
 // they are compiled against the target the game will actually draw into: the post-processing
@@ -50,20 +100,8 @@ export async function prepareScenes(world, areas, onProgress) {
   const shadows = world.renderer.shadowMap.enabled;
   const total = areas.length + 2;
   const textures = new Set();
-  const nextTask = () => new Promise(resolve => setTimeout(resolve, 0));
-  const warmTextures = scene => {
-    scene.traverse(object => {
-      if (!object.material) return;
-      const materials = Array.isArray(object.material) ? object.material : [object.material];
-      for (const material of materials) {
-        for (const texture of Object.values(material)) {
-          if (!texture?.isTexture || textures.has(texture)) continue;
-          textures.add(texture);
-          world.renderer.initTexture(texture);
-        }
-      }
-    });
-  };
+  const nextTask = yieldTask;
+  const warmTextures = scene => uploadTextures(world, textures, scene);
 
   onProgress(0, total, LOW_MEMORY ? 'Loading compact weapons, pathogens and sound' : 'Downloading and decoding weapons, pathogens, suits and sound');
   world.warmTextures = warmTextures;
@@ -81,10 +119,13 @@ export async function prepareScenes(world, areas, onProgress) {
   try {
     for (const mesh of [...world.tracers.meshes, ...world.sprays.meshes]) mesh.visible = true;
     world.syncLights();
+    await warmTextures(world.scene);
     await compileFor(world, world.scene, world.camera, 'scene');
+    await breathe(true);
     world.renderer.render(world.scene, world.camera);
+    await breathe(true);
     for (const mesh of [...world.tracers.meshes, ...world.sprays.meshes]) mesh.visible = false;
-    warmTextures(world.weaponScene);
+    await warmTextures(world.weaponScene);
     const armory = new Simulation('artery');
     armory.start();
     world.updateWeapon(armory, 0, PRELOAD_INPUT, false, true);
@@ -103,8 +144,11 @@ export async function prepareScenes(world, areas, onProgress) {
       world.weaponKey.castShadow = enabled;
       for (const loadout of LOW_MEMORY ? [DEFAULT_WEAPON_LOADOUT] : warmupBuilds) {
         world.setWeaponLoadout(loadout);
+        await warmTextures(world.weaponScene);
         await compileFor(world, world.weaponScene, world.weaponCamera, 'weapon');
+        await breathe(true);
         world.renderer.render(world.weaponScene, world.weaponCamera);
+        await breathe(true);
       }
     }
     world.carbine.flash.visible = false;
@@ -113,9 +157,13 @@ export async function prepareScenes(world, areas, onProgress) {
       await nextTask();
       const area = areas[index];
       world.setArea(area);
+      await nextTask();
       const fixture = new Simulation(area);
       fixture.start();
-      if (Object.hasOwn(RENDERED_PREVIEWS, area)) world.capturePreview(area, fixture);
+      if (Object.hasOwn(RENDERED_PREVIEWS, area)) {
+        await world.capturePreview(area, fixture);
+        await nextTask();
+      }
       await world.prepareArea(fixture, warmTextures);
       if (area === 'brain') {
         const finale = new Simulation('brain', { bossPractice: true });
@@ -126,6 +174,7 @@ export async function prepareScenes(world, areas, onProgress) {
       }
       onProgress(index + 3, total, 'Arena ready: ' + area.replaceAll('-', ' '));
     }
+    await Promise.all(Object.values(world.previewJobs ?? {}));
   } finally {
     world.renderer.shadowMap.enabled = world.weaponKey.castShadow = shadows;
     world.carbine.flash.visible = false;
@@ -136,8 +185,11 @@ export async function prepareScenes(world, areas, onProgress) {
 }
 
 // Renders a 480 x 270 Free Mode thumbnail from just behind the insertion point.
-export function capturePreview(world, area, sim) {
+// The pixels are copied to a 2D canvas right after the draw; WebP encoding (toBlob) then runs
+// off the main thread, unlike toDataURL. world.previewJobs[area] settles when the URL is ready.
+export async function capturePreview(world, area, sim) {
   world.previews ??= {};
+  world.previewJobs ??= {};
   try {
     const { x, z } = sim.player;
     world.camera.position.set(x, 2.3, z + 8);
@@ -150,8 +202,21 @@ export function capturePreview(world, area, sim) {
     world.updateTissue(sim, 0, true);
     world.renderer.setSize(480, 270, false);
     world.syncLights();
+    await world.warmTextures?.(world.scene);
+    await world.renderer.compileAsync(world.scene, world.camera);
+    await gpuIdle(world.renderer);
+    world.renderer.setSize(480, 270, false);
     world.renderer.render(world.scene, world.camera);
-    world.previews[area] = world.renderer.domElement.toDataURL('image/webp', .86);
+    // Without preserveDrawingBuffer the canvas is copied in the same task as the draw. The GPU
+    // was drained above, so this copy only waits for the preview frame itself.
+    const copy = document.createElement('canvas');
+    copy.width = 480;
+    copy.height = 270;
+    copy.getContext('2d').drawImage(world.renderer.domElement, 0, 0, 480, 270);
+    world.previewJobs[area] = new Promise(resolve => copy.toBlob(blob => {
+      if (blob) world.previews[area] = URL.createObjectURL(blob);
+      resolve();
+    }, 'image/webp', .86));
   } catch {
     // Free Mode hides a card whose preview could not be drawn.
   } finally {
@@ -202,7 +267,7 @@ export async function prepareArea(world, sim, warmTextures) {
   sim.events = [shot, fire, ...sim.players.slice(1).map(player => ({ ...shot, playerId: player.id })),
     { ...shot, rocket: true, travel: .8 },
     { type: 'explosion', x: start.x, y: 1, z: start.z - 7, radius: 5 }];
-  world.render(sim, .02, PRELOAD_INPUT, false, false);
+  await rehearse(world, sim, .02);
   // Keep both the healthy tissue's and recovery objective's lighting variants compiled.
   if (sim.area === 'lungs') {
     sim.startAirwayObjective();
@@ -210,27 +275,29 @@ export async function prepareArea(world, sim, warmTextures) {
       port.open = true;
       port.progress = 1;
     }
-    world.render(sim, .2, PRELOAD_INPUT, false, false);
+    await rehearse(world, sim, .2);
   }
   if (sim.area === 'stomach') {
     sim.gastric.stage = 'draining';
     sim.gastric.level = .5;
-    world.render(sim, .05, PRELOAD_INPUT, false, false);
+    await rehearse(world, sim, .05);
   }
   sim.repairing = true;
   sim.repairTarget = sim.nodes[0];
   for (const teammate of sim.players.slice(1)) teammate.repairing = true;
-  world.render(sim, .24, PRELOAD_INPUT, false, false);
+  await rehearse(world, sim, .24);
   world.deaths?.warm(true, { x: start.x, y: 0, z: start.z - 6 });
   world.impacts?.warm(true, { x: start.x, y: 0, z: start.z - 5 });
   world.abilityFx?.warm(true, { x: start.x, y: 1, z: start.z - 4 });
   for (const suit of LOW_MEMORY ? [null] : COOP_SUITS) {
     for (const teammate of sim.players.slice(1)) teammate.suit = suit;
     world.teammateView.update(sim.players, start.id, floorHeight, 0, false);
-    warmTextures(world.scene);
+    await warmTextures(world.scene);
     world.syncLights();
     await compileFor(world, world.scene, world.camera, 'scene');
+    await breathe(true);
     world.renderer.render(world.scene, world.camera);
+    await breathe(true);
   }
   world.deaths?.warm(false);
   world.impacts?.warm(false);
@@ -256,7 +323,7 @@ export async function prepareMission(world, sim, onProgress = () => {}) {
     for (const slot of ['primary', 'secondary']) {
       world.setWeaponLoadout({ ...sim.weaponLoadout, slot });
       world.carbine.flash.visible = true;
-      world.warmTextures(world.weaponScene);
+      await world.warmTextures(world.weaponScene);
       await compileFor(world, world.weaponScene, world.weaponCamera, 'weapon');
       world.renderer.render(world.weaponScene, world.weaponCamera);
       await nextTask();
@@ -267,23 +334,12 @@ export async function prepareMission(world, sim, onProgress = () => {}) {
     world.setArea(sim.area);
     world.resize(true);
   }
-  world.render(sim, 0, PRELOAD_INPUT, false);
+  world.render(sim, 0, PRELOAD_INPUT, false, true, false);
   await compileFor(world, world.scene, world.camera, 'scene');
   await compileFor(world, world.weaponScene, world.weaponCamera, 'weapon');
+  await nextTask();
+  world.drawFrame(false);
   // Wait for the pre-rendered frame and uploads to actually finish on the GPU.
-  const gl = world.renderer.getContext();
-  const fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-  if (!fence) throw new Error('The graphics context could not finish preparation');
-  gl.flush();
-  try {
-    let result;
-    do {
-      await nextTask();
-      result = gl.clientWaitSync(fence, 0, 0);
-      if (result === gl.WAIT_FAILED || gl.isContextLost()) throw new Error('Graphics preparation was interrupted');
-    } while (result === gl.TIMEOUT_EXPIRED);
-  } finally {
-    gl.deleteSync(fence);
-  }
+  await gpuIdle(world.renderer, nextTask);
   onProgress(100, 'Insertion site ready');
 }
