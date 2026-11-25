@@ -26,6 +26,7 @@ import { createArmoryScreen } from './armory-screen.mjs';
 import { levelBossStatus } from './level-bosses.mjs';
 import { createDiseaseGuide } from './disease-guide.mjs';
 import { createUpgradeCards, drawIntel, drawLoadout, drawOperatorCard } from './deployment.mjs';
+import { ENDLESS_RECORDS_KEY, ENDLESS_RULES, applyEndless, endlessWavesCleared, isEndlessArea, parseEndlessRecords, recordEndlessRun } from './endless.mjs';
 import './interface-setup.mjs';
 import { session } from './session.mjs';
 import { createSettings } from './game-settings.mjs';
@@ -65,6 +66,7 @@ const coopReady = byId('coop-ready');
 const coopRoster = byId('coop-roster');
 const coopHud = byId('coop-hud');
 const missionSelect = byId('mission-select');
+const endlessOpen = byId('endless-open');
 const missionDialog = byId('mission-dialog');
 const missionGallery = byId('mission-gallery');
 const missionList = byId('mission-list');
@@ -304,11 +306,13 @@ function displayMissionAccess() {
   // The campaign can start any mission already reached (in this run or an earlier one).
   const campaignMode = deployment.mode === 'campaign';
   const reachable = campaignMode ? campaignReach() : 0;
+  const endlessMode = deployment.mode === 'endless';
   for (const { button, bossPractice, area } of missionEntries) {
     button.disabled = unavailable || (bossPractice && !megaVirusReached) ||
-      (campaignMode && (bossPractice || campaignAreas.indexOf(area) > reachable));
+      (campaignMode && (bossPractice || campaignAreas.indexOf(area) > reachable)) ||
+      (endlessMode && (bossPractice || !isEndlessArea(area)));
   }
-  deploy.disabled = missionSelect.disabled = armoryOpen.disabled = unavailable;
+  deploy.disabled = missionSelect.disabled = endlessOpen.disabled = armoryOpen.disabled = unavailable;
   coopOpen.disabled = unavailable;
   newCampaignButton.disabled = unavailable;
   practiceLoadout.disabled = unavailable;
@@ -670,7 +674,9 @@ async function launch(area, run = null, drill = null, onlineState = null, checkp
       bossPractice: !!drill?.bossPractice,
       weaponLoadout: { ...session.weaponLoadout, slot: 'primary' },
     });
-    loadingScreen.begin(missionName(area), 'Preparing the arena, your loadout and combat effects before insertion.', 'MISSION ' + String(index + 1).padStart(2, '0') + ' / ' + campaignAreas.length);
+    if (drill?.endless && !onlineState) applyEndless(nextSim);
+    loadingScreen.begin(missionName(area), 'Preparing the arena, your loadout and combat effects before insertion.', drill?.endless
+      ? 'ENDLESS' : 'MISSION ' + String(index + 1).padStart(2, '0') + ' / ' + campaignAreas.length);
     await paintLoading();
     await session.world.prepareMission(nextSim, (value, label) => loadingScreen.progress(value, label));
     // Give the level's theme a moment to finish decoding; a slow connection falls back
@@ -720,6 +726,7 @@ async function launch(area, run = null, drill = null, onlineState = null, checkp
     if (checkpoint) announce(checkpointName(checkpoint).toUpperCase(), 'RESUMED FROM CHECKPOINT', 3.2);
     else if (session.onlineRun) announce(missionName(area).toUpperCase(), 'CO-OP MISSION ' + (index + 1) + ' OF ' + campaignAreas.length, 2.7);
     else if (drill?.bossPractice) announce('MEGA VIRUS PRACTICE', 'SHOOT EXPOSED CORES', 1.9);
+    else if (drill?.endless) announce('ENDLESS · ' + missionName(area).toUpperCase(), 'THE WAVES NEVER STOP · EACH ONE HITS HARDER', 3.2);
     else if (heart) announce('HEART VALVE', 'FOUR VALVES · SHOOT THE COLONIES WHEN THEY OPEN', 3.4);
     else if (junction) announce('CAPILLARY JUNCTION', 'DEFEND BOTH INLETS', 2.8);
     else if (nextSim.organ) announce(missionName(area).toUpperCase(), ORGAN_MISSIONS[area].hazard.instruction.toUpperCase(), 2.4);
@@ -782,11 +789,13 @@ function pause() {
   if (!session.running || session.paused || session.sim.extractionPending) return;
   suspendCombat();
   setText(byId('pause-mission'), missionName(session.sim.area) + difficultyTag());
-  setText(byId('pause-wave'), Math.min(session.sim.wave, session.sim.waves) + ' / ' + session.sim.waves);
+  setText(byId('pause-wave'), session.sim.endless ? 'Wave ' + session.sim.wave : Math.min(session.sim.wave, session.sim.waves) + ' / ' + session.sim.waves);
   setText(byId('pause-score'), session.sim.score.toLocaleString());
   setText(byId('pause-tissue'), Math.round(session.sim.tissue) + '%');
   setText(byId('pause-objective'), practice?.bossPractice
-    ? 'Follow the pulse to the core about to open and shoot the exposed tissue.' : missions[session.sim.area].briefing);
+    ? 'Follow the pulse to the core about to open and shoot the exposed tissue.' : session.sim.endless
+      ? 'Hold every tissue node for as long as you can. Each wave is bigger, faster and tougher than the last.'
+      : missions[session.sim.area].briefing);
   byId('restart-mission').hidden = session.onlineRun;
   const checkpoint = session.onlineRun ? null : waveCheckpoint();
   restartWave.hidden = !checkpoint;
@@ -915,14 +924,26 @@ function campaignRunFor(area, run) {
   return { ...run, results };
 }
 
+function endlessRecords() {
+  return parseEndlessRecords(readSetting(ENDLESS_RECORDS_KEY));
+}
+
+function endlessBest(area) {
+  const record = endlessRecords()[area];
+  return record ? 'Best: wave ' + record.waves : '';
+}
+
 function openDeployment(mode, run = null) {
   deployment = { mode, run };
   missionDialog.dataset.mode = mode;
   missionError.hidden = true;
   const next = run?.results.length ?? 0;
+  const endlessMode = mode === 'endless';
   setText(byId('deploy-mode'), mode === 'campaign'
-    ? 'Campaign · Mission ' + (next + 1) + ' of ' + campaignAreas.length : 'Free Mode');
-  setText(byId('mission-intro'), mode === 'free' ? 'Replay any mission. Campaign saves and records stay separate.'
+    ? 'Campaign · Mission ' + (next + 1) + ' of ' + campaignAreas.length : endlessMode ? 'Endless' : 'Free Mode');
+  setText(byId('mission-intro'), endlessMode
+    ? 'Hold one arena for as long as you can. Every wave is bigger, faster and tougher, and the boss returns every ' + ordinal(ENDLESS_RULES.bossEvery) + ' wave.'
+    : mode === 'free' ? 'Replay any mission. Campaign saves and records stay separate.'
     : next ? 'Your checkpoint is saved. Continue, or pick any mission you have reached to replay it.'
       : unlockedMission ? 'Begin from the bloodstream, or pick any mission you have reached. Skipped missions score nothing.'
         : 'Ten missions from the bloodstream to the brain. Review the briefing and your kit, then begin.');
@@ -932,17 +953,20 @@ function openDeployment(mode, run = null) {
   for (const entry of missionEntries) {
     const index = campaignAreas.indexOf(entry.area);
     const reach = mode === 'campaign' ? Math.max(next, unlockedMission) : 0;
-    const status = mode !== 'campaign' || entry.bossPractice ? ''
-      : index < next ? 'Secured' : index === next ? 'Next' : index <= reach ? 'Reached' : 'Locked';
-    entry.button.dataset.status = status.toLowerCase();
+    const status = endlessMode ? (entry.bossPractice ? '' : endlessBest(entry.area))
+      : mode !== 'campaign' || entry.bossPractice ? ''
+        : index < next ? 'Secured' : index === next ? 'Next' : index <= reach ? 'Reached' : 'Locked';
+    entry.button.dataset.status = endlessMode ? (status ? 'reached' : '') : status.toLowerCase();
     setText(entry.status, status);
+    // Endless runs only in arenas with plain wave rosters, so the others leave the gallery.
+    entry.button.closest('li')?.toggleAttribute('hidden', endlessMode && !isEndlessArea(entry.area));
   }
   drawLoadout(byId('deploy-loadout'), session.weaponLoadout);
   displayMissionAccess();
   missionDialog.showModal();
   selectPracticeMission(mode === 'campaign'
     ? missionEntries.find(entry => !entry.bossPractice && entry.area === campaignArea())
-    : selectedPracticeMission.button.disabled ? missionEntries[0] : selectedPracticeMission);
+    : selectedPracticeMission.button.disabled ? missionEntries.find(entry => !entry.button.disabled) ?? missionEntries[0] : selectedPracticeMission);
 }
 
 function openFreeMode() {
@@ -956,28 +980,38 @@ function selectPracticeMission(entry) {
     choice.button.tabIndex = choice === entry ? 0 : -1;
     choice.button.setAttribute('aria-checked', String(choice === entry));
   }
+  const endlessMode = deployment.mode === 'endless';
+  const record = endlessMode ? endlessRecords()[entry.area] : null;
   const { name, briefing } = entry.bossPractice
     ? { name: 'Mega Virus Practice', briefing: 'Start at Wave 3. Shoot the cores as the membranes open.' }
-    : missions[entry.area];
+    : endlessMode ? { name: missions[entry.area].name, briefing: 'Waves never stop. Each one sends ' + Math.round(ENDLESS_RULES.growth * 100) +
+      '% more pathogens, faster and tougher, and the boss returns every ' + ordinal(ENDLESS_RULES.bossEvery) + ' wave. The run ends when a node or your suit fails.' }
+      : missions[entry.area];
   setText(missionPreviewTitle, name);
   setText(missionPreviewDetail, briefing);
   const art = entry.button.querySelector('img');
   if (art?.src) byId('deploy-hero-art').src = art.src;
   setText(byId('deploy-hero-kicker'), entry.bossPractice ? 'Boss practice · Neural Cortex'
-    : 'Mission ' + String(campaignAreas.indexOf(entry.area) + 1).padStart(2, '0') + ' of ' + campaignAreas.length);
-  drawIntel(byId('deploy-intel'), byId('deploy-threats'), entry.area, entry.bossPractice);
+    : endlessMode ? 'Endless · ' + (record ? 'Best wave ' + record.waves : 'No runs yet')
+      : 'Mission ' + String(campaignAreas.indexOf(entry.area) + 1).padStart(2, '0') + ' of ' + campaignAreas.length);
+  drawIntel(byId('deploy-intel'), byId('deploy-threats'), entry.area, entry.bossPractice, endlessMode ? { endless: true, record } : undefined);
   practiceDeploy.setAttribute('aria-label', 'Deploy to ' + name);
   missionError.hidden = true;
   entry.button.focus();
 }
 
 function returnFromResult() {
-  const freeMode = !!practice;
+  const mode = practice?.endless ? 'endless' : practice ? 'free' : null;
   mainMenu();
-  if (freeMode) {
-    missionSelect.focus();
-    openFreeMode();
+  if (mode) {
+    (mode === 'endless' ? endlessOpen : missionSelect).focus();
+    openDeployment(mode);
   }
+}
+
+function ordinal(n) {
+  const suffix = n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th';
+  return n + suffix;
 }
 
 async function startCampaign() {
@@ -1074,6 +1108,15 @@ function finish() {
   const junction = session.sim.area === 'junction';
   const heart = session.sim.area === 'heart';
   const bossPractice = !!practice?.bossPractice;
+  // An endless run only ends in a loss; it is scored by the waves it cleared.
+  let endless = null;
+  if (session.sim.endless) {
+    const waves = endlessWavesCleared(session.sim);
+    endless = { waves, ...recordEndlessRun(endlessRecords(), {
+      area: session.sim.area, waves, score: session.sim.score, difficulty: session.sim.difficulty,
+    }) };
+    if (endless.best) writeSetting(ENDLESS_RECORDS_KEY, JSON.stringify(endless.records));
+  }
   // A lost mission offers to resume at its checkpoint (in co-op the squad's ready-up does that).
   const resume = won ? null : waveCheckpoint();
   const next = won ? (session.onlineRun ? coopClient.room?.nextArea : campaign ? nextMission(session.sim.area) : null) : null;
@@ -1100,11 +1143,11 @@ function finish() {
     bestScore = session.sim.score;
     writeSetting(bestKey, bestScore);
   }
-  resultTitle.textContent = complete ? 'Campaign complete' : won && bossPractice ? 'Mega Virus defeated'
+  resultTitle.textContent = endless ? 'Endless run over' : complete ? 'Campaign complete' : won && bossPractice ? 'Mega Virus defeated'
     : won ? (heart ? 'Valves stabilized' : junction ? 'Junction secured' : session.sim.organMission ? missionName(session.sim.area) + ' secured' : 'Artery secured') : 'Mission failed';
-  resultKicker.lastChild.textContent = (session.onlineRun ? ' CO-OP REPORT' : practice ? ' FREE MODE REPORT' : ' MISSION REPORT') +
+  resultKicker.lastChild.textContent = (session.onlineRun ? ' CO-OP REPORT' : endless ? ' ENDLESS REPORT' : practice ? ' FREE MODE REPORT' : ' MISSION REPORT') +
     difficultyTag().toUpperCase();
-  setText(returnMenu, session.onlineRun ? 'Leave room' : practice ? 'Free Mode' : 'Main menu');
+  setText(returnMenu, session.onlineRun ? 'Leave room' : endless ? 'Endless' : practice ? 'Free Mode' : 'Main menu');
   let detail;
   const allNodes = session.sim.nodes.length > 2 ? 'All three tissue nodes' : 'Both tissue nodes';
   if (complete) detail = 'The Mega Virus is down. The infection is contained across all ' + campaignAreas.length + ' missions.';
@@ -1123,6 +1166,12 @@ function finish() {
   else detail = session.sim.failedNode ? session.sim.failedNode.name + ' tissue failed under pathogen attack.'
     : session.onlineRun ? 'Every suit went down under pathogen attack.' : 'Your suit failed under pathogen attack.';
   if (resume) detail += ' Your progress is saved at the start of ' + checkpointName(resume) + '.';
+  if (endless) {
+    detail += ' You cleared ' + endless.waves + (endless.waves === 1 ? ' wave' : ' waves') + ' in ' + missionName(session.sim.area) + '.';
+    if (endless.best && endless.previous) detail += ' New best, up from ' + endless.previous.waves + '.';
+    else if (endless.best) detail += ' New best for this arena.';
+    else if (endless.previous) detail += ' Your best is ' + endless.previous.waves + (endless.previous.waves === 1 ? ' wave.' : ' waves.');
+  }
   byId('result-detail').textContent = detail;
   const result = missionResult();
   const results = complete ? (session.onlineRun ? coopClient.room.results : [...campaign.results, result]) : [result];
@@ -1143,7 +1192,7 @@ function finish() {
   if (complete) drawCampaignReport(results);
   // A co-op campaign in progress keeps every won mission on the server, including this one.
   drawPlayerScores(session.onlineRun ? (won ? coopClient.room?.results ?? [] : []) : results, complete);
-  setText(replayLabel, complete ? 'Restart campaign' : resume ? 'Retry from ' + checkpointName(resume) : bossPractice ? 'Practice again' : campaign ? 'Retry mission' : 'Redeploy');
+  setText(replayLabel, complete ? 'Restart campaign' : resume ? 'Retry from ' + checkpointName(resume) : bossPractice ? 'Practice again' : endless ? 'Run it again' : campaign ? 'Retry mission' : 'Redeploy');
   restartFromStart.hidden = !resume || session.onlineRun;
   replay.hidden = reward || Boolean(session.onlineRun && next);
   continueButton.disabled = replay.disabled = false;
@@ -1434,8 +1483,9 @@ resumeCampaignButton.addEventListener('click', () => {
   if (campaignCheckpoint) openDeployment('campaign', campaignCheckpoint);
 });
 missionSelect.addEventListener('click', openFreeMode);
+endlessOpen.addEventListener('click', () => openDeployment('endless'));
 practiceLoadout.addEventListener('change', () => {
-  if (deployment.mode === 'free') writeSetting(practiceLoadoutKey, practiceLoadout.value);
+  if (deployment.mode === 'free' || deployment.mode === 'endless') writeSetting(practiceLoadoutKey, practiceLoadout.value);
   updatePracticeLoadout();
 });
 byId('deploy-armory').addEventListener('click', () => openArmory());
@@ -1471,6 +1521,8 @@ practiceDeploy.addEventListener('click', () => {
   if (deployment.mode === 'campaign') {
     const upgrade = practiceLoadout.value === 'standard' ? null : practiceLoadout.value;
     launch(area, campaignRunFor(area, { ...deployment.run, upgrade }));
+  } else if (deployment.mode === 'endless') {
+    launch(area, null, { upgrade: practiceLoadout.value, endless: true });
   } else {
     launch(area, null, { upgrade: practiceLoadout.value, bossPractice });
   }

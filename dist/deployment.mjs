@@ -47,10 +47,15 @@ function term(list, name, value, detail) {
   list.append(row);
 }
 
-export function drawIntel(list, threats, area, bossPractice) {
+// endless: { record } for an Endless deployment, which shows the arena's best run instead of a wave count.
+export function drawIntel(list, threats, area, bossPractice, endless = null) {
   const info = missionIntel(area, bossPractice);
   list.replaceChildren();
-  term(list, 'Waves', info.waves);
+  if (endless) {
+    term(list, 'Waves', '∞', 'Each one bigger and tougher');
+    const { record } = endless;
+    term(list, 'Best run', record ? 'Wave ' + record.waves : '—', record ? record.score.toLocaleString() + ' score' : 'No runs yet');
+  } else term(list, 'Waves', info.waves);
   term(list, 'Tissue nodes', String(info.nodes));
   if (info.hazard) term(list, 'Hazard', info.hazard.name, info.hazard.detail);
   threats.replaceChildren(...(bossPractice ? [{ type: 'mega', name: 'Mega Virus' }, ...info.threats] : info.threats)

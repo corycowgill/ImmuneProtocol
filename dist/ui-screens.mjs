@@ -87,7 +87,7 @@ function buildMenu(ui, model, area, full, size) {
   ui.add({ ...heading('IMMUNE', logoSize), lineHeight: .9 }, { x, y: logoY, w: leftW, h: logoSize });
   ui.add({ ...heading('PROTOCOL', logoSize), color: T.green, lineHeight: .9 }, { x, y: logoY + logoSize * .9, w: leftW, h: logoSize });
   ui.add(text(model.detail, landscape ? 14 : 15, '#c1cdd2'), { x, y: logoY + logoH + 15, w: Math.min(450, leftW), h: landscape ? 64 : 52 });
-  const icons = { deploy: 'arrow', 'new-campaign': 'reset', 'mission-select': 'target', 'coop-open': 'users', 'armory-open': 'weapon', 'achievements-open': 'trophy', guide: 'shield', manual: 'book' };
+  const icons = { deploy: 'arrow', 'new-campaign': 'reset', 'mission-select': 'target', 'endless-open': 'infinity', 'coop-open': 'users', 'armory-open': 'weapon', 'achievements-open': 'trophy', guide: 'shield', manual: 'book' };
   const nav = model.buttons.map((b, i) => ({ ...b, primary: i === 0, variant: i === 0 ? b.variant : 'menu', size: i === 0 ? (landscape ? (w < 750 ? 14 : 16) : 17) : landscape ? 17 : 21, icon: icons[b.id?.replace(/^dom:/, '')] ?? 'arrow', height: i === 0 ? (landscape ? 68 : 76) : landscape ? 44 : 48, detail: i === 0 ? b.detail : null }));
   const nodes = [nav[0], { ...grid(nav.slice(1), phone ? 145 : 160, 2), gap: 4 }, ...(model.notices ?? []).map(note => text(note, 12, '#ffca96'))];
   const navX = landscape ? x + leftW + 26 : x, navY = landscape ? y : logoY + logoH + 91;

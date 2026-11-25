@@ -601,14 +601,15 @@ export function drawHud() {
   reloadProgress.hidden = ammoStatus !== 'reloading';
   if (!reloadProgress.hidden) reloadProgress.value = Math.floor(session.sim.reloadProgress * 100);
   const junction = session.sim.area === 'junction';
-  const waveLabel = pad(wave) + ' / ' + pad(waves);
+  const totalLabel = session.sim.endless ? '∞' : pad(waves);
+  const waveLabel = pad(wave) + ' / ' + totalLabel;
   if (valve) drawValve(valve);
   else {
     setText(waveMode, junction || session.sim.organMission ? missionName(session.sim.area).toUpperCase() : 'INFECTION WAVE');
     if (waveLabel !== drawnWave) {
       drawnWave = waveLabel;
       const total = document.createElement('span');
-      total.textContent = '/ ' + pad(waves);
+      total.textContent = '/ ' + totalLabel;
       waveValue.replaceChildren(document.createTextNode(pad(wave) + ' '), total);
     }
     let status = remaining + (remaining === 1 ? ' THREAT LEFT' : ' THREATS LEFT');

@@ -160,7 +160,7 @@ dialog.deployment::backdrop{background:#000}
 .deployment .boss-practice-body{grid-area:title;display:grid;gap:2px;min-width:0}
 .deployment .boss-practice .mission-thumb{width:60px;height:34px;border:0}
 .deployment .boss-practice .mission-brief{margin:0;font-size:11px;line-height:1.3;color:#c9bdb4}
-dialog.deployment[data-mode="campaign"] .boss-practice{display:none}
+dialog.deployment[data-mode="campaign"] .boss-practice,dialog.deployment[data-mode="endless"] .boss-practice{display:none}
 
 /* Briefing */
 .deploy-brief{display:flex;flex-direction:column;gap:14px;overflow:auto;padding-right:2px}

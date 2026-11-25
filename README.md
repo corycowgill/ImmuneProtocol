@@ -10,6 +10,7 @@ A browser FPS about a nano-soldier injected into a patient. Defend two or three 
 - **Swarms that think.** Pathogens see, hear, remember and coordinate, and waves mix six encounter patterns you read from the pathogens themselves, not from on-screen labels. Brood nests and antibody caches pull you away from your nodes.
 - **Five weapons and a turret to build.** Carry any two of the carbine, sniper rifle, shotgun, rocket launcher and pistol. Fit parts in the Armory's gunsmith bench and dress them in finishes, skins, decals, stickers and stat-boosting charms.
 - **Suit abilities:** dash with a perfect-dodge window, jump, bash, antibody grenades and stun charges.
+- **Endless mode:** hold one arena against waves that never stop, each bigger, faster and tougher than the last, with the boss returning every fifth wave.
 - **Easy, Medium and Hard**, plus Free Mode and Mega Virus practice.
 - **Online co-op** for two or three players, with four suits and a shrinking-machine lobby.
 - **56 achievements** with baked artwork and cosmetic rewards, and separate **operator profiles** for players sharing one browser.

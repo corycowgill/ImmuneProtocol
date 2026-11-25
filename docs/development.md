@@ -41,6 +41,7 @@ To run the co-op server instead, see [Online co-op server](#online-co-op-server)
 | `npm run test:bosses` / `npm run benchmark:bosses` | Boss regressions and benchmark. |
 | `npm run test:rogue-bot` | Rogue Bot checks. `node --test server/crawler.test.mjs` runs the Crawler's. |
 | `npm run test:achievements` | Achievement rules against the real simulation. |
+| `npm run test:endless` | Endless wave growth, boss waves, scaling, the field cap and saved records. |
 | `node --test server/profiles.test.mjs` | Operator profile migration, isolation, naming, deletion and recovery. |
 | `npm run test:render` | Resource reuse, reset and render-scale regression tests. |
 | `npm run balance` | Plays every mission headlessly with two scripted strategies on each difficulty (see below). |
@@ -98,6 +99,7 @@ flowchart LR
 | [`dist/encounters.mjs`](../dist/encounters.mjs), [`dist/encounter-ui.mjs`](../dist/encounter-ui.mjs) | Encounter patterns and pacing for ordinary waves. See [encounters.md](encounters.md). |
 | [`dist/level-bosses.mjs`](../dist/level-bosses.mjs), [`dist/boss-tactics.mjs`](../dist/boss-tactics.mjs), [`dist/boss-telegraphs.mjs`](../dist/boss-telegraphs.mjs) | Boss logic, tactics and windups. See [boss-battles.md](boss-battles.md). |
 | [`dist/field-objectives.mjs`](../dist/field-objectives.mjs) | Brood nests and antibody caches. |
+| [`dist/endless.mjs`](../dist/endless.mjs) | Endless mode: generated waves, per-wave scaling, boss waves, the field cap and saved records. |
 | [`dist/terrain.mjs`](../dist/terrain.mjs), [`dist/terrain-view.mjs`](../dist/terrain-view.mjs) | Raised ground in every arena and how it is drawn. |
 | [`dist/coop-simulation.mjs`](../dist/coop-simulation.mjs) | Per-suit state and shared wave rules for two or three players. |
 | [`server/rooms.mjs`](../server/rooms.mjs), [`dist/coop-client.mjs`](../dist/coop-client.mjs) | Match rooms, WebSocket transport, reconnects, and client-side prediction. |
@@ -148,6 +150,8 @@ Phones use a compact HUD in landscape and portrait. Healthy node markers stay su
 **Bosses.** The logic is in [`dist/level-bosses.mjs`](../dist/level-bosses.mjs). Major attacks leave fewer simultaneous attack slots for minions. See the [boss logic review, encounter changes and validation](boss-battles.md).
 
 **Wave scale.** Every wave fields five times the pathogens it was first written with. Every arena is a third larger in each direction than it was first laid out (110 × 154 m), and suits move about 20% faster to match.
+
+**Endless mode.** [`dist/endless.mjs`](../dist/endless.mjs) wraps a freshly constructed solo `Simulation` the way `applyDifficulty` does, before `start()`, so the simulation knows nothing about it. It keeps the roster one generated wave ahead of play, which lets the difficulty wrapper reshape generated waves like authored ones, and keeps `waves` above `wave` so no wave is ever final. Wave *n* repeats an authored template (the arena's waves in order, then cycling through the harder second half) to `1 + 0.12(n − 1)` times its length, never fewer than three more pathogens than the wave before; the cadence shrinks by 3.5% a wave down to half; `createEnemy`, `damageNode` and suit hits in `damageTarget` scale by +5% health and +3% damage a wave. Every fifth wave calls `spawnLevelBoss` once its roster is out, adding 25% boss health per return. `captureCheckpoint` returns `null`, and `spawn` defers arrivals past 80 living pathogens into a backlog that keeps each arrival's spawn slot. All tuning lives in `ENDLESS_RULES`. Records are saved per operator under `immune-protocol.endless-records`.
 
 **Raised ground** is defined in [`dist/terrain.mjs`](../dist/terrain.mjs).
 

@@ -48,6 +48,17 @@ You can start any mission you have reached, not only the next one: pick it in th
 
 **Free Mode** opens the same deployment briefing with every mission available. Select a mission, set difficulty, field upgrade and loadout, then select **Deploy**. Free Mode runs leave your campaign checkpoint, mission progression, and best score intact.
 
+**Endless** holds one arena against waves that never stop. Choose **Endless** on the title screen, pick an arena, set difficulty, field upgrade and loadout, then deploy. Every wave is harder than the last:
+
+- **More pathogens.** Each wave is built from the arena's own waves, with 12% more of the roster added every wave, and always more pathogens than the wave before. Arterial Junction opens with 45 and fields about 200 by wave 10 and nearly 500 by wave 30.
+- **Faster arrivals.** Pathogens arrive about 3.5% sooner each wave, down to twice the authored rate by wave 20.
+- **Tougher pathogens.** Each wave adds 5% health (+45% by wave 10) and 3% damage to tissue and your suit (+27% by wave 10).
+- **Bosses.** The arena's boss joins every fifth wave once its roster has arrived, and comes back with 25% more health each time.
+
+At most 80 pathogens are on the field at once; the rest wait at their inlets and count toward the threats left. Brood nests and antibody caches appear as usual, and clearing a wave restores some suit integrity. There are no wave checkpoints: the run ends when a tissue node or your suit fails, and the report shows how many waves you cleared. Your best run in each arena (most waves, then score) is saved for your operator and shown on the Endless deployment screen.
+
+Endless is available in the six arenas built from plain waves: Arterial Junction, Bronchial Fork, Intestinal Bend, Colonic Reservoir, Lymph Node and Inner Ear. Capillary Junction, Heart Valve, Gastric Chamber and Neural Cortex keep their scripted objectives and are not offered. Endless runs leave your campaign progress and best score untouched.
+
 **Practice Mega Virus.** Reaching the Mega Virus in Neural Cortex in either mode unlocks this option, which starts directly at Wave 3 with fresh supplies.
 
 **Online co-op** is covered [below](#online-co-op).
@@ -347,7 +358,7 @@ Each operator card shows missions secured, achievements and points, best score a
 
 | Kept per operator | Shared by the device |
 | --- | --- |
-| Campaign checkpoint and unlocked missions, best score, Mega Virus practice unlock, training, briefings and ability hints already seen, weapons, parts and cosmetics, Free Mode field upgrade, difficulty, co-op callsign and suit, achievements and their progress | Graphics, audio levels and mute, look sensitivity, gameplay and accessibility settings, keyboard and controller bindings |
+| Campaign checkpoint and unlocked missions, best score, Endless records, Mega Virus practice unlock, training, briefings and ability hints already seen, weapons, parts and cosmetics, Free Mode field upgrade, difficulty, co-op callsign and suit, achievements and their progress | Graphics, audio levels and mute, look sensitivity, gameplay and accessibility settings, keyboard and controller bindings |
 
 Saves live in your browser's storage, so clearing site data erases them. Use **Back up operator** to keep a copy. A browser that saved progress before profiles existed moves that save into the first operator, named after its co-op callsign if it had one.
 

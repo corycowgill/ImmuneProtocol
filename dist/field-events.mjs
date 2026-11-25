@@ -8,6 +8,7 @@ import { tutorialKey, writeSetting } from './settings-store.mjs';
 import { hitMarker, branches, nodeHitUntil } from './hud.mjs';
 import { padActionKey } from './keybinds.mjs';
 import { achievements } from './achievement-system.mjs';
+import { LEVEL_BOSSES } from './level-bosses.mjs';
 
 export const alertBox = byId('game-alert');
 
@@ -195,7 +196,12 @@ export function applyEvents() {
         else if (support === 'ammo') detail = 'MAGAZINES LOADED';
         else if (support === 'turret') detail = 'TURRET IN POSITION';
         else if (support) detail = branches[support].name + ' INLET REINFORCED';
-        announce(session.sim.boss ? 'MEGA VIRUS' : pattern ? pattern.name.toUpperCase() : session.sim.organWave?.toUpperCase() ?? 'WAVE ' + pad(event.wave), detail);
+        if (session.sim.endless) {
+          const mission = session.sim.missions[event.wave - 1];
+          const boss = mission?.endlessBoss && LEVEL_BOSSES[session.sim.area];
+          announce('WAVE ' + pad(event.wave), boss ? boss.name.toUpperCase() + ' INCOMING'
+            : (mission?.species.length ?? 0) + ' PATHOGENS INBOUND');
+        } else announce(session.sim.boss ? 'MEGA VIRUS' : pattern ? pattern.name.toUpperCase() : session.sim.organWave?.toUpperCase() ?? 'WAVE ' + pad(event.wave), detail);
       } else if (session.sim.settling) {
         announce('INLETS CLEAR', session.sim.gash ? 'SEAL THE GASH TO EXTRACT' : 'REPAIR TISSUE BEFORE EXTRACTION', 2.8);
       } else if (event.wave < session.sim.waves && session.sim.gastric?.stage !== 'intake') {
