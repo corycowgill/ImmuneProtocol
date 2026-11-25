@@ -526,7 +526,7 @@ function drawScoreboard() {
     const kills = document.createElement('small');
     name.textContent = row.name;
     score.textContent = Math.round(row.score).toLocaleString();
-    kills.textContent = row.kills + (row.kills === 1 ? ' kill' : ' kills');
+    kills.textContent = row.kills === 1 ? '1 kill' : row.kills + ' kills';
     if (row.self) item.dataset.self = 'true';
     if (row.team) item.dataset.team = 'true';
     item.append(name, score, kills);

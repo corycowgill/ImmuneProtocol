@@ -1,5 +1,6 @@
 import { uiFrame } from './ui-media.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
+import { translate } from './i18n.mjs';
 
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 const hash = text => { let n = 2166136261; for (const c of text) n = Math.imul(n ^ c.charCodeAt(0), 16777619); return (n >>> 0).toString(36); };
@@ -317,7 +318,7 @@ export class BrowserUiBindings {
     return { id: 'game', type: 'combat', touch: !this.get('touch-controls').hidden, actions, hud: {
       nodes, markers, paths, special, health: parseFloat(t('health-value')), ammo: t('ammo-value'), weapon: t('equipment-label'), mode: t('wave-mode'), wave: t('wave-value'), threats: t('threats'), ammoState: t('reload-state'), reload: this.shown(this.get('reload-progress')) ? Number(this.get('reload-progress').value) : 0,
       repair: this.shown(this.get('repair-meter')) ? Number(this.get('repair-meter').getAttribute('aria-valuenow')) : 0,
-      ally: visibleText('coop-match-status') || visibleText('coop-hud'), hazard: visibleText('organ-hazard') ? [t('organ-hazard-label'), visibleText('organ-hazard-time')].filter(Boolean).join(' · ') : '', notice: visibleText('encounter-card'), training: visibleText('training-hint') || visibleText('ability-hint'), alert: partsText('game-alert') || partsText('wave-outro'), surge: visibleText('junction-surge'), prompt: visibleText('action-prompt'), score: [...(this.get('scoreboard')?.children ?? [])].map(row => { const [name, points, kills] = [...row.children].map(part => this.text(part)); return `${name} ${points}  ·  ${kills}`.toUpperCase(); }).join('     ') || t('scoreboard'),
+      ally: visibleText('coop-match-status') || visibleText('coop-hud'), hazard: visibleText('organ-hazard') ? [t('organ-hazard-label'), visibleText('organ-hazard-time')].filter(Boolean).join(' · ') : '', notice: visibleText('encounter-card'), training: visibleText('training-hint') || visibleText('ability-hint'), alert: partsText('game-alert') || partsText('wave-outro'), surge: visibleText('junction-surge'), prompt: visibleText('action-prompt'), score: [...(this.get('scoreboard')?.children ?? [])].map(row => { const [name, points, kills] = [...row.children].map(part => this.text(part)); return `${translate(name)} ${points}  ·  ${translate(kills)}`.toUpperCase(); }).join('     ') || t('scoreboard'),
       magazine: { size: Number(this.get('ammo-value')?.dataset.size) || 0, count: Number(this.get('ammo-value')?.dataset.count) || 0, hidden: !!this.get('ammo-value')?.hidden },
       weaponSlots: [...(this.get('weapon-strip')?.children ?? [])].map(item => ({ key: this.text(item.firstElementChild), name: this.text(item.lastElementChild), active: item.dataset.active === 'true' })).filter(slot => slot.name), turret: t('turret-status-value'), weaponStrip: t('weapon-strip'),
       abilities: this.shown(this.get('ability-hud')) ? (({ grenades, stuns, dash, bash, keys }) => ({ grenades: +grenades, stuns: +stuns, dash: +dash, bash: +bash, keys: (keys ?? '').split('|') }))(this.get('ability-hud').dataset) : null,
