@@ -324,6 +324,8 @@ export async function prepareArmoryArt(renderer) {
       const framed = frame(prop ? prop.view : carbine, loadout);
       // The splayed tripod legs make the turret's outline wide and low; come in to the gun itself.
       if (prop?.view === sentry) framed.position.lerp(focus, .42);
+      // The drone's rotor span leaves its pod small in the frame; come in closer.
+      if (prop?.view === drone) framed.position.lerp(focus, .3);
       const lens = orbit(framed, view);
       // Only the big preview stands on the bench; part cards keep their plain backdrop.
       photography.background = bench ?? studio;
