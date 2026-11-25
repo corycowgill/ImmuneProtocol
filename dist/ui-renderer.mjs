@@ -133,7 +133,7 @@ export class CanvasUiRenderer {
         }
         c.stroke();
         c.fillStyle = '#ff5a4a'; c.beginPath(); c.arc(r.x + 22, r.y + 22, 3, 0, Math.PI * 2); c.fill();
-        this.text('LIVE', { x: r.x + 30, y: r.y + 16, w: 40, h: 14 }, 10, t.paper, 700, 'left', 1, 1.2, 'mono');
+        this.text('LIVE', { x: r.x + 30, y: r.y + 16, w: 120, h: 14 }, 10, t.paper, 700, 'left', 1, 1.2, 'mono');
         this.text('DRAG TO ROTATE', { x: r.x + 12, y: r.y + r.h - 22, w: r.w - 24, h: 16 }, 10, t.muted, 500, 'right', 1, 1.3, 'mono');
       }
       return;

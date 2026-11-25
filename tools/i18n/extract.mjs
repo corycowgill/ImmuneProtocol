@@ -32,7 +32,7 @@ const SILENT_CALLS = new Set([
   'readSetting', 'writeSetting', 'postMessage', 'send', 'load', 'fetch', 'URL', 'Error', 'warn', 'log', 'error', 'info', 'debug',
   'startsWith', 'endsWith', 'includes', 'indexOf', 'split', 'replace', 'join', 'padStart', 'get', 'set', 'has', 'delete',
   'emit', 'on', 'dispatchEvent', 'Event', 'CustomEvent', 'requestPointerLock', 'canPlayType', 'matchMedia', 'getContext',
-  'element', 'svg', 'initTexture', 'loadTexture', 'loadModel', 'extendShader',
+  'svg', 'initTexture', 'loadTexture', 'loadModel', 'extendShader',
 ]);
 
 const letters = text => (text.match(/\p{L}/gu) ?? []).length;
