@@ -22,7 +22,7 @@ const SKIP_MODULES = new Set([
   'post-fx.mjs', 'surface-fx.mjs', 'hazard-fx.mjs', 'shot-fx.mjs', 'impact-fx.mjs', 'death-fx.mjs', 'explosions.mjs',
   'level-details.mjs', 'level-props.mjs', 'organ-world.mjs', 'arena-scene.mjs', 'heart-valve.mjs', 'mega-virus.mjs', 'terrain-view.mjs', 'ground-fx.mjs', 'weapon-skins.mjs', 'gpu-idle.mjs', 'render-scale.mjs',
   'arena-textures.mjs', 'bio-textures.mjs', 'decor-chunks.mjs', 'asset-loading.mjs', 'i18n.mjs', 'ai-debug.mjs',
-  'tactical-ai.mjs', 'ai-navigation.mjs', 'ai-profiles.mjs', 'coop-protocol.mjs', 'settings-store.mjs',
+  'tactical-ai.mjs', 'ai-navigation.mjs', 'ui-theme.mjs', 'ai-profiles.mjs', 'coop-protocol.mjs', 'settings-store.mjs',
 ]);
 // Calls whose string arguments are never shown.
 const SILENT_CALLS = new Set([
@@ -66,9 +66,13 @@ function note(map, text, where) {
   map.get(value).add(where);
 }
 
-// Flattens a + b + c into its operands, left to right.
+const hasString = node => node.type === 'Literal' ? typeof node.value === 'string'
+  : node.type === 'BinaryExpression' && node.operator === '+' && (hasString(node.left) || hasString(node.right));
+
+// Flattens a + b + c into its operands, left to right. Arithmetic with no text in it ((n + 1))
+// stays one operand, one slot.
 function operands(node, out = []) {
-  if (node.type === 'BinaryExpression' && node.operator === '+') {
+  if (node.type === 'BinaryExpression' && node.operator === '+' && hasString(node)) {
     operands(node.left, out);
     operands(node.right, out);
   } else out.push(node);
@@ -105,7 +109,11 @@ function templateOf(parts) {
   let slot = 0;
   let text = '';
   let words = '';
+  let previous = null;
   for (const part of parts) {
+    // Two values side by side show as one run of text: one slot.
+    if (part.literal == null && previous && previous.literal == null) continue;
+    previous = part;
     if (part.literal != null) {
       text += part.literal;
       words += part.literal;

@@ -942,7 +942,7 @@ function openDeployment(mode, run = null) {
   setText(byId('deploy-mode'), mode === 'campaign'
     ? 'Campaign · Mission ' + (next + 1) + ' of ' + campaignAreas.length : endlessMode ? 'Endless' : 'Free Mode');
   setText(byId('mission-intro'), endlessMode
-    ? 'Hold one arena for as long as you can. Every wave is bigger, faster and tougher, and the boss returns every ' + ordinal(ENDLESS_RULES.bossEvery) + ' wave.'
+    ? 'Hold one arena for as long as you can. Every wave is bigger, faster and tougher, and the boss returns every ' + ENDLESS_RULES.bossEvery + ' waves.'
     : mode === 'free' ? 'Replay any mission. Campaign saves and records stay separate.'
     : next ? 'Your checkpoint is saved. Continue, or pick any mission you have reached to replay it.'
       : unlockedMission ? 'Begin from the bloodstream, or pick any mission you have reached. Skipped missions score nothing.'
@@ -987,7 +987,7 @@ function selectPracticeMission(entry) {
   const { name, briefing } = entry.bossPractice
     ? { name: 'Mega Virus Practice', briefing: 'Start at Wave 3. Shoot the cores as the membranes open.' }
     : endlessMode ? { name: missions[entry.area].name, briefing: 'Waves never stop. Each one sends ' + Math.round(ENDLESS_RULES.growth * 100) +
-      '% more pathogens, faster and tougher, and the boss returns every ' + ordinal(ENDLESS_RULES.bossEvery) + ' wave. The run ends when a node or your suit fails.' }
+      '% more pathogens, faster and tougher, and the boss returns every ' + ENDLESS_RULES.bossEvery + ' waves. The run ends when a node or your suit fails.' }
       : missions[entry.area];
   setText(missionPreviewTitle, name);
   setText(missionPreviewDetail, briefing);
@@ -1009,11 +1009,6 @@ function returnFromResult() {
     (mode === 'endless' ? endlessOpen : missionSelect).focus();
     openDeployment(mode);
   }
-}
-
-function ordinal(n) {
-  const suffix = n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th';
-  return n + suffix;
 }
 
 async function startCampaign() {
@@ -1169,10 +1164,12 @@ function finish() {
     : session.onlineRun ? 'Every suit went down under pathogen attack.' : 'Your suit failed under pathogen attack.';
   if (resume) detail += ' Your progress is saved at the start of ' + checkpointName(resume) + '.';
   if (endless) {
-    detail += ' You cleared ' + endless.waves + (endless.waves === 1 ? ' wave' : ' waves') + ' in ' + missionName(session.sim.area) + '.';
+    // Whole sentences per count, so each language can translate them.
+    const arena = missionName(session.sim.area);
+    detail += endless.waves === 1 ? ' You cleared 1 wave in ' + arena + '.' : ' You cleared ' + endless.waves + ' waves in ' + arena + '.';
     if (endless.best && endless.previous) detail += ' New best, up from ' + endless.previous.waves + '.';
     else if (endless.best) detail += ' New best for this arena.';
-    else if (endless.previous) detail += ' Your best is ' + endless.previous.waves + (endless.previous.waves === 1 ? ' wave.' : ' waves.');
+    else if (endless.previous) detail += endless.previous.waves === 1 ? ' Your best is 1 wave.' : ' Your best is ' + endless.previous.waves + ' waves.';
   }
   byId('result-detail').textContent = detail;
   const result = missionResult();

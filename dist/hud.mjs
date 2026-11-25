@@ -561,7 +561,8 @@ export function drawPlayerScores(results, complete) {
     const detail = document.createElement('small');
     detail.className = 'campaign-node-detail';
     const campaignTotal = totals.get(player.id);
-    detail.textContent = kills + (kills === 1 ? ' pathogen' : ' pathogens') + ' neutralized' +
+    // Whole phrases per count, so each language can translate them.
+    detail.textContent = (kills === 1 ? '1 pathogen neutralized' : kills + ' pathogens neutralized') +
       (!complete && campaignTotal && results.length > 1 ? ' · Campaign ' + Math.round(campaignTotal.score).toLocaleString() : '');
     name.append(detail);
     score.textContent = Math.round(player.score ?? 0).toLocaleString();
