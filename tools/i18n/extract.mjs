@@ -52,6 +52,7 @@ function shown(text) {
   if (/^(?:immune-protocol|dom|media|@|data-|aria-|--)/.test(value)) return false;
   if (/^[#.\[]|\bbutton$|\[data-|", "|^\.?\d|\*|\b(?:sin|cos|atan|mix|clamp|smoothstep|position|uv)\(/.test(value)) return false;
   if (/^\.\/|^https?:/.test(value)) return false;
+  if (/<\/?[a-z][^>]*>|^[|:]/.test(value)) return false;
   // Keyboard event codes, wave lane patterns and CSS transform fragments.
   if (/^(?:Key[A-Z]|Digit\d|Arrow(?:Up|Down|Left|Right)$|(?:Shift|Control|Alt|Meta)(?:Left|Right)$|Numpad)|^[LRC]{3,}$|^assets\/|\($|^px[,)]$|^[a-z]+,$/.test(value)) return false;
   return true;
@@ -96,7 +97,9 @@ function silenced(ancestors) {
       if (SILENT_CALLS.has(calleeName(parent))) return true;
       return false;
     }
-    if (parent.type === 'ImportDeclaration' || parent.type === 'ExportNamedDeclaration' || parent.type === 'ExportAllDeclaration') return true;
+    // Module paths in import and export statements (not the exported data itself).
+    if ((parent.type === 'ImportDeclaration' || parent.type === 'ExportNamedDeclaration' || parent.type === 'ExportAllDeclaration' ||
+      parent.type === 'ImportExpression') && parent.source === child) return true;
     if (parent.type === 'Property' && parent.key === child && !parent.computed) return true;
     if (parent.type === 'MemberExpression' && parent.property === child) return true;
     if (parent.type === 'SwitchCase' && parent.test === child) return true;

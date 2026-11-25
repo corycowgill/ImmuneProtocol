@@ -1,3 +1,4 @@
+import { verbatim } from './i18n.mjs';
 import { UiLayout, lines } from './ui-core.mjs';
 import { compactHud } from './hud-layout.mjs';
 import { UI_THEME as T } from './ui-theme.mjs';
@@ -84,8 +85,8 @@ function buildMenu(ui, model, area, full, size) {
   ui.add({ ...text('A VERY SMALL OPERATION', 10, T.green), tracking: 2 }, { x, y, w: leftW, h: 18 });
   const logoSize = landscape ? Math.min(62, leftW * .17) : phone ? 66 : Math.min(86, h * .12);
   const logoY = y + 28, logoH = logoSize * 1.8;
-  ui.add({ ...heading('IMMUNE', logoSize), lineHeight: .9 }, { x, y: logoY, w: leftW, h: logoSize });
-  ui.add({ ...heading('PROTOCOL', logoSize), color: T.green, lineHeight: .9 }, { x, y: logoY + logoSize * .9, w: leftW, h: logoSize });
+  ui.add({ ...heading(verbatim('IMMUNE'), logoSize), lineHeight: .9 }, { x, y: logoY, w: leftW, h: logoSize });
+  ui.add({ ...heading(verbatim('PROTOCOL'), logoSize), color: T.green, lineHeight: .9 }, { x, y: logoY + logoSize * .9, w: leftW, h: logoSize });
   ui.add(text(model.detail, landscape ? 14 : 15, '#c1cdd2'), { x, y: logoY + logoH + 15, w: Math.min(450, leftW), h: landscape ? 64 : 52 });
   const icons = { deploy: 'arrow', 'new-campaign': 'reset', 'mission-select': 'target', 'endless-open': 'infinity', 'coop-open': 'users', 'armory-open': 'weapon', 'achievements-open': 'trophy', guide: 'shield', manual: 'book' };
   const nav = model.buttons.map((b, i) => ({ ...b, primary: i === 0, variant: i === 0 ? b.variant : 'menu', size: i === 0 ? (landscape ? (w < 750 ? 14 : 16) : 17) : landscape ? 17 : 21, icon: icons[b.id?.replace(/^dom:/, '')] ?? 'arrow', height: i === 0 ? (landscape ? 68 : 76) : landscape ? 44 : 48, detail: i === 0 ? b.detail : null }));
@@ -124,13 +125,14 @@ function buildConfirmation(ui, model, area, full, size) {
 
 function buildDialog(ui, model, area, full, size, state, measure) {
   const { w, h } = size, { x, y: top } = area, short = h < 500, phone = w < 650;
-  const titleWidth = area.w - (model.canBack === false ? 0 : 112), nominalSize = short ? 32 : phone ? 36 : 46;
+  const titleWidth = area.w - (model.canBack === false ? 0 : 132), nominalSize = short ? 32 : phone ? 36 : 46;
   const widestWord = Math.max(1, ...model.title.split(/\s+/).map(word => measure(word, nominalSize, 800)));
   const titleSize = Math.max(24, Math.min(nominalSize, nominalSize * titleWidth / widestWord));
   const titleH = lines(model.title, titleWidth, measure, titleSize, 800).length * titleSize * 1.04;
   ui.add({ ...text(model.kicker || 'IMMUNE PROTOCOL / FIELD SYSTEMS', 10, T.muted), tracking: 1.2 }, { x, y: top + 1, w: area.w - 112, h: 15 });
   ui.add(heading(model.title, titleSize), { x, y: top + 22, w: titleWidth, h: titleH });
-  if (model.canBack !== false) ui.add(button('@back', 'Back', { icon: 'back', variant: 'ghost' }), { x: x + area.w - 100, y: top, w: 100, h: 44 });
+  // Wide enough for "Back" in every language (Zurück, Atrás, Retour).
+  if (model.canBack !== false) ui.add(button('@back', 'Back', { icon: 'back', variant: 'ghost' }), { x: x + area.w - 120, y: top, w: 120, h: 44 });
   let y = Math.round(top + titleH + 38);
   ui.add({ kind: 'rule' }, { x, y: y - 8, w: area.w, h: 1 });
   const footer = [...(model.id === 'armory-dialog' && model.left?.length ? [button('@armory-stats', 'Build stats')] : []), ...(model.footer ?? [])].map(b => ({ ...polish(b), detail: null, ...(short ? { height: 44 } : {}) }));

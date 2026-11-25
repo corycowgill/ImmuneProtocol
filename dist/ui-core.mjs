@@ -44,6 +44,16 @@ export function lines(text, width, measure, size = 14, weight = 500, face) {
   }
   return out;
 }
+// The largest size from `size` down to `min` at which every word of `text` fits `width`, so a long
+// translated name wraps between words instead of breaking inside one.
+export function fitSize(text, width, measure, size = 24, weight = 800, min = 15) {
+  const words = String(translate(text ?? '') ?? '').split(/\s+/).filter(Boolean);
+  if (CJK.test(words.join(''))) return size;
+  let fitted = size;
+  while (fitted > min && words.some(word => measure(word, fitted, weight) > width)) fitted -= 1;
+  return fitted;
+}
+
 export function rangeValue(item, x) {
   const min = Number(item.min ?? 0), max = Number(item.max ?? 100), step = Number(item.step) || 1;
   const ratio = clamp((x - item.rect.x - 14) / Math.max(1, item.rect.w - 28), 0, 1);
@@ -101,7 +111,10 @@ export class UiLayout {
     if (node.kind === 'icon-label') return 48;
     if (node.kind === 'section') return 28;
     if (node.kind === 'keyrow') return Math.max(44, 24 + Math.max(lines(node.text, width * .4, this.measure, 14).length * 19.6, lines(node.detail, width * .56, this.measure, 13).length * 18.2));
-    if (node.kind === 'stat') return Math.max(66, 30 + lines(node.detail, width - 24, this.measure, 24, 800).length * 25);
+    if (node.kind === 'stat') {
+      const size = fitSize(node.detail, width - 24, this.measure);
+      return Math.max(66, 30 + lines(node.detail, width - 24, this.measure, size, 800).length * (size + 1));
+    }
     const pad = node.kind === 'button' ? 12 : 0;
     const size = node.size ?? (node.kind === 'heading' ? 21 : 14);
     const inner = Math.max(20, width - pad * 2 - (node.src ? (node.thumbnail ?? 64) + 12 : 0) - (node.swatch ? 32 : 0) - (node.icon ? 32 : 0) - (node.badge ? 30 : 0) - (node.selected != null ? 18 : 0));

@@ -97,3 +97,12 @@ test('the game server serves the translation files', async () => {
     server.close();
   }
 });
+
+test('a capitalised label run into a sentence, and verbatim text', async () => {
+  const { verbatim } = await import('../dist/i18n.mjs');
+  useLocale('es', { strings: { ASSAULT: 'ASALTO', 'Accurate automatic fire.': 'Fuego automático preciso.', Equipped: 'Equipado', IMMUNE: 'INMUNE' }, templates: {} });
+  assert.equal(translate('ASSAULT Accurate automatic fire.'), 'ASALTO Fuego automático preciso.');
+  assert.equal(translate('ASSAULT Accurate automatic fire. Equipped'), 'ASALTO Fuego automático preciso. Equipado');
+  assert.equal(translate(verbatim('IMMUNE')), verbatim('IMMUNE'));
+  useLocale('en', null);
+});

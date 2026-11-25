@@ -1,5 +1,5 @@
 import { isNonLatin, translate } from './i18n.mjs';
-import { lines, intersect, clamp } from './ui-core.mjs';
+import { fitSize, lines, intersect, clamp } from './ui-core.mjs';
 import { UI_THEME, uiFace, uiLineHeight } from './ui-theme.mjs';
 import { TIERS } from './achievements.mjs';
 
@@ -297,7 +297,7 @@ export class CanvasUiRenderer {
     if (kind === 'stat') {
       this.box(r, '#142028c9', null);
       this.text(item.text.toUpperCase(), { x: r.x + 12, y: r.y + 10, w: r.w - 24, h: 16 }, 10, t.muted, 600);
-      if (item.bar == null) return this.text(item.detail, { x: r.x + 12, y: r.y + 28, w: r.w - 24, h: r.h - 30 }, 24, item.color ?? t.paper, 800, 'left', Infinity, 1.04);
+      if (item.bar == null) return this.text(item.detail, { x: r.x + 12, y: r.y + 28, w: r.w - 24, h: r.h - 30 }, fitSize(item.detail, r.w - 24, this.measure), item.color ?? t.paper, 800, 'left', Infinity, 1.04);
       // An Armory stat: value, the change a previewed part would make, and a bar that fills toward
       // "better", with the gain in green or the loss in red on top of it.
       const better = item.change === 'better', worse = item.change === 'worse';

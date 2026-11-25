@@ -292,6 +292,12 @@ export class BrowserUiBindings {
   }
   combat(root) {
     const t = id => this.value(id), visibleText = id => this.shown(this.get(id)) ? t(id) : '';
+    // A callout's title and detail as separate parts, so each translates on its own.
+    const partsText = id => {
+      const el = this.get(id);
+      if (!this.shown(el)) return '';
+      return [...el.childNodes].map(node => clean(node.textContent)).filter(Boolean).join(' · ');
+    };
     const nodes = [...root.querySelectorAll('[data-tissue-node]')].filter(el => this.shown(el)).map(el => ({ name: this.text(el.querySelector('[data-node-name]')), value: Number(el.querySelector('[data-node-meter]').getAttribute('aria-valuenow')), danger: el.classList.contains('under-attack') || el.classList.contains('critical') }));
     const markers = [...root.querySelectorAll('.objective-marker,.objective-edge,.attacker-marker,.inlet-marker')].filter(el => this.shown(el)).map(el => {
       const edge = el.classList.contains('objective-edge'), quiet = el.classList.contains('quiet') || el.classList.contains('compact');
@@ -311,7 +317,7 @@ export class BrowserUiBindings {
     return { id: 'game', type: 'combat', touch: !this.get('touch-controls').hidden, actions, hud: {
       nodes, markers, paths, special, health: parseFloat(t('health-value')), ammo: t('ammo-value'), weapon: t('equipment-label'), mode: t('wave-mode'), wave: t('wave-value'), threats: t('threats'), ammoState: t('reload-state'), reload: this.shown(this.get('reload-progress')) ? Number(this.get('reload-progress').value) : 0,
       repair: this.shown(this.get('repair-meter')) ? Number(this.get('repair-meter').getAttribute('aria-valuenow')) : 0,
-      ally: visibleText('coop-match-status') || visibleText('coop-hud'), hazard: visibleText('organ-hazard') ? [t('organ-hazard-label'), visibleText('organ-hazard-time')].filter(Boolean).join(' · ') : '', notice: visibleText('encounter-card'), training: visibleText('training-hint') || visibleText('ability-hint'), alert: visibleText('game-alert') || visibleText('wave-outro'), surge: visibleText('junction-surge'), prompt: visibleText('action-prompt'), score: [...(this.get('scoreboard')?.children ?? [])].map(row => { const [name, points, kills] = [...row.children].map(part => this.text(part)); return `${name} ${points}  ·  ${kills}`.toUpperCase(); }).join('     ') || t('scoreboard'),
+      ally: visibleText('coop-match-status') || visibleText('coop-hud'), hazard: visibleText('organ-hazard') ? [t('organ-hazard-label'), visibleText('organ-hazard-time')].filter(Boolean).join(' · ') : '', notice: visibleText('encounter-card'), training: visibleText('training-hint') || visibleText('ability-hint'), alert: partsText('game-alert') || partsText('wave-outro'), surge: visibleText('junction-surge'), prompt: visibleText('action-prompt'), score: [...(this.get('scoreboard')?.children ?? [])].map(row => { const [name, points, kills] = [...row.children].map(part => this.text(part)); return `${name} ${points}  ·  ${kills}`.toUpperCase(); }).join('     ') || t('scoreboard'),
       magazine: { size: Number(this.get('ammo-value')?.dataset.size) || 0, count: Number(this.get('ammo-value')?.dataset.count) || 0, hidden: !!this.get('ammo-value')?.hidden },
       weaponSlots: [...(this.get('weapon-strip')?.children ?? [])].map(item => ({ key: this.text(item.firstElementChild), name: this.text(item.lastElementChild), active: item.dataset.active === 'true' })).filter(slot => slot.name), turret: t('turret-status-value'), weaponStrip: t('weapon-strip'),
       abilities: this.shown(this.get('ability-hud')) ? (({ grenades, stuns, dash, bash, keys }) => ({ grenades: +grenades, stuns: +stuns, dash: +dash, bash: +bash, keys: (keys ?? '').split('|') }))(this.get('ability-hud').dataset) : null,

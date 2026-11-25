@@ -129,6 +129,13 @@ function lookup(text, depth = 0) {
     const translated = parts.map(part => lookup(part, depth + 1));
     if (translated.some(part => part != null)) return parts.map((part, index) => translated[index] ?? part).join(separator);
   }
+  // A capitalised label run into the text after it ("ASSAULT Accurate automatic fire…").
+  const labelled = /^(\p{Lu}[\p{Lu}\d'’\- ]*?)\s+(\p{Lu}\p{Ll}.*)$/su.exec(text);
+  if (labelled) {
+    const head = lookup(labelled[1], depth + 1);
+    const tail = lookup(labelled[2], depth + 1);
+    if (head != null || tail != null) return (head ?? labelled[1]) + ' ' + (tail ?? labelled[2]);
+  }
   // Several sentences in one string.
   const sentences = text.split(/(?<=[.!?])\s+(?=\S)/);
   if (sentences.length > 1) {
@@ -138,10 +145,16 @@ function lookup(text, depth = 0) {
   return null;
 }
 
+// Text that must never be translated (the game's logo, language names). The word joiner it adds is
+// invisible.
+export const VERBATIM = '\u2060';
+export const verbatim = text => VERBATIM + text;
+
 // The text in the current language (or unchanged). Safe to call on text that is already translated.
 export function translate(text) {
   if (current === DEFAULT_LANGUAGE || !table || text == null || text === '') return text;
   const source = typeof text === 'string' ? text : String(text);
+  if (source.startsWith(VERBATIM)) return source;
   const cached = cache.get(source);
   if (cached !== undefined) return cached;
   const result = lookup(source) ?? source;
