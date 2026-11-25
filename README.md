@@ -227,7 +227,7 @@ Several players can share one computer and browser, each with their own save. Th
 
 - switch operator (the title screen, campaign route, best score, loadout and achievements change straight away, with no reload);
 - create a **New operator** with a fresh save (up to eight per browser);
-- change the active operator's **callsign** (up to 16 characters, unique on the device) and **emblem**: fourteen pathogen portraits, a helmet close-up of each co-op suit (Vanguard, Wraith, Lifeline and Bathysphere, rendered from the suit models into `dist/assets/suits/helmets/`), plus eight boss emblems earned through achievements;
+- change the active operator's **callsign** (up to 16 characters, unique on the device) and **emblem**: a helmet close-up of each co-op suit first (Vanguard, Wraith, Lifeline and Bathysphere, rendered from the suit models into `dist/assets/suits/helmets/`), then fourteen pathogen portraits, plus eight boss emblems earned through achievements;
 - **Delete operator**, after a confirmation that names what will be lost. The last operator cannot be deleted;
 - **Back up operator** downloads the active operator's save as a small `.json` file, and **Restore from backup** adds it back as a new operator, on this browser or another device. Restoring never overwrites an existing operator; a clashing callsign gets a number. A backup holds only that operator's progress, never device settings, and the game rejects files that are not operator backups or are from a newer version.
 

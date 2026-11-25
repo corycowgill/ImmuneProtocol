@@ -27,18 +27,18 @@ export const PROFILE_KEYS = Object.freeze([
 ]);
 const SCOPED = new Set(PROFILE_KEYS);
 
-// Emblems are the pathogen portraits the game already ships, plus a helmet close-up of each
-// co-op suit (rendered from the suit models into assets/suits/helmets).
+// Emblems: a helmet close-up of each co-op suit first (rendered from the suit models into
+// assets/suits/helmets), then the pathogen portraits the game already ships.
 export const PROFILE_EMBLEMS = Object.freeze([
+  { id: 'helmet-vanguard', name: 'Vanguard', src: 'assets/suits/helmets/vanguard.webp' },
+  { id: 'helmet-wraith', name: 'Wraith', src: 'assets/suits/helmets/wraith.webp' },
+  { id: 'helmet-lifeline', name: 'Lifeline', src: 'assets/suits/helmets/lifeline.webp' },
+  { id: 'helmet-bathysphere', name: 'Bathysphere', src: 'assets/suits/helmets/bathysphere.webp' },
   { id: 'virus', name: 'Virion' }, { id: 'phage', name: 'Phage' }, { id: 'bacillus', name: 'Bacillus' },
   { id: 'spore', name: 'Spore' }, { id: 'flagellate', name: 'Flagellate' }, { id: 'amoeba', name: 'Amoeba' },
   { id: 'blister', name: 'Blister' }, { id: 'filovirus', name: 'Filovirus' }, { id: 'guard', name: 'Shellback' },
   { id: 'splitter', name: 'Splitter' }, { id: 'colony', name: 'Colony' }, { id: 'crawler', name: 'Crawler' },
   { id: 'rogue-bot', name: 'Rogue Bot' }, { id: 'nest', name: 'Brood Nest' },
-  { id: 'helmet-vanguard', name: 'Vanguard', src: 'assets/suits/helmets/vanguard.webp' },
-  { id: 'helmet-wraith', name: 'Wraith', src: 'assets/suits/helmets/wraith.webp' },
-  { id: 'helmet-lifeline', name: 'Lifeline', src: 'assets/suits/helmets/lifeline.webp' },
-  { id: 'helmet-bathysphere', name: 'Bathysphere', src: 'assets/suits/helmets/bathysphere.webp' },
   // Boss emblems are achievement rewards (achievements.mjs REWARDS).
   { id: 'boss-colossus', name: 'Colossus' }, { id: 'boss-thrombus', name: 'Thrombus' }, { id: 'boss-leech', name: 'Leech' },
   { id: 'boss-tapeworm', name: 'Tapeworm' }, { id: 'boss-macrophage', name: 'Macrophage' }, { id: 'boss-screamer', name: 'Screamer' },
