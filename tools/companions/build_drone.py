@@ -15,7 +15,8 @@ the drone faces -z, origin at the centre of the pod. Nodes:
   emitter   an empty at the tip of the belly nozzle, where the healing beam starts
 Flat cosmetic mount surfaces are listed in tools/companions/drone-mounts.json.
 
---quick skips finishing, baking and export and only renders the previews.
+--quick skips finishing, baking and export and only renders the previews; --count prints
+triangle counts per part (before finishing). --view=<name> limits the previews.
 """
 import math
 import os
@@ -43,7 +44,8 @@ _object = bw.Kit._object
 
 
 def _lean_object(self, bm, mat, bevel, segments, angle, cuts, smooth):
-    return _object(self, bm, mat, bevel, min(segments, 2), angle, cuts, smooth)
+    # Fine chamfers (screws, strips, struts) only need a single segment to catch the light.
+    return _object(self, bm, mat, bevel, 1 if bevel and bevel <= .0016 else min(segments, 2), angle, cuts, smooth)
 
 
 bw.Kit._object = _lean_object
@@ -316,10 +318,10 @@ def build_duct(k, hx, hz, angle):
     c = (hx, hz)
     # Duct ring: rounded lip on top, slight flare below.
     revolve(k, [(.0795, -.024), (.0795, .017), (.0835, .026), (.09, .027), (.0945, .022), (.0945, -.014),
-                (.0905, -.026), (.083, -.027)], 'shell', center=c, segments=84, radius=.003, steps=1)
+                (.0905, -.026), (.083, -.027)], 'shell', center=c, segments=72, radius=.003, steps=1)
     # Dark liner inside, a steel lip ring, and a glowing arc on the outward face.
     revolve(k, [(.0778, -.021), (.0778, .015), (.08, .015), (.08, -.021)], 'dark', center=c, segments=48)
-    revolve(k, [(.0822, .0255), (.0822, .0285), (.0918, .0285), (.0918, .0255)], 'edge', center=c, segments=84)
+    revolve(k, [(.0822, .0255), (.0822, .0285), (.0918, .0285), (.0918, .0255)], 'edge', center=c, segments=72)
     out = math.atan2(hz, hx)
     revolve(k, [(.0935, -.0035), (.0935, .0035), (.0962, .0035), (.0962, -.0035)], 'accent', center=c, segments=24,
             arc=(out - .75, out + .75))
