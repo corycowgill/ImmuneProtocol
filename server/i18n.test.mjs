@@ -106,3 +106,9 @@ test('a capitalised label run into a sentence, and verbatim text', async () => {
   assert.equal(translate(verbatim('IMMUNE')), verbatim('IMMUNE'));
   useLocale('en', null);
 });
+
+test('a known phrase after a prefix built in code', () => {
+  useLocale('de', { strings: { ' TO CLOSE INTAKE VALVE': ' UM DAS ZULAUFVENTIL ZU SCHLIESSEN', HOLD: 'HALTE' }, templates: { 'HOLD {0}': 'HALTE {0}' } });
+  assert.equal(translate('HOLD E TO CLOSE INTAKE VALVE'), 'HALTE E UM DAS ZULAUFVENTIL ZU SCHLIESSEN');
+  useLocale('en', null);
+});

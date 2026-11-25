@@ -142,6 +142,17 @@ function lookup(text, depth = 0) {
     const translated = sentences.map(sentence => lookup(sentence, depth + 1));
     if (translated.some(sentence => sentence != null)) return sentences.map((sentence, index) => translated[index] ?? sentence).join(' ');
   }
+  // Last resort: a known phrase at the end with something in front of it ("HOLD E" + " TO CLOSE
+  // INTAKE VALVE"). Try the longest known tail first.
+  const spaces = [...text.matchAll(/ /g)].map(match => match.index).slice(0, 8);
+  for (const index of spaces) {
+    const tail = text.slice(index + 1);
+    if (tail.split(' ').length < 2) break;
+    const known = table.strings.get(tail) ?? table.strings.get(' ' + tail) ?? (allCaps(tail) ? table.upper.get(tail) : undefined);
+    if (known === undefined) continue;
+    const head = text.slice(0, index);
+    return (lookup(head, depth + 1) ?? head) + ' ' + known.trim();
+  }
   return null;
 }
 
