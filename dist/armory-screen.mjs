@@ -3,7 +3,8 @@
 // Gunsmith swaps parts, Customize handles finishes, skins, decals, stickers and charms. Stat bars
 // under the weapon show the build and preview whatever option the pointer or focus is on.
 import {
-  TURRET_SLOTS, WEAPON_ORDER, WEAPON_SLOTS, WEAPON_TYPES, loadoutInSlot, loadoutWithBuild, loadoutWithTurret, loadoutWithWeapon,
+  COMPANIONS, DRONE_SLOTS, SEALER_BASE, TURRET_SLOTS, WEAPON_ORDER, WEAPON_SLOTS, WEAPON_TYPES, droneStats, loadoutInSlot,
+  loadoutWithBuild, loadoutWithCompanion, loadoutWithDrone, loadoutWithSealer, loadoutWithTurret, loadoutWithWeapon,
   magazineCapacity, turretStats, weaponStats,
 } from './weapon-mods.mjs';
 
@@ -35,6 +36,32 @@ const TURRET_TYPE = {
   name: 'Auto-turret', short: 'Turret', role: 'Sentry',
   detail: 'Deploys on clear ground and fires on its own. Hold the turret control to drag it anywhere.',
 };
+
+// The medic drone's bars (droneStats numbers).
+export const DRONE_ARMORY_STATS = [
+  { id: 'drone-suit', name: 'Suit mending', low: 0, high: 2.5, better: 1, unit: ' /s', digits: 2, value: stats => stats.suitHeal },
+  { id: 'drone-tissue', name: 'Tissue mending', low: 0, high: 2.5, better: 1, unit: ' /s', digits: 2, value: stats => stats.tissueHeal },
+  { id: 'drone-radius', name: 'Field', low: 0, high: 12, better: 1, unit: ' m', digits: 1, value: stats => stats.radius },
+  { id: 'drone-speed', name: 'Flight speed', low: 0, high: 14, better: 1, unit: ' m/s', digits: 1, value: stats => stats.speed },
+];
+const DRONE_TYPE = {
+  name: 'Medic drone', short: 'Drone', role: 'Field medic',
+  detail: 'Follows you and mends the most damaged suit or tissue node near it, about a point a second. Press the turret control to station it, again to call it back.',
+};
+
+// The tissue sealer's bars. Its cosmetics never change them.
+const sealerStats = () => ({ repair: SEALER_BASE.repair, interval: SEALER_BASE.interval, reach: SEALER_BASE.reach });
+export const SEALER_ARMORY_STATS = [
+  { id: 'sealer-pulse', name: 'Tissue per pulse', low: 0, high: 25, better: 1, value: stats => stats.repair },
+  { id: 'sealer-rate', name: 'Tissue / s', low: 0, high: 25, better: 1, digits: 1, value: stats => stats.repair / stats.interval },
+  { id: 'sealer-interval', name: 'Pulse every', low: 0, high: 1.5, better: -1, unit: ' s', digits: 2, value: stats => stats.interval },
+  { id: 'sealer-reach', name: 'Reach', low: 0, high: 8, better: 1, unit: ' m', digits: 1, value: stats => stats.reach },
+];
+const SEALER_TYPE = {
+  name: 'Tissue sealer', short: 'Sealer', role: 'Repair tool',
+  detail: 'Hold the repair control by a damaged node or gash to seal it. Paint it like your guns; on the sealer, charms are just for looks.',
+};
+const ITEMS = ['primary', 'secondary', 'companion', 'sealer'];
 
 // Where each attachment callout sits on the stage, as fractions of its width and height.
 const CALLOUT_SPOTS = {
@@ -77,19 +104,37 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
   const reset = byId('armory-reset');
 
   const state = { mode: 'gunsmith', editing: 'primary', part: Object.keys(WEAPON_SLOTS)[0], cosmetic: Object.keys(cosmetics)[0], preview: null };
-  const turretEditing = () => state.editing === 'turret';
-  // The turret edits as a build tagged weapon 'turret'; the carried weapons as their loadouts.
-  const edited = () => turretEditing() ? { weapon: 'turret', ...getLoadout().arsenal.turret } : loadoutInSlot(getLoadout(), state.editing);
-  const statsOf = loadout => loadout.weapon === 'turret' ? turretStats(loadout) : weaponStats(loadout);
-  const statList_ = () => turretEditing() ? TURRET_ARMORY_STATS : ARMORY_STATS;
-  const partSlots = () => turretEditing() ? TURRET_SLOTS : WEAPON_SLOTS;
-  const withPart = (slot, option) => turretEditing() ? { ...edited(), [slot]: option }
-    : loadoutInSlot(loadoutWithBuild(getLoadout(), edited().weapon, { [slot]: option }), state.editing);
+  // Which kind of thing is on the bench: a carried weapon, the turret, the drone or the sealer.
+  const kind = () => state.editing === 'sealer' ? 'sealer' : state.editing === 'companion'
+    ? getLoadout().arsenal.companion : 'weapon';
+  const carriedEditing = () => kind() === 'weapon';
+  // Companions and the sealer edit as builds tagged with their own `weapon`; carried weapons as loadouts.
+  const edited = () => {
+    const { arsenal } = getLoadout();
+    const item = kind();
+    if (item === 'turret') return { weapon: 'turret', ...arsenal.turret };
+    if (item === 'drone') return { weapon: 'drone', ...arsenal.drone };
+    if (item === 'sealer') return { weapon: 'sealer', ...arsenal.sealer };
+    return loadoutInSlot(getLoadout(), state.editing);
+  };
+  const statsOf = loadout => loadout.weapon === 'turret' ? turretStats(loadout) : loadout.weapon === 'drone' ? droneStats(loadout)
+    : loadout.weapon === 'sealer' ? sealerStats(loadout) : weaponStats(loadout);
+  const statList_ = () => ({ turret: TURRET_ARMORY_STATS, drone: DRONE_ARMORY_STATS, sealer: SEALER_ARMORY_STATS })[kind()] ?? ARMORY_STATS;
+  const partSlots = () => ({ turret: TURRET_SLOTS, drone: DRONE_SLOTS, sealer: {} })[kind()] ?? WEAPON_SLOTS;
+  const typeOf = current => ({ turret: TURRET_TYPE, drone: DRONE_TYPE, sealer: SEALER_TYPE })[kind()] ?? WEAPON_TYPES[current.weapon];
+  const withPart = (slot, option) => carriedEditing()
+    ? loadoutInSlot(loadoutWithBuild(getLoadout(), edited().weapon, { [slot]: option }), state.editing)
+    : { ...edited(), [slot]: option };
   const equipPart = (slot, option) => {
     if (locked(slot, option)) return;
-    equip(turretEditing() ? loadoutWithTurret(getLoadout(), { [slot]: option })
-      : loadoutWithBuild(getLoadout(), edited().weapon, { [slot]: option }));
+    const change = { [slot]: option };
+    const item = kind();
+    equip(item === 'turret' ? loadoutWithTurret(getLoadout(), change) : item === 'drone' ? loadoutWithDrone(getLoadout(), change)
+      : item === 'sealer' ? loadoutWithSealer(getLoadout(), change) : loadoutWithBuild(getLoadout(), edited().weapon, change));
   };
+  const itemName = slot => slot === 'companion' ? COMPANIONS[getLoadout().arsenal.companion].name
+    : slot === 'sealer' ? SEALER_TYPE.name : WEAPON_TYPES[getLoadout().arsenal[slot]].name;
+  const itemLabel = slot => ({ primary: 'Primary', secondary: 'Secondary', companion: 'Companion', sealer: 'Sealer' })[slot];
 
   // --- mode tabs
   for (const [mode, label, hint] of MODES) {
@@ -116,7 +161,7 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
   });
 
   // --- stat bars
-  const bars = [...ARMORY_STATS, ...TURRET_ARMORY_STATS].map(stat => {
+  const bars = [...ARMORY_STATS, ...TURRET_ARMORY_STATS, ...DRONE_ARMORY_STATS, ...SEALER_ARMORY_STATS].map(stat => {
     const row = element(document, 'div', 'gs-stat');
     const label = element(document, 'dt', '', stat.name);
     const value = element(document, 'dd');
@@ -270,15 +315,17 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
   function weaponsPanel() {
     const loadout = getLoadout();
     setText(panelTitle, 'Loadout');
-    setText(panelNote, 'Two different weapons and your auto-turret');
-    subtabs.replaceChildren(...['primary', 'secondary', 'turret'].map(slot => {
-      const carried = slot === 'turret' ? TURRET_TYPE : WEAPON_TYPES[loadout.arsenal[slot]];
+    setText(panelNote, 'Two different weapons, a nano companion and your tissue sealer');
+    subtabs.replaceChildren(...ITEMS.map(slot => {
+      const carried = slot === 'companion' ? (loadout.arsenal.companion === 'drone' ? DRONE_TYPE : TURRET_TYPE)
+        : slot === 'sealer' ? SEALER_TYPE : WEAPON_TYPES[loadout.arsenal[slot]];
       const tab = element(document, 'button', 'gs-carried');
       tab.type = 'button';
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', String(slot === state.editing));
-      tab.append(element(document, 'span', '', slot === 'turret' ? 'Deployable · key Q' : (slot === 'primary' ? 'Primary' : 'Secondary') + ' · key ' + (slot === 'primary' ? 1 : 2)),
-        element(document, 'strong', '', carried.name), element(document, 'small', '', carried.role));
+      const hint = slot === 'companion' ? 'Companion · key Q' : slot === 'sealer' ? 'Repair tool · hold E'
+        : (slot === 'primary' ? 'Primary' : 'Secondary') + ' · key ' + (slot === 'primary' ? 1 : 2);
+      tab.append(element(document, 'span', '', hint), element(document, 'strong', '', carried.name), element(document, 'small', '', carried.role));
       tab.addEventListener('click', () => {
         state.editing = slot;
         draw();
@@ -286,19 +333,38 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
       return tab;
     }));
     options.dataset.layout = 'rows';
-    if (turretEditing()) {
-      const go = (mode, label, text) => {
+    const go = (mode, label, text) => {
+      const card = element(document, 'button', 'gs-option gs-weapon');
+      card.type = 'button';
+      card.append(element(document, 'span', 'gs-option-kind', typeOf(edited()).name), element(document, 'strong', '', label), element(document, 'small', '', text));
+      card.addEventListener('click', () => {
+        state.mode = mode;
+        draw();
+      });
+      return card;
+    };
+    if (state.editing === 'companion') {
+      // Pick the companion, then fit and paint it.
+      const choices = Object.entries(COMPANIONS).map(([id, companion]) => {
+        const equipped = loadout.arsenal.companion === id;
         const card = element(document, 'button', 'gs-option gs-weapon');
         card.type = 'button';
-        card.append(element(document, 'span', 'gs-option-kind', 'Auto-turret'), element(document, 'strong', '', label), element(document, 'small', '', text));
+        card.setAttribute('aria-pressed', String(equipped));
+        card.append(element(document, 'span', 'gs-option-kind', id === 'drone' ? DRONE_TYPE.role : TURRET_TYPE.role),
+          element(document, 'strong', '', companion.name), element(document, 'small', '', companion.detail));
+        if (equipped) card.append(element(document, 'em', 'gs-equipped', 'Equipped'));
         card.addEventListener('click', () => {
-          state.mode = mode;
-          draw();
+          if (!equipped) equip(loadoutWithCompanion(getLoadout(), id));
         });
         return card;
-      };
-      options.replaceChildren(go('gunsmith', 'Gunsmith', 'Fit a barrel, receiver and sensor.'),
+      });
+      const drone = loadout.arsenal.companion === 'drone';
+      options.replaceChildren(...choices, go('gunsmith', 'Gunsmith', drone ? 'Fit an emitter, field and rotors.' : 'Fit a barrel, receiver and sensor.'),
         go('customize', 'Customize', 'Finish, accent, skin, decal, sticker and charm.'));
+      return;
+    }
+    if (state.editing === 'sealer') {
+      options.replaceChildren(go('customize', 'Customize', 'Finish, accent, skin, decal, sticker and charm, like your guns.'));
       return;
     }
     const other = state.editing === 'primary' ? 'secondary' : 'primary';
@@ -324,9 +390,26 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
   function gunsmithPanel() {
     const current = edited();
     const slots = partSlots();
+    if (!Object.keys(slots).length) {
+      // The sealer is a fixed tool: nothing to fit, everything to paint.
+      setText(panelTitle, 'No parts');
+      setText(panelNote, 'The tissue sealer has no swappable parts');
+      subtabs.replaceChildren();
+      const card = element(document, 'button', 'gs-option gs-weapon');
+      card.type = 'button';
+      card.append(element(document, 'span', 'gs-option-kind', SEALER_TYPE.name), element(document, 'strong', '', 'Customize'),
+        element(document, 'small', '', 'Finish, accent, skin, decal, sticker and charm.'));
+      card.addEventListener('click', () => {
+        state.mode = 'customize';
+        draw();
+      });
+      options.dataset.layout = 'rows';
+      options.replaceChildren(card);
+      return;
+    }
     if (!slots[state.part]) state.part = Object.keys(slots)[0];
     const slot = state.part;
-    const cards = turretEditing() ? {} : art.thumbnailsFor?.(current.weapon) ?? art.thumbnails;
+    const cards = !carriedEditing() ? {} : art.thumbnailsFor?.(current.weapon) ?? art.thumbnails;
     setText(panelTitle, slots[slot].name);
     setText(panelNote, Object.keys(slots[slot].options).length + ' options');
     subtabs.replaceChildren(...Object.entries(slots).map(([id, { name }]) => {
@@ -412,7 +495,9 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
       card.append(element(document, 'strong', '', option.name));
       if (option.detail) card.append(element(document, 'small', '', option.detail));
       // Charms are the one cosmetic that changes how the weapon handles.
-      if (slot === 'charm') {
+      if (slot === 'charm' && kind() === 'sealer') {
+        card.append(element(document, 'em', equipped ? 'gs-equipped' : '', equipped ? 'Equipped' : 'Cosmetic on the sealer'));
+      } else if (slot === 'charm') {
         card.append(tradeoffList(withPart(slot, id), equipped));
         previewable(card, () => withPart(slot, id));
       } else if (equipped) card.append(element(document, 'em', 'gs-equipped', 'Equipped'));
@@ -428,10 +513,8 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
   function itemsRow() {
     items.hidden = state.mode === 'weapons';
     if (items.hidden) return items.replaceChildren();
-    const loadout = getLoadout();
-    items.replaceChildren(...['primary', 'secondary', 'turret'].map(slot => {
-      const name = slot === 'turret' ? TURRET_TYPE.name : WEAPON_TYPES[loadout.arsenal[slot]].name;
-      const tab = element(document, 'button', 'gs-item', (slot === 'turret' ? 'Turret' : slot === 'primary' ? 'Primary' : 'Secondary') + ' · ' + name);
+    items.replaceChildren(...ITEMS.map(slot => {
+      const tab = element(document, 'button', 'gs-item', itemLabel(slot) + ' · ' + itemName(slot));
       tab.type = 'button';
       tab.dataset.item = slot;
       tab.setAttribute('role', 'tab');
@@ -448,10 +531,11 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
   function draw() {
     state.preview = null;
     const current = edited();
-    const type = turretEditing() ? TURRET_TYPE : WEAPON_TYPES[current.weapon];
+    const type = typeOf(current);
     dialog.dataset.mode = state.mode;
     dialog.dataset.editing = state.editing;
-    setText(kicker, (turretEditing() ? 'DEPLOYABLE' : state.editing === 'primary' ? 'PRIMARY' : 'SECONDARY') + ' · ' + type.name.toUpperCase());
+    setText(kicker, ({ companion: 'COMPANION', sealer: 'REPAIR TOOL', primary: 'PRIMARY' })[state.editing] ?? 'SECONDARY');
+    kicker.textContent += ' · ' + type.name.toUpperCase();
     setText(plate.role, type.role);
     setText(plate.name, type.name);
     setText(plate.detail, type.detail);
@@ -462,9 +546,9 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
       tab.tabIndex = active ? 0 : -1;
     }
     for (const [slot, { button, value }] of Object.entries(callouts)) {
-      button.hidden = state.mode !== 'gunsmith' || turretEditing();
+      button.hidden = state.mode !== 'gunsmith' || !carriedEditing();
       button.setAttribute('aria-pressed', String(slot === state.part));
-      if (!turretEditing()) setText(value, WEAPON_SLOTS[slot].options[current[slot]].name);
+      if (carriedEditing()) setText(value, WEAPON_SLOTS[slot].options[current[slot]].name);
     }
     // Rebuilding the list would drop keyboard focus; put it back on the same option.
     const focused = [...options.children].indexOf(document.activeElement);

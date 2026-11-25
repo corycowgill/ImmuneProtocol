@@ -11,6 +11,7 @@ import { Simulation, JUNCTION_GASH_SITES, SPECIES } from './simulation.mjs';
 import { ENEMY_MODELS } from './enemy-models.mjs';
 import { NEST } from './field-objectives.mjs';
 import { LEVEL_BOSSES } from './level-bosses.mjs';
+import { droneModelReady } from './drone.mjs';
 import { floorHeight } from './arena-scene.mjs';
 import { LOW_MEMORY } from './asset-loading.mjs';
 import { gpuIdle } from './gpu-idle.mjs';
@@ -103,11 +104,12 @@ export async function prepareScenes(world, areas, onProgress) {
 
   onProgress(0, total, LOW_MEMORY ? 'Loading compact weapons, pathogens and sound' : 'Downloading and decoding weapons, pathogens, suits and sound');
   world.warmTextures = warmTextures;
-  const [, , weapons, suits] = await Promise.all([world.textureReady, world.enemyModelsReady, weaponModelsReady,
-    LOW_MEMORY ? Promise.resolve([]) : loadSuitModels()]);
-  if (weapons.size !== WEAPON_ORDER.length || world.enemyModels.size !== Object.keys(ENEMY_MODELS).length || suits.some(suit => !suit)) {
-    throw new Error('Required weapon, pathogen or suit models are missing');
+  const [, , weapons, suits, drone] = await Promise.all([world.textureReady, world.enemyModelsReady, weaponModelsReady,
+    LOW_MEMORY ? Promise.resolve([]) : loadSuitModels(), droneModelReady]);
+  if (weapons.size !== WEAPON_ORDER.length || world.enemyModels.size !== Object.keys(ENEMY_MODELS).length || suits.some(suit => !suit) || !drone) {
+    throw new Error('Required weapon, pathogen, suit or drone models are missing');
   }
+  world.ensureDroneViews();
   if (!LOW_MEMORY) prepareWeaponCosmetics(world.renderer);
   onProgress(1, total, 'Uploading textures and preparing weapon shaders');
   // Prime GPU programs and texture uploads on the actual renderer using a small frame.
@@ -189,6 +191,9 @@ export async function prepareArea(world, sim, warmTextures) {
   }
   sim.nodes[0].health = 66;
   sim.turret = { x: start.x + 2, y: 0, z: start.z - 4, yaw: Math.PI, pitch: 0 };
+  // A medic drone mending the damaged node, so its materials and beam are compiled too.
+  sim.drone = { ownerId: 'warmup', x: start.x - 2, y: 2.1, z: start.z - 5, yaw: 0, build: null, targetKind: 'node',
+    targetId: sim.nodes[0].id, targetX: sim.nodes[0].x, targetY: 1.25, targetZ: sim.nodes[0].z, jammed: false };
   sim.projectiles.push({ id: 0, x: start.x, y: 1, z: start.z - 8, vx: .2, vy: 0, vz: 1, radius: .25 });
   // The arena's boss, so its model, textures and shader are ready before it arrives.
   const design = LEVEL_BOSSES[sim.area];

@@ -165,11 +165,13 @@ export function applyDifficulty(sim, id) {
   const damageTarget = sim.damageTarget.bind(sim);
   sim.damageTarget = (enemy, target, amount, ...rest) =>
     damageTarget(enemy, target, target === 'player' ? amount * level.suitDamage : amount, ...rest);
+  // A suit that brings the medic drone has no turret to place.
+  const turrets = () => sim.companion === 'drone' ? 0 : level.turrets;
   const reset = sim.reset.bind(sim);
   sim.reset = () => {
     reset();
-    sim.turretCharges = level.turrets;
+    sim.turretCharges = turrets();
   };
-  sim.turretCharges = level.turrets;
+  sim.turretCharges = turrets();
   return sim;
 }

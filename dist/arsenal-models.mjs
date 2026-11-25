@@ -44,7 +44,7 @@ export function prepareWeaponCosmetics(renderer) {
 }
 
 // A copy of one node of a weapon model, drawn with the given kit materials.
-function modelledNode(scene, name, materials, kind) {
+export function modelledNode(scene, name, materials, kind) {
   const source = scene.getObjectByName(name);
   if (!source) return null;
   const node = source.clone();
@@ -68,7 +68,7 @@ function modelledNode(scene, name, materials, kind) {
 const textures = {};
 const texture = kind => (textures[kind] ??= finishTexture(kind));
 
-function createKit() {
+export function createKit() {
   const brushed = texture('steel');
   const molded = texture('polymer');
   const kit = {
@@ -98,7 +98,7 @@ function createKit() {
   return kit;
 }
 
-function paint(kit, build) {
+export function paint(kit, build) {
   const palette = finishPalette(build.finish);
   dressShell(kit.shell, build.skin, palette.shell, texture('polymer'));
   kit.steel.color.setHex(palette.steel);

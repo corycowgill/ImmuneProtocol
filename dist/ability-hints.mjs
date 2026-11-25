@@ -27,7 +27,7 @@ let turretPlacedAt = null;
 
 function key(action) {
   if (session.usingGamepad) return padActionKey(action);
-  if (isTouch) return TOUCH[action];
+  if (isTouch) return action === 'turret' && session.sim?.drone ? 'Station' : TOUCH[action];
   return actionKey(action);
 }
 
@@ -60,6 +60,10 @@ const HINTS = [
     text: () => ['Jump up', `Press ${key('jump')} to climb raised ground. Crawlers cannot follow you up.`] },
   { id: 'turret', when: sim => !!sim.turret && turretPlacedAt != null && sim.clock - turretPlacedAt > 25,
     text: () => ['Move your turret any time', `Hold ${key('turret')} to pick it up and drag it to a new spot.`] },
+  // A node is hurting out of the drone's reach while its suit is busy elsewhere.
+  { id: 'drone', when: (sim, player) => sim.drone?.mode === 'follow' && sim.clock > 20 && sim.nodes.some(node => node.health < 70 &&
+      Math.hypot(node.x - player.x, node.z - player.z) > 14),
+    text: () => ['Station your medic drone', `Stand by a damaged node and press ${key('turret')}: the drone stays and mends it. Press again to call it back.`] },
 ];
 
 function remember(id) {

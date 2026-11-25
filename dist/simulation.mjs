@@ -10,9 +10,10 @@ import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
 import { HAZARD_CLEARANCE, RESONANCE_CLEARANCE, groundHeight, onMovingGround, terrainFor, terrainFootprints } from './terrain.mjs';
+import { companionOf, createDrone, stepDrones, toggleDrone } from './companions.mjs';
 import { abilityState, dodges, knockBack, moveAbilities, settleOnTerrain, restockThrowables, throwItems, updateThrowables, useMelee } from './abilities.mjs';
 import {
-  DEFAULT_WEAPON_STATS, WEAPON_SLOTS, TURRET_BASE, legacyWeaponLoadout, normalizeTurretBuild, turretStats, loadoutInSlot, magazineCapacity, normalizeWeaponLoadout,
+  DEFAULT_WEAPON_STATS, WEAPON_SLOTS, TURRET_BASE, SEALER_BASE, legacyWeaponLoadout, normalizeTurretBuild, turretStats, loadoutInSlot, magazineCapacity, normalizeWeaponLoadout,
   otherSlot, weaponStats,
 } from './weapon-mods.mjs';
 import {
@@ -69,7 +70,7 @@ export const RULES = Object.freeze({
   health: 100,
   tissue: 100,
   magazine: 30,
-  repairRadius: 5.4,
+  repairRadius: SEALER_BASE.reach,
   arenaX: ARENA.x,
   arenaZ: ARENA.z,
 });
@@ -203,8 +204,8 @@ export const TURN_SENSITIVITY = 0.00225;
 const RIFLE_RANGE = 68;
 // Rockets fly no farther than this before they burst.
 const ROCKET_RANGE = 60;
-const REPAIR_TIME = 0.82;
-const REPAIR_PER_CYCLE = 13;
+const REPAIR_TIME = SEALER_BASE.interval;
+const REPAIR_PER_CYCLE = SEALER_BASE.repair;
 const INTERMISSION_TIME = 6.5;
 // Pause between the final kill of a wave and the wave-clear / armory screen.
 export const WAVE_OUTRO_TIME = 4;
@@ -385,8 +386,8 @@ export class Simulation {
     return this.turretPlacementFor(this.player);
   }
 
-  turretPlacementFor(player) {
-    if ((!this.turretCharges && !this.canRedeployTurret) || this.tutorial || this.extractionPending ||
+  turretPlacementFor(player, suit = this) {
+    if ((!suit.turretCharges && !this.canRedeployTurret) || this.tutorial || this.extractionPending ||
       (this.phase !== 'combat' && this.phase !== 'intermission')) return null;
     return this.turretGround(player);
   }
@@ -529,8 +530,11 @@ export class Simulation {
     this.nextProjectileId = 1;
     this.projectiles = [];
     this.throwables = [];
-    this.turretCharges = 1;
+    // The suit's nano companion: a turret to place once, or a medic drone that follows it.
+    this.companion = companionOf(this);
+    this.turretCharges = this.companion === 'turret' ? 1 : 0;
     this.turret = null;
+    this.drone = createDrone(this, this);
     this.patrolIndex = 0;
     this.colony = null;
     this.spewed = new Set();
@@ -656,11 +660,12 @@ export class Simulation {
       score: this.score,
       kills: this.kills,
       nodes: Object.fromEntries(this.nodes.map(node => [node.id, node.health])),
-      suits: this.activeSuits().map(({ player }) => ({
+      suits: this.activeSuits().map(({ player, turret, turretCharges }) => ({
         id: player.id ?? null, health: player.health, score: player.score ?? 0, kills: player.kills ?? 0,
+        turretCharges, turret: turret ? { x: turret.x, y: turret.y, z: turret.z, yaw: turret.yaw, pitch: turret.pitch, build: turret.build } : null,
       })),
       turretCharges: this.turretCharges,
-      turret: this.turret ? { x: this.turret.x, y: this.turret.y, z: this.turret.z, yaw: this.turret.yaw, pitch: this.turret.pitch } : null,
+      turret: this.turret ? { x: this.turret.x, y: this.turret.y, z: this.turret.z, yaw: this.turret.yaw, pitch: this.turret.pitch, build: this.turret.build } : null,
       junctionSupply: this.junctionSupply,
       junctionSupplyLocked: this.junctionSupplyLocked,
       overtime: this.overtime,
@@ -676,7 +681,9 @@ export class Simulation {
     this.kills = checkpoint.kills;
     for (const node of this.nodes) node.health = checkpoint.nodes[node.id] ?? node.health;
     this.turretCharges = checkpoint.turretCharges;
-    this.turret = checkpoint.turret ? { ...checkpoint.turret, cooldown: .6, targetId: null } : null;
+    // The turret keeps the build it was placed with (older checkpoints fall back to the loadout's).
+    const turretBuild = normalizeTurretBuild(checkpoint.turret?.build ?? this.weaponLoadout?.arsenal?.turret);
+    this.turret = checkpoint.turret ? { ...checkpoint.turret, build: turretBuild, stats: turretStats(turretBuild), cooldown: .6, targetId: null } : null;
     this.throwables = [];
     for (const suit of this.activeSuits()) restockThrowables(suit);
     this.junctionSupply = checkpoint.junctionSupply;
@@ -704,12 +711,19 @@ export class Simulation {
   // A suit brought back at a checkpoint has at least half its integrity, so a retry is not lost
   // before it starts. Score and kills are as they were.
   restoreSuits(saved = []) {
-    this.activeSuits().forEach(({ player }, index) => {
+    this.activeSuits().forEach((suit, index) => {
+      const { player } = suit;
       const record = saved.find(entry => entry.id !== null && entry.id === (player.id ?? null)) ?? (player.id == null ? saved[index] : null);
       if (!record) return;
       player.health = Math.max(RULES.health / 2, record.health);
       player.score = record.score;
       player.kills = record.kills;
+      // Each suit's own turret comes back where it stood (solo keeps its copy on the mission too).
+      if (Number.isFinite(record.turretCharges)) suit.turretCharges = record.turretCharges;
+      if (record.turret !== undefined && player.id != null) {
+        const build = normalizeTurretBuild(record.turret?.build ?? suit.weaponLoadout?.arsenal?.turret);
+        suit.turret = record.turret ? { ...record.turret, ownerId: player.id, build, stats: turretStats(build), cooldown: .6, targetId: null } : null;
+      }
     });
   }
 
@@ -756,7 +770,7 @@ export class Simulation {
   }
 
   actSuits(dt, input) {
-    if (input.deploy) this.deployTurret();
+    if (input.deploy) this.useCompanion();
     this.carryTurret(!!input.carry);
     useMelee(this, this, input, dt);
     throwItems(this, this, input, dt);
@@ -798,6 +812,7 @@ export class Simulation {
     }
     this.actSuits(dt, input);
     this.updateTurret(dt);
+    stepDrones(this, dt);
     updateThrowables(this, dt);
 
     if (this.valve) {
@@ -1392,21 +1407,27 @@ export class Simulation {
     this.shoot(input.aim, suit);
   }
 
+  // The turret control: places a turret-carrying suit's turret, or stations / recalls a drone.
+  useCompanion(suit = this) {
+    if (suit.drone) return toggleDrone(this, suit);
+    return this.deployTurret(suit);
+  }
+
   deployTurret(suit = this) {
-    if (this.tutorial) return false;
+    if (this.tutorial || suit.drone) return false;
     const redeploying = this.canRedeployTurret;
     const { player } = suit;
-    const point = this.turretPlacementFor(player);
+    const point = this.turretPlacementFor(player, suit);
     if (!point) {
       const { x, y, z } = player;
-      this.events.push({ type: 'turret', stage: this.turretCharges || redeploying ? 'invalid' : 'empty', x, y, z });
+      this.events.push({ type: 'turret', stage: suit.turretCharges || redeploying ? 'invalid' : 'empty', x, y, z });
       return false;
     }
-    // The placing suit's turret build sets its numbers and its look.
+    // The placing suit's turret build sets its numbers and its look. Each suit owns its turret.
     const build = normalizeTurretBuild(suit.weaponLoadout?.arsenal?.turret);
-    this.turret = { ...point, yaw: Math.PI + player.yaw, pitch: 0, cooldown: .6, targetId: null, build, stats: turretStats(build) };
+    suit.turret = { ...point, yaw: Math.PI + player.yaw, pitch: 0, cooldown: .6, targetId: null, build, stats: turretStats(build), ownerId: player.id ?? null };
     if (redeploying) this.junctionSupplyLocked = true;
-    else this.turretCharges -= 1;
+    else suit.turretCharges -= 1;
     this.events.push({ type: 'turret', stage: redeploying ? 'redeployed' : 'deployed', ...point });
     return true;
   }
@@ -1415,7 +1436,7 @@ export class Simulation {
   // slides along the clear ground in front of the carrier, holding fire, and it sets down where it
   // last found clear ground when the control is released.
   carryTurret(held, suit = this) {
-    const turret = this.turret;
+    const turret = suit.turret;
     if (!turret) return false;
     const carrierId = suit.player.id ?? 'solo';
     if (held && !this.tutorial && !this.extractionPending && suit.player.health > 0 &&
@@ -1442,8 +1463,19 @@ export class Simulation {
   }
 
   updateTurret(dt) {
-    const turret = this.turret;
-    if (!turret) return;
+    for (const suit of this.activeSuits()) if (suit.turret) this.fireTurret(suit.turret, dt);
+  }
+
+  // Every placed turret, and every medic drone, across the squad.
+  get turrets() {
+    return this.activeSuits().map(suit => suit.turret).filter(Boolean);
+  }
+
+  get drones() {
+    return this.activeSuits().map(suit => suit.drone).filter(Boolean);
+  }
+
+  fireTurret(turret, dt) {
     turret.cooldown = Math.max(0, turret.cooldown - dt);
     if (turret.carried) return;
     if (this.area === 'ear') {
@@ -1494,7 +1526,7 @@ export class Simulation {
       target.turretStaggerAt = this.clock + stats.stagger;
     }
     const impact = { x: target.x, y: target.y, z: target.z };
-    this.events.push({ type: 'turret', stage: 'fire', id: target.id, ...origin, impact });
+    this.events.push({ type: 'turret', stage: 'fire', id: target.id, ...origin, impact, ownerId: turret.ownerId ?? null });
     if (target.type === 'guard' && guardFaces(target, origin)) this.blockGuardHit(target, impact, 'turret');
     else this.hitEnemy(target, stats.damage, false, impact, 'turret');
   }

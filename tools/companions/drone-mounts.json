@@ -1,0 +1,44 @@
+{
+  "_comment": "Medic drone cosmetic mounts, game coordinates (metres) relative to the body origin; the drone faces -z. Centres lie exactly on the flat panel faces; offset planes ~0.5 mm along the normal to avoid z-fighting. width runs along z for the side panels and along x for the top; height along y for the sides and along z for the top. panel* gives the full flat face, width/height the recommended decal area inside its rounded corners.",
+  "sideDecals": [
+    {
+      "side": "left",
+      "center": [-0.087, 0.004, -0.0075],
+      "normal": [-1, 0, 0],
+      "up": [0, 1, 0],
+      "width": 0.074,
+      "height": 0.042,
+      "panelWidth": 0.086,
+      "panelHeight": 0.053
+    },
+    {
+      "side": "right",
+      "center": [0.087, 0.004, -0.0075],
+      "normal": [1, 0, 0],
+      "up": [0, 1, 0],
+      "width": 0.074,
+      "height": 0.042,
+      "panelWidth": 0.086,
+      "panelHeight": 0.053
+    }
+  ],
+  "topSticker": {
+    "center": [0, 0.078, -0.036],
+    "normal": [0, 1, 0],
+    "forward": [0, 0, -1],
+    "width": 0.054,
+    "height": 0.04,
+    "panelWidth": 0.064,
+    "panelHeight": 0.048
+  },
+  "charm": {
+    "arm": "back-left (rotor-3)",
+    "hangPoint": [-0.1167, -0.0377, 0.1167],
+    "eyeletCenter": [-0.1167, -0.0335, 0.1167]
+  },
+  "emitter": {
+    "node": "emitter",
+    "position": [0, -0.1, -0.01],
+    "direction": [0, -1, 0]
+  }
+}

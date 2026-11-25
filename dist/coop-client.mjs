@@ -298,6 +298,7 @@ export class CoopClient extends EventTarget {
       enemies: blendActors(state.enemies, older?.enemies, ratio),
       projectiles: blendActors(state.projectiles, older?.projectiles, ratio),
       throwables: blendActors(state.throwables ?? [], older?.throwables, ratio),
+      drones: blendActors(state.drones ?? [], older?.drones, ratio),
       events,
     });
     return this.view;

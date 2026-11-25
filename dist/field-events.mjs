@@ -76,11 +76,12 @@ export function applyEvents() {
     if (event.type === 'tutorial' && event.stage === 'complete') {
       session.trainingComplete = true;
       writeSetting(tutorialKey, true);
-      announce(session.sim.nodes.length > 2 ? 'DEFEND ALL THREE TISSUE NODES' : 'DEFEND BOTH TISSUE NODES', session.usingGamepad ? 'PRESS ' + padActionKey('turret').toUpperCase() + ' TO DEPLOY YOUR TURRET'
-        : isTouch ? 'TAP TURRET TO DEPLOY' : 'PRESS Q TO DEPLOY YOUR TURRET', 3.8);
+      const goal = session.sim.drone ? 'TO STATION YOUR MEDIC DRONE' : 'TO DEPLOY YOUR TURRET';
+      announce(session.sim.nodes.length > 2 ? 'DEFEND ALL THREE TISSUE NODES' : 'DEFEND BOTH TISSUE NODES', session.usingGamepad ? 'PRESS ' + padActionKey('turret').toUpperCase() + ' ' + goal
+        : isTouch ? (session.sim.drone ? 'TAP STATION TO HOLD YOUR DRONE' : 'TAP TURRET TO DEPLOY') : 'PRESS Q ' + goal, 3.8);
       session.audio.play({ type: 'wave', stage: 'start' });
     }
-    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'organ', 'guard', 'boss', 'levelBoss', 'airway', 'gastric', 'explosion', 'stun', 'throw', 'melee', 'dash', 'jump', 'land', 'dodge'].includes(event.type) && Number.isFinite(event.x)) {
+    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'drone', 'organ', 'guard', 'boss', 'levelBoss', 'airway', 'gastric', 'explosion', 'stun', 'throw', 'melee', 'dash', 'jump', 'land', 'dodge'].includes(event.type) && Number.isFinite(event.x)) {
       const { x, z, yaw } = session.sim.player;
       const dx = event.x - x;
       const dz = event.z - z;
@@ -143,6 +144,11 @@ export function applyEvents() {
       if (event.stage === 'deployed') announce('AUTO-TURRET ONLINE', 'COVERING THIS POSITION', 1.8);
       if (event.stage === 'redeployed' || event.stage === 'moved') announce('AUTO-TURRET REPOSITIONED', 'COVERING THE NEW POSITION', 1.5);
       if (event.stage === 'invalid') announce('PLACEMENT BLOCKED', 'FACE CLEAR GROUND AND TRY AGAIN', 1.8);
+    }
+    // Only your own drone's orders are announced.
+    if (event.type === 'drone' && (event.playerId == null || event.playerId === session.sim.player?.id)) {
+      if (event.stage === 'stationed') announce('MEDIC DRONE STATIONED', 'MENDING AROUND THIS SPOT', 1.6);
+      if (event.stage === 'following') announce('MEDIC DRONE RECALLED', 'FOLLOWING YOUR SUIT', 1.4);
     }
     if (event.type === 'surge' && event.stage === 'arrival') {
       announce(event.threat.toUpperCase(), 'INBOUND TO ' + event.nodeName.toUpperCase(), 1.65);

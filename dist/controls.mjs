@@ -12,6 +12,11 @@ import { turretStatus, junctionSupply, supplyButtons, drawJunctionStatus, drawTu
 import { actionFor, padActionKey, padButtonOf, padFamilyOf, padHeld, padPressed, setPadFamily } from './keybinds.mjs';
 
 // What is held and what was tapped since the last frame, plus pointer and controller state.
+// The turret control places a turret that is still to be deployed, or stations / recalls a drone.
+export function companionReady(sim = session.sim) {
+  return !!sim.drone || (!sim.turret && sim.turretCharges > 0);
+}
+
 export const controls = {
   leftButton: false, rightButton: false,
   fireTap: false, reloadTap: false, deployTap: false, swapTap: false,
@@ -75,7 +80,7 @@ gameUi.bindControls({
     if (down && !playing()) return;
     if (['fire', 'repair', 'reload'].includes(name)) touch[name] = down;
     if (name === 'turret') {
-      if (down && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
+      if (down && !session.sim.tutorial && companionReady()) controls.deployTap = true;
       touch.carry = down && !!session.sim.turret;
     }
     if (name === 'fire' && down) controls.fireTap = true;
@@ -84,7 +89,7 @@ gameUi.bindControls({
     if (!playing()) return;
     if (name === 'swap' && !session.sim.tutorial) controls.swapTap = true;
     if (['jump', 'dash', 'melee', 'grenade', 'stun'].includes(name)) controls[name + 'Tap'] = true;
-    if (name === 'turret' && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
+    if (name === 'turret' && !session.sim.tutorial && companionReady()) controls.deployTap = true;
   },
   stick(value) { touch.x = value.x; touch.z = value.z; },
   look(phase, point, id) {
@@ -210,7 +215,7 @@ export function controllerFrame(now) {
   const supplyOpen = !junctionSupply.hidden;
   const pressed = action => padPressed(current, action) && !(supplyOpen && padButtonOf(action) >= 12);
   controls.reloadTap ||= pressed('reload');
-  if (pressed('turret') && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
+  if (pressed('turret') && !session.sim.tutorial && companionReady()) controls.deployTap = true;
   // Holding the turret button on a placed turret drags it; the press that deploys one does not also pick it up.
   if (pressed('turret')) controls.padCarry = !!session.sim.turret;
   if (!padHeld(current, 'turret')) controls.padCarry = false;
@@ -288,7 +293,7 @@ window.addEventListener('keydown', event => {
     const tap = { fire: 'fireTap', jump: 'jumpTap', dash: 'dashTap', melee: 'meleeTap', grenade: 'grenadeTap', stun: 'stunTap', reload: 'reloadTap' }[action];
     if (tap) controls[tap] = true;
   }
-  if (!event.repeat && action === 'turret' && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
+  if (!event.repeat && action === 'turret' && !session.sim.tutorial && companionReady()) controls.deployTap = true;
   // Holding the turret key on a placed turret drags it; the press that deploys one does not also pick it up.
   if (!event.repeat && action === 'turret') controls.keyCarry = !!session.sim.turret;
   keys.add(event.code);

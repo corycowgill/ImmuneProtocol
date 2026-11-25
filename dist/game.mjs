@@ -41,7 +41,7 @@ import { game, hitMarker, turretStatus, touchTurret, gashMarker, gashEdge, junct
 import { alertBox, announce, applyEvents } from './field-events.mjs';
 import {
   canvas, clearControls, commands, controllerFrame, controls, input, keys, pauseDialog, releaseMouse, requestMouse,
-  configureController, rumblePad, syncControllerAudioHint, touch, touchControls,
+  configureController, rumblePad, syncControllerAudioHint, touch, touchControls, companionReady,
 } from './controls.mjs';
 import { Haptics } from './haptics.mjs';
 import { achievements, refreshAchievementMenu } from './achievement-system.mjs';
@@ -1591,7 +1591,7 @@ byId('resume').addEventListener('click', resume);
 extractNow.addEventListener('click', () => chooseExtraction('extract'));
 stayOvertime.addEventListener('click', () => chooseExtraction('stay'));
 touchTurret.addEventListener('click', () => {
-  if (session.running && !session.paused && !session.sim.extractionPending && !session.sim.tutorial && !session.sim.turret && session.sim.turretCharges > 0) controls.deployTap = true;
+  if (session.running && !session.paused && !session.sim.extractionPending && !session.sim.tutorial && companionReady()) controls.deployTap = true;
 });
 extractionDialog.addEventListener('cancel', event => event.preventDefault());
 pauseDialog.addEventListener('cancel', event => { event.preventDefault(); resume(); });

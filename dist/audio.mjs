@@ -572,6 +572,14 @@ export class GameAudio {
         }
         break;
       }
+      case 'drone': {
+        // A bright two-step chirp when it holds or leaves a station, a soft one when its beam locks on.
+        const pan = this.spatialPan(event);
+        if (event.stage === 'stationed') this.playSample('weapon/reload-complete', .34, { pan, rate: 1.42 });
+        else if (event.stage === 'following') this.playSample('weapon/reload-complete', .3, { pan, rate: 1.62 });
+        else if (event.stage === 'mend' && !event.teammate) this.playSample('weapon/reload-complete', .1, { pan, rate: 1.9 });
+        break;
+      }
       case 'explosion': {
         const attenuation = 1 / (1 + (event.distance ?? 0) * .03);
         this.playSample('weapon/explosion', .95 * attenuation, { pan: this.spatialPan(event), rate: .92 + Math.random() * .12 });

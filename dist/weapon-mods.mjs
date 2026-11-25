@@ -347,6 +347,92 @@ export function turretStats(value) {
     stagger: TURRET_BASE.stagger * scale.stagger,
   };
 }
+// Each suit brings one nano companion: the auto-turret above, or the medic drone below.
+export const COMPANIONS = Object.freeze({
+  turret: Object.freeze({ name: 'Auto-turret', short: 'Turret', detail: 'Place it once per mission to hold an approach. Hits slow pathogens and can knock them out of attacks.' }),
+  drone: Object.freeze({ name: 'Medic drone', short: 'Drone', detail: 'Follows you and slowly mends the most damaged suit or tissue node near it. Station it over a node, or call it back.' }),
+});
+export const DEFAULT_COMPANION = 'turret';
+export const normalizeCompanion = id => typeof id === 'string' && Object.hasOwn(COMPANIONS, id) ? id : DEFAULT_COMPANION;
+
+// The medic drone hovers by its suit and mends one target at a time: the suit or tissue node in
+// its field that has lost the most. Healing is deliberately slow (about one point a second), so
+// it keeps a defence topped up between pushes rather than replacing the tissue sealer.
+// Part changes are multipliers on these numbers (see droneStats).
+export const DRONE_BASE = Object.freeze({ suitHeal: 1.2, tissueHeal: 1, radius: 8, speed: 9 });
+export const DRONE_SLOTS = {
+  emitter: {
+    name: 'Emitter',
+    options: {
+      standard: { name: 'Field emitter', detail: 'Mends suits at 1.2 and tissue at 1 point a second.' },
+      'triage-emitter': { name: 'Triage emitter', detail: 'Mends suits 40% faster. Mends tissue 40% slower.', changes: { suitHeal: .4, tissueHeal: -.4 } },
+      'graft-emitter': { name: 'Graft emitter', detail: 'Mends tissue 40% faster. Mends suits 40% slower.', changes: { suitHeal: -.4, tissueHeal: .4 } },
+    },
+  },
+  field: {
+    name: 'Field',
+    options: {
+      standard: { name: 'Service field', detail: 'Reaches 8 m from the drone.' },
+      'wide-field': { name: 'Wide field', detail: 'Reaches 11 m. Mends 15% slower.', changes: { radius: .375, suitHeal: -.15, tissueHeal: -.15 } },
+      'focus-field': { name: 'Focus field', detail: 'Reaches only 5 m, but mends 15% faster.', changes: { radius: -.375, suitHeal: .15, tissueHeal: .15 } },
+    },
+  },
+  rotors: {
+    name: 'Rotors',
+    options: {
+      standard: { name: 'Service rotors', detail: 'Keeps pace with a running suit.' },
+      'sprint-rotors': { name: 'Sprint rotors', detail: 'Flies 35% faster to keep up and reposition. Mends 5% slower.', changes: { speed: .35, suitHeal: -.05, tissueHeal: -.05 } },
+      'heavy-rotors': { name: 'Heavy rotors', detail: 'Flies 30% slower, but carries a bigger cell: mends 10% faster.', changes: { speed: -.3, suitHeal: .1, tissueHeal: .1 } },
+    },
+  },
+};
+const COSMETIC_DEFAULTS = Object.freeze({ finish: 'factory', accent: 'factory', skin: 'none', decal: 'none', sticker: 'none', charm: 'none' });
+const DRONE_DEFAULTS = Object.freeze({ emitter: 'standard', field: 'standard', rotors: 'standard', ...COSMETIC_DEFAULTS });
+
+export function normalizeDroneBuild(value) {
+  const build = { ...DRONE_DEFAULTS };
+  if (!value || typeof value !== 'object') return build;
+  for (const [slot, { options }] of Object.entries(DRONE_SLOTS)) {
+    if (typeof value[slot] === 'string' && Object.hasOwn(options, value[slot])) build[slot] = value[slot];
+  }
+  return normalizeCosmetics(value, build);
+}
+
+// Points a second on suits and on tissue, field radius in metres and flight speed in m/s. A
+// charm's damage buff carries over as extra healing, as it carries over to turret damage.
+export function droneStats(value) {
+  const build = normalizeDroneBuild(value);
+  const scale = { suitHeal: 1, tissueHeal: 1, radius: 1, speed: 1 };
+  for (const [slot, { options }] of Object.entries(DRONE_SLOTS)) {
+    for (const [stat, delta] of Object.entries(options[build[slot]].changes ?? {})) scale[stat] += delta;
+  }
+  const charm = 1 + (WEAPON_CHARMS[build.charm].buffs.damageScale ?? 0);
+  return {
+    suitHeal: DRONE_BASE.suitHeal * scale.suitHeal * charm,
+    tissueHeal: DRONE_BASE.tissueHeal * scale.tissueHeal * charm,
+    radius: DRONE_BASE.radius * scale.radius,
+    speed: DRONE_BASE.speed * scale.speed,
+  };
+}
+
+// The tissue sealer (the repair tool): each pulse of `interval` seconds restores `repair` tissue
+// to the node or gash in reach. The Fast Sealer field upgrade and difficulty change `repair`.
+export const SEALER_BASE = Object.freeze({ repair: 13, interval: .82, reach: 5.4 });
+
+// The tissue sealer takes the same paint, skins, decals, stickers and charms as
+// the guns. On the sealer they are cosmetic: a charm swings from it but never changes repairs.
+export function normalizeSealerBuild(value) {
+  return normalizeCosmetics(value, { ...COSMETIC_DEFAULTS });
+}
+
+function normalizeCosmetics(value, build) {
+  if (!value || typeof value !== 'object') return build;
+  for (const [key, options] of Object.entries(COSMETICS)) {
+    if (typeof value[key] === 'string' && Object.hasOwn(options, value[key])) build[key] = value[key];
+  }
+  return build;
+}
+
 export const ARSENAL_SLOTS = Object.freeze(['primary', 'secondary']);
 const BUILD_DEFAULTS = Object.freeze({
   barrel: 'standard', muzzle: 'standard', optic: 'standard', receiver: 'standard', magazine: 'standard',
@@ -394,7 +480,13 @@ export function normalizeWeaponLoadout(value) {
     // Top-level fields describe the weapon they name; they win over a stale stored build.
     builds[id] = normalizeWeaponBuild(id === flatOwner && (!storedBuilds[id] || source.weapon) ? source : storedBuilds[id]);
   }
-  return { weapon: active, slot, ...builds[active], arsenal: { primary, secondary, builds, turret: normalizeTurretBuild(arsenal.turret) } };
+  return {
+    weapon: active, slot, ...builds[active],
+    arsenal: {
+      primary, secondary, builds, turret: normalizeTurretBuild(arsenal.turret),
+      companion: normalizeCompanion(arsenal.companion), drone: normalizeDroneBuild(arsenal.drone), sealer: normalizeSealerBuild(arsenal.sealer),
+    },
+  };
 }
 
 export const DEFAULT_WEAPON_LOADOUT = Object.freeze(normalizeWeaponLoadout({}));
@@ -429,6 +521,24 @@ export function loadoutWithBuild(loadout, id, changes) {
 export function loadoutWithTurret(loadout, changes) {
   const current = normalizeWeaponLoadout(loadout);
   return normalizeWeaponLoadout({ slot: current.slot, arsenal: { ...current.arsenal, turret: { ...current.arsenal.turret, ...changes } } });
+}
+
+// Changes parts or cosmetics on the medic drone.
+export function loadoutWithDrone(loadout, changes) {
+  const current = normalizeWeaponLoadout(loadout);
+  return normalizeWeaponLoadout({ slot: current.slot, arsenal: { ...current.arsenal, drone: { ...current.arsenal.drone, ...changes } } });
+}
+
+// Changes cosmetics on the tissue sealer.
+export function loadoutWithSealer(loadout, changes) {
+  const current = normalizeWeaponLoadout(loadout);
+  return normalizeWeaponLoadout({ slot: current.slot, arsenal: { ...current.arsenal, sealer: { ...current.arsenal.sealer, ...changes } } });
+}
+
+// Chooses the nano companion (turret or drone) the suit deploys with.
+export function loadoutWithCompanion(loadout, companion) {
+  const current = normalizeWeaponLoadout(loadout);
+  return normalizeWeaponLoadout({ slot: current.slot, arsenal: { ...current.arsenal, companion } });
 }
 
 export function otherSlot(slot) {

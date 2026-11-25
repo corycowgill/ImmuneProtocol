@@ -15,5 +15,6 @@ tools/trellis/renders/*/*.png
 tools/enemies/originals/*.glb
 tools/enemies/work/
 tools/weapons/work/
+tools/companions/work/
 tools/lobby/work/
 tools/armory/work/

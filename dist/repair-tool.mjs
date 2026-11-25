@@ -1,4 +1,8 @@
 import * as THREE from './vendor/three.module.js';
+import { normalizeSealerBuild } from './weapon-mods.mjs';
+import { accentPalette, finishPalette } from './carbine.mjs';
+import { decalTexture, dressShell, makeSkinnable } from './weapon-skins.mjs';
+import { createCharms, stickerTexture } from './arsenal-models.mjs';
 
 function bevelledBlock(width, height, length, bevel) {
   const halfWidth = width * .5 - bevel;
@@ -20,7 +24,10 @@ function bevelledBlock(width, height, length, bevel) {
   return geometry;
 }
 
-export function createRepairTool(supportGlove) {
+// The tissue sealer. It takes the guns' finishes, accents, skins, decals, stickers and charms
+// (setBuild); on the sealer they only change its look. `hands: false` leaves the gloves off, for
+// the armory bench.
+export function createRepairTool(supportGlove, { hands = true } = {}) {
   const model = new THREE.Group();
   const frame = new THREE.MeshStandardMaterial({ color: 0x545a58, metalness: .66, roughness: .52 });
   const hardware = new THREE.MeshStandardMaterial({ color: 0xb4a997, metalness: .83, roughness: .39 });
@@ -109,7 +116,7 @@ export function createRepairTool(supportGlove) {
     }
   }
 
-  const cloth = supportGlove.children[0].material;
+  const cloth = hands ? supportGlove.children[0].material : null;
   const up = new THREE.Vector3(0, 1, 0);
   function hold(x, y, z, mirrored, shoulder) {
     const hand = supportGlove.clone();
@@ -130,9 +137,82 @@ export function createRepairTool(supportGlove) {
       grip, wrist.x, wrist.y, wrist.z);
     cuff.quaternion.copy(sleeve.quaternion);
   }
-  hold(-.075, -.078, -.159, false, new THREE.Vector3(-.36, -.32, .35));
-  hold(.078, -.114, .075, true, new THREE.Vector3(.28, -.34, .43));
+  if (hands) {
+    hold(-.075, -.078, -.159, false, new THREE.Vector3(-.36, -.32, .35));
+    hold(.078, -.114, .075, true, new THREE.Vector3(.28, -.34, .43));
+  }
+
+  // Cosmetics: decals along both sides of the main housing, a sticker on its top deck, a charm
+  // hanging from the front collar.
+  const decalMaterial = new THREE.MeshStandardMaterial({ transparent: true, roughness: .55, metalness: .1, polygonOffset: true, polygonOffsetFactor: -4 });
+  const decals = [-1, 1].map(side => {
+    const decal = part(new THREE.PlaneGeometry(.205, .052), decalMaterial, side * .1135, .028, .032);
+    decal.rotation.y = side * Math.PI / 2;
+    decal.castShadow = decal.receiveShadow = false;
+    decal.visible = false;
+    return decal;
+  });
+  const stickerMaterial = new THREE.MeshStandardMaterial({ transparent: true, roughness: .5, polygonOffset: true, polygonOffsetFactor: -4 });
+  const sticker = part(new THREE.PlaneGeometry(.052, .052), stickerMaterial, .066, .0734, -.052);
+  sticker.rotation.x = -Math.PI / 2;
+  sticker.castShadow = sticker.receiveShadow = false;
+  sticker.visible = false;
+  const { pivot: charmPivot, charms } = createCharms();
+  // On the left of the front collar: the side that faces the view in hand and on the bench.
+  charmPivot.position.set(-.064, -.004, -.31);
+  model.add(charmPivot);
+
+  makeSkinnable(shell);
+  const factory = { shell: shell.color.getHex(), frame: frame.color.getHex(), hardware: hardware.color.getHex(),
+    roughness: shell.roughness, metalness: shell.metalness };
+  const factoryAccent = { reagent: reagent.color.getHex(), glow: reagent.emissive.getHex(), indicator: indicator.color.getHex(),
+    lit: indicator.emissive.getHex(), glass: glass.color.getHex() };
+  let dressed = '';
+  function setBuild(value) {
+    const build = normalizeSealerBuild(value);
+    const key = Object.values(build).join('|');
+    if (key === dressed) return;
+    dressed = key;
+    const palette = build.finish === 'factory' ? null : finishPalette(build.finish);
+    dressShell(shell, build.skin, palette?.shell ?? factory.shell, null);
+    if (build.skin === 'none' && !palette) {
+      shell.roughness = factory.roughness;
+      shell.metalness = factory.metalness;
+    }
+    frame.color.setHex(palette?.receiver ?? factory.frame);
+    hardware.color.setHex(palette?.trim ?? factory.hardware);
+    if (build.accent === 'factory') {
+      reagent.color.setHex(factoryAccent.reagent);
+      reagent.emissive.setHex(factoryAccent.glow);
+      indicator.color.setHex(factoryAccent.indicator);
+      indicator.emissive.setHex(factoryAccent.lit);
+      glass.color.setHex(factoryAccent.glass);
+    } else {
+      const accent = accentPalette(build.accent);
+      reagent.color.setHex(accent.cell);
+      reagent.emissive.setHex(accent.emitter);
+      indicator.color.setHex(accent.cell);
+      indicator.emissive.setHex(accent.emitter);
+      glass.color.setHex(accent.glass);
+    }
+    for (const decal of decals) decal.visible = build.decal !== 'none';
+    if (build.decal !== 'none') decalMaterial.map = decalTexture(build.decal);
+    decalMaterial.needsUpdate = true;
+    sticker.visible = build.sticker !== 'none';
+    if (sticker.visible) stickerMaterial.map = stickerTexture(build.sticker);
+    stickerMaterial.needsUpdate = true;
+    for (const [id, charm] of Object.entries(charms)) charm.visible = id === build.charm;
+    charmPivot.visible = build.charm !== 'none';
+  }
+  setBuild(null);
+  let swing = 0;
+  // The charm swings from the collar; `motion` is how hard the sealer is moving this frame.
+  function swingCharm(dt, motion = 0, reduceMotion = false) {
+    swing += dt;
+    charmPivot.rotation.z = reduceMotion ? 0 : Math.sin(swing * 2.6) * (.1 + motion * .4);
+    charmPivot.rotation.x = reduceMotion ? 0 : Math.cos(swing * 1.9) * .06;
+  }
 
   model.visible = false;
-  return { model, nozzle, indicator, reagent };
+  return { model, nozzle, indicator, reagent, setBuild, swingCharm };
 }

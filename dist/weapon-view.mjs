@@ -109,6 +109,7 @@ export function updateRepairTool(world, sim, idle, walk, reduceMotion) {
   model.position.set(Math.min(.23, .11 + world.camera.aspect * .08) + walk * .018,
     -.237 - (1 - raise) * .42 + idle, -.58);
   model.rotation.set(.055 - (1 - raise) * .38, .17, -.07 + walk * .028);
+  world.repairTool.swingCharm?.(world.frameDelta ?? 1 / 60, Math.abs(walk) + (sim.repairing ? .3 : 0), reduceMotion);
   indicator.emissiveIntensity = .56 + sim.repairProgress * .65;
   reagent.emissiveIntensity = .42 + sim.repairProgress * .32;
 
@@ -173,8 +174,10 @@ export function addTurretShot(world, event, reduceMotion) {
   const { x, y, z } = event.impact;
   const dx = x - event.x;
   const dz = z - event.z;
-  world.turretView.fire(reduceMotion, Math.atan2(dx, dz), Math.atan2(y - event.y, Math.hypot(dx, dz)));
-  const start = world.turretView.muzzle.getWorldPosition(world.turretMuzzle);
+  // The shot comes from its owner's turret (co-op squads can field one each).
+  const view = world.turretViews?.find(item => item.ownerId === (event.ownerId ?? null) && item.model.visible) ?? world.turretView;
+  view.fire(reduceMotion, Math.atan2(dx, dz), Math.atan2(y - event.y, Math.hypot(dx, dz)));
+  const start = view.muzzle.getWorldPosition(world.turretMuzzle);
   world.addTracer(start, new THREE.Vector3(x, y, z), world.turretShotMaterial, .09, .03, 6);
   world.burst(x, y, z, 0xf49b62, reduceMotion ? 3 : 11, 2.2);
 }

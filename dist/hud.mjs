@@ -344,6 +344,19 @@ export function drawAbilityHud() {
 
 export function drawTurretHud() {
   turretStatus.hidden = !!session.sim.tutorial;
+  const drone = session.sim.drone;
+  if (drone) {
+    // The medic drone shares the turret's readout and control: what it is doing, and Station / Recall.
+    touchTurret.hidden = !!session.sim.tutorial;
+    touchTurret.disabled = false;
+    const mode = drone.jammed ? 'jammed' : drone.targetKind ? 'engaging' : 'online';
+    turretStatus.dataset.state = touchTurret.dataset.state = mode;
+    setText(touchTurret, drone.mode === 'station' ? 'Recall' : 'Station');
+    const where = drone.mode === 'station' ? 'STATIONED' : 'FOLLOWING';
+    setText(turretStatusValue, drone.jammed ? 'DRONE JAMMED' : drone.targetKind === 'suit' ? 'DRONE MENDING SUIT'
+      : drone.targetKind === 'node' ? 'DRONE MENDING TISSUE' : 'DRONE ' + where);
+    return;
+  }
   const turret = session.sim.turret;
   const ready = !turret && session.sim.turretCharges > 0 && !session.sim.tutorial;
   touchTurret.hidden = !!session.sim.tutorial;

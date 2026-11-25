@@ -3,7 +3,7 @@
 import { Simulation, speciesHabitats } from './simulation.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
-import { WEAPON_TYPES } from './weapon-mods.mjs';
+import { COMPANIONS, WEAPON_TYPES } from './weapon-mods.mjs';
 import { PATHOGENS } from './disease-guide.mjs';
 
 // Arenas without an organ hazard still have a defining pressure.
@@ -121,6 +121,7 @@ export function drawLoadout(list, loadout) {
   list.replaceChildren();
   term(list, 'Primary', WEAPON_TYPES[loadout.arsenal.primary]?.name ?? '');
   term(list, 'Secondary', WEAPON_TYPES[loadout.arsenal.secondary]?.name ?? '');
+  term(list, 'Companion', COMPANIONS[loadout.arsenal.companion]?.name ?? COMPANIONS.turret.name);
 }
 
 // The title screen's summary of the player's progress and kit.

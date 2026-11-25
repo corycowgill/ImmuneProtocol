@@ -7,6 +7,7 @@ import { PostFX } from './post-fx.mjs';
 import { ImpactFX } from './impact-fx.mjs';
 import { paintGround, patchGround, patchShell } from './ground-fx.mjs';
 import { createRepairTool } from './repair-tool.mjs';
+import { createDroneView, droneModelReady } from './drone.mjs';
 import { createHeartValve } from './heart-valve.mjs';
 import { HEART_VALVES } from './heart-chamber.mjs';
 import { createTerrainView } from './terrain-view.mjs';
@@ -182,12 +183,17 @@ export class World {
       makeTissue(this.scene, this.glow, normal, randomSource(718231), true),
     ];
     this.junctionField = makeJunctionField(this.room.junctionDetails, this.tissueViews[0], this.glow);
-    this.turretView = createTurret(this.glow);
+    // One turret view per suit in the largest squad: every suit can place its own turret.
+    this.turretViews = Array.from({ length: COOP_MAX_PLAYERS }, () => createTurret(this.glow));
+    this.turretView = this.turretViews[0];
     this.abilityFx = new AbilityFX(this.scene, this.glow, this.random);
     this.terrainViews = new Map();
     // How the suit's own moves feel through the camera and the weapon (see applyFeel).
     this.feel = { rush: 0, side: 0, forward: 0, dip: 0, dipV: 0, focus: 0, bash: 0, throw: 0 };
-    this.scene.add(this.turretView.model);
+    for (const view of this.turretViews) this.scene.add(view.model);
+    // Medic drones, one per suit in the largest squad, built once their model has loaded.
+    this.droneViews = null;
+    this.droneModelReady = droneModelReady.then(() => this.ensureDroneViews());
     this.turretMuzzle = new THREE.Vector3();
     this.leakTime = 0;
     this.toolStream = addMesh(this.scene, new THREE.CylinderGeometry(.014, .005, 1, 9, 1, true),
@@ -310,6 +316,16 @@ export class World {
 
   async prepareMission(...args) {
     return prepareMissionOf(this, ...args);
+  }
+
+  ensureDroneViews() {
+    if (this.droneViews) return this.droneViews;
+    this.droneViews = Array.from({ length: COOP_MAX_PLAYERS }, () => createDroneView(this.glow));
+    for (const view of this.droneViews) {
+      view.reset();
+      this.scene.add(view.model, view.beam);
+    }
+    return this.droneViews;
   }
 
   setWeaponLoadout(loadout) {
@@ -467,7 +483,8 @@ export class World {
       view.channel.visible = false;
     }
     this.toolStream.visible = false;
-    this.turretView.reset();
+    for (const view of this.turretViews) view.reset();
+    for (const view of this.droneViews ?? []) view.reset();
     this.abilityFx.reset();
     Object.assign(this.feel, { rush: 0, side: 0, forward: 0, dip: 0, dipV: 0, focus: 0, bash: 0, throw: 0 });
     this.camera.fov = 61;
@@ -957,13 +974,25 @@ export class World {
     this.deaths.note(sim.events, player);
     this.updateEnemies(sim.enemies, dt, reduceMotion);
     this.deaths.update(dt, reduceMotion);
+    this.frameDelta = dt;
     this.impacts.update(dt);
     this.updateProjectiles(sim.projectiles ?? [], reduceMotion);
     this.updatePickups(sim.pickups ?? [], reduceMotion);
     this.teammateView.update(sim.players, player.id, floorHeight, dt, reduceMotion);
-    const { turret } = sim;
-    // turret.y is the raised ground it stands on; the floor's own undulation goes on top.
-    this.turretView.update(turret, turret ? baseFloorHeight(turret.x, turret.z) : 0, dt, reduceMotion);
+    // Every placed turret (one per suit that brought one). turret.y is the raised ground it
+    // stands on; the floor's own undulation goes on top.
+    const turrets = sim.turrets ?? (sim.turret ? [sim.turret] : []);
+    this.turretViews.forEach((view, index) => {
+      const turret = turrets[index] ?? null;
+      view.ownerId = turret?.ownerId ?? null;
+      view.update(turret, turret ? baseFloorHeight(turret.x, turret.z) : 0, dt, reduceMotion);
+    });
+    // Every medic drone in the squad, with its mending beam.
+    const drones = sim.drones ?? (sim.drone ? [sim.drone] : []);
+    (this.droneViews ?? []).forEach((view, index) => {
+      const drone = drones[index] ?? null;
+      view.update(drone, drone ? baseFloorHeight(drone.x, drone.z) : 0, dt, reduceMotion);
+    });
     this.abilityFx.update(sim, this.camera, dt, reduceMotion, this.enemyViews);
     this.terrainView?.userData.update?.(sim.clock ?? 0);
     const { weaponLoadout, tutorial } = sim;
@@ -973,6 +1002,7 @@ export class World {
       } : weaponLoadout);
       this.weaponSource = weaponLoadout;
       this.weaponTutorial = tutorial;
+      this.repairTool.setBuild(tutorial ? null : weaponLoadout.arsenal?.sealer);
     }
     this.updateWeapon(sim, dt, input, aiming, reduceMotion);
     this.processEvents(sim.events, dt, reduceMotion, sim.weapon.muzzleFlash, player.id);

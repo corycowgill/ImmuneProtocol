@@ -1,6 +1,7 @@
 import { RULES, Simulation } from './simulation.mjs';
 import { magazineCapacity, normalizeWeaponLoadout, weaponStats } from './weapon-mods.mjs';
 import { snapshotThrowables, throwItems, useMelee } from './abilities.mjs';
+import { companionOf, createDrone, snapshotDrone } from './companions.mjs';
 import { COOP_MIN_PLAYERS, COOP_MAX_PLAYERS, COOP_SUITS, DEFAULT_COOP_SUIT } from './coop-protocol.mjs';
 
 const normalizeSuit = suit => COOP_SUITS.includes(suit) ? suit : DEFAULT_COOP_SUIT;
@@ -8,8 +9,10 @@ const normalizeSuit = suit => COOP_SUITS.includes(suit) ? suit : DEFAULT_COOP_SU
 const RESPAWN_HEALTH = 50;
 
 // State packets carry the build in hand and the names of both carried weapons, not every build.
+// The sealer's cosmetics and the companion ride along so the sealer is painted and teammates know
+// which companion each suit brought.
 function snapshotLoadout({ arsenal, ...build }) {
-  return { ...build, arsenal: { primary: arsenal.primary, secondary: arsenal.secondary } };
+  return { ...build, arsenal: { primary: arsenal.primary, secondary: arsenal.secondary, companion: arsenal.companion, sealer: arsenal.sealer } };
 }
 
 class CoopSuit {
@@ -88,6 +91,13 @@ export class CoopSimulation extends Simulation {
     ));
     this.suitsById = new Map(this.suits.map(suit => [suit.player.id, suit]));
     this.players = this.suits.map(suit => suit.player);
+    // Every suit brings its own companion: its own turret to place once, or its own medic drone.
+    for (const suit of this.suits) {
+      suit.companion = companionOf(suit);
+      suit.turretCharges = suit.companion === 'turret' ? 1 : 0;
+      suit.turret = null;
+      suit.drone = createDrone(this, suit);
+    }
   }
 
   start(checkpoint = null) {
@@ -163,7 +173,7 @@ export class CoopSimulation extends Simulation {
     const { player } = suit;
     if (player.health <= 0) return;
     const eventStart = this.events.length;
-    if (input.deploy) this.deployTurret(suit);
+    if (input.deploy) this.useCompanion(suit);
     this.carryTurret(!!input.carry, suit);
     useMelee(this, suit, input, dt);
     throwItems(this, suit, input, dt);
@@ -232,11 +242,16 @@ export class CoopSimulation extends Simulation {
       nearNode: nodeCopy(suit.nearNode), nearNodeId: suit.nearNode?.id ?? null,
       objective: nodeCopy(this.objective), objectiveId: this.objective.id,
       failedNode: nodeCopy(this.failedNode), failedNodeId: this.failedNode?.id ?? null,
-      turret: this.turret ? { ...this.turret } : null,
+      // Your own turret and drone drive the HUD; every one of them is drawn.
+      turret: suit.turret ? { ...suit.turret } : null,
+      turrets: this.turrets.map(turret => ({ ...turret })),
+      companion: suit.companion,
+      drone: snapshotDrone(suit.drone),
+      drones: this.drones.map(drone => ({ ...snapshotDrone(drone), id: 'drone:' + drone.ownerId })),
       ability: suit.ability ? { ...suit.ability } : null,
       throwables: snapshotThrowables(this),
-      turretPlacement: player.downed ? null : this.turretPlacementFor(player),
-      turretCharges: this.turretCharges, canRedeployTurret: this.canRedeployTurret,
+      turretPlacement: player.downed ? null : this.turretPlacementFor(player, suit),
+      turretCharges: suit.turretCharges, canRedeployTurret: false,
       nodes,
       enemies: this.enemies.map(enemy => ({ ...enemy, node: nodeCopy(enemy.node) })),
       projectiles: this.projectiles.map(({ owner, ...projectile }) => ({ ...projectile, ownerId: owner.id })),

@@ -2,6 +2,7 @@
 //
 //   npm run balance                                     every mission, difficulty and strategy
 //   npm run balance -- --difficulty hard --trials 20 stomach colon
+//   npm run balance -- --companion drone             bring the medic drone instead of the turret
 //
 // Both strategies aim with the same imperfect, range-dependent accuracy and only engage within 40 m.
 // The anchor guards whichever node is weakest and keeps shooting its target even when a Shellback
@@ -15,17 +16,19 @@ import { Simulation } from '../../dist/simulation.mjs';
 import { CAMPAIGN_AREAS } from '../../dist/coop-protocol.mjs';
 import { DIFFICULTIES, applyDifficulty } from '../../dist/difficulty.mjs';
 import { HEART_VALVES } from '../../dist/heart-chamber.mjs';
+import { loadoutWithCompanion, normalizeWeaponLoadout } from '../../dist/weapon-mods.mjs';
 
 const STEP = 1 / 30;
 const TIME_LIMIT = 2700;
 
 function parse(argv) {
-  const options = { difficulties: Object.keys(DIFFICULTIES), players: ['anchor', 'rover'], trials: 4, areas: [] };
+  const options = { difficulties: Object.keys(DIFFICULTIES), players: ['anchor', 'rover'], trials: 4, areas: [], companion: 'turret' };
   for (let index = 0; index < argv.length; index++) {
     const value = argv[index];
     if (value === '--difficulty') options.difficulties = [argv[++index]];
     else if (value === '--player') options.players = [argv[++index]];
     else if (value === '--trials') options.trials = Number(argv[++index]);
+    else if (value === '--companion') options.companion = argv[++index];
     else options.areas.push(value);
   }
   if (!options.areas.length) options.areas = [...CAMPAIGN_AREAS];
@@ -71,8 +74,15 @@ function aim(player, target, jitter) {
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 function play(area, difficulty, rover) {
-  const sim = applyDifficulty(new Simulation(area), difficulty);
+  const weaponLoadout = loadoutWithCompanion(normalizeWeaponLoadout({}), options.companion);
+  const fresh = new Simulation(area, { weaponLoadout });
+  if (process.env.BALANCE_REPAIR) fresh.repairAmount = Number(process.env.BALANCE_REPAIR);
+  const sim = applyDifficulty(fresh, difficulty);
   sim.start();
+  if (process.env.BALANCE_DRONE && sim.drone) {
+    const [suitHeal, tissueHeal] = process.env.BALANCE_DRONE.split(',').map(Number);
+    Object.assign(sim.drone.stats, { suitHeal, tissueHeal });
+  }
   obstacles = sim.obstacles;
   const memory = { misses: 0, blocked: new Map() };
   let clock = 0;
@@ -85,7 +95,8 @@ function play(area, difficulty, rover) {
       break;
     }
     const input = think(sim, rover, memory, clock);
-    if (!deployed && sim.phase === 'combat' && clock > 3) input.deploy = deployed = true;
+    // A turret goes down early; a drone just follows (the control would station it).
+    if (!deployed && !sim.drone && sim.phase === 'combat' && clock > 3) input.deploy = deployed = true;
     // Barely moved for half a second while trying to: something low is in the way, so hop it.
     if (clock - last.at > .5) {
       const trying = Math.hypot(input.moveX ?? 0, input.moveZ ?? 0) > .5;
@@ -102,7 +113,7 @@ function play(area, difficulty, rover) {
   }
   if (process.env.BOT_DEBUG && sim.phase !== 'won' && clock >= TIME_LIMIT) console.log('  timeout state', JSON.stringify({ settling: sim.settling, gash: !!sim.gash, extraction: sim.extractionPending, intermission: sim.intermission, enemies: sim.enemies.map(e => e.boss ?? e.type), tissue: sim.tissue, player: [Math.round(sim.player.x), Math.round(sim.player.z)], near: !!sim.nearNode, nodes: sim.nodes.map(n => Math.round(n.health)) }));
   if (process.env.BOT_DEBUG && sim.phase !== 'won') console.log(area, difficulty, sim.phase, 'wave', sim.wave, 'failed', sim.failedNode?.name, 'hp', Math.round(sim.player.health), 't', Math.round(clock));
-  return { won: sim.phase === 'won', lowest };
+  return { won: sim.phase === 'won', lowest, suitLost: sim.phase === 'lost' && !sim.failedNode };
 }
 
 function hiddenByTissue(sim, player, enemy) {
@@ -215,6 +226,12 @@ function think(sim, rover, memory, clock) {
 }
 
 const options = parse(process.argv.slice(2));
+// BALANCE_REPAIR=11 or BALANCE_DRONE=1,1 try other sealer or drone numbers without editing the game.
+if (process.env.BALANCE_REPAIR || process.env.BALANCE_DRONE) {
+  console.log('Experimental numbers:', JSON.stringify({ repair: process.env.BALANCE_REPAIR, drone: process.env.BALANCE_DRONE }));
+}
+let suitLosses = 0;
+let losses = 0;
 const columns = options.difficulties.flatMap(difficulty => options.players.map(player => `${difficulty}/${player}`));
 console.log(['mission'.padEnd(11), ...columns.map(column => column.padStart(15))].join(''));
 const unwinnable = [];
@@ -228,6 +245,8 @@ for (const area of options.areas) {
       for (let trial = 0; trial < options.trials; trial++) {
         const result = play(area, difficulty, player === 'rover');
         wins += Number(result.won);
+        losses += Number(!result.won);
+        suitLosses += Number(result.suitLost);
         lowest += result.lowest / options.trials;
       }
       winners += wins;
@@ -238,6 +257,7 @@ for (const area of options.areas) {
   console.log([area.padEnd(11), ...cells].join(''));
 }
 console.log('\nWins per trials, then the average of each run\'s lowest tissue node integrity.');
+console.log(`Companion: ${options.companion}. Losses: ${losses}, ${suitLosses} of them to the suit failing.`);
 if (unwinnable.length) {
   console.error('Never won: ' + unwinnable.join(', '));
   process.exitCode = 1;

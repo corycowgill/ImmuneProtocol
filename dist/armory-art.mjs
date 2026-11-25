@@ -5,6 +5,8 @@ import { DEFAULT_WEAPON_LOADOUT, WEAPON_SLOTS, loadoutWithWeapon } from './weapo
 import { LOW_MEMORY, loadTexture } from './asset-loading.mjs';
 import { gpuIdle } from './gpu-idle.mjs';
 import { createTurret } from './turret.mjs';
+import { createRepairTool } from './repair-tool.mjs';
+import { createDroneView, droneModelReady } from './drone.mjs';
 
 // A soft round sprite for the turret's muzzle flash and contact shade (neither shows on the bench).
 function glowTexture() {
@@ -119,6 +121,22 @@ export async function prepareArmoryArt(renderer) {
   sentryPose.rotation.y = Math.PI * 1.14;
   sentryPose.add(sentry.model);
   turntable.add(sentryPose);
+  // The tissue sealer and the medic drone share the bench the same way.
+  const sealer = createRepairTool(null, { hands: false });
+  sealer.model.visible = false;
+  const sealerPose = new THREE.Group();
+  sealerPose.add(sealer.model);
+  turntable.add(sealerPose);
+  await droneModelReady;
+  const drone = createDroneView(glowTexture(), { beam: false });
+  drone.model.visible = false;
+  const dronePose = new THREE.Group();
+  // Three-quarters on, so its sensor eye, decal side and charm face the camera.
+  dronePose.rotation.y = -Math.PI * .22;
+  dronePose.add(drone.model);
+  turntable.add(dronePose);
+  // Everything that stands on the bench in place of a carried weapon, by its `weapon` tag.
+  const props = { turret: { view: sentry, pose: sentryPose }, sealer: { view: sealer, pose: sealerPose }, drone: { view: drone, pose: dronePose } };
   photography.add(turntable);
   const studio = photography.background;
   if (bench) renderer.initTexture(bench);
@@ -197,7 +215,7 @@ export async function prepareArmoryArt(renderer) {
     turntable.position.set(0, 0, 0);
     turntable.rotation.set(0, 0, 0);
     carbine.model.position.set(0, 0, 0);
-    sentryPose.position.set(0, 0, 0);
+    for (const { pose } of Object.values(props)) pose.position.set(0, 0, 0);
     // Fit the whole weapon as it is built right now: launchers and rifles are longer than the
     // carbine, pistols much shorter, and a long barrel or a scope changes the outline.
     const bounds = new THREE.Box3();
@@ -233,7 +251,7 @@ export async function prepareArmoryArt(renderer) {
     // Turn the weapon about its centre, and tip it toward or away from the camera.
     turntable.position.copy(focus);
     carbine.model.position.copy(focus).negate();
-    sentryPose.position.copy(focus).negate();
+    for (const { pose } of Object.values(props)) pose.position.copy(focus).negate();
     side.crossVectors(offset, up).normalize();
     turntable.quaternion.setFromAxisAngle(side, -pitch).multiply(spin.setFromAxisAngle(up, -yaw));
     orbitCamera.position.copy(focus).add(offset);
@@ -244,9 +262,9 @@ export async function prepareArmoryArt(renderer) {
   }
   // Photographs each part card for a weapon, one at a time.
   function* photographCards(weapon) {
-    const turretShown = sentry.model.visible;
+    const shownProps = Object.values(props).map(({ view }) => view.model.visible);
     carbine.model.visible = true;
-    sentry.model.visible = false;
+    for (const { view } of Object.values(props)) view.model.visible = false;
     // Part cards are framed with the weapon square at the origin.
     turntable.position.set(0, 0, 0);
     turntable.rotation.set(0, 0, 0);
@@ -267,8 +285,8 @@ export async function prepareArmoryArt(renderer) {
         }
       }
     } finally {
-      carbine.model.visible = !turretShown;
-      sentry.model.visible = turretShown;
+      carbine.model.visible = !shownProps.some(Boolean);
+      Object.values(props).forEach(({ view }, index) => { view.model.visible = shownProps[index]; });
     }
   }
   return {
@@ -296,15 +314,16 @@ export async function prepareArmoryArt(renderer) {
     },
     // `view` turns the camera around the weapon ({ yaw, pitch } in radians).
     render(loadout, view) {
-      const turret = loadout.weapon === 'turret';
-      carbine.model.visible = !turret;
-      sentry.model.visible = turret;
-      if (turret) sentry.setBuild(loadout);
+      const prop = props[loadout.weapon] ?? null;
+      carbine.model.visible = !prop;
+      for (const { view } of Object.values(props)) view.model.visible = view === prop?.view;
+      if (prop) prop.view.setBuild(loadout);
       else carbine.setLoadout(loadout);
       shown = loadout.weapon;
-      const framed = frame(turret ? sentry : carbine, loadout);
+      if (prop?.view === drone) drone.pose(performance.now() / 1000);
+      const framed = frame(prop ? prop.view : carbine, loadout);
       // The splayed tripod legs make the turret's outline wide and low; come in to the gun itself.
-      if (turret) framed.position.lerp(focus, .42);
+      if (prop?.view === sentry) framed.position.lerp(focus, .42);
       const lens = orbit(framed, view);
       // Only the big preview stands on the bench; part cards keep their plain backdrop.
       photography.background = bench ?? studio;
@@ -316,7 +335,7 @@ export async function prepareArmoryArt(renderer) {
     // Where each part slot sits in the last rendered preview, as fractions of its width and
     // height, for the callout lines drawn over it.
     anchors() {
-      if (shown === 'turret') return null;
+      if (props[shown]) return null;
       const places = shown === 'carbine'
         ? Object.fromEntries(Object.entries(CARD_VIEWS).map(([slot, { focus }]) => [slot, new THREE.Vector3(...focus)]))
         : carbine.anchors();
