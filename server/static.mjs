@@ -8,6 +8,8 @@ const CONTENT_TYPES = new Map([
   ['.svg', 'image/svg+xml'], ['.webp', 'image/webp'], ['.jpg', 'image/jpeg'],
   ['.png', 'image/png'], ['.wav', 'audio/wav'], ['.mp3', 'audio/mpeg'],
   ['.mp4', 'video/mp4'], ['.woff2', 'font/woff2'], ['.glb', 'model/gltf-binary'],
+  // Translations (dist/locales).
+  ['.json', 'application/json; charset=utf-8'],
 ]);
 
 function readRange(value, size) {

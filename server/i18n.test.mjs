@@ -81,3 +81,19 @@ test('every shipped locale covers the catalog with matching slots', () => {
     }
   }
 });
+
+test('the game server serves the translation files', async () => {
+  const { createServer } = await import('node:http');
+  const { serveStatic } = await import('./static.mjs');
+  const root = new URL('../dist/', import.meta.url).pathname;
+  const server = createServer((request, response) => serveStatic(request, response, root, new URL(request.url, 'http://local')));
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/locales/de.json`);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /application\/json/);
+    assert.ok((await response.json()).strings['Start campaign']);
+  } finally {
+    server.close();
+  }
+});
