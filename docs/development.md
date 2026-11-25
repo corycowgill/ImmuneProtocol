@@ -340,7 +340,7 @@ npm run i18n:extract
 npm run i18n:check
 ```
 
-`i18n:extract` ([`tools/i18n/extract.mjs`](../tools/i18n/extract.mjs), using acorn) rebuilds `dist/locales/catalog.json` from `dist/index.html` and the game modules: display-like string literals, plus concatenations and template literals as templates. `i18n:check` reports any catalog entry a locale is missing, a template whose slots differ, or an all-caps English string that lost its capitals. After changing English text, extract, translate the new entries in every locale, and check; `node --test server/i18n.test.mjs` runs the matcher's tests and the same coverage check. To add a language, add it to `LANGUAGES` in `i18n.mjs` and to `LOCALES` in `check.mjs`, and write its JSON.
+`i18n:extract` ([`tools/i18n/extract.mjs`](../tools/i18n/extract.mjs), using acorn) rebuilds `dist/locales/catalog.json` from `dist/index.html` and the game modules: display-like string literals, plus concatenations and template literals as templates. `i18n:check` reports any catalog entry a locale is missing, a template whose slots differ, or an all-caps English string that lost its capitals. After changing English text, extract, translate the new entries in every locale, and check; `node --test server/i18n.test.mjs` runs the matcher's tests and the same coverage check. To add a language, add it to `LANGUAGES` in `i18n.mjs` and to `LOCALES` in `check.mjs`, and write its JSON. `zh-TW` (Traditional Chinese, Taiwan) was made from `zh.json` with OpenCC's `s2twp` profile (`opencc-js`) and then reviewed by hand for Taiwanese usage; `preferredLanguage()` picks it for zh-TW, zh-HK, zh-MO and zh-Hant browsers.
 
 ## Publish updates
 

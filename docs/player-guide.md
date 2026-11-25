@@ -422,7 +422,7 @@ With Dynamic resolution, the game renders at a lower resolution when the frame r
 
 ## Language
 
-The game is available in **English, Spanish (Español), German (Deutsch), French (Français), Simplified Chinese (中文) and Hindi (हिन्दी)**. The language belongs to your operator: open the operator chip on the title screen and pick it under **Language** in the active operator's settings (it is also offered when you set up a new operator). It changes at once, and each operator on the device keeps their own, so switching operator switches language too. A new operator starts in your browser's language when the game speaks it, and in English otherwise.
+The game is available in **English, Spanish (Español), German (Deutsch), French (Français), Simplified Chinese (中文（简体）), Traditional Chinese for Taiwan (中文（繁體）) and Hindi (हिन्दी)**. The language belongs to your operator: open the operator chip on the title screen and pick it under **Language** in the active operator's settings (it is also offered when you set up a new operator). It changes at once, and each operator on the device keeps their own, so switching operator switches language too. A new operator starts in your browser's language when the game speaks it (Traditional Chinese for Taiwan, Hong Kong and Macau, Simplified for other Chinese settings), and in English otherwise.
 
 Menus, the HUD and announcements, mission briefings and reports, the Armory, the Disease guide, achievements, settings and the field manual are translated. The cinematics (the studio intro, mission briefing videos and the ending) stay in English for now. Chinese and Hindi use your system's fonts for those scripts.
 
