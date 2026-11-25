@@ -202,9 +202,10 @@ export function controllerFrame(now) {
   }
   // Gameplay follows the player's controller bindings (keybinds.mjs); held actions are read from
   // the same bindings, so game.mjs sees fire/aim/repair/sprint exactly as bound.
-  Object.assign(current, { fire: padHeld(current, 'fire'), aim: padHeld(current, 'aim'), repair: padHeld(current, 'repair') });
-  current.sprint = sprint.update(current, session.options?.['sprint-mode'] ?? 'toggle', padHeld(current, 'sprint'), padPressed(current, 'sprint'));
-  controls.xboxState = current;
+  // A copy: with no controller connected, poll() returns a shared frozen state.
+  const state = { ...current, fire: padHeld(current, 'fire'), aim: padHeld(current, 'aim'), repair: padHeld(current, 'repair') };
+  state.sprint = sprint.update(state, session.options?.['sprint-mode'] ?? 'toggle', padHeld(current, 'sprint'), padPressed(current, 'sprint'));
+  controls.xboxState = state;
   // During a Capillary Junction break the D-pad picks support, so D-pad bindings wait.
   const supplyOpen = !junctionSupply.hidden;
   const pressed = action => padPressed(current, action) && !(supplyOpen && padButtonOf(action) >= 12);
