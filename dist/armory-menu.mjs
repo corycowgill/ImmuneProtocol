@@ -8,6 +8,8 @@ import { createArmoryScreen } from './armory-screen.mjs';
 import { session } from './session.mjs';
 import { byId, reducedMotion, clamp, setText } from './dom.mjs';
 import { weaponLoadoutKey, writeSetting } from './settings-store.mjs';
+import { ACHIEVEMENT_BY_ID, rewardFor } from './achievements.mjs';
+import { achievements } from './achievement-system.mjs';
 
 // What the rest of the game hears about armory changes; game.mjs fills it in.
 export const armoryEvents = {
@@ -48,6 +50,7 @@ export function setupArmory() {
   session.armoryScreen ??= createArmoryScreen({
     document, dialog: armoryDialog, art: session.armoryArt, cosmetics: armoryCosmetics, cosmeticArt,
     getLoadout: () => session.weaponLoadout, equip: equipWeaponLoadout, baseCapacity: () => RULES.magazine,
+    locked: (slot, id) => { const reward = rewardFor(slot, id); return reward && !achievements.hasReward(slot, id) ? ACHIEVEMENT_BY_ID[reward.achievement].name : null; },
   });
 }
 

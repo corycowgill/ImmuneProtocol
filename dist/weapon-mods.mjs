@@ -84,6 +84,10 @@ export const WEAPON_FINISHES = {
   crimson: { name: 'Crimson', color: '#8d4642' },
   moss: { name: 'Moss', color: '#666e48' },
   desert: { name: 'Desert', color: '#b69b72' },
+  // Achievement rewards (achievements.mjs REWARDS).
+  surgical: { name: 'Surgical steel', color: '#a9b8bf' },
+  presidential: { name: 'Presidential gold', color: '#b8913a' },
+  platinum: { name: 'Platinum', color: '#dfe7ec' },
 };
 
 export const WEAPON_ACCENTS = {
@@ -91,6 +95,8 @@ export const WEAPON_ACCENTS = {
   amber: { name: 'Amber', color: '#ffb54c' },
   violet: { name: 'Violet', color: '#bc8cff' },
   ice: { name: 'Ice', color: '#7cddff' },
+  'code-red': { name: 'Code red', color: '#ff3b4e' },
+  viral: { name: 'Viral magenta', color: '#ff4fd8' },
 };
 
 // Decals on the receiver. `ink` and `paper` colour the printed design.
@@ -113,6 +119,9 @@ export const WEAPON_STICKERS = {
   pizza: { name: 'Pizza slice', detail: 'Rations of the elite.', ink: '#b8281f', paper: '#ffd062' },
   rainbow: { name: 'Rainbow', detail: 'Seven bands of good vibes.', ink: '#ffffff', paper: '#8fd3ff' },
   peace: { name: 'Peace', detail: 'Ironic, given the circumstances.', ink: '#ffffff', paper: '#2fa36b' },
+  trophy: { name: 'Trophy', detail: 'Every boss in the body, on the shelf.', ink: '#6b4b06', paper: '#f4c94e' },
+  medic: { name: 'Field medic', detail: 'A green cross for the tissue menders.', ink: '#ffffff', paper: '#1f9d62' },
+  squad: { name: 'Squad up', detail: 'Three suits, one infection.', ink: '#0f1a21', paper: '#8fe4dd' },
 };
 
 // Patterned wraps over the weapon's polymer furniture. The body finish still colors the metal.
@@ -126,6 +135,10 @@ export const WEAPON_SKINS = {
   cyberpunk: { name: 'Cyberpunk', detail: 'Neon circuitry that glows in the dark.', glow: true },
   carbon: { name: 'Carbon fiber', detail: 'Woven twill under clear lacquer.' },
   molten: { name: 'Molten core', detail: 'Black rock split by glowing magma.', glow: true },
+  bloodstream: { name: 'Bloodstream', detail: 'Red cells tumbling through plasma.' },
+  neural: { name: 'Neural net', detail: 'Firing synapses that glow in the dark.', glow: true },
+  outbreak: { name: 'Outbreak', detail: 'A field of spiked capsids on toxic green.' },
+  prismatic: { name: 'Prismatic', detail: 'Holographic platinum that shifts colour.', glow: true },
 };
 
 // Wide prints along the side of the stock or body.
@@ -139,6 +152,8 @@ export const WEAPON_DECALS = {
   barcode: { name: 'Barcode', detail: 'Property of the immune system.', ink: '#f4f0e8', accent: '#f4f0e8' },
   number: { name: 'Unit 07', detail: 'Stenciled squad number.', ink: '#f4f0e8', accent: '#ffb54c' },
   splatter: { name: 'Paint splatter', detail: 'Pink, cyan and lime splashes.', ink: '#ff5fa2', accent: '#3ad6e8' },
+  ecg: { name: 'Heartbeat', detail: 'A glowing ECG trace down the side.', ink: '#6bff8f', accent: '#1d7f3c' },
+  blast: { name: 'Blast radius', detail: 'Shockwave rings from a five-kill rocket.', ink: '#ffb02e', accent: '#ff5a2a' },
 };
 
 // Charms hang from the weapon and give a buff while that weapon is in your hands.

@@ -58,7 +58,8 @@ function setText(node, value) {
   if (node.textContent !== text) node.textContent = text;
 }
 
-export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticArt, getLoadout, equip, baseCapacity }) {
+// `locked(slot, id)` returns why a cosmetic is unavailable (an achievement reward not yet earned), or null.
+export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticArt, getLoadout, equip, baseCapacity, locked = () => null }) {
   const byId = id => document.getElementById(id);
   const kicker = byId('armory-kicker');
   const modeTabs = byId('armory-modes');
@@ -84,8 +85,11 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
   const partSlots = () => turretEditing() ? TURRET_SLOTS : WEAPON_SLOTS;
   const withPart = (slot, option) => turretEditing() ? { ...edited(), [slot]: option }
     : loadoutInSlot(loadoutWithBuild(getLoadout(), edited().weapon, { [slot]: option }), state.editing);
-  const equipPart = (slot, option) => equip(turretEditing() ? loadoutWithTurret(getLoadout(), { [slot]: option })
-    : loadoutWithBuild(getLoadout(), edited().weapon, { [slot]: option }));
+  const equipPart = (slot, option) => {
+    if (locked(slot, option)) return;
+    equip(turretEditing() ? loadoutWithTurret(getLoadout(), { [slot]: option })
+      : loadoutWithBuild(getLoadout(), edited().weapon, { [slot]: option }));
+  };
 
   // --- mode tabs
   for (const [mode, label, hint] of MODES) {
@@ -377,11 +381,24 @@ export function createArmoryScreen({ document, dialog, art, cosmetics, cosmeticA
       return tab;
     }));
     options.dataset.layout = 'tiles';
+    const earnedCount = Object.keys(choices).filter(id => !locked(slot, id)).length;
+    if (earnedCount < Object.keys(choices).length) setText(panelNote, earnedCount + ' of ' + Object.keys(choices).length + ' unlocked');
     options.replaceChildren(...Object.entries(choices).map(([id, option]) => {
       const equipped = current[slot] === id;
+      const lock = equipped ? null : locked(slot, id);
       const card = element(document, 'button', 'gs-option gs-tile');
       card.type = 'button';
       card.setAttribute('aria-pressed', String(equipped));
+      if (lock) {
+        // A reward not earned yet: shown, so players know it exists, but not equippable.
+        card.disabled = true;
+        card.dataset.locked = 'true';
+        card.append(element(document, 'strong', '', option.name));
+        card.append(element(document, 'small', '', 'Locked · Earn “' + lock + '”'));
+        if (option.color) { const swatch = element(document, 'span', 'gs-swatch'); swatch.style.setProperty('--swatch', option.color); card.prepend(swatch); }
+        else { const picture = element(document, 'img'); picture.alt = ''; picture.src = cosmeticArt(slot, id); card.prepend(picture); }
+        return card;
+      }
       if (option.color) {
         const swatch = element(document, 'span', 'gs-swatch');
         swatch.style.setProperty('--swatch', option.color);

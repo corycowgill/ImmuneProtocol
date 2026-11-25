@@ -742,6 +742,33 @@ export function drawSticker(context, size, id) {
     context.moveTo(c, c);
     context.lineTo(c + 24 * s, c + 24 * s);
     context.stroke();
+  } else if (id === 'trophy') {
+    // A gold cup on its plinth.
+    context.beginPath();
+    context.moveTo(c - 26 * s, c - 34 * s); context.lineTo(c + 26 * s, c - 34 * s);
+    context.quadraticCurveTo(c + 26 * s, c + 8 * s, c, c + 12 * s);
+    context.quadraticCurveTo(c - 26 * s, c + 8 * s, c - 26 * s, c - 34 * s);
+    context.fill();
+    context.lineWidth = 7 * s;
+    context.beginPath(); context.arc(c - 26 * s, c - 18 * s, 12 * s, Math.PI * .5, Math.PI * 1.5); context.stroke();
+    context.beginPath(); context.arc(c + 26 * s, c - 18 * s, 12 * s, -Math.PI * .5, Math.PI * .5); context.stroke();
+    context.fillRect(c - 6 * s, c + 10 * s, 12 * s, 14 * s);
+    context.fillRect(c - 22 * s, c + 24 * s, 44 * s, 10 * s);
+    context.fillStyle = '#fff6c8';
+    context.fillRect(c - 16 * s, c - 28 * s, 6 * s, 22 * s);
+  } else if (id === 'medic') {
+    // A green cross (the protected red cross is not used).
+    context.fillRect(c - 11 * s, c - 34 * s, 22 * s, 68 * s);
+    context.fillRect(c - 34 * s, c - 11 * s, 68 * s, 22 * s);
+  } else if (id === 'squad') {
+    // Three suit helmets, shoulder to shoulder.
+    for (const [x, scale] of [[c - 26 * s, .8], [c + 26 * s, .8], [c, 1]]) {
+      context.beginPath(); context.arc(x, c - 8 * s * scale, 15 * s * scale, Math.PI, 0); context.lineTo(x + 15 * s * scale, c + 10 * s); context.lineTo(x - 15 * s * scale, c + 10 * s); context.closePath(); context.fill();
+      context.fillStyle = sticker.paper;
+      context.fillRect(x - 10 * s * scale, c - 8 * s * scale, 20 * s * scale, 6 * s * scale);
+      context.fillStyle = sticker.ink;
+    }
+    context.fillRect(c - 44 * s, c + 16 * s, 88 * s, 8 * s);
   }
   context.restore();
 }

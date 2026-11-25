@@ -218,3 +218,37 @@ test('a real mission feeds the tracker without errors and credits the turret', (
   t.missionEnd({ won: sim.phase === 'won', area: sim.area, difficulty: 'medium', score: sim.score, nodes: sim.nodes, health: sim.player.health });
   assert.ok(t.record.stats.turretKills === undefined || t.record.stats.turretKills >= 0);
 });
+
+test('every reward is a real cosmetic or emblem, earned by a real achievement, and starts locked', async () => {
+  const { REWARDS, rewardFor, rewardsOf } = await import('../dist/achievements.mjs');
+  const mods = await import('../dist/weapon-mods.mjs');
+  const { PROFILE_EMBLEMS } = await import('../dist/profiles.mjs');
+  const tables = { finish: mods.WEAPON_FINISHES, accent: mods.WEAPON_ACCENTS, skin: mods.WEAPON_SKINS, decal: mods.WEAPON_DECALS, sticker: mods.WEAPON_STICKERS };
+  for (const reward of REWARDS) {
+    assert.ok(ACHIEVEMENT_BY_ID[reward.achievement], reward.achievement);
+    if (reward.kind === 'emblem') assert.ok(PROFILE_EMBLEMS.some(emblem => emblem.id === reward.id), reward.id);
+    else assert.ok(tables[reward.kind]?.[reward.id], reward.kind + ':' + reward.id);
+    if (reward.kind === 'emblem') assert.ok(existsSync(dist('assets/enemies/portraits/' + reward.id + '.webp')));
+  }
+  assert.equal(new Set(REWARDS.map(r => r.kind + ':' + r.id)).size, REWARDS.length, 'no reward is listed twice');
+  assert.equal(rewardFor('skin', 'tiger'), null, 'ordinary cosmetics stay free');
+  assert.equal(rewardsOf('immune-protocol').length, 2);
+  const { t } = tracker();
+  assert.ok(t.hasReward('skin', 'tiger'));
+  assert.ok(!t.hasReward('skin', 'neural'));
+  t.unlock('mind-over-matter');
+  assert.ok(t.hasReward('skin', 'neural'));
+  // A reward equipped in a saved build is still a valid build (co-op and older saves load it).
+  const loadout = mods.normalizeWeaponLoadout({ weapon: 'carbine', skin: 'prismatic', finish: 'platinum', sticker: 'trophy', decal: 'ecg', accent: 'viral' });
+  assert.equal(loadout.skin, 'prismatic');
+  assert.equal(loadout.finish, 'platinum');
+});
+
+test('reward names show on the card, the detail and the toast', () => {
+  const { t } = tracker();
+  const screen = achievementScreenModel(t);
+  const card = screen.views.slice(1).flatMap(view => view.body.flatMap(node => node.children ?? [])).find(node => node.achievement === 'off-the-wall');
+  assert.equal(card.reward, 'Thrombus Titan emblem');
+  assert.ok(screen.details['off-the-wall'].some(node => /Reward: Thrombus Titan emblem/.test(node.text ?? '')));
+  assert.equal(toastState(ACHIEVEMENT_BY_ID['immune-protocol'], 1).reward, 'Prismatic skin + Platinum finish');
+});

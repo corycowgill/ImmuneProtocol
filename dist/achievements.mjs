@@ -103,6 +103,40 @@ export const ACHIEVEMENTS = Object.freeze([
 ]);
 
 export const ACHIEVEMENT_BY_ID = Object.freeze(Object.fromEntries(ACHIEVEMENTS.map(item => [item.id, item])));
+
+// Rewards: cosmetics and operator emblems that stay locked until their achievement is earned.
+// None changes how a weapon handles. `kind` is the Armory slot (finish, accent, skin, decal,
+// sticker) or 'emblem'; `id` is the option's key in weapon-mods.mjs or profiles.mjs.
+export const REWARDS = Object.freeze([
+  ['clot-buster', 'skin', 'bloodstream', 'Bloodstream skin'],
+  ['mind-over-matter', 'skin', 'neural', 'Neural net skin'],
+  ['pandemic-over', 'skin', 'outbreak', 'Outbreak skin'],
+  ['immune-protocol', 'skin', 'prismatic', 'Prismatic skin'],
+  ['immune-protocol', 'finish', 'platinum', 'Platinum finish'],
+  ['president-safe', 'finish', 'presidential', 'Presidential gold finish'],
+  ['chief-of-medicine', 'finish', 'surgical', 'Surgical steel finish'],
+  ['house-call', 'accent', 'code-red', 'Code red accent'],
+  ['going-viral', 'accent', 'viral', 'Viral magenta accent'],
+  ['rogues-gallery', 'sticker', 'trophy', 'Trophy sticker'],
+  ['tissue-engineer', 'sticker', 'medic', 'Field medic sticker'],
+  ['squad-goals', 'sticker', 'squad', 'Squad up sticker'],
+  ['vital-signs', 'decal', 'ecg', 'Heartbeat decal'],
+  ['collateral-damage', 'decal', 'blast', 'Blast radius decal'],
+  ['giant-slayer', 'emblem', 'boss-colossus', 'Biofilm Colossus emblem'],
+  ['off-the-wall', 'emblem', 'boss-thrombus', 'Thrombus Titan emblem'],
+  ['leech-removal', 'emblem', 'boss-leech', 'Capillary Leech emblem'],
+  ['worm-has-turned', 'emblem', 'boss-tapeworm', 'Tapeworm emblem'],
+  ['indigestion', 'emblem', 'boss-macrophage', 'Rogue Macrophage emblem'],
+  ['final-diagnosis', 'emblem', 'boss-screamer', 'Otolith Screamer emblem'],
+  ['deep-breath', 'emblem', 'boss-bloom', 'Mold Crown emblem'],
+  ['iron-stomach', 'emblem', 'boss-drill', 'Pylori Drill emblem'],
+].map(([achievement, kind, id, name]) => Object.freeze({ achievement, kind, id, name })));
+
+const REWARD_INDEX = new Map(REWARDS.map(reward => [reward.kind + ':' + reward.id, reward]));
+// The reward behind a cosmetic or emblem, or null for items everyone has.
+export const rewardFor = (kind, id) => REWARD_INDEX.get(kind + ':' + id) ?? null;
+export const rewardsOf = achievementId => REWARDS.filter(reward => reward.achievement === achievementId);
+
 export const PLATINUM_ID = 'immune-protocol';
 export const TOTAL_POINTS = ACHIEVEMENTS.reduce((sum, item) => sum + item.points, 0);
 // Counters that are kept as sets of distinct things (areas won on Hard, bosses, upgrades, pathogens).
@@ -142,6 +176,12 @@ export class AchievementTracker {
   isUnlocked(id) { return Object.hasOwn(this.record.unlocked, id); }
   unlockedAt(id) { return this.record.unlocked[id] ?? null; }
   stat(key) { return SET_STATS.includes(key) ? (this.record.sets[key]?.length ?? 0) : (this.record.stats[key] ?? 0); }
+
+  // Whether this player may use a cosmetic or emblem: free items always, rewards once earned.
+  hasReward(kind, id) {
+    const reward = rewardFor(kind, id);
+    return !reward || this.isUnlocked(reward.achievement);
+  }
 
   progress(id) {
     const item = ACHIEVEMENT_BY_ID[id];
