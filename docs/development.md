@@ -348,11 +348,9 @@ npm run i18n:check
 
 ## Publish updates
 
-GitHub Pages serves the root of `gh-pages`. After committing game changes to `main`, publish the contents of `dist/` by running this command from `main`:
+Pushing to `main` publishes the game. The **Deploy GitHub Pages** workflow (`.github/workflows/pages.yml`) runs `npm run check` and deploys `dist/` to GitHub Pages, usually within a couple of minutes; it can also be run by hand from the Actions tab. The co-op server on Render deploys from `main` as well.
 
-```sh
-git subtree push --prefix=dist origin gh-pages
-```
+The old `gh-pages` branch is no longer what Pages serves and does not need updating.
 
 ## How it was built
 
