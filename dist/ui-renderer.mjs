@@ -481,6 +481,7 @@ export class CanvasUiRenderer {
     if (kind === 'vitals') return this.vitals(item);
     if (kind === 'marker') return this.marker(item, r);
     if (kind === 'ability') return this.ability(item, r);
+    if (kind === 'radar') return this.radar(item, r);
     if (kind === 'rounds') {
       // One tick per round, spent rounds dim; large magazines fall back to a smooth bar.
       if (item.hidden) return;
@@ -809,6 +810,83 @@ export class CanvasUiRenderer {
     diamond(x, base - 4, item.quiet ? 3 : 5, 'rgba(6,10,12,.55)');
     c.fillStyle = color; c.beginPath(); c.arc(x, base - 4, 1.4, 0, Math.PI * 2); c.fill();
     if (item.text) this.text(upper(item.text), { x: r.x - 10, y: r.y - 6, w: r.w + 20, h: r.h }, size - 1, color, 700, 'center', 2, 1.25, undefined, .6);
+    c.restore();
+  }
+
+  // The motion tracker (radar.mjs): a glass disc with range rings and the view cone, a ping that
+  // sweeps out from the suit, and a mark for everything around it. Forward is up.
+  radar(item, r) {
+    const c = this.c, cx = r.x + r.w / 2, cy = r.y + r.h / 2, R = Math.min(r.w, r.h) / 2 - 1;
+    const NODE = ['#c8f794', '#8fe4dd', '#dbafef', '#ffd58a'];
+    c.save();
+    const disc = new Path2D(); disc.arc(cx, cy, R, 0, Math.PI * 2);
+    const glass = c.createRadialGradient(cx, cy, 0, cx, cy, R);
+    glass.addColorStop(0, 'rgba(20,38,40,.62)'); glass.addColorStop(1, 'rgba(6,12,14,.8)');
+    c.fillStyle = glass; c.fill(disc);
+    c.save(); c.clip(disc);
+    // The view cone, so a contact on screen and its mark line up.
+    if (item.fov) {
+      const half = Math.min(Math.PI * .45, item.fov / 2);
+      const cone = c.createRadialGradient(cx, cy, 0, cx, cy, R);
+      cone.addColorStop(0, 'rgba(200,247,148,.16)'); cone.addColorStop(1, 'rgba(200,247,148,.03)');
+      c.fillStyle = cone; c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, R, -Math.PI / 2 - half, -Math.PI / 2 + half); c.closePath(); c.fill();
+    }
+    c.strokeStyle = 'rgba(143,228,221,.16)'; c.lineWidth = 1;
+    c.beginPath(); c.arc(cx, cy, R * .5, 0, Math.PI * 2); c.moveTo(cx - R, cy); c.lineTo(cx + R, cy); c.moveTo(cx, cy - R); c.lineTo(cx, cy + R); c.stroke();
+    // The ping: a ring sweeping out from the suit every 1.6 seconds.
+    if (item.time != null) {
+      const t = (item.time % 1.6) / 1.6;
+      c.strokeStyle = `rgba(143,228,221,${(.5 * (1 - t)).toFixed(3)})`; c.lineWidth = 2;
+      c.beginPath(); c.arc(cx, cy, Math.max(1, R * t), 0, Math.PI * 2); c.stroke();
+    }
+    c.restore();
+    c.strokeStyle = 'rgba(143,228,221,.55)'; c.lineWidth = 1.2; c.stroke(disc);
+    // Ticks at the four quarters of the rim.
+    c.strokeStyle = 'rgba(143,228,221,.7)'; c.beginPath();
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; c.moveTo(cx + Math.cos(a) * (R - 4), cy + Math.sin(a) * (R - 4)); c.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); }
+    c.stroke();
+
+    const scale = R - 3, dot = item.compact ? 2.4 : 3;
+    // Background marks first (objectives and friends), then threats on top.
+    const order = { node: 0, cache: 1, turret: 1, drone: 1, ally: 2, nest: 3, enemy: 4, boss: 5 };
+    const contacts = [...(item.contacts ?? [])].sort((a, b) => (order[a.kind] ?? 0) - (order[b.kind] ?? 0));
+    // A contact brightens as the ping passes over it, as on a motion tracker.
+    const pinged = p => item.time == null ? 1 : .72 + .28 * Math.max(0, 1 - Math.abs(Math.hypot(p.x, p.y) - (item.time % 1.6) / 1.6) * 6);
+    for (const p of contacts) {
+      const x = cx + p.x * scale, y = cy - p.y * scale;
+      c.globalAlpha = pinged(p);
+      if (p.kind === 'node') {
+        const color = p.health <= 32 ? '#ff6f5a' : NODE[p.index] ?? NODE[0], s = p.rim ? 3.2 : 4.2;
+        c.fillStyle = color; c.strokeStyle = '#061014'; c.lineWidth = 1;
+        c.beginPath(); c.moveTo(x, y - s); c.lineTo(x + s, y); c.lineTo(x, y + s); c.lineTo(x - s, y); c.closePath(); c.fill(); c.stroke();
+        if (p.attacked) { c.strokeStyle = color; c.globalAlpha *= .7; c.beginPath(); c.arc(x, y, s + 3, 0, Math.PI * 2); c.stroke(); }
+      } else if (p.kind === 'ally') {
+        c.fillStyle = '#ffd86a'; c.strokeStyle = '#061014'; c.lineWidth = 1;
+        c.beginPath(); c.arc(x, y, dot + .4, 0, Math.PI * 2); c.fill(); c.stroke();
+      } else if (p.kind === 'cache') {
+        c.strokeStyle = '#9dffb8'; c.lineWidth = 1.8; c.beginPath(); c.moveTo(x - 3.2, y); c.lineTo(x + 3.2, y); c.moveTo(x, y - 3.2); c.lineTo(x, y + 3.2); c.stroke();
+      } else if (p.kind === 'turret' || p.kind === 'drone') {
+        c.fillStyle = '#8fe4dd'; c.fillRect(x - 2.2, y - 2.2, 4.4, 4.4);
+      } else if (p.kind === 'nest') {
+        c.strokeStyle = '#ffa25a'; c.lineWidth = 1.6; c.beginPath(); c.arc(x, y, 3.6, 0, Math.PI * 2); c.stroke();
+      } else {
+        // Pathogens: red, sized by body, with a chevron when well above or below the suit.
+        const size = (p.kind === 'boss' ? dot * 1.6 : dot) * (p.size ?? 1);
+        c.shadowColor = '#ff3b2f'; c.shadowBlur = 6; c.fillStyle = p.kind === 'boss' ? '#ff5f7e' : '#ff4a3a';
+        c.beginPath(); c.arc(x, y, size, 0, Math.PI * 2); c.fill(); c.shadowBlur = 0;
+        if (p.kind === 'boss') { c.strokeStyle = '#ff5f7e'; c.lineWidth = 1.2; c.beginPath(); c.arc(x, y, size + 3, 0, Math.PI * 2); c.stroke(); }
+        if (p.level) {
+          const up = p.level === 'above', o = size + 3.2;
+          c.fillStyle = '#ffb3aa'; c.beginPath();
+          c.moveTo(x, y + (up ? -o - 2.6 : o + 2.6)); c.lineTo(x - 2.4, y + (up ? -o : o)); c.lineTo(x + 2.4, y + (up ? -o : o)); c.closePath(); c.fill();
+        }
+      }
+      c.globalAlpha = 1;
+    }
+    // The suit: a chevron at the centre pointing the way it faces.
+    c.fillStyle = '#eaf8d4'; c.strokeStyle = '#061014'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(cx, cy - 5.5); c.lineTo(cx + 4, cy + 4); c.lineTo(cx, cy + 2); c.lineTo(cx - 4, cy + 4); c.closePath(); c.fill(); c.stroke();
+    if (!item.compact) this.text(item.range + ' M', { x: r.x, y: r.y + r.h - 15, w: r.w, h: 11 }, 8, 'rgba(143,228,221,.75)', 700, 'center', 1, 1.2, 'mono');
     c.restore();
   }
 

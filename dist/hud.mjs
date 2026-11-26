@@ -2,6 +2,8 @@
 // panels (valve, airway, gastric, junction), suit and ammo, the action prompt, the scoreboard,
 // and the markers projected from the 3D world (nodes, gash, turret, nests, caches, bosses,
 // attackers, inlets). It only reads the game; field-events.mjs and game.mjs change it.
+import { radarSnapshot } from './radar.mjs';
+import { hudFeed } from './hud-feed.mjs';
 import './interface-setup.mjs';
 import { JUNCTION_INLETS, RULES } from './simulation.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
@@ -576,6 +578,11 @@ export function drawPlayerScores(results, complete) {
 
 export function drawHud() {
   syncHudLayout();
+  // The motion tracker goes to the canvas HUD as data (hud-feed.mjs), not through the page.
+  const radar = radarSnapshot(session.sim, { reduceMotion: session.reduceMotion });
+  const camera = session.world?.camera;
+  if (radar && camera) radar.fov = 2 * Math.atan(Math.tan(camera.fov * Math.PI / 360) * camera.aspect);
+  hudFeed.radar = radar;
   const { player, tissue, wave, waves, remaining, phase, intermission, valve } = session.sim;
   drawScoreboard();
   const suitPercent = Math.ceil(player.health);

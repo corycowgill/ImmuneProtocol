@@ -231,6 +231,12 @@ function buildCombat(ui, model, area, full, size, state, measure) {
   const { w, h } = size, d = model.hud, compact = compactHud(w, h, model.touch), portrait = h > w;
   const x = area.x, top = area.y, right = w - area.x - area.w, bottom = h - area.y - area.h;
   ui.add({ kind: 'look', id: 'game:look', action: 'game:look', focusable: false }, full);
+  // The motion tracker in the top-right corner, under the mute and pause buttons when they show.
+  const buttonsShown = !d.locked || model.touch;
+  const radarSize = d.radar ? compact ? 86 : 124 : 0;
+  // In portrait the tissue bars run the full width under the buttons, so the tracker sits below them.
+  const radarTop = compact && portrait ? top + (d.special ? 111 : 48) + 38 : top + (buttonsShown ? 52 : 0);
+  const radarRect = d.radar ? { x: w - right - radarSize, y: radarTop, w: radarSize, h: radarSize } : null;
   // Screen-edge feedback sits under every panel: the hit vignette, the bearing of the last hit and
   // the low-integrity pulse.
   if (d.damage > 0 || d.damageStrength > 0 || (Number.isFinite(d.health) && d.health <= 30)) {
@@ -244,6 +250,8 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     const reservedTop = compact ? top + (portrait ? (d.special ? 235 : 165) : d.special ? 112 : 83) : top + 120;
     const markerY = Math.max(reservedTop, Math.min(h - bottom - 170 - height, marker.y - (marker.edge ? height / 2 : height)));
     const rect = { x: Math.max(2, Math.min(w - width - 2, marker.x - width / 2)), y: markerY, w: width, h: height };
+    // Markers at the right edge drop below the tracker rather than cover it.
+    if (radarRect && rect.x + rect.w > radarRect.x - 4 && rect.y < radarRect.y + radarRect.h + 6 && rect.y + rect.h > radarRect.y) rect.y = radarRect.y + radarRect.h + 6;
     if (marker.attacker) ui.add({ kind: 'label', text: marker.text, color: marker.color, size: font, box: true }, rect);
     else ui.add({ kind: 'marker', text: marker.quiet ? '' : marker.text, color: marker.color, size: font, edge: marker.edge, angle: marker.angle, quiet: marker.quiet }, rect);
   }
@@ -279,6 +287,7 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     ui.add({ ...heading(d.wave, compact ? 24 : 42), align: 'center' }, { x: waveX, y: top + (compact ? 0 : 20), w: waveW, h: 43 });
     ui.add({ ...text(d.threats, compact ? 9 : 10, '#ffc888'), align: 'center', weight: 600, tracking: .8 }, { x: waveX, y: top + (compact ? 30 : 69), w: waveW, h: 16 });
   }
+  if (radarRect) ui.add({ kind: 'radar', ...d.radar, compact }, radarRect);
   const act = model.actions;
   // Desktop controls stay out of the fight: while the mouse is captured, Escape pauses instead.
   if (!d.locked || model.touch) {
@@ -301,7 +310,7 @@ function buildCombat(ui, model, area, full, size, state, measure) {
   if (d.ammoState) ui.add(text(d.ammoState, 9, '#ffc888'), { x: ammoX + 8, y: ammoY + ammoH - 12, w: ammoW - 16, h: 12 });
   if (d.reload > 0) ui.add({ kind: 'meter', value: d.reload, text: '', detail: '' }, { x: ammoX + 8, y: ammoY + ammoH - 7, w: ammoW - 16, h: 8 });
   if (!compact) {
-    ui.add({ ...text(d.score, 11, '#d7e6e1'), align: 'right', weight: 600, tracking: .6 }, { x: w - right - 250, y: top + 54, w: 250, h: 20 });
+    ui.add({ ...text(d.score, 11, '#d7e6e1'), align: 'right', weight: 600, tracking: .6 }, { x: w - right - 250, y: radarRect ? radarRect.y + radarRect.h + 8 : top + 54, w: 250, h: 20 });
     ui.add({ ...text(d.turret, 10, '#8fe4dd'), align: 'right' }, { x: ammoX, y: ammoY + ammoH - 20, w: ammoW - 10, h: 16 });
     if (d.weaponSlots?.length) ui.add({ kind: 'slots', slots: d.weaponSlots }, { x: ammoX, y: ammoY - 30, w: ammoW, h: 24 });
   } else if (!model.touch) ui.add({ ...text(d.turret, 9, '#8fe4dd'), align: 'right' }, { x: ammoX, y: ammoY - 18, w: ammoW, h: 16 });
@@ -340,7 +349,10 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     const height = Math.min(85, lines(notice, width - 16, measure, font).length * font * 1.3 + 12);
     const ny = compact ? Math.max(top + (portrait ? (d.special ? 184 : d.hazard ? 170 : 85) : d.special ? 108 : 51), portrait && d.ally ? allyY + 34 : 0, portrait && d.hazard ? hazardY + 36 : 0) : top + 108;
     const nx = compact ? Math.max((w - width) / 2, !portrait && (d.hazard || d.ally) ? x + nodeWidth + 10 : 0) : w - right - width;
-    ui.add({ kind: 'label', text: notice, size: font, box: true, color: '#ffe0ae' }, { x: nx, y: ny, w: width, h: height });
+    const noticeRect = { x: nx, y: ny, w: width, h: height };
+    // Clear of the tracker (and, on desktop, the score under it).
+    if (radarRect && noticeRect.x + noticeRect.w > radarRect.x && noticeRect.y < radarRect.y + radarRect.h + (compact ? 6 : 32)) noticeRect.y = radarRect.y + radarRect.h + (compact ? 6 : 34);
+    ui.add({ kind: 'label', text: notice, size: font, box: true, color: '#ffe0ae' }, noticeRect);
   }
   if (d.prompt) {
     const width = Math.min(340, area.w - (portrait ? 0 : 230));

@@ -145,7 +145,9 @@ All screens use a shared canvas interface, including menus, armory, guide, co-op
 
 The interface shares bundled typography, vector icons and consistent dark panels. Desktop briefing/setup and specimen/intel workspaces become persistent content tabs on phones; quick settings, upgrade rewards and extraction risk stay within reach. Full mission details and build statistics open focused panels. Desktop pixel density and the mobile-only asset policy are preserved.
 
-Phones use a compact HUD in landscape and portrait. Healthy node markers stay subtle; damaged nodes, blocked airways, boss attacks and laser locks keep their guidance. Encounter arrival notices clear after 2.5 seconds, while incoming breach warnings stay until arrival. Desktop retains its full HUD, with encounter intelligence moved to the upper right.
+Phones use a compact HUD in landscape and portrait. Healthy node markers stay subtle; damaged nodes, blocked airways, boss attacks and laser locks keep their guidance. Encounter arrival notices clear after 2.5 seconds, while incoming breach warnings stay until arrival. Desktop retains its full HUD, with encounter intelligence in the upper right under the motion tracker.
+
+**HUD data without the page.** Most combat readouts still reach the canvas through the hidden page (`ui-bindings.mjs`). New ones should not: the game writes plain data to `hud-feed.mjs` each frame and the canvas reads it directly, so the interface carries over to platforms with no DOM. The motion tracker works this way: `radar.mjs` turns the simulation into contacts relative to the suit, `hud.mjs` writes them to the feed, `ui-screens.mjs` places the tracker and `ui-renderer.mjs` draws it.
 
 ## Gameplay systems
 
