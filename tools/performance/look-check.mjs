@@ -7,13 +7,14 @@
 //   __look.run(seconds, input)          step the simulation and the world (input like controls.mjs)
 //   __look.spawn(['virus', ...])        put pathogens in front of the suit
 //   __look.frame()                      render one finished frame and the HUD
-// Query: ?area=artery&scenario=boss|brain|airway|gastric|hazard|none
+// Query: ?area=artery&scenario=boss|brain|nanobot|airway|gastric|hazard|none
 import { World } from './world.mjs';
 import { gameUi } from './ui-browser.mjs';
 import { Simulation } from './simulation.mjs';
 import { session } from './session.mjs';
 import { drawHud, drawMarkers, drawAttackers, drawBranches, drawCombatFeedback } from './hud.mjs';
 import { spawnLevelBoss } from './level-bosses.mjs';
+import { NANOBOT } from './nanobot-boss.mjs';
 import { createBrainBoss } from './brain-boss.mjs';
 import { startGastric } from './gastric.mjs';
 
@@ -31,6 +32,7 @@ try {
   Object.assign(session, { sim, world, running: true, ready: true, paused: false, options: {}, audio: { play() {}, update() {} } });
   if (scenario === 'boss') spawnLevelBoss(sim);
   if (scenario === 'brain') createBrainBoss(sim);
+  if (scenario === 'nanobot') spawnLevelBoss(sim, NANOBOT);
   if (scenario === 'airway') sim.startAirwayObjective();
   if (scenario === 'gastric') startGastric(sim);
   if (scenario === 'hazard') sim.organ = sim.createOrganPhase('warning');

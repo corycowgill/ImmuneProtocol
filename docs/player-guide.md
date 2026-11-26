@@ -130,11 +130,21 @@ Acid surges flood the entire chamber, so get onto one of the rugae islands durin
 
 ### Neural Cortex and the Mega Virus
 
-The Mega Virus is Neural Cortex's third wave. Its connected membranes protect three cores. Follow the pulse to the core about to open, then shoot the exposed tissue. When the shell closes, clear spawned viruses, reload, and repair. Neural overload blocks repairs at the highlighted node during exposure. In the final phase, Shellbacks and Splitters pressure opposite sides. Clear any survivors after the boss falls.
+The Mega Virus is Neural Cortex's third wave. Its connected membranes protect three cores. Follow the pulse to the core about to open, then shoot the exposed tissue. When the shell closes, clear spawned viruses, reload, and repair. Neural overload blocks repairs at the highlighted node during exposure. In the final phase, Shellbacks and Splitters pressure opposite sides.
+
+**The Mega Nano Bot.** The Mega Virus is not the end. A few seconds after it collapses an alarm sounds and the **Mega Nano Bot** descends into the cortex: a hovering war machine the size of a house, with a human brain sealed in the glass dome on its back as its processor. It is untouchable while it descends, and the mission is won only when it falls.
+
+- **Shield.** A shield bubble makes it immune while its three cyan **pylons** stand on the rim of its hull. Shoot the pylons; when the last one breaks the shield drops for twelve seconds and the machine reels for the first three. Now shoot the **brain** in the dome: it is the weak point (brain hits count for 125%), while the armoured hull turns 90% of every hit. When the window closes, or the machine reaches a new phase, the shield reboots with fresh, tougher pylons.
+- **Missile salvo.** Marked circles appear on and around each suit and on the weakest node, and missiles land on them a second and a half later. Step out of the circles.
+- **Laser sweep.** The belly cannon shows its aiming line, then sweeps a burning beam across the floor through where you stand. Jump it as it comes across, or put scenery between you and the machine.
+- **Drone bay.** The bay drops open and launches Rogue Bots, and later Crawlers.
+- **EMP.** A pulse knocks out every turret and medic drone near it for seven seconds and stings suits inside it. Keep your companion away from it, or expect to fight without it for a moment.
+
+It has three phases (above two thirds of its health, above one third, and the rest), each attacking faster with bigger salvos and wider sweeps. Clear any survivors after it falls.
 
 ## Bosses
 
-Every mission ends with a boss. Once the final wave has sent its last pathogen the boss arrives, a health bar replaces the wave counter, and the wave cannot clear until it is dead. Killing one scores 2,500 for the suit that lands the last shot. Bosses have more health against a larger co-op squad.
+Every mission ends with a boss. Once the final wave has sent its last pathogen the boss arrives, a health bar replaces the wave counter, and the wave cannot clear until it is dead. Killing one scores 2,500 for the suit that lands the last shot (the Mega Nano Bot, 5,000). Bosses have more health against a larger co-op squad.
 
 | Mission | Boss | How it fights | How to beat it |
 | --- | --- | --- | --- |
@@ -148,6 +158,7 @@ Every mission ends with a boss. Once the final wave has sent its last pathogen t
 | Lymph Node | Rogue Macrophage | Drags a suit toward itself to engulf it, and eats any pathogen that touches it to heal. Its pull smears your visor; an engulf puts you inside its milky cytoplasm for a moment and leaves a heavy coat your suit wipes off once you are free. | Deal 5% of its health during the pull to break it and stagger it. Keep the swarm away from it. |
 | Inner Ear | Otolith Screamer | Hovers and charges a sonic pulse that hits every suit it has a clear line to. Below half health it relocates and pulses faster. | Be behind an obstacle when the pulse fires. |
 | Neural Cortex | Mega Virus | Three cores (see [above](#neural-cortex-and-the-mega-virus)). | Shoot the exposed core. |
+| Neural Cortex | Mega Nano Bot | Arrives after the Mega Virus: a shielded war machine with missile salvos, a floor-sweeping laser, a drone bay and an EMP that downs turrets and drones (see [above](#neural-cortex-and-the-mega-virus)). | Break its three shield pylons, then shoot the brain in its dome while the shield is down. Leave the salvo circles and jump the laser. |
 
 Boss attacks are read from the boss itself: its windup, glow and sound. The boss bar shows only its name and health, with no attack callouts, danger overlays or countdowns. Ground bosses route around terrain; clots can stop the Titan's charge, cover can break the Macrophage's pull, and the Screamer stays still during its pulse warning. While a boss is using a major attack, fewer minions attack at once. Half-health phases change the pressure but keep readable windups, and the Drill, Colossus and Screamer leave clear punish windows. The Heart colony warns before tearing, and Mega Virus rockets must still reach the exposed core they were aimed at.
 
