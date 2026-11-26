@@ -452,8 +452,8 @@ export function makeRoom(scene, tile, normal, glow, random) {
   const canopy = addMesh(scene, roof, skin({ color: 0x9e6768, side: THREE.DoubleSide, roughness: .66 }));
 
   const lobeMaterial = skin({ color: 0xeca5a3, roughness: .41, clearcoat: .55 });
-  const vesselMaterial = skin({ color: 0xdb7f82, roughness: .4, clearcoat: .78, clearcoatRoughness: .45 });
-  const tinyVesselMaterial = skin({ color: 0xdf9193, roughness: .32, clearcoat: .68 });
+  const vesselMaterial = addVesselRim(skin({ color: 0xdb7f82, roughness: .4, clearcoat: .78, clearcoatRoughness: .45 }));
+  const tinyVesselMaterial = addVesselRim(skin({ color: 0xdf9193, roughness: .32, clearcoat: .68 }));
   const lobe = texturedLobe(1, 32, 20, .24);
   const transform = new THREE.Object3D();
   const folds = instanceMesh(scene, lobe, lobeMaterial, 96);
@@ -711,6 +711,36 @@ function woundGeometry() {
   return { shell, channel, reshape };
 }
 
+// Vessels slung across the chamber catch a fresnel rim in the arena's backlight that swells with
+// each heartbeat, so they separate from the fog behind them instead of reading as flat tubes.
+// world.mjs sets the colour per arena (setVesselRim) and the beat each frame (setVesselBeat).
+const VESSEL_RIM = { vesselRim: { value: new THREE.Color(0xffbd9e) }, vesselRimStrength: { value: .42 }, vesselBeat: { value: 0 } };
+export function setVesselRim(color, strength = .42) {
+  VESSEL_RIM.vesselRim.value.copy(color);
+  VESSEL_RIM.vesselRimStrength.value = strength;
+}
+export function setVesselBeat(time) {
+  // A heartbeat: a sharp systolic peak, a smaller echo, then rest, at about 72 beats a minute.
+  const phase = (time * 1.2) % 1;
+  const pulse = (centre, width) => Math.exp(-(((phase - centre) / width) ** 2));
+  VESSEL_RIM.vesselBeat.value = pulse(.08, .06) + .45 * pulse(.3, .07);
+}
+function addVesselRim(material) {
+  const previous = material.onBeforeCompile;
+  material.onBeforeCompile = (shader, renderer) => {
+    previous?.call(material, shader, renderer);
+    Object.assign(shader.uniforms, VESSEL_RIM);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', 'uniform vec3 vesselRim;\nuniform float vesselRimStrength, vesselBeat;\nvoid main() {')
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        float vesselFacing = 1. - saturate(dot(normalize(normal), normalize(vViewPosition)));
+        totalEmissiveRadiance += vesselRim * vesselRimStrength * (.7 + .5 * vesselBeat) * vesselFacing * vesselFacing * vesselFacing;`);
+  };
+  const key = material.customProgramCacheKey?.bind(material);
+  material.customProgramCacheKey = () => (key ? key() : '') + '|vessel-rim';
+  return material;
+}
+
 export function makeTissue(scene, glow, floorNormal, random, secondary = false) {
   const root = new THREE.Group();
   scene.add(root);
@@ -822,8 +852,60 @@ export function makeTissue(scene, glow, floorNormal, random, secondary = false) 
   contact.rotation.x = -Math.PI / 2;
   contact.position.y = -1.13;
   root.add(contact);
+  const ring = makeHealthRing();
+  ring.mesh.position.y = -1.09;
+  root.add(ring.mesh);
 
-  return { root, organ, core, membrane, fiber, glowOrb, light, channel, wound, opening: 0 };
+  return { root, organ, core, membrane, fiber, glowOrb, light, channel, wound, ring, opening: 0 };
+}
+
+// A segmented ring on the floor around a tissue node, lit in the node's HUD colour for the share
+// of integrity it has left, so a node's health reads in the world, not only in the HUD panel.
+// world.mjs updateTissue sets the colour, fill and critical pulse.
+const RING_RADIUS = 3.05;
+const RING_WIDTH = .16;
+export function makeHealthRing() {
+  const uniforms = {
+    ringColor: { value: new THREE.Color(0xc8f794) },
+    ringFill: { value: 1 },
+    ringStrength: { value: 1 },
+  };
+  const size = (RING_RADIUS + RING_WIDTH) * 2.2;
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    polygonOffset: true,
+    polygonOffsetFactor: -3,
+    vertexShader: `varying vec2 vPlane;
+void main() {
+  vPlane = position.xy;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+}`,
+    fragmentShader: `uniform vec3 ringColor;
+uniform float ringFill, ringStrength;
+varying vec2 vPlane;
+const float RADIUS = ${RING_RADIUS.toFixed(3)}, WIDTH = ${RING_WIDTH.toFixed(3)}, CELLS = 40.;
+void main() {
+  float distanceOut = abs(length(vPlane) - RADIUS);
+  float edge = fwidth(distanceOut) * 1.5;
+  float band = 1. - smoothstep(WIDTH * .5 - edge, WIDTH * .5 + edge, distanceOut);
+  // Clockwise from the far side of the node, in forty cells like the HUD meters.
+  float turn = fract(atan(vPlane.x, vPlane.y) / 6.2831853 + .5);
+  float cell = fract(turn * CELLS);
+  float cellEdge = fwidth(turn * CELLS) * 1.5;
+  float gap = smoothstep(.0, cellEdge + .06, cell) * (1. - smoothstep(.94 - cellEdge, 1., cell));
+  float lit = step(turn, ringFill);
+  float glow = mix(.13, 1.35, lit) * ringStrength;
+  if (band * gap <= 0.) discard;
+  gl_FragColor = vec4(ringColor * glow * band * gap, 1.);
+}`,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.renderOrder = 1;
+  return { mesh, uniforms };
 }
 
 export function makeJunctionField(group, tissue, glow) {

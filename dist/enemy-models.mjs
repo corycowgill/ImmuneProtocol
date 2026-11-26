@@ -40,7 +40,7 @@ export const ENEMY_MODELS = Object.freeze({
 });
 
 // A fresnel rim light shared by every pathogen material, so silhouettes separate from tissue of
-// the same hue. world.mjs sets the colour and strength per arena (setPathogenRim).
+// the same hue, plus a faint shadow-side lift. world.mjs sets the colour and strength per arena (setPathogenRim).
 const RIM = { pathogenRim: { value: new THREE.Color(0x9fd8ff) }, pathogenRimStrength: { value: .9 } };
 export function setPathogenRim(color, strength) {
   RIM.pathogenRim.value.setHex(color);
@@ -57,7 +57,10 @@ export function addPathogenRim(material) {
       .replace('void main() {', 'uniform vec3 pathogenRim;\nuniform float pathogenRimStrength;\nvoid main() {')
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         float rimFacing = 1. - saturate(dot(normalize(normal), normalize(vViewPosition)));
-        totalEmissiveRadiance += pathogenRim * pathogenRimStrength * rimFacing * rimFacing * rimFacing;`);
+        totalEmissiveRadiance += pathogenRim * pathogenRimStrength * rimFacing * rimFacing * rimFacing;
+        // Shadow-side lift: light scattered through the membrane, tinted by the rim colour, with an
+        // albedo floor so dark-shelled species keep their form instead of crushing to black.
+        totalEmissiveRadiance += max(diffuseColor.rgb, vec3(.03)) * pathogenRim * .05;`);
   };
   const key = material.customProgramCacheKey?.bind(material);
   material.customProgramCacheKey = () => (key ? key() : '') + '|pathogen-rim';

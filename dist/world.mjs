@@ -35,8 +35,8 @@ import { ARENA_GROWTH } from './arena-scale.mjs';
 import { NEST } from './field-objectives.mjs';
 import { BOSS_FLOATS, LEVEL_BOSSES } from './level-bosses.mjs';
 import { chunkInstances, cullDecor } from './decor-chunks.mjs';
-import { randomSource, configureTile, glowTexture, cloudTexture, fallbackTissue, normalFromImage, membraneMaps, reflectionTexture } from './arena-textures.mjs';
-import { TAU, UP, floorHeight, baseFloorHeight, setTerrainArea, shapeFloor, texturedLobe, redCellGeometry, sprite, setInstance, addMesh, makeRoom, makeAtmosphere, makeTissue, makeJunctionField, biologicalMaterial } from './arena-scene.mjs';
+import { randomSource, configureTile, glowTexture, contactShadowTexture, cloudTexture, fallbackTissue, normalFromImage, membraneMaps, reflectionTexture } from './arena-textures.mjs';
+import { TAU, UP, floorHeight, baseFloorHeight, setTerrainArea, shapeFloor, texturedLobe, redCellGeometry, sprite, setInstance, addMesh, makeRoom, makeAtmosphere, makeTissue, makeJunctionField, biologicalMaterial, setVesselRim, setVesselBeat } from './arena-scene.mjs';
 import { prepareAll as prepareAllOf, prepareScenes as prepareScenesOf, prepareArea as prepareAreaOf, prepareMission as prepareMissionOf } from './world-preparation.mjs';
 import { enemyTemplate as enemyTemplateOf, dressGuardModel as dressGuardModelOf, updateEnemies as updateEnemiesOf, releaseEnemyView as releaseEnemyViewOf, poseEnemyAttack as poseEnemyAttackOf, updateTethers as updateTethersOf, updateProjectiles as updateProjectilesOf } from './pathogen-views.mjs';
 import { TracerPool } from './shot-fx.mjs';
@@ -60,6 +60,11 @@ const HEALTHY = new THREE.Color(0xffc6ad);
 const HEALTHY_FLANK = new THREE.Color(0xf1c1d5);
 const INJURED = new THREE.Color(0xff795d);
 const REPAIR_LIGHT = new THREE.Color(0x9bf4c4);
+// Each node's floor ring wears its HUD colour (styles.css .node-row), and turns red when critical.
+const NODE_RING = [0xc8f794, 0x8fe4dd, 0xe7b4ff, 0xffd58a].map(hex => new THREE.Color(hex));
+const NODE_RING_CRITICAL = new THREE.Color(0xff4d3d);
+// The HUD marks a node critical at this integrity (hud.mjs).
+const NODE_CRITICAL = 32;
 
 export class World {
   constructor(canvas, area = 'artery') {
@@ -253,10 +258,11 @@ export class World {
     });
 
     this.shadowGeometry = new THREE.PlaneGeometry(2, 2);
+    // Contact shadows under pathogens. Each view clones this and fades its copy with hover height.
     this.shadowMaterial = new THREE.MeshBasicMaterial({
-      map: this.glow,
+      map: contactShadowTexture(),
       color: 0x070103,
-      opacity: .73,
+      opacity: .85,
       transparent: true,
       depthWrite: false,
       polygonOffset: true,
@@ -429,6 +435,7 @@ export class World {
     fill.intensity = profile ? .77 : 1.05;
     backlight.color.setHex(profile?.back ?? (heart ? 0xeab5b9 : junction ? 0xd2a79e : 0xffbd9e));
     backlight.intensity = heart ? .89 : junction ? 1.13 : 1.4;
+    setVesselRim(backlight.color);
     warm.color.setHex(profile?.accent ?? 0xff8969);
     warm.intensity = profile ? 93 : heart ? 47 : junction ? 42 : 72;
     side.visible = !junction && !heart;
@@ -685,6 +692,13 @@ export class World {
       core.material.emissiveIntensity = .025 + beat * .015 + (healing ? .04 : 0);
       fiber.emissive.copy(this.palette);
       fiber.emissiveIntensity = .033 + beat * .022 + (healing ? .13 : 0);
+      const ring = view.ring.uniforms;
+      const critical = node.health <= NODE_CRITICAL;
+      ring.ringFill.value = state;
+      ring.ringColor.value.copy(critical ? NODE_RING_CRITICAL : NODE_RING[i] ?? NODE_RING[0]);
+      if (healing) ring.ringColor.value.lerp(REPAIR_LIGHT, .35);
+      const alarm = critical && !reduceMotion ? .55 + .45 * Math.sin(this.clock * 7.5) : 1;
+      ring.ringStrength.value = alarm * (node.underAttack ? 1.25 : 1);
     }
   }
 
@@ -960,6 +974,7 @@ export class World {
       this.camera.updateProjectionMatrix();
     }
     this.surfaceTime.value = reduceMotion ? 0 : this.clock;
+    setVesselBeat(reduceMotion ? 0 : this.clock);
     this.explosions.update(dt, reduceMotion ? null : this.camera);
     this.camera.updateMatrixWorld();
     this.updateAtmosphere(dt);

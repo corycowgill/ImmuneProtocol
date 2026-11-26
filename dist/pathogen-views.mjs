@@ -12,6 +12,18 @@ import { TAU, UP, floorHeight, groundLevel, baseFloorHeight, addMesh } from './a
 const FORWARD = new THREE.Vector3(0, 0, 1);
 const HIT_FLASH = new THREE.Color(0xfff0e0);
 
+// Grounds a pathogen with a contact shadow on the floor beneath it. The shadow spreads and fades
+// as the model rises, so height above the floor reads at a glance and hovering species no longer
+// look composited in.
+function placeShadow(world, enemy, view, spread, lift = .1) {
+  const radius = enemy.radius || .9;
+  const ground = groundLevel(enemy.x, enemy.z, world.clock);
+  const height = Math.max(0, view.model.position.y - radius * .8 - ground);
+  view.shadow.position.set(enemy.x, ground + lift, enemy.z);
+  view.shadow.scale.setScalar(radius * spread * (1 + height * .16));
+  view.shadow.material.opacity = world.shadowMaterial.opacity * Math.exp(-height / 3);
+}
+
 const ATTACK_GLOW = {
   virus: new THREE.Color(0xde653b),
   bacillus: new THREE.Color(0xef9b46),
@@ -96,8 +108,7 @@ function updateBotView(world, enemy, view, dt, reduceMotion) {
     view.laser.children.forEach((mesh, index) => mesh.scale.set(firing ? index ? .026 : .075 : index ? .005 : .016,
       length, firing ? index ? .026 : .075 : index ? .005 : .016));
   }
-  view.shadow.position.set(enemy.x, groundLevel(enemy.x, enemy.z, world.clock) + .1, enemy.z);
-  view.shadow.scale.setScalar(enemy.radius * 1.4);
+  placeShadow(world, enemy, view, 1.4);
 }
 
 // The species' scanned model. If one failed to download, a plain membrane sphere keeps the
@@ -169,7 +180,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
         membrane.material = addPathogenRim(reapplyMachineGrime(clonedMembrane));
       }
       world.scene.add(model);
-      const shadow = new THREE.Mesh(world.shadowGeometry, world.shadowMaterial);
+      const shadow = new THREE.Mesh(world.shadowGeometry, world.shadowMaterial.clone());
       shadow.rotation.x = -Math.PI / 2;
       world.scene.add(shadow);
       view = {
@@ -210,8 +221,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       view.model.scale.set(1 + throb + view.hit * .07 - view.clench * .03, stretch, 1 + throb + view.hit * .07 - view.clench * .03);
       if (view.attackMembrane) view.attackMembrane.emissiveIntensity = view.membraneIntensity + view.clench * .9 + view.hit * .5;
       if (!reduceMotion) animatePathogen(view.motion, dt, view.clench);
-      view.shadow.position.set(enemy.x, groundLevel(enemy.x, enemy.z, world.clock) + .06, enemy.z);
-      view.shadow.scale.setScalar(enemy.radius * 1.6);
+      placeShadow(world, enemy, view, 1.6, .06);
       continue;
     }
     if (enemy.boss || enemy.segmentOf) {
@@ -231,8 +241,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
         view.attackMembrane.emissiveIntensity = view.membraneIntensity + view.clench * .9 + exposed + view.hit * .5;
       }
       if (!reduceMotion) animatePathogen(view.motion, dt, view.clench);
-      view.shadow.position.set(enemy.x, groundLevel(enemy.x, enemy.z, world.clock) + .1, enemy.z);
-      view.shadow.scale.setScalar(enemy.radius * (floats ? 1.3 : 1.8));
+      placeShadow(world, enemy, view, floats ? 1.3 : 1.8);
       continue;
     }
     if (enemy.nest) {
@@ -247,8 +256,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
         view.attackMembrane.emissiveIntensity = view.membraneIntensity + .15 + throb * 4 + view.hit * .5;
       }
       if (!reduceMotion) animatePathogen(view.motion, dt, throb * 8);
-      view.shadow.position.set(enemy.x, groundLevel(enemy.x, enemy.z, world.clock) + .1, enemy.z);
-      view.shadow.scale.setScalar(enemy.radius * 1.9);
+      placeShadow(world, enemy, view, 1.9);
       continue;
     }
     const angle = view.phase + world.clock * (enemy.type === 'virus' ? .64 : .9);
@@ -289,8 +297,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       view.model.position.add(view.knock);
       view.knock.multiplyScalar(Math.exp(-dt * 9));
     }
-    view.shadow.position.set(enemy.x, groundLevel(enemy.x, enemy.z, world.clock) + .1, enemy.z);
-    view.shadow.scale.setScalar((enemy.radius || .9) * 1.4);
+    placeShadow(world, enemy, view, 1.6);
   }
   for (const [id, view] of world.enemyViews) {
     if (view.present) continue;
@@ -311,6 +318,7 @@ export function releaseEnemyView(world, view) {
     pool.push(view);
   } else {
     world.scene.remove(view.model, view.shadow);
+    view.shadow.material.dispose();
     if (view.tethers) world.scene.remove(...view.tethers);
     view.clonedMembrane?.dispose();
     view.motion?.mixer?.uncacheRoot(view.model);

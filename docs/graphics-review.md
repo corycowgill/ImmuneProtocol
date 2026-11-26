@@ -29,7 +29,7 @@ Net: the 3D world and post pipeline are AA-plus. The **interaction layer (gun, h
 
 ---
 
-## Sprint status (2026-11-24)
+## Sprint status (2026-11-25)
 
 What the graphics sprint changed, per catalog item. Items not listed were left for a later pass.
 
@@ -37,9 +37,9 @@ What the graphics sprint changed, per catalog item. Items not listed were left f
 | --- | --- | --- |
 | W-01 | Done | New layered muzzle flash (`shot-fx.mjs`): star front flash, crossed flame petals and a hot core, re-rolled every shot, HDR so it blooms. Weapon-scene glows use custom blending that adds light without writing alpha, so the composite no longer cuts a hole in the arena. |
 | W-02 | Done | Tracers are camera-facing HDR ribbons that travel from muzzle to impact with a fading tail and never drop below about two pixels wide (`TracerPool`). Sniper, pellet, rifle, teammate and turret tracers each have their own width, life and length. |
-| W-03 | Partly | Reflex and red-dot sights project a glowing ring-and-dot reticle in the glass (`createHoloReticle`) instead of a tiny sphere. Model push-forward during ADS not changed. |
+| W-03 | Done | Reflex and red-dot sights project a glowing ring-and-dot reticle in the glass (`createHoloReticle`) instead of a tiny sphere, and it is the only aiming mark, on the screen centre. Aiming brings the long guns' sight in to a cheek weld (`ADS_DEPTH` in `weapon-view.mjs`), so the stock passes behind the eye and only the sight hood and the top of the receiver frame the view; the pistol is aimed at arm's length (`adsDepth`). Each optic's own zoom narrows the field of view, and the rubber stock is lifted out of near-black. |
 | W-04 | Done | Weapon hemisphere and bounce lights take the arena's mist and fog colours on every arena change. |
-| W-06 | Partly | Every weapon material wears its sharp edges procedurally (screen-space curvature), not only where the baked atlas says; the factory receiver and rubber are lifted out of near-black, and a soft fill light from the eye keeps faces turned toward the camera readable in aim-down-sights. No geometry changes. |
+| W-06 | Done | The five bodies are Blender hard-surface models (`tools/weapons/build_weapons.py`) with bevels and weighted normals, panel seams, engraved maker and serial marks, and a baked occlusion and edge-wear atlas. Every weapon material also wears its sharp edges procedurally (screen-space curvature). The procedural attachment parts get three bevel segments instead of two, and the factory optic hood, which frames the view in aim-down-sights, a wider five-segment rounded bevel. |
 | W-07 | Done | Gloves are olive-grey woven fabric with worn leather palms, plus moulded ivory armour plates on the backs of the hands and knuckles. |
 | N-04 | Done | Rogue Bot and Crawler: procedural biofilm builds up from the underside with drips and spots in the arena's own fluid colour, worn wet and glossy, so the top stays medical white; the red optics are HDR so they bloom. |
 | W-05 | Done | Hip pose sits lower and further out (y −.255 → −.27, z −.60 → −.64). |
@@ -62,13 +62,20 @@ What the graphics sprint changed, per catalog item. Items not listed were left f
 | N-05 | Done | Found while checking hits: sustained fire strobed large pathogens white because the muzzle light reached 15 m at high strength. It now lights only the floor and walls around the suit (7 m, about a fifth of the strength), and deflected-round sparks are smaller. |
 | L-01 | Done | Cooler bloodstream fill light, less chroma in fog and mist, cool-shadow and warm-highlight split toning in the finishing pass (per-arena `shadowTone` / `highlightTone`). |
 | L-02 | Done | Rougher floor coat, artery bulb 310 → 200, exposure 1.18 → 1.14. |
-| L-03 | Partly | Brighter ground hemisphere colour in the bloodstream arenas. |
+| L-03 | Done | Brighter ground hemisphere colour in the bloodstream arenas. Every pathogen material gets a shadow-side lift tinted by the arena's rim colour, with an albedo floor, so dark shells keep their form. The aim-down-sights housing no longer fills the frame (W-03) and the weapon rubber is lifted out of near-black. |
 | L-04 | Done | Lungs: slightly more contrast, less and shorter-reaching mist, a little less magenta. |
 | E-01 | Done | The lump at the bottom of the view was a platelet lying just behind the bloodstream insertion point; platelets now keep 3.5 m clear of it. Drifting red cells also shrink away within about two metres of the camera so they can't fill the lens. |
 | L-05 | Done | Raised ridges and shelves sample the tissue texture at two scales and angles (albedo and normals), so its swirl bands no longer repeat along a ridge as wood grain. |
 | V-03 | Done | Smoke and hit-mist puffs use a domain-warped noise texture with a ragged edge and denser core instead of soft round blobs. |
 | V-06 | Done | Lungs: the wind-streak ribbons were already running faintly before the exhale, reading as white scratches across the view; they now barely stir until the gale, which keeps its strength with fewer, thinner, mist-tinted streaks. |
 | L-06 | Done | Light shafts feather toward their silhouettes, fade well before the floor and canopy, and break into drifting dust streaks instead of flat cones. |
+| W-08 | Done | Optic glass is thinner (opacity .26 → .18) with a glossy clearcoat and stronger environment reflection, so the window catches a highlight. Accent strips glow at 2.2 (was 1.08) so bloom picks them up, and flare with each shot and settle with the recoil. |
+| E-03 | Done | The "pillars" are the volumetric light shafts (L-06). The vessels slung across the chamber already wore the tissue texture and normals; they now also catch a fresnel rim in the arena's backlight colour that swells with a heartbeat at about 72 beats a minute (`setVesselRim`, `setVesselBeat`). |
+| E-04 | Done | A segmented 40-cell ring on the floor around each tissue node, lit in the node's HUD colour for the share of integrity left (`makeHealthRing`). It turns red and pulses once the node is critical (32% and below, the HUD's own threshold), brightens while the node is under attack, and takes the repair colour while it is sealed. |
+| N-02 | Done | Superseded: the Shellback is now a scanned, baked model with a teal-blue capsid and its own glow, and with the shared rim it separates clearly from the artery. |
+| N-03 | Done | Superseded: the Crown Virus is a scanned model whose red spike clubs stand out from a dark envelope, so its corona reads instead of a raspberry. |
+| N-06 | Done | Contact shadows use a broad soft disc instead of the sharp glow sprite, so they read as a pool, not a pinpoint; each spreads and fades with the pathogen's height above the floor (`placeShadow`). |
+| N-07 | Done | With the rim, the shadow-side lift and contact shadows (N-01, L-03, N-06) and the artery grade (L-01), the artery pathogens separate from the background as they do in the lungs. |
 | F-06 | Done | Armory stat tiles draw the bars the Armory already computed: fill toward "better", with a previewed part's gain in green or loss in red and the difference beside the value. |
 | F-12 | Done | The operator record is a slim strip under the menu, in the shaded text column, so it no longer covers the key art; an empty best score reads "No runs yet". |
 | E-02 | Done | Platelets darker and wetter (amber, not beige gravel). |

@@ -4,6 +4,8 @@
 import * as THREE from './vendor/three.module.js';
 import { TAU, UP, floorHeight } from './arena-scene.mjs';
 
+const ADS_DEPTH = -.25;
+
 export function updateWeapon(world, sim, dt, input, aiming, reduceMotion) {
   const pose = world.weaponPose;
   if (pose.sim !== sim) {
@@ -51,7 +53,10 @@ export function updateWeapon(world, sim, dt, input, aiming, reduceMotion) {
     lerp(hipX + hip.x, -world.weaponSight.x, aim) + walk * .022 - pose.swayX * sway - reloadTilt * .075,
     lerp(-.27 + hip.y, -world.weaponSight.y, aim) + idle + step * .011 + pose.swayY * sway
       + reloadTilt * .07 - pose.lowered * .42 - pose.recoil * .014 - pose.swap * .34,
-    lerp(-.64 + hip.z, -.61 + hip.z * .6, aim) + pose.recoil * .068 - reloadTilt * .13,
+    // Aiming brings the sight close to the eye, as a cheek weld does: the stock passes behind the
+    // camera and only the sight hood and the top of the receiver frame the view. The sight stays
+    // on the screen centre at any depth.
+    lerp(-.64 + hip.z, (world.carbine.adsDepth ?? ADS_DEPTH) + hip.z * .6, aim) + pose.recoil * .068 - reloadTilt * .13,
   );
   model.rotation.set(
     lerp(.12, 0, aim) + pose.recoil * .065 + reloadTilt * .12 - seat * .047 - pose.lowered * .63 - pose.swayY - pose.swap * .7,

@@ -21,6 +21,8 @@ export const ACCENT_COLORS = {
 
 // Finishes and accents without a hand-tuned palette above (the newer catalog colours and the
 // achievement rewards) derive one from their catalog colour.
+// The accent strips and cells glow enough to catch the bloom; each shot pulses them (arsenal-models update).
+export const ACCENT_GLOW = 2.2;
 const mixHex = (from, to, amount, scale = 1) => new THREE.Color(from).lerp(new THREE.Color(to), amount).multiplyScalar(scale).getHex();
 const derived = new Map();
 export function finishPalette(id) {
@@ -117,7 +119,7 @@ export function createCarbine({ showHands = true } = {}) {
     color: 0xbeb6a3, metalness: .18, roughness: .52,
     map: molded, roughnessMap: molded, bumpMap: molded, bumpScale: .0027,
   });
-  const rubber = new THREE.MeshStandardMaterial({ color: 0x2b2e32, roughness: .78, map: molded });
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x383c41, roughness: .78, map: molded });
   // Tactical gloves: olive-grey woven backs, worn leather palms and armoured knuckles, light
   // enough to hold their folds under the arena's light instead of reading as black mittens.
   const fabric = new THREE.MeshStandardMaterial({
@@ -132,8 +134,9 @@ export function createCarbine({ showHands = true } = {}) {
     clearcoat: .35, clearcoatRoughness: .45,
   }), 'shell');
   for (const [material, role] of [[metal, 'steel'], [dark, 'dark'], [edge, 'edge'], [rubber, 'rubber'], [ivory, 'shell']]) makeWeathered(material, role);
-  const green = new THREE.MeshStandardMaterial({ color: 0x4c9a60, emissive: 0x4ebf74, emissiveIntensity: 1.08, metalness: .33, roughness: .22 });
-  const glass = new THREE.MeshPhysicalMaterial({ color: 0x548d76, transparent: true, opacity: .26, metalness: .18, roughness: .13, clearcoat: 1, depthWrite: false });
+  const green = new THREE.MeshStandardMaterial({ color: 0x4c9a60, emissive: 0x4ebf74, emissiveIntensity: ACCENT_GLOW, metalness: .33, roughness: .22 });
+  // Thin tinted glass with a clearcoat so the window catches a highlight instead of reading as a hole.
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0x548d76, transparent: true, opacity: .18, metalness: .18, roughness: .08, clearcoat: 1, clearcoatRoughness: .04, envMapIntensity: 1.5, specularIntensity: 1, depthWrite: false });
   const cellGlass = new THREE.MeshPhysicalMaterial({
     color: 0x579879, metalness: .11, roughness: .18, transparent: true, opacity: .44,
     clearcoat: .75, depthWrite: false,
@@ -157,7 +160,7 @@ export function createCarbine({ showHands = true } = {}) {
     shape.closePath();
     const body = new THREE.ExtrudeGeometry(shape, {
       depth: length - 2 * radius, bevelEnabled: true, bevelThickness: radius,
-      bevelSize: radius, bevelSegments: 2, steps: 1,
+      bevelSize: radius, bevelSegments: 3, steps: 1,
     });
     body.translate(0, 0, -length / 2 + radius);
     return mesh(body,material,x,y,z,parent);
@@ -236,7 +239,9 @@ export function createCarbine({ showHands = true } = {}) {
     [-.035,-.02],[-.037,.011],[-.027,.022],[.027,.022],[.037,.011],[.035,-.02],
   ]));
   const opticHousing = new THREE.ExtrudeGeometry(optic, {
-    depth: .055, bevelEnabled: true, bevelThickness: .006, bevelSize: .005, bevelSegments: 3,
+    // A generous rounded bevel: in aim-down-sights this hood frames the view, so its edges must
+    // catch the light rather than read as a cut box.
+    depth: .055, bevelEnabled: true, bevelThickness: .008, bevelSize: .0065, bevelSegments: 5,
   });
   mesh(opticHousing, metal, 0, .142, -.153,factorySight);
   panel(.071,.038,.004,.0015,glass,0,.142,-.143,factorySight);

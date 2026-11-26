@@ -39,6 +39,21 @@ export function glowTexture() {
   });
 }
 
+// A soft contact shadow: a broad dark disc that only fades out over its outer half, so the shadow
+// under a hovering pathogen reads as a pool rather than a pinpoint.
+export function contactShadowTexture() {
+  return canvasTexture(128, (context, size) => {
+    const middle = size / 2;
+    const gradient = context.createRadialGradient(middle, middle, 0, middle, middle, middle);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.3, 'rgba(255,255,255,.86)');
+    gradient.addColorStop(0.62, 'rgba(255,255,255,.4)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, size, size);
+  });
+}
+
 export function cloudTexture() {
   return canvasTexture(256, (context, size) => {
     const random = randomSource(506);

@@ -3,7 +3,7 @@
 // skins, side decals, receiver stickers and hanging charms. The carbine's slot parts and the
 // gloves come from carbine.mjs.
 import * as THREE from './vendor/three.module.js';
-import { accentPalette, createCarbine, finishPalette, finishTexture } from './carbine.mjs';
+import { ACCENT_GLOW, accentPalette, createCarbine, finishPalette, finishTexture } from './carbine.mjs';
 import { createHoloReticle } from './shot-fx.mjs';
 import {
   DEFAULT_WEAPON_LOADOUT, WEAPON_CHARMS, WEAPON_DECALS, WEAPON_STICKERS, WEAPON_SKINS, normalizeWeaponLoadout,
@@ -84,12 +84,13 @@ export function createKit() {
       clearcoat: .1, clearcoatRoughness: .49,
     }),
     edge: new THREE.MeshStandardMaterial({ color: 0xa4a9a5, metalness: .9, roughness: .28, map: brushed }),
-    rubber: new THREE.MeshStandardMaterial({ color: 0x2b2e32, roughness: .78, map: molded }),
+    rubber: new THREE.MeshStandardMaterial({ color: 0x383c41, roughness: .78, map: molded }),
     accent: new THREE.MeshStandardMaterial({
-      color: 0x4c9a60, emissive: 0x4ebf74, emissiveIntensity: 1.08, metalness: .33, roughness: .22,
+      color: 0x4c9a60, emissive: 0x4ebf74, emissiveIntensity: ACCENT_GLOW, metalness: .33, roughness: .22,
     }),
     glass: new THREE.MeshPhysicalMaterial({
-      color: 0x548d76, transparent: true, opacity: .3, metalness: .18, roughness: .13, clearcoat: 1, depthWrite: false,
+      color: 0x548d76, transparent: true, opacity: .2, metalness: .18, roughness: .08, clearcoat: 1, clearcoatRoughness: .04,
+      envMapIntensity: 1.5, depthWrite: false,
     }),
     shellCasing: new THREE.MeshStandardMaterial({ color: 0xb8332b, metalness: .25, roughness: .45 }),
     brass: new THREE.MeshStandardMaterial({ color: 0xc89a4b, metalness: .9, roughness: .3 }),
@@ -129,7 +130,7 @@ function builder(root) {
     shape.lineTo(-hw, hh);
     shape.closePath();
     const body = new THREE.ExtrudeGeometry(shape, {
-      depth: Math.max(.0005, length - 2 * r), bevelEnabled: true, bevelThickness: r, bevelSize: r, bevelSegments: 2, steps: 1,
+      depth: Math.max(.0005, length - 2 * r), bevelEnabled: true, bevelThickness: r, bevelSize: r, bevelSegments: 3, steps: 1,
     });
     body.translate(0, 0, -length / 2 + r);
     return mesh(body, material, x, y, z, parent);
@@ -456,6 +457,8 @@ function buildPistol(kit) {
     charm: new THREE.Vector3(-.026, -.012, -.15),
     // The pistol sits higher and closer than the long guns so both gloves stay in frame.
     hipOffset: new THREE.Vector3(-.065, .125, .08),
+    // Aimed at arm's length, not pulled in to the cheek like the long guns.
+    adsDepth: -.6,
   };
 }
 
@@ -977,6 +980,8 @@ export function createArsenalView({ showHands = true } = {}) {
   let current = normalizeWeaponLoadout(DEFAULT_WEAPON_LOADOUT);
   const supportRest = carbineSupport.clone();
   const hipOffset = new THREE.Vector3();
+  // How far out the sight sits when aimed, where a weapon sets its own (see weapon-view.mjs).
+  let adsDepth = null;
 
   function setLoadout(loadout = DEFAULT_WEAPON_LOADOUT) {
     const next = normalizeWeaponLoadout(loadout);
@@ -990,6 +995,7 @@ export function createArsenalView({ showHands = true } = {}) {
       carbine.sight.position.copy(carbineSight);
       supportRest.copy(carbineSupport);
       hipOffset.set(0, 0, 0);
+      adsDepth = null;
     } else {
       const body = bodies[active];
       body.apply(next);
@@ -999,6 +1005,7 @@ export function createArsenalView({ showHands = true } = {}) {
       supportRest.copy(body.supportRest);
       decor = body;
       hipOffset.copy(body.hipOffset ?? new THREE.Vector3());
+      adsDepth = body.adsDepth ?? null;
     }
     if (active === 'carbine' && current.weapon !== 'carbine') {
       // Restore the carbine muzzle for its current barrel and muzzle.
@@ -1030,8 +1037,12 @@ export function createArsenalView({ showHands = true } = {}) {
   }
 
   // Swings the charm like a pendulum from the weapon's sway, movement and recoil.
-  function update(dt, { swayX = 0, swayY = 0, movement = 0, recoil = 0, stride = 0 } = {}, ammo = 1) {
+  function update(dt, { swayX = 0, swayY = 0, movement = 0, recoil = 0, stride = 0, flash = 0 } = {}, ammo = 1) {
     const step = Math.min(dt, .05);
+    // The accent strips flare with each shot and settle back with the recoil.
+    const glow = ACCENT_GLOW * (1 + Math.min(1, recoil) * .9 + (flash > 0 ? .6 : 0));
+    carbine.materials.accent.emissiveIntensity = glow;
+    if (bodies[active]) bodies[active].kit.accent.emissiveIntensity = glow;
     const pushX = -swayX * 60 + Math.sin(stride) * movement * .9;
     const pushZ = recoil * 9 + swayY * 40 + Math.cos(stride * 2) * movement * .5;
     charmSwing.vx += (pushX - charmSwing.x * 38 - charmSwing.vx * 3.2) * step;
@@ -1064,6 +1075,7 @@ export function createArsenalView({ showHands = true } = {}) {
     get bolt() { return active === 'carbine' ? carbineBolt : bodies[active].bolt; },
     get supportRest() { return supportRest; },
     get hipOffset() { return hipOffset; },
+    get adsDepth() { return adsDepth; },
     get carbineGrip() { return carbineGrip; },
     anchors() {
       if (active !== 'carbine') return bodies[active].anchors(current);
