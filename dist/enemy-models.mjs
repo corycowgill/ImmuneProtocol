@@ -39,6 +39,8 @@ export const ENEMY_MODELS = Object.freeze({
   'boss-colossus': { size: 1, glow: 0x343a08 },
   'boss-macrophage': { size: 1, glow: 0x34204a },
   'boss-screamer': { size: 1, glow: 0x1c2e4a },
+  // The finale's second boss, a war machine built in Blender by tools/enemies/build_nanobot.py.
+  'boss-nanobot': { size: 1, glow: 0x2a0a08 },
 });
 
 // A fresnel rim light shared by every pathogen material, so silhouettes separate from tissue of

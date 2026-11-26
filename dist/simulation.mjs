@@ -9,7 +9,8 @@ import { CRAWLER_SPEC, ROGUE_BOT_SPEC, startBotLaser, stepRogueBot } from './rog
 import { GRIP_SPEC, advanceCling, grippedBy, releaseCling, startCling } from './grip-phage.mjs';
 import { maybeElite } from './elites.mjs';
 import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-objectives.mjs';
-import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
+import { spawnLevelBoss, stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
+import { NANOBOT } from './nanobot-boss.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
 import { HAZARD_CLEARANCE, RESONANCE_CLEARANCE, groundHeight, onMovingGround, terrainFor, terrainFootprints } from './terrain.mjs';
@@ -259,6 +260,8 @@ const LATCH_TEAR = 0.27;
 const VIRUS_WINDUP = 0.5;
 const VIRUS_POUNCE = 0.22;
 const VIRUS_RECOVERY = 0.42;
+// Seconds between the Mega Virus's collapse and the Mega Nano Bot's arrival.
+const FINALE_DELAY = 4;
 const VIRUS_RANGE = 3.6;
 const SPORE_WINDUP = 0.55;
 const SPORE_RECOVERY = 0.55;
@@ -571,6 +574,7 @@ export class Simulation {
     this.organCycle = 0;
     this.organNextDamage = 0;
     this.boss = null;
+    this.finale = null;
     this.airway = null;
     this.gastric = this.area === 'stomach' ? createGastric() : null;
     this.organ = this.organMission ? this.createOrganPhase('recovery') : null;
@@ -826,6 +830,7 @@ export class Simulation {
     }
     if (this.boss) stepBrainBoss(this, dt);
     else if (this.organ) this.updateOrgan(dt);
+    this.stepFinale(dt);
     this.moveSuits(dt, input);
     if (this.gash) {
       this.damageNode(this.gash.node, this.gash.drainPerSecond * dt);
@@ -919,7 +924,7 @@ export class Simulation {
     this.updateSuitStatus();
     this.remaining = (mission.arrivals ?? mission.species).length - this.spawnIndex + this.enemies.length +
       pendingGastricEnemies(this.gastric) +
-      Number(!!this.boss && this.boss.state !== 'defeated');
+      Number(!!this.boss && this.boss.state !== 'defeated') + Number((this.finale?.pending ?? 0) > 0);
 
     if (this.failedNode) {
       this.endMission('lost', 'tissue');
@@ -930,6 +935,18 @@ export class Simulation {
     } else if (this.phase === 'combat') {
       this.advanceOutro(dt, this.remaining === 0 && this.projectiles.length === 0 && !(this.boss?.remaining > 0), () => this.clearWave());
     }
+  }
+
+  // The finale's second act: once the Mega Virus has collapsed, the Mega Nano Bot descends.
+  stepFinale(dt) {
+    if (this.area !== 'brain' || !this.boss) return;
+    if (!this.finale && this.boss.state === 'defeated') {
+      this.finale = { pending: FINALE_DELAY };
+      this.events.push({ type: 'levelBoss', stage: 'incoming', boss: NANOBOT.id, name: NANOBOT.name, x: 0, y: NANOBOT.y, z: 0 });
+    }
+    if (!(this.finale?.pending > 0)) return;
+    this.finale.pending = Math.max(0, this.finale.pending - dt);
+    if (this.finale.pending === 0) spawnLevelBoss(this, NANOBOT);
   }
 
   startAirwayObjective() {
@@ -1532,9 +1549,11 @@ export class Simulation {
   fireTurret(turret, dt) {
     turret.cooldown = Math.max(0, turret.cooldown - dt);
     if (turret.carried) return;
-    if (this.area === 'ear') {
+    // An EMP (the Mega Nano Bot's) knocks it offline for a while.
+    const knocked = (turret.empUntil ?? 0) > this.clock;
+    if (this.area === 'ear' || knocked) {
       // The cochlea's perch stands above the resonance.
-      turret.jammed = this.organ.phase === 'active' && withinHazard(turret, this.organ) && (turret.y ?? 0) < RESONANCE_CLEARANCE;
+      turret.jammed = knocked || (this.organ.phase === 'active' && withinHazard(turret, this.organ) && (turret.y ?? 0) < RESONANCE_CLEARANCE);
       if (turret.jammed) {
         turret.targetId = null;
         return;
@@ -1615,6 +1634,9 @@ export class Simulation {
     let target;
     let critical = false;
     let blocked = false;
+    // A boss's parts (the Mega Nano Bot's pylons and brain) sit inside its hull's hit sphere: a
+    // shot that passes through one hits it, not the hull around it.
+    let part = null, partDistance = range, partCritical = false;
     for (const enemy of this.enemies) {
       if ((enemy.tutorial && this.tutorial === 'observe') || enemy.hidden) continue;
       const x = enemy.x - player.x;
@@ -1625,10 +1647,17 @@ export class Simulation {
       const radiusSquared = enemy.radius * enemy.radius;
       if (forward <= 0 || offsetSquared > radiusSquared) continue;
       const entry = Math.max(0, forward - Math.sqrt(radiusSquared - offsetSquared));
+      if (enemy.partOf != null) {
+        if (entry < partDistance) { part = enemy; partDistance = entry; partCritical = offsetSquared <= radiusSquared * (aiming ? weapon.aimCritical : weapon.hipCritical); }
+        continue;
+      }
       if (entry >= distance) continue;
       distance = entry;
       target = enemy;
       critical = offsetSquared <= radiusSquared * (aiming ? weapon.aimCritical : weapon.hipCritical);
+    }
+    if (part && (partDistance < distance || target?.id === part.partOf)) {
+      target = part; distance = partDistance; critical = partCritical;
     }
 
     // Tissue nodes are solid: a pathogen behind one needs a clear shot around it.
@@ -1760,10 +1789,21 @@ export class Simulation {
     if (kill) player.kills = (player.kills ?? 0) + 1;
   }
 
-  hitEnemy(target, damage, critical, impact, source, suit = null) {
+  hitEnemy(target, damage, critical, impact, source, suit = null, direct = false) {
     if (target.health <= 0 || target.hidden) return;
+    // A part that relays its hits (the Mega Nano Bot's brain) passes them to its host, or turns
+    // them while it is shielded.
+    if (target.relayTo != null) {
+      const host = this.enemies.find(enemy => enemy.id === target.relayTo);
+      if (!host || !(target.relayScale > 0)) {
+        this.events.push({ type: 'hit', id: target.id, damage: 0, blocked: true, source, ...impact });
+        return;
+      }
+      // The weak point is not armoured: its hits skip the hull's damage scale.
+      return this.hitEnemy(host, damage * target.relayScale, critical, impact, source, suit, true);
+    }
     // Bosses shrug off or soak up fire depending on what they are doing.
-    damage *= target.damageScale ?? 1;
+    if (!direct) damage *= target.damageScale ?? 1;
     if (target.boss) target.damageTaken += damage;
     if (target.boss) bossDamageThreat(target, suit?.player, damage, this.clock);
     target.health -= damage;

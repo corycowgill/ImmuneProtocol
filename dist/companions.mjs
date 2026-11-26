@@ -150,7 +150,7 @@ function stepDrone(sim, drone, suit, dt) {
 
   // The Inner Ear's resonance jams it near the floor, like the turret.
   const organ = sim.organ;
-  drone.jammed = sim.area === 'ear' && organ?.phase === 'active' && insideHazard(drone, organ) &&
+  drone.jammed = (drone.empUntil ?? 0) > sim.clock || sim.area === 'ear' && organ?.phase === 'active' && insideHazard(drone, organ) &&
     groundHeight(sim.terrain ?? [], drone.x, drone.z, sim.clock) < RESONANCE_CLEARANCE;
   const working = !drone.jammed && !sim.tutorial && (sim.phase === 'combat' || sim.phase === 'intermission');
   drone.retarget -= dt;

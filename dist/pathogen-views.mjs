@@ -7,6 +7,7 @@ import { OBJECTIVE } from './simulation.mjs';
 import { addPathogenRim, animatePathogen, pathogenMotion, reapplyMachineGrime } from './enemy-models.mjs';
 import { BOSS_FLOATS } from './level-bosses.mjs';
 import { ELITES } from './elites.mjs';
+import { dressNanobot, hideNanobot, releaseNanobot } from './nanobot-view.mjs';
 import { membraneMaps } from './arena-textures.mjs';
 import { TAU, UP, floorHeight, groundLevel, baseFloorHeight, addMesh } from './arena-scene.mjs';
 
@@ -151,6 +152,8 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
   for (const view of world.enemyViews.values()) view.present = false;
   const frameDt = dt;
   for (const enemy of enemies) {
+    // Parts of a boss (the Mega Nano Bot's pylons and brain) are drawn by the boss's own model.
+    if (enemy.noView) continue;
     // A stunned pathogen's own motion all but stops while it twitches in place.
     const stunned = enemy.stunRemaining > 0;
     dt = stunned ? frameDt * .07 : frameDt;
@@ -243,6 +246,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
         view.attackMembrane.emissiveIntensity = view.membraneIntensity + view.clench * .9 + exposed + view.hit * .5;
       }
       if (!reduceMotion) animatePathogen(view.motion, dt, view.clench);
+      if (enemy.boss === 'nanobot') dressNanobot(world, enemy, view, dt, reduceMotion, enemies);
       placeShadow(world, enemy, view, floats ? 1.3 : 1.8);
       continue;
     }
@@ -305,6 +309,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
   for (const [id, view] of world.enemyViews) {
     if (view.present) continue;
     if (view.eliteMark) view.eliteMark.visible = false;
+    hideNanobot(view);
     world.enemyViews.delete(id);
     // A pathogen that was killed plays its death before its model goes back to the pool.
     if (!world.deaths?.claim(id, view)) releaseEnemyView(world, view);
@@ -326,6 +331,7 @@ export function releaseEnemyView(world, view) {
     if (view.tethers) world.scene.remove(...view.tethers);
     view.clonedMembrane?.dispose();
     view.eliteHalo?.material.dispose();
+    releaseNanobot(world, view);
     if (view.eliteMark) { world.scene.remove(view.eliteMark); view.eliteMark.material.dispose(); }
     view.motion?.mixer?.uncacheRoot(view.model);
     if (view.laser) {

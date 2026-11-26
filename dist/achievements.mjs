@@ -329,7 +329,8 @@ export class AchievementTracker {
           if (event.stage === 'restored') run.retried = true;
           break;
         case 'levelBoss':
-          if (event.stage === 'defeated') { this.unlock('giant-slayer'); if (event.boss) this.include('bosses', event.boss); }
+          // Rogues' Gallery counts the eight mission bosses and the Mega Virus (the finale's Mega Nano Bot is extra).
+          if (event.stage === 'defeated') { this.unlock('giant-slayer'); if (BOSS_IDS.includes(event.boss)) this.include('bosses', event.boss); }
           if (event.stage === 'ability') {
             if (event.boss === 'thrombus' && event.ability === 'stunned') this.unlock('off-the-wall');
             if (event.boss === 'leech' && event.ability === 'knocked') this.unlock('leech-removal');

@@ -44,6 +44,7 @@ export const DEATHS = Object.freeze({
 export const BOSS_GORE = Object.freeze({
   thrombus: 0xa8221c, leech: 0xc0902e, bloom: 0x4ac0a0, drill: 0xc8542e,
   tapeworm: 0xe0c890, colossus: 0x98a838, macrophage: 0x9070d8, screamer: 0x6a98e0,
+  nanobot: 0x2a2e34,
 });
 export const BOSS_DEATH_TIME = 2;
 

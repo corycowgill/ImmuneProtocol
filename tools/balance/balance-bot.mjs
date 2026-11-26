@@ -102,8 +102,26 @@ function dodgeBoss(sim, input) {
       aim(player, boss, .03); input.fire = true; input.repair = false;
       continue;
     }
+    // The Mega Nano Bot's sweep: jump the beam as it comes across the suit.
+    if (boss.laser?.stage === 'fire') {
+      const bearing = Math.atan2(player.x - boss.x, player.z - boss.z);
+      const gap = Math.abs(Math.atan2(Math.sin(bearing - boss.laser.bearing), Math.cos(bearing - boss.laser.bearing)));
+      if (gap < .3 && Math.hypot(player.x - boss.x, player.z - boss.z) < 46) input.jump = true;
+    }
     const sign = boss.telegraph;
     if (!sign) continue;
+    // A salvo's circles: step out of whichever one the suit stands in.
+    if (sign.rings) {
+      const ring = sign.rings.find(item => Math.hypot(player.x - item.x, player.z - item.z) < item.radius + 1.2);
+      if (ring) {
+        const gap = Math.hypot(player.x - ring.x, player.z - ring.z) || .01;
+        steer(player, player.x + (player.x - ring.x) / gap * 7 + .5, player.z + (player.z - ring.z) / gap * 7, input, true);
+        input.repair = false;
+        if (sign.remaining < .35) input.dash = true;
+      }
+      continue;
+    }
+    if (sign.kind === 'sweep') continue;
     if (sign.kind === 'charge') {
       const dx = sign.toX - sign.x, dz = sign.toZ - sign.z, length = Math.hypot(dx, dz) || 1;
       const ux = dx / length, uz = dz / length;
@@ -271,9 +289,13 @@ function think(sim, rover, memory, clock) {
   let best = Infinity;
   for (const enemy of enemies) {
     if ((memory.blocked.get(enemy) ?? 0) > clock) continue;
+    // The Mega Nano Bot: its shielded hull and a shielded brain turn every shot; its pylons, then
+    // its exposed brain, are what to shoot.
+    if (enemy.boss === 'nanobot' || (enemy.relayTo != null && !(enemy.relayScale > 0))) continue;
     // Tissue nodes stop shots: a pathogen behind one waits until a clear line opens.
     const covered = !enemy.boss && !enemy.nest && hiddenByTissue(sim, player, enemy);
-    const score = distance(enemy, player) * .35 + distance(enemy, enemy.node) * (enemy.node === node ? .7 : 1) + (covered ? 30 : 0);
+    const part = enemy.partOf != null ? -25 : 0;
+    const score = distance(enemy, player) * .35 + distance(enemy, enemy.node) * (enemy.node === node ? .7 : 1) + (covered ? 30 : 0) + part;
     if (score < best && distance(enemy, player) < 40) {
       best = score;
       target = enemy;
@@ -281,7 +303,7 @@ function think(sim, rover, memory, clock) {
   }
   // With nothing closer to deal with, cross the arena to the nearest brood nest or the boss.
   if (!target) {
-    target = enemies.filter(enemy => enemy.nest || enemy.boss || enemy.segmentOf).sort((a, b) => distance(a, player) - distance(b, player))[0] ?? null;
+    target = enemies.filter(enemy => (enemy.nest || enemy.boss || enemy.segmentOf) && enemy.boss !== 'nanobot' && !(enemy.relayTo != null && !(enemy.relayScale > 0))).sort((a, b) => distance(a, player) - distance(b, player))[0] ?? null;
   }
   if (target !== memory.target) memory.misses = 0;
   memory.target = target;

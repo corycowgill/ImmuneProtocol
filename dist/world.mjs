@@ -928,6 +928,21 @@ export class World {
       for (const event of events) {
         if (event.type === 'enemyAttack' && event.stage === 'impact' && event.target === 'player' &&
           (event.targetPlayerId == null || event.targetPlayerId === playerId)) this.splatVisor(event.enemyType);
+        // The Mega Nano Bot: a salvo's missiles fly from its pods to their circles (they burst on
+        // the explosion events that land with them); an EMP sparks off every companion it downs.
+        if (event.type === 'levelBoss' && event.boss === 'nanobot') {
+          if (event.ability === 'salvo') {
+            event.rings?.forEach((ring, index) => {
+              const side = index % 2 ? 1 : -1;
+              const start = new THREE.Vector3(event.x + side * 2.6, event.y + .6, event.z);
+              const end = new THREE.Vector3(ring.x, floorHeight(ring.x, ring.z) + .2, ring.z);
+              this.explosions.launch(start, end, Math.max(.4, (event.travel ?? 1.5) - .15), reduceMotion);
+            });
+          }
+          if (event.ability === 'emp') {
+            for (const item of event.downed ?? []) this.burst(item.x, (item.y ?? 1) + 1, item.z, 0x7fe8ff, reduceMotion ? 6 : 24, 3.4);
+          }
+        }
         // The Rogue Macrophage: its pull smears the visor, and an engulf puts the suit inside it.
         if (event.type === 'levelBoss' && event.boss === 'macrophage' && (event.playerId ?? null) === (playerId ?? null)) {
           if (event.ability === 'pulling') this.splatVisor('macrophage', .45);

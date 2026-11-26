@@ -39,7 +39,7 @@ export function bossDamageThreat(boss, player, damage, now) {
 export function moveBoss(sim, boss, x, z, speed, dt, stop = .2) {
   const destination = { x, z }, d = gap(boss, destination);
   if (d <= stop + .02) return true;
-  const flying = boss.boss === 'bloom' || boss.boss === 'screamer' || boss.hidden;
+  const flying = boss.boss === 'bloom' || boss.boss === 'screamer' || boss.boss === 'nanobot' || boss.hidden;
   let next = destination;
   if (!flying) {
     let route = routes.get(boss);

@@ -344,6 +344,17 @@ test('both co-op suits can complete organ-specific objectives', () => {
       hitBrainBoss(brain, { vulnerable: true }, brain.boss.weakPoint);
     }
   }
+  // The finale's second act: the Mega Nano Bot descends, and the mission is won when it falls.
+  brain.enemies.length = 0;
+  let nanobot = null;
+  for (let tick = 0; tick < 300 && !nanobot; tick++) {
+    brain.step(1 / 30);
+    nanobot = brain.enemies.find(enemy => enemy.boss === 'nanobot');
+  }
+  assert.ok(nanobot, 'the Mega Nano Bot arrives after the Mega Virus');
+  assert.equal(brain.phase, 'combat');
+  nanobot.damageScale = 1;
+  brain.hitEnemy(nanobot, 1e9, false, nanobot, 'carbine', brain.suits[0]);
   brain.enemies.length = 0;
   for (let tick = 0; tick < 200 && brain.phase !== 'won'; tick++) brain.step(1 / 30);
   assert.equal(brain.phase, 'won');

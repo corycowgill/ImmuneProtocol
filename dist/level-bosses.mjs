@@ -1,4 +1,5 @@
 import { BOSS_TUNING, bossSuit, moveBoss, telegraph, segmentCircle, moveCharge, chargeReach, canSummon } from './boss-tactics.mjs';
+import { NANOBOT, nanobotBehaviour, nanobotStatus, prepareNanobot } from './nanobot-boss.mjs';
 // Level bosses. Each mission ends with its own apex pathogen, which arrives once the final wave's
 // roster has finished spawning and must die before the wave can clear. A boss is an ordinary
 // enemy record (so shots, rockets, the turret, markers and co-op snapshots all work on it) with
@@ -37,8 +38,9 @@ export const LEVEL_BOSSES = Object.freeze({
 });
 
 // These two hang in the air; the rest stand on the floor and follow its contours.
-export const BOSS_FLOATS = Object.freeze(['bloom', 'screamer']);
-export const BOSS_MODELS = Object.freeze([...new Set(Object.values(LEVEL_BOSSES).map(boss => boss.model))]);
+export const BOSS_FLOATS = Object.freeze(['bloom', 'screamer', 'nanobot']);
+// The Mega Nano Bot is the finale's second boss (nanobot-boss.mjs), not a mission's own.
+export const BOSS_MODELS = Object.freeze([...new Set([...Object.values(LEVEL_BOSSES).map(boss => boss.model), NANOBOT.model])]);
 const SEGMENTS = 7;
 const SEGMENT = Object.freeze({ health: 360, radius: 1.25, y: 1.3, scale: 2.3, score: 150, spacing: 3.4 });
 
@@ -131,8 +133,7 @@ function entryPoint(sim) {
   return best;
 }
 
-export function spawnLevelBoss(sim) {
-  const design = LEVEL_BOSSES[sim.area];
+export function spawnLevelBoss(sim, design = LEVEL_BOSSES[sim.area]) {
   if (!design) return null;
   const { x, z } = sim.area === 'junction' ? sim.constructor.junctionInlets.left : entryPoint(sim);
   const boss = sim.createEnemy(design.model, x, z, weakestNode(sim), design);
@@ -159,6 +160,7 @@ export function spawnLevelBoss(sim) {
     }
   }
   if (design.id === 'bloom' || design.id === 'screamer') boss.x = 0;
+  if (design.id === 'nanobot') prepareNanobot(sim, boss);
   emit(sim, boss, 'arrive', { hint: design.hint });
   return boss;
 }
@@ -174,7 +176,14 @@ export function stepBossArrival(sim) {
 
 // ---------------------------------------------------------------- behaviours
 
+// The helpers the Mega Nano Bot's own module (nanobot-boss.mjs) fights with.
+const HELPERS = {
+  emit, warn, telegraph, blast, minion, setNode, weakestNode, livingSuits, clearLine, approach,
+  nearestSuit: (...args) => nearestSuit(...args),
+};
+
 const BEHAVIOURS = {
+  nanobot: (sim, boss, dt) => nanobotBehaviour(sim, boss, dt, HELPERS),
   // Armoured from every side. It lines up a suit, charges in a straight line, and if it reaches
   // the arena wall it is stunned and soft for a few seconds.
   thrombus(sim, boss, dt) {
@@ -724,10 +733,11 @@ const BEHAVIOURS = {
 };
 
 export function stepLevelBoss(sim, boss, dt) {
-  if (boss.behavior === 'boss-segment') return; // Placed by the head.
+  if (boss.behavior === 'boss-segment' || boss.behavior === 'boss-part') return; // Placed by the head.
   if (boss.health <= 0) return;
   const phase = boss.health <= boss.maxHealth * .5 ? 2 : 1;
-  if (phase > (boss.phase ?? 1)) {
+  // The Mega Nano Bot keeps its own three phases.
+  if (boss.boss !== 'nanobot' && phase > (boss.phase ?? 1)) {
     boss.phase = phase;
     emit(sim, boss, 'phase', { phase });
   }
@@ -742,7 +752,15 @@ export function stepLevelBoss(sim, boss, dt) {
 export function levelBossStatus(sim) {
   const boss = sim.enemies?.find(enemy => enemy.boss);
   if (!boss) return null;
-  const segments = sim.enemies.filter(enemy => enemy.segmentOf === boss.id).length;
+  const segments = sim.enemies.filter(enemy => enemy.segmentOf === boss.id && enemy.partOf == null).length;
+  const own = boss.boss === 'nanobot' ? nanobotStatus(sim, boss) : null;
+  if (own) {
+    return {
+      name: boss.name, health: boss.health, maxHealth: boss.maxHealth, hint: boss.hint, warning: boss.warning,
+      phase: boss.phase ?? 1, remaining: boss.telegraph?.remaining ?? 0, state: own.state,
+      detail: own.detail + ' · Phase ' + (boss.phase ?? 1) + ' / ' + own.phaseCount,
+    };
+  }
   return {
     name: boss.name, health: boss.health, maxHealth: boss.maxHealth, hint: boss.hint, warning: boss.warning,
     phase: boss.phase ?? 1, remaining: boss.telegraph?.remaining ?? (boss.damageScale > 1 ? boss.timer : 0),
