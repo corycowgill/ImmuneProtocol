@@ -65,6 +65,9 @@ export const JUNCTION_GASH_SITES = Object.freeze({
 });
 // The solid core of a tissue node that stops player fire (its lobes are about this size).
 export const TISSUE_BLOCK_RADIUS = 1.15;
+// How close a suit's centre can come to a tissue node's: the node's body (about 1.4 m across its
+// lobes and shell at waist height) plus the suit itself. The low roots around it stay walkable.
+export const TISSUE_SOLID_RADIUS = 1.85;
 
 export const RULES = Object.freeze({
   health: 100,
@@ -1295,7 +1298,27 @@ export class Simulation {
   }
 
   confineToArena(actor, solid = false) {
+    if (solid) this.keepOffNodes(actor);
     confineToChamber(actor, solid ? this.obstacles : null);
+  }
+
+  // Tissue nodes are solid: a suit walks or dashes around one, not through it. Only the nodes the
+  // arena is showing count (the world hides them during the airway objective, and all but the
+  // first during training).
+  keepOffNodes(actor) {
+    if (this.airway) return;
+    for (let i = 0; i < this.nodes.length; i++) {
+      if (this.tutorial && i > 0) break;
+      const node = this.nodes[i];
+      const dx = actor.x - node.x;
+      const dz = actor.z - node.z;
+      const distance = Math.hypot(dx, dz);
+      if (distance >= TISSUE_SOLID_RADIUS) continue;
+      // Dead centre has no direction to push along; back out the way the suit faces.
+      const [nx, nz] = distance > 1e-6 ? [dx / distance, dz / distance] : [Math.sin(actor.yaw ?? 0), Math.cos(actor.yaw ?? 0)];
+      actor.x = node.x + nx * TISSUE_SOLID_RADIUS;
+      actor.z = node.z + nz * TISSUE_SOLID_RADIUS;
+    }
   }
 
   updateRepair(dt, held, suit = this) {
