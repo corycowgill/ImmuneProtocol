@@ -2,7 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import { createArsenalView, weaponModelsReady, prepareWeaponCosmetics } from './arsenal-models.mjs';
 import { COOP_SUITS, loadSuitModels } from './suits.mjs';
 import { ExplosionFX } from './explosions.mjs';
-import { DeathFX } from './death-fx.mjs';
+import { DeathFX, DEATHS } from './death-fx.mjs';
 import { PostFX } from './post-fx.mjs';
 import { ImpactFX } from './impact-fx.mjs';
 import { paintGround, patchGround, patchShell } from './ground-fx.mjs';
@@ -61,6 +61,16 @@ const HEALTHY = new THREE.Color(0xffc6ad);
 const HEALTHY_FLANK = new THREE.Color(0xf1c1d5);
 const INJURED = new THREE.Color(0xff795d);
 const REPAIR_LIGHT = new THREE.Color(0x9bf4c4);
+
+// True while a pathogen that pounced is still on the suit: it has landed and not yet pulled
+// away, or another is right on top of it, so the goo it left cannot be wiped yet.
+function pathogenOnSuit(sim) {
+  const { player } = sim;
+  return sim.enemies.some(enemy => enemy.behavior === 'virus' && !enemy.boss && enemy.health > 0 && enemy.actionTarget === 'player' &&
+    (enemy.actionPlayerId == null || enemy.actionPlayerId === player.id) &&
+    (enemy.action === 'virus-recover' || enemy.action === 'virus-pounce') &&
+    Math.hypot(enemy.x - player.x, enemy.z - player.z) < (enemy.radius ?? 1) + .9);
+}
 // Each node's floor ring wears its HUD colour (styles.css .node-row), and turns red when critical.
 const NODE_RING = [0xc8f794, 0x8fe4dd, 0xe7b4ff, 0xffd58a].map(hex => new THREE.Color(hex));
 const NODE_RING_CRITICAL = new THREE.Color(0xff4d3d);
@@ -349,13 +359,23 @@ export class World {
   }
 
   // Whether the eye is inside a white blood cell, and the goo that leaves on the visor.
-  updateVisor(dt, reduceMotion) {
+  updateVisor(sim, dt, reduceMotion) {
     const { depth, cell } = this.props?.immersion?.(this.camera.position) ?? { depth: 0, cell: null };
-    this.visor.update(dt, depth, cell, reduceMotion);
+    this.visor.update(dt, depth, cell, reduceMotion, pathogenOnSuit(sim));
     this.visorOverlay.visible = this.visor.active;
     const u = this.visor.uniforms;
     u.gooAspect.value = this.camera.aspect;
     u.gooTime.value = reduceMotion ? 0 : this.clock;
+  }
+
+  // A pathogen's attack landed on this suit: its fluid splats across the visor. A pounce lands
+  // the whole body on the glass; a spat glob leaves less. Machines' lasers leave nothing.
+  splatVisor(type) {
+    const gore = DEATHS[type]?.gore;
+    if (gore == null || type === 'rogue-bot' || type === 'crawler') return;
+    const fluid = new THREE.Color(gore);
+    const colour = new THREE.Color(0xeadcd0).lerp(fluid, .55);
+    this.visor.splat(colour, fluid.multiplyScalar(.6), (SPECIES[type]?.behavior ?? type) === 'virus' ? 1 : .6);
   }
 
   // Sound cues the view raised this frame (the visor's splat and wipe), for the audio engine.
@@ -894,6 +914,8 @@ export class World {
     if (events !== this.lastEvents) {
       this.lastEvents = events;
       for (const event of events) {
+        if (event.type === 'enemyAttack' && event.stage === 'impact' && event.target === 'player' &&
+          (event.targetPlayerId == null || event.targetPlayerId === playerId)) this.splatVisor(event.enemyType);
         if (event.type === 'shot') {
           if (event.playerId == null || event.playerId === playerId) this.addShot(event, flashStrength, reduceMotion);
           else this.addTeammateShot(event, reduceMotion);
@@ -1005,7 +1027,7 @@ export class World {
     this.organEnvironment?.updateGastric?.(sim, this.clock, dt, reduceMotion);
     this.megaVirus?.update(sim.boss, this.clock, dt, reduceMotion);
     this.props?.update(sim, this.clock, dt, reduceMotion);
-    this.updateVisor(dt, reduceMotion);
+    this.updateVisor(sim, dt, reduceMotion);
     if (sim.valve) this.heart.update(sim.valve, dt, reduceMotion, this.quality === 'low');
     this.updateTissue(sim, dt, reduceMotion);
     if (this.area === 'junction') this.updateJunctionField(sim, dt, reduceMotion);

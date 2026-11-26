@@ -316,7 +316,7 @@ Every arena has raised ground. The suit walks up steps under 0.42 m and up ramps
 | Inner Ear | The cochlea: a spiral stair to a 2.5 m perch. A turret on the perch stands above the resonance and never jams. |
 | Neural Cortex | A walkway of raised synapse pads between the nodes, each a jump apart. |
 
-**White blood cells.** Friendly neutrophils patrol the bloodstream, colon and lymph node arenas, hunting stray bacteria, and the lymph node's macrophage roams its follicle. They are harmless, and you can walk straight through one. Inside, the view fills with milky cytoplasm; coming out, the visor is left coated in plasm that sags and drips for a moment before your suit wipes it off with the off hand (your weapon dips while it does), leaving a few streaks that clear on their own. With **Reduce motion** on, the goo stays still and the visor clears without the hand.
+**White blood cells.** Friendly neutrophils patrol the bloodstream, colon and lymph node arenas, hunting stray bacteria, and the lymph node's macrophage roams its follicle. They are harmless, and you can walk straight through one. Inside, the view fills with milky cytoplasm; coming out, the visor is left coated in plasm that sags and drips for a moment before your suit wipes it off with the off hand (your weapon dips while it does), leaving a few streaks that clear on their own. A pathogen that pounces onto your suit does the same with its own fluid: it splats across the visor, stays there while the pathogen is still on you, and is wiped off once you are free. Spat globs leave a lighter splat. With **Reduce motion** on, the goo stays still and the visor clears without the hand.
 
 ## Pathogens and the disease guide
 

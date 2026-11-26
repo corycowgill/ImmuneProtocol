@@ -1,7 +1,10 @@
 // Goo on the suit's visor. Swimming through a white blood cell floods the view with its milky
 // cytoplasm; leaving it leaves a coat of plasm on the visor that sags and drips for a moment
 // before the suit's glove wipes it away, leaving smeared streaks that thin out and clear.
-// World feeds it the camera's depth inside a cell each frame; post-fx.mjs draws the film from
+// A pathogen that pounces onto the suit splats its own fluid across the visor the same way; the
+// goo stays while the pathogen is still on the suit and is wiped once the suit is free.
+// World feeds it the camera's depth inside a cell and whether a pathogen is on the suit each
+// frame, and calls `splat` when an attack lands; post-fx.mjs draws the film from
 // the uniforms it exposes (`uniforms`), and weapon-view.mjs dips the weapon while the off hand
 // is up at the visor (`handRaise`).
 import * as THREE from './vendor/three.module.js';
@@ -25,6 +28,8 @@ export class VisorGoo {
       gooAge: { value: 0 },
       gooColor: { value: new THREE.Color(0xf3ece6) },
       gooTint: { value: new THREE.Color(0x8a5cb0) },
+      // 0 for an even coat (a cell), 1 for a splat that is thickest where it struck.
+      gooFocus: { value: 0 },
     };
     this.reset();
   }
@@ -43,14 +48,37 @@ export class VisorGoo {
     this.sync();
   }
 
+  // A pathogen's attack landed on the suit: its fluid (colour, and a darker tint where it is
+  // thick) splats over the visor. Splats stack up to a full coat.
+  splat(colour, tint, amount = .75) {
+    if (this.state === 'inside') return;
+    const fresh = this.state === 'idle' || this.state === 'residue' || this.state === 'wiping';
+    if (fresh) {
+      this.uniforms.gooSeed.value = Math.random() * 100;
+      this.uniforms.gooColor.value.copy(colour);
+      this.uniforms.gooTint.value.copy(tint);
+      this.uniforms.gooFocus.value = 1;
+      this.age = 0;
+      this.coat = 0;
+    }
+    this.coat = Math.min(1, this.coat + amount);
+    this.state = 'coated';
+    this.timer = 0;
+    this.wipe = -.3;
+    this.residue = 0;
+    this.cues.push({ type: 'visor', stage: 'splat' });
+  }
+
   // depth: 0 outside every cell, up to 1 at a cell's centre. cell: the colours of the cell.
-  update(dt, depth, cell, reduceMotion = false) {
+  // held: a pathogen is still on the suit, so the goo stays put until it lets go.
+  update(dt, depth, cell, reduceMotion = false, held = false) {
     const inside = depth > ENTER_DEPTH;
     this.inside = THREE.MathUtils.damp(this.inside, inside ? Math.min(1, depth * 2.4 + .35) : 0, inside ? 14 : 9, dt);
     if (inside) {
       if (this.state !== 'inside') {
         this.cues.push({ type: 'visor', stage: 'splat' });
         this.uniforms.gooSeed.value = Math.random() * 100;
+        this.uniforms.gooFocus.value = 0;
         this.age = 0;
       }
       if (cell) {
@@ -66,7 +94,8 @@ export class VisorGoo {
       this.state = 'coated';
       this.timer = 0;
     } else if (this.state === 'coated') {
-      this.timer += dt;
+      // Still in the pathogen's grip: the goo hangs there until the suit is free.
+      this.timer = held ? 0 : this.timer + dt;
       if (this.timer >= VISOR_HOLD) {
         this.state = 'wiping';
         this.timer = 0;
@@ -138,6 +167,7 @@ export function createVisorOverlay(uniforms) {
     fragmentShader: /* glsl */ `
       uniform float gooCoat, gooWipe, gooResidue, gooInside, gooHand, gooSeed, gooAge, gooAspect, gooTime;
       uniform vec3 gooColor, gooTint;
+      uniform float gooFocus;
       varying vec2 vUv;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float noise(vec2 p) {
@@ -165,7 +195,9 @@ export function createVisorOverlay(uniforms) {
         float run = smoothstep(.0, .35, (1. - uv.y) - (1. - hash(vec2(column, gooSeed + 7.)) * .5) + gooAge * speed);
         float drips = lane * run * (.6 + .4 * noise(vec2(p.x * 30., uv.y * 6.)));
         float rim = smoothstep(.32, .62, length((uv - .5) * vec2(gooAspect * .8, 1.)));
-        float field = blobs + drips * .5 + rim * .22;
+        // A splat is thickest where the pathogen struck, the middle of the visor, and spatters out.
+        float strike = 1. - smoothstep(.05, .55, length((uv - vec2(.5, .52)) * vec2(gooAspect * .75, 1.)));
+        float field = blobs + drips * .5 + rim * .22 * (1. - gooFocus) + strike * gooFocus * .5;
         // Patchy, not a sheet: thick globs and runs with thin film and clear gaps between them.
         float threshold = mix(1.25, .5, gooCoat);
         float coat = (smoothstep(threshold, threshold + .16, field) * .85 + smoothstep(threshold - .12, threshold, field) * .15) * gooCoat;
