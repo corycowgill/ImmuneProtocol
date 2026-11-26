@@ -129,7 +129,8 @@ function dodgeBoss(sim, input) {
 // Takes cover from the organ hazard the way a player would once warned: onto raised ground high
 // enough to clear it where the arena has some, otherwise out of the hazard's zone, still shooting.
 function dodgeHazard(sim, input, memory) {
-  const organ = sim.organ, player = sim.player;
+  let organ = sim.organ;
+  const player = sim.player;
   if (!organ || !['warning', 'active'].includes(organ.phase)) { memory.refuge = null; return; }
   const clearance = HAZARD_CLEARANCE[sim.area];
   const spots = highGround(sim.area);
@@ -150,7 +151,12 @@ function dodgeHazard(sim, input, memory) {
     if (distance(memory.refuge, player) < 3 && !airborne) input.jump = true;
     return;
   }
-  if (!withinHazard(player, organ)) return;
+  // Stay a couple of metres clear of the zone while it is coming or active: chasing a target
+  // back into the airway or the resonance is how the bot used to get caught.
+  const margin = 2.5;
+  const wide = organ.radius ? { ...organ, radius: organ.radius + margin } : { ...organ, width: organ.width + margin * 2, depth: organ.depth + margin * 2 };
+  if (!withinHazard(player, wide)) { memory.refuge = null; return; }
+  organ = wide;
   if (!memory.refuge || withinHazard(memory.refuge, organ)) {
     memory.refuge = null;
     for (let radius = 3; radius <= 30 && !memory.refuge; radius += 1.5) {
@@ -306,6 +312,14 @@ function think(sim, rover, memory, clock) {
   if (distance(goal, player) > (target?.type === 'guard' ? 1 : 6)) steer(player, goal.x, goal.z, input, !target);
   if (!target && node.health < 100 && distance(node, player) > 3) steer(player, node.x, node.z, input, true);
 
+  // A pathogen hidden behind a tissue node (nodes are solid): walk round the node to its side.
+  if (target && !target.boss && !target.nest && target.node && distance(target, target.node) < 6 && hiddenByTissue(sim, player, target)) {
+    const n = target.node, dx = target.x - n.x, dz = target.z - n.z, d = Math.hypot(dx, dz) || 1;
+    // Beside it, a little round the node from where it latched, so the suit does not walk into it.
+    const turn = .55, cos = Math.cos(turn), sin = Math.sin(turn);
+    const ux = (dx * cos - dz * sin) / d, uz = (dx * sin + dz * cos) / d;
+    steer(player, n.x + ux * 4.4, n.z + uz * 4.4, input, false);
+  }
   // Objectives wait for a quiet moment.
   const quiet = !target || (distance(target, player) > 16 && !urgent);
   // An open gash drains its node until someone stands on it and seals it.
