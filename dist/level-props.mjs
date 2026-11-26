@@ -421,7 +421,26 @@ function makeLeukocyte(root, glow, radius, time, key, palette = {}) {
   })));
   const aura = glowSprite(glow, palette.aura ?? 0xcfe0ff, radius * 3.2, .05);
   group.add(aura);
+  // Registered on the props root so the world can tell when the suit swims through a cell
+  // (cellImmersion), which coats the visor in its cytoplasm.
+  (root.userData.leukocytes ??= []).push({ body, colour: new THREE.Color(palette.body ?? 0xf3ece6), nucleus: new THREE.Color(palette.nucleus ?? 0x8a5cb0) });
   return { group, body, reach, aura };
+}
+
+// How deep a point sits inside any white blood cell of these props: 0 outside, rising to 1 at a
+// cell's centre, with the cell it is in. The membrane is an ellipsoid of the body's own scale.
+function cellImmersion(root, point) {
+  let best = { depth: 0, cell: null };
+  for (const cell of root.userData.leukocytes ?? []) {
+    if (!cell.body.visible || !cell.body.parent?.visible) continue;
+    cell.body.updateWorldMatrix(true, false);
+    const local = tempA.copy(point).applyMatrix4(tempM.copy(cell.body.matrixWorld).invert());
+    // lumpySphere has a unit radius; its lumps reach a little past it.
+    const reach = local.length() / 1.04;
+    const depth = reach < 1 ? 1 - reach : 0;
+    if (depth > best.depth) best = { depth, cell };
+  }
+  return best;
 }
 
 function bacteriumMaterial(color) {
@@ -1172,6 +1191,7 @@ export function createLevelProps(area, { glow, floorHeight, nodes = [], obstacle
       updates.quality?.(high);
       detailQuality(high);
     },
+    immersion(point) { return cellImmersion(root, point); },
     update(sim, clock, dt, reduced) {
       const step = reduced ? 0 : dt;
       time.value = reduced ? 0 : clock;

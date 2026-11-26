@@ -316,6 +316,8 @@ Every arena has raised ground. The suit walks up steps under 0.42 m and up ramps
 | Inner Ear | The cochlea: a spiral stair to a 2.5 m perch. A turret on the perch stands above the resonance and never jams. |
 | Neural Cortex | A walkway of raised synapse pads between the nodes, each a jump apart. |
 
+**White blood cells.** Friendly neutrophils patrol the bloodstream, colon and lymph node arenas, hunting stray bacteria, and the lymph node's macrophage roams its follicle. They are harmless, and you can walk straight through one. Inside, the view fills with milky cytoplasm; coming out, the visor is left coated in plasm that sags and drips for a moment before your suit wipes it off with the off hand (your weapon dips while it does), leaving a few streaks that clear on their own. With **Reduce motion** on, the goo stays still and the visor clears without the hand.
+
 ## Pathogens and the disease guide
 
 Open **Disease guide** on the main menu to browse every pathogen. Each entry shows its animated 3D model (drag to turn it, or choose **Provoke** to see its attack windup), a description and counter tactics, its health, speed, damage and score, the missions it attacks in, and three facts. The stats and mission lists come straight from the game rules, so they stay current.

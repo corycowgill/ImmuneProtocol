@@ -1339,6 +1339,7 @@ function playFrame(now) {
       touch.reload = false;
     }
     const aiming = session.world.render(session.sim, simDt, input, session.reduceMotion);
+    for (const cue of session.world.takeCues()) session.audio.play(cue);
     aiDebug.update(session.sim, now, session.running);
     input.lookX = 0;
     input.lookY = 0;

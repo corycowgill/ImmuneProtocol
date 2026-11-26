@@ -40,6 +40,7 @@ import { TAU, UP, floorHeight, baseFloorHeight, setTerrainArea, shapeFloor, text
 import { prepareAll as prepareAllOf, prepareScenes as prepareScenesOf, prepareArea as prepareAreaOf, prepareMission as prepareMissionOf } from './world-preparation.mjs';
 import { enemyTemplate as enemyTemplateOf, dressGuardModel as dressGuardModelOf, updateEnemies as updateEnemiesOf, releaseEnemyView as releaseEnemyViewOf, poseEnemyAttack as poseEnemyAttackOf, updateTethers as updateTethersOf, updateProjectiles as updateProjectilesOf } from './pathogen-views.mjs';
 import { TracerPool } from './shot-fx.mjs';
+import { VisorGoo, createVisorOverlay } from './visor-fx.mjs';
 import { updateWeapon as updateWeaponOf, updateRepairTool as updateRepairToolOf, addShot as addShotOf, addTracer as addTracerOf, addTeammateShot as addTeammateShotOf, addTurretShot as addTurretShotOf } from './weapon-view.mjs';
 
 // Every lit pixel walks all of the arena's point lights, and most of them are out of range of
@@ -130,6 +131,10 @@ export class World {
     // The arsenal view holds the gloves and all five weapons; only the equipped one is visible.
     this.carbine = createArsenalView();
     this.weaponScene.add(this.carbine.model);
+    // Plasm on the visor after swimming through a white blood cell (visor-fx.mjs).
+    this.visor = new VisorGoo();
+    this.visorOverlay = createVisorOverlay(this.visor.uniforms);
+    this.weaponScene.add(this.visorOverlay);
     this.repairTool = createRepairTool(this.carbine.supportHand);
     this.weaponScene.add(this.repairTool.model);
     this.carbine.model.traverse(part => {
@@ -343,7 +348,24 @@ export class World {
     this.supportRest.copy(this.carbine.supportRest);
   }
 
+  // Whether the eye is inside a white blood cell, and the goo that leaves on the visor.
+  updateVisor(dt, reduceMotion) {
+    const { depth, cell } = this.props?.immersion?.(this.camera.position) ?? { depth: 0, cell: null };
+    this.visor.update(dt, depth, cell, reduceMotion);
+    this.visorOverlay.visible = this.visor.active;
+    const u = this.visor.uniforms;
+    u.gooAspect.value = this.camera.aspect;
+    u.gooTime.value = reduceMotion ? 0 : this.clock;
+  }
+
+  // Sound cues the view raised this frame (the visor's splat and wipe), for the audio engine.
+  takeCues() {
+    return this.visor.takeCues();
+  }
+
   setArea(area) {
+    this.visor.reset();
+    this.visorOverlay.visible = false;
     this.teammateView.hide();
     this.explosions?.clear();
     this.megaVirus?.update(null, 0, 0, true);
@@ -983,6 +1005,7 @@ export class World {
     this.organEnvironment?.updateGastric?.(sim, this.clock, dt, reduceMotion);
     this.megaVirus?.update(sim.boss, this.clock, dt, reduceMotion);
     this.props?.update(sim, this.clock, dt, reduceMotion);
+    this.updateVisor(dt, reduceMotion);
     if (sim.valve) this.heart.update(sim.valve, dt, reduceMotion, this.quality === 'low');
     this.updateTissue(sim, dt, reduceMotion);
     if (this.area === 'junction') this.updateJunctionField(sim, dt, reduceMotion);

@@ -78,6 +78,14 @@ export function updateWeapon(world, sim, dt, input, aiming, reduceMotion) {
     model.rotation.y += strike * .95 - wind * .2;
     model.rotation.z += strike * .55 + toss * .4 + feel.side * feel.rush * .12;
   }
+  // The off hand leaves the weapon to wipe the visor: the gun drops and cants as it is held one-handed.
+  const wipeHand = world.visor?.handRaise ?? 0;
+  if (wipeHand > .001) {
+    model.position.y -= wipeHand * .11;
+    model.position.x += wipeHand * .03;
+    model.rotation.z -= wipeHand * .32;
+    model.rotation.x -= wipeHand * .12;
+  }
   magazine.position.copy(world.magazineRest);
   magazine.position.x -= magazineTurn * .067;
   magazine.position.y -= magazineTravel * .196;

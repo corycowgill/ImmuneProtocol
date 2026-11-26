@@ -183,6 +183,20 @@ const SYNTHESIZED = {
     const blast = t < 2 ? 0 : (noise(3000) * Math.exp(-at * 24) * 1.3 + (Math.sin(2 * Math.PI * (48 * at - 8 * at * at)) * 1.3 + noise(140) * 1.7) * Math.exp(-at * 2.1)) * Math.min(1, at / .002);
     return (groan * .7 + rupture + blast) * .66;
   }],
+  // Swimming into a white blood cell: a wet, sucking splat that closes over the visor.
+  'suit/goo': [.75, (t, noise) => {
+    const slap = noise(1400) * Math.exp(-t * 28) * 1.1;
+    const suck = noise(380 + 900 * Math.exp(-t * 6)) * Math.min(1, t / .03) * Math.exp(-t * 4.2);
+    const bubble = Math.sin(2 * Math.PI * (180 + 120 * Math.sin(2 * Math.PI * 9 * t)) * t) * Math.exp(-t * 7) * .35;
+    return (slap + suck * .9 + bubble) * Math.min(1, t / .002) * .6;
+  }],
+  // A glove dragged across a goo-covered visor: a smeary squeegee with a few wet clicks.
+  'suit/wipe': [.6, (t, noise) => {
+    const drag = noise(900 + 1600 * t) * Math.sin(Math.PI * Math.min(1, t / .55)) * (.65 + .35 * Math.sin(2 * Math.PI * 23 * t));
+    const squeak = Math.sin(2 * Math.PI * (620 * t + 240 * t * t)) * Math.max(0, Math.sin(2 * Math.PI * 4.5 * t)) ** 6 * .18;
+    const drip = t < .5 ? 0 : noise(2600) * Math.exp(-(t - .5) * 40) * .6;
+    return (drag + squeak + drip) * .5;
+  }],
   'field/macrophage': [1.4, (t, noise) => (Math.sin(2 * Math.PI * (55 * t - 6.5 * t * t)) * .45 + noise(400) * .6) *
     (.6 + .4 * Math.sin(t * 2 * Math.PI * 1.7)) * Math.min(1, t / .2) * Math.min(1, (1.4 - t) / .5)],
 };
@@ -539,6 +553,9 @@ export class GameAudio {
         if (event.stage === 'release') this.playSample('suit/throw', event.teammate ? .3 : .55, { pan: this.spatialPan(event) });
         else if (event.stage === 'bounce') this.playSample('suit/bounce', .4 / (1 + (event.distance ?? 0) * .06), { pan: this.spatialPan(event), rate: event.kind === 'stun' ? .8 : 1.05 });
         else if (event.stage === 'empty' && !event.teammate) this.playSample('suit/empty', .5);
+        break;
+      case 'visor':
+        this.playSample(event.stage === 'wipe' ? 'suit/wipe' : 'suit/goo', event.stage === 'wipe' ? .55 : .7, { rate: .94 + Math.random() * .12 });
         break;
       case 'stun':
         this.playSample('suit/stun', .95 / (1 + (event.distance ?? 0) * .03), { pan: this.spatialPan(event) });
