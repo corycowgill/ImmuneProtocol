@@ -74,6 +74,8 @@ function aim(player, target, jitter) {
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
+// BALANCE_WHY=1 totals where the suit's integrity went, per mission.
+let why = null;
 function play(area, difficulty, rover) {
   const weaponLoadout = loadoutWithCompanion(normalizeWeaponLoadout({}), options.companion);
   const fresh = new Simulation(area, { weaponLoadout });
@@ -104,8 +106,25 @@ function play(area, difficulty, rover) {
       if (trying && distance(last, sim.player) < .8) input.jump = true;
       last = { x: sim.player.x, z: sim.player.z, at: clock };
     }
+    const before = sim.player.health;
+    const kinds = why ? new Map(sim.enemies.map(enemy => [enemy.id, enemy.boss ? 'boss:' + enemy.boss : enemy.elite ? enemy.type + '*' : enemy.type])) : null;
     sim.step(STEP, input);
     clock += STEP;
+    if (why) {
+      // Where the suit's integrity went this step: each pathogen's damage events, the rest to the
+      // organ hazard and anything else that does not raise one.
+      const lost = Math.max(0, before - sim.player.health);
+      let named = 0;
+      for (const event of sim.events) {
+        if (event.type !== 'damage' || event.target !== 'player') continue;
+        const share = Math.min(lost - named, event.amount * (sim.player.health > 0 || lost ? 1 : 0));
+        if (share <= 0) continue;
+        const kind = kinds.get(event.id) ?? 'other';
+        why.set(kind, (why.get(kind) ?? 0) + share);
+        named += share;
+      }
+      if (lost - named > 1e-6) why.set('hazard/other', (why.get('hazard/other') ?? 0) + lost - named);
+    }
     for (const event of sim.events) {
       if (event.type === 'shot') memory.misses = event.hit ? 0 : memory.misses + 1;
       if (event.type === 'guard' && event.stage === 'block') memory.misses++;
@@ -250,6 +269,7 @@ for (const area of options.areas) {
       let wins = 0;
       let lowest = 0;
       for (let trial = 0; trial < options.trials; trial++) {
+        if (process.env.BALANCE_WHY) why ??= new Map();
         const result = play(area, difficulty, player === 'rover');
         wins += Number(result.won);
         losses += Number(!result.won);
@@ -262,6 +282,14 @@ for (const area of options.areas) {
     if (!winners) unwinnable.push(`${area} on ${difficulty}`);
   }
   console.log([area.padEnd(11), ...cells].join(''));
+  if (why) {
+    // The suit damage each run took, by source, averaged over this mission's runs.
+    const runs = options.trials * options.players.length * options.difficulties.length;
+    const total = [...why.values()].reduce((sum, value) => sum + value, 0);
+    console.log('    suit damage per run ' + Math.round(total / runs) + ': ' + [...why].sort((a, b) => b[1] - a[1]).slice(0, 7)
+      .map(([kind, value]) => `${kind} ${Math.round(100 * value / total)}%`).join(', '));
+    why = null;
+  }
 }
 console.log('\nWins per trials, then the average of each run\'s lowest tissue node integrity.');
 console.log(`Companion: ${options.companion}. Losses: ${losses}, ${suitLosses} of them to the suit failing.`);
