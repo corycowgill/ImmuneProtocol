@@ -40,7 +40,7 @@ export const ENEMY_MODELS = Object.freeze({
   'boss-macrophage': { size: 1, glow: 0x34204a },
   'boss-screamer': { size: 1, glow: 0x1c2e4a },
   // The finale's second boss, a war machine built in Blender by tools/enemies/build_nanobot.py.
-  'boss-nanobot': { size: 1, glow: 0x2a0a08 },
+  'boss-nanobot': { size: 1, glow: 0xffffff },
 });
 
 // A fresnel rim light shared by every pathogen material, so silhouettes separate from tissue of
@@ -146,6 +146,8 @@ function prepare(type, gltf) {
     mesh.material = mesh.material.clone();
     mesh.material.color.multiply(new THREE.Color(tint));
   }
+  // The Mega Nano Bot's baked optics, thruster rings and seams glow at full strength too.
+  if (type === 'boss-nanobot') mesh.material.emissiveIntensity = 1.3;
   if (type === 'rogue-bot' || type === 'crawler') {
     // HDR optics and telemetry so the red eyes bloom, and grime on body and legs.
     mesh.material.emissiveIntensity = 1.3;

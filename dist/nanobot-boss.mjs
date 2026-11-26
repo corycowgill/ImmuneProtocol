@@ -24,8 +24,11 @@ export const NANOBOT = Object.freeze({
 });
 // Where the pylons and the brain sit on the model, in its own units (scaled by NANOBOT.scale).
 export const NANOBOT_LAYOUT = Object.freeze({
-  pylons: Object.freeze([90, 210, 330].map(degrees => Object.freeze({ angle: degrees * Math.PI / 180, radius: .98, height: .12 }))),
-  brain: Object.freeze({ x: 0, y: .56, z: 0, radius: .4 }),
+  // Crystal centres of nanobot-pylon-0/1/2 and the centre of nanobot-brain in boss-nanobot.glb.
+  pylons: Object.freeze([[0, .5, -.75], [-.62, .5, .33], [.62, .5, .33]].map(([x, y, z]) => Object.freeze({ x, y, z }))),
+  brain: Object.freeze({ x: 0, y: .67, z: -.04, radius: .4 }),
+  laser: Object.freeze({ x: 0, y: -.35, z: 1.12 }),
+  bay: Object.freeze({ x: 0, y: -.42, z: -.5 }),
 });
 const PHASES = Object.freeze([
   Object.freeze({ cooldown: 3.4, pylon: 420, salvo: 3, sweep: 1.75, drones: ['rogue-bot', 'rogue-bot'] }),
@@ -66,11 +69,13 @@ export function nanobotParts(sim, boss) {
   return sim.enemies.filter(enemy => enemy.relayTo === boss.id || enemy.pylonOf === boss.id);
 }
 
+const at = (boss, p) => nanobotPoint(boss, p.x, p.y, p.z);
+
 function placeParts(sim, boss) {
   for (const part of nanobotParts(sim, boss)) {
     const point = part.pylonOf != null
-      ? (() => { const p = NANOBOT_LAYOUT.pylons[part.slot]; return nanobotPoint(boss, Math.cos(p.angle) * p.radius, p.height, Math.sin(p.angle) * p.radius); })()
-      : nanobotPoint(boss, NANOBOT_LAYOUT.brain.x, NANOBOT_LAYOUT.brain.y, NANOBOT_LAYOUT.brain.z);
+      ? at(boss, NANOBOT_LAYOUT.pylons[part.slot])
+      : at(boss, NANOBOT_LAYOUT.brain);
     part.x = point.x; part.y = point.y; part.z = point.z;
     part.node = boss.node; part.nodeId = boss.nodeId;
   }
@@ -256,7 +261,7 @@ function landSalvo(sim, boss, helpers) {
 // The beam runs from the belly cannon to the floor along a bearing, stopped by scenery.
 function aimBeam(sim, boss, bearing, stage) {
   const { length } = NANOBOT_RULES.sweep;
-  const from = nanobotPoint(boss, 0, -.42, .7);
+  const from = at(boss, NANOBOT_LAYOUT.laser);
   const end = { x: boss.x + Math.sin(bearing) * length, y: .3, z: boss.z + Math.cos(bearing) * length };
   const to = clip(sim.obstacles, { x: boss.x, y: .3, z: boss.z }, end);
   boss.laser = { stage, from, to: { x: to.x, y: .3, z: to.z }, bearing };
@@ -342,7 +347,7 @@ function fireEmp(sim, boss, helpers) {
 }
 
 function launchDrones(sim, boss, phase, helpers) {
-  const bay = nanobotPoint(boss, 0, -.45, -.55);
+  const bay = at(boss, NANOBOT_LAYOUT.bay);
   let launched = 0;
   phase.drones.forEach((type, index) => {
     const spread = (index - (phase.drones.length - 1) / 2) * 2.6;

@@ -51,8 +51,10 @@ test('it descends untouchable, then fights behind a shield held up by three pylo
   assert.match(levelBossStatus(sim).detail, /Shield up · 3 pylons left · Phase 1 \/ 3/);
   // Its parts are shot through the hull's own sphere: a shot at a pylon hits the pylon.
   const pylon = pylons(sim, boss)[0];
-  const from = { x: pylon.x, y: pylon.y, z: pylon.z + 15 };
-  const hit = sim.traceRay(from, { x: 0, y: 0, z: -1 }, true, sim.weapon);
+  const out = Math.hypot(pylon.x - boss.x, pylon.z - boss.z);
+  const direction = { x: (boss.x - pylon.x) / out, y: 0, z: (boss.z - pylon.z) / out };
+  const from = { x: pylon.x - direction.x * 15, y: pylon.y, z: pylon.z - direction.z * 15 };
+  const hit = sim.traceRay(from, direction, true, sim.weapon);
   assert.equal(hit.target, pylon);
 });
 
