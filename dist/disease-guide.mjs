@@ -100,6 +100,16 @@ export const PATHOGENS = [
     ],
   },
   {
+    type: 'latcher', name: 'Grip Phage', family: 'Bacteriophage', inspiration: 'Phage tail fibres latching onto a host cell',
+    description: 'A phage gone green, with long gripping tail fibres. It ignores tissue while a suit is in reach, leaps at the visor and clamps on.',
+    tactics: 'Once it lands it clings to your visor, smears it, slows you and drains your suit. Bash it off, shoot it point-blank or stun it. It lets go by itself after a few seconds.',
+    facts: [
+      'Real phages find their host by touch: tail fibres bump along the cell surface until they catch a receptor, then lock on.',
+      'Once locked, the tail contracts and drives a needle through the cell wall in a fraction of a second.',
+      'The suit\'s visor is not a cell wall, which is the only reason you are reading this.',
+    ],
+  },
+  {
     type: 'flagellate', name: 'Whiptail', family: 'Flagellated bacterium', inspiration: 'Helicobacter pylori',
     description: 'A dark, amber-spotted rod lashing violet flagella. It thrives where nothing should, like a stomach full of acid.',
     tactics: 'A sturdier lunger that hits harder than a virus. Watch for its coil and dodge.',

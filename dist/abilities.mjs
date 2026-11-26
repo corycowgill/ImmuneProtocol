@@ -14,6 +14,7 @@ export const ABILITIES = Object.freeze({
   throwCooldown: .55,
 });
 
+import { releaseCling } from './grip-phage.mjs';
 import { STEP_HEIGHT, groundHeight } from './terrain.mjs';
 
 const GRAVITY = 22;
@@ -140,7 +141,9 @@ const pushable = enemy => !enemy.boss && !enemy.segmentOf && !enemy.nest && enem
 // Knocks a pathogen out of whatever it was doing: off the tissue it held, out of a windup.
 function interrupt(sim, enemy, seconds) {
   if (!pushable(enemy)) return;
-  const tearing = enemy.latched || enemy.attackingTissue;
+  // A Grip Phage clinging to a suit is torn off it as well as anything latched onto tissue.
+  const tearing = enemy.latched || enemy.attackingTissue || enemy.action === 'cling';
+  if (enemy.action === 'cling') releaseCling(sim, enemy, 'torn');
   enemy.latched = false;
   enemy.attackingTissue = false;
   if (enemy.action !== 'idle') sim.setEnemyAction(enemy, 'idle');
@@ -167,7 +170,7 @@ export function useMelee(sim, suit, input, dt) {
     const gap = distance - (enemy.radius ?? .8);
     const facing = distance < 1e-3 ? 1 : (dx * forwardX + dz * forwardZ) / distance;
     // In the swing's arc, or tearing at tissue right beside the suit.
-    const latchedNearby = (enemy.latched || enemy.attackingTissue) && distance <= tissueReach;
+    const latchedNearby = (enemy.latched || enemy.attackingTissue || enemy.action === 'cling') && distance <= tissueReach;
     if (!(gap <= reach && facing >= arc) && !latchedNearby) continue;
     hits.push({ enemy, dx, dz, distance });
   }

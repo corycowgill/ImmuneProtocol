@@ -145,3 +145,16 @@ test('the visor cracks as the suit loses integrity and each crack is sealed once
   fresh.update(1 / 60, 0);
   assert.equal(fresh.active, false);
 });
+
+test('engulfed by the macrophage: a moment inside its cytoplasm, then a coat that is wiped once free', async () => {
+  const visor = new VisorGoo();
+  visor.engulf(new THREE.Color(0xe8dcf0), new THREE.Color(0x9070d8), 1);
+  run(visor, .5);
+  assert.equal(visor.state, 'inside');
+  assert.ok(visor.inside > .8);
+  assert.ok(visor.uniforms.gooColor.value.equals(new THREE.Color(0xe8dcf0)));
+  run(visor, .6);
+  assert.equal(visor.state, 'coated');
+  run(visor, VISOR_HOLD + .1);
+  assert.equal(visor.state, 'wiping');
+});

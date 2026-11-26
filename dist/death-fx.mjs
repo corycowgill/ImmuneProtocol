@@ -21,6 +21,7 @@ const KILL_MEMORY = 1.5;
 export const DEATHS = Object.freeze({
   virus: { style: 'rupture', flash: 0xff9a6a, gore: 0xc8432c, chunk: 'blob', chunks: 8, swell: .34, time: .13, splat: 1.2 },
   phage: { style: 'rupture', flash: 0xd2b4ff, gore: 0x8a64d8, chunk: 'rod', chunks: 10, swell: .2, time: .11, splat: .8 },
+  latcher: { style: 'rupture', flash: 0xd8ffb0, gore: 0x7fae3a, chunk: 'rod', chunks: 10, swell: .24, time: .12, splat: 1 },
   splitter: { style: 'rupture', flash: 0xf0a8ff, gore: 0x9b3fb4, chunk: 'blob', chunks: 6, swell: .26, time: .1, splat: 1 },
   blister: { style: 'rupture', flash: 0xffa080, gore: 0xd8362a, chunk: 'blob', chunks: 13, swell: .45, time: .16, splat: 2.1, splash: true },
   flagellate: { style: 'rupture', flash: 0xcfa8ff, gore: 0x7a3fd0, chunk: 'rod', chunks: 8, swell: .22, time: .3, splat: 1, spin: true },

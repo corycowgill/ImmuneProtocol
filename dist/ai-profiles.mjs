@@ -34,6 +34,10 @@ export const AI_PROFILES = Object.freeze({
     playerPriority: 1.8, preferredDistance: 13, sight: 40, fov: 3.8, biologicalRange: 0,
     sophistication: .8, reaction: .28, evasion: .35, teamwork: .55, hearing: 30,
     actions: ['patrol', 'pursue', 'investigate', 'flank', 'strafe', 'retreat', 'cover', 'evade', 'idle'] }),
+  // The Grip Phage hunts suits: it senses them all round (its tail fibres feel the suit's wake),
+  // ignores tissue unless no suit is in reach, and closes fast.
+  grappler: profile({ family: 'swarm', name: 'Suit grappler', aggression: .95, courage: .95, playerPriority: 2.4,
+    tissuePriority: .35, preferredDistance: 2.6, sight: 30, fov: 6.3, awareness: 1.3, evasion: .35, sophistication: .5 }),
   // The Crawler skitters in close on the floor, circles its target and darts away after it fires.
   skitter: profile({ family: 'mechanical', name: 'Hacked crawler drone', courage: .8, aggression: .95, tissuePriority: 0,
     playerPriority: 2, preferredDistance: 5, sight: 34, fov: 4.2, biologicalRange: 0,
@@ -46,7 +50,7 @@ export const SPECIES_AI = Object.freeze({
   virus: 'swarm', phage: 'swarm', flagellate: 'fast', splitter: 'fast',
   spore: 'harasser', blister: 'harasser', bacillus: 'colony', filovirus: 'colony',
   guard: 'tank', amoeba: 'territorial', rogue: 'territorial',
-  'rogue-bot': 'drone', crawler: 'skitter',
+  'rogue-bot': 'drone', crawler: 'skitter', latcher: 'grappler',
 });
 export const AI_DIFFICULTY = Object.freeze({
   easy: Object.freeze({ reaction: 1.5, decision: 1.25, pressure: 4, teamwork: .6, accuracy: .8 }),

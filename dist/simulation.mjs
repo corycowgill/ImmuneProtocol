@@ -6,6 +6,8 @@ import { clearSegment } from './ai-navigation.mjs';
 import { bossDamageThreat, telegraph } from './boss-tactics.mjs';
 import { planEncounters, stepEncounters, ENCOUNTER_RULES } from './encounters.mjs';
 import { CRAWLER_SPEC, ROGUE_BOT_SPEC, startBotLaser, stepRogueBot } from './rogue-bot.mjs';
+import { GRIP_SPEC, advanceCling, grippedBy, releaseCling, startCling } from './grip-phage.mjs';
+import { maybeElite } from './elites.mjs';
 import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-objectives.mjs';
 import { stepBossArrival, stepLevelBoss } from './level-bosses.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
@@ -104,6 +106,8 @@ export const SPECIES = {
   rogue: { behavior: 'bacillus', radius: 1.2, y: 1.3, health: 128, speed: 1.5, tissueDamage: 11, period: 1.8, score: 225 },
   'rogue-bot': ROGUE_BOT_SPEC,
   crawler: CRAWLER_SPEC,
+  // Clings to a suit's visor and drains it until bashed off (grip-phage.mjs).
+  latcher: GRIP_SPEC,
 };
 
 const FRAGMENT = { radius: .55, y: 1.35, health: 24, speed: 4.05, suitDamage: 5, tissueDamage: 2, score: 55 };
@@ -118,9 +122,9 @@ export const extendRoster = roster => Array.from({ length: WAVE_SCALE }, () => r
 const MISSIONS = [
   { cadence: 1.55, species: ['virus', 'virus', 'virus', 'spore', 'virus', 'virus', 'spore', 'virus', 'virus'] },
   { cadence: 1.30, species: ['virus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'bacillus', 'virus', 'virus', 'spore', 'virus', 'bacillus', 'spore'] },
-  { cadence: 1.05, species: ['spore', 'virus', 'bacillus', 'virus', 'rogue-bot', 'spore', 'bacillus', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'virus', 'bacillus'] },
-  { cadence: 0.90, species: ['virus', 'bacillus', 'spore', 'spore', 'bacillus', 'crawler', 'phage', 'bacillus', 'spore', 'filovirus', 'spore', 'virus', 'bacillus', 'spore', 'virus', 'phage', 'spore', 'bacillus', 'virus'] },
-  { cadence: 0.76, species: ['bacillus', 'spore', 'virus', 'filovirus', 'spore', 'phage', 'bacillus', 'rogue-bot', 'bacillus', 'virus', 'spore', 'filovirus', 'spore', 'bacillus', 'phage', 'spore', 'crawler', 'bacillus', 'virus', 'blister', 'bacillus', 'virus'] },
+  { cadence: 1.05, species: ['spore', 'virus', 'bacillus', 'latcher', 'rogue-bot', 'spore', 'bacillus', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'virus', 'bacillus'] },
+  { cadence: 0.90, species: ['virus', 'bacillus', 'spore', 'spore', 'bacillus', 'crawler', 'phage', 'bacillus', 'spore', 'filovirus', 'spore', 'latcher', 'bacillus', 'spore', 'virus', 'phage', 'spore', 'bacillus', 'virus'] },
+  { cadence: 0.76, species: ['bacillus', 'spore', 'virus', 'filovirus', 'spore', 'phage', 'bacillus', 'rogue-bot', 'bacillus', 'latcher', 'spore', 'filovirus', 'spore', 'bacillus', 'phage', 'spore', 'crawler', 'bacillus', 'virus', 'blister', 'bacillus', 'virus'] },
 ];
 
 for (const mission of MISSIONS) mission.species = extendRoster(mission.species);
@@ -1300,6 +1304,8 @@ export class Simulation {
     if (this.organ?.phase === 'active' && this.organMission.hazard.slow && withinHazard(player, this.organ)) {
       speed *= this.organMission.hazard.slow;
     }
+    // A Grip Phage on the visor drags the suit down.
+    if (grippedBy(this, player)) speed *= GRIP_SPEC.grip.slow;
     if (abilityState(suit).airborne) speed *= 1.05;
     const travel = speed * dt / diagonal;
     const sin = Math.sin(player.yaw);
@@ -1754,6 +1760,7 @@ export class Simulation {
     target.health -= damage;
     this.ai.damage(target, suit?.player);
     const lethal = target.health <= 0;
+    if (lethal && target.action === 'cling') releaseCling(this, target, 'killed');
     this.events.push({ type: 'hit', id: target.id, damage, crit: critical, lethal, source, ...impact });
     if (!lethal) return;
 
@@ -1761,13 +1768,14 @@ export class Simulation {
     this.ai.remove(target.id);
     this.enemies.splice(this.enemies.indexOf(target), 1);
     this.kills += 1;
-    const score = target.score ?? (target.fragment ? FRAGMENT.score : target.tutorial ? SPECIES.virus.score : SPECIES[target.type].score);
+    const score = Math.round((target.score ?? (target.fragment ? FRAGMENT.score : target.tutorial ? SPECIES.virus.score : SPECIES[target.type].score)) * (target.scoreScale ?? 1));
     this.score += score + (critical ? 35 : 0);
     this.creditPlayer(suit, score + (critical ? 35 : 0), true);
     this.events.push({
       type: 'kill', id: target.id, enemyType: target.type, source, x: target.x, y: target.y, z: target.z,
       ...(suit?.id != null ? { playerId: suit.id } : {}),
       ...(target.boss ? { boss: target.boss } : target.segmentOf ? { segment: true } : target.nest ? { nest: true } : {}),
+      ...(target.elite ? { elite: target.elite } : {}),
     });
     if (target.boss) {
       this.events.push({ type: 'levelBoss', stage: 'defeated', boss: target.boss, name: target.name, id: target.id, x: target.x, y: target.y, z: target.z });
@@ -1781,7 +1789,7 @@ export class Simulation {
       const left = this.valve.valves[target.valveIndex].colonies;
       this.events.push({ type: 'valve', stage: left ? 'colony' : 'cleared', valveId: layout.id, remaining: this.valve.colonies, x: target.x, y: target.y, z: target.z });
     }
-    if (target.type === 'splitter') this.splitEnemy(target);
+    if (target.type === 'splitter' || target.elite === 'splitting') this.splitEnemy(target);
     if (target.tutorial) {
       this.tutorial = 'repair';
       this.events.push({ type: 'tutorial', stage: 'repair' });
@@ -1809,6 +1817,8 @@ export class Simulation {
     const spawnX = index === 0 ? x : x + Math.sin(index * 2.4 + this.wave) * 1.35;
     const spawnZ = z + Math.cos(index * 1.9 + this.wave) * 0.85;
     const enemy = this.createEnemy(type, encounter?.x ?? spawnX, encounter?.z ?? spawnZ, this.nodes[lane]);
+    // Now and then a pathogen arrives as an elite (elites.mjs).
+    maybeElite(this, enemy, index);
     if (encounter?.packId) enemy.encounterOrder = {
       id: encounter.packId, role: encounter.role, until: this.clock + ENCOUNTER_RULES.orderSeconds,
       approach: encounter.approach, reached: false,
@@ -2017,7 +2027,7 @@ export class Simulation {
       }
       const spec = enemy.fragment ? FRAGMENT : SPECIES[enemy.type];
       const reinforced = !!this.reinforcement && this.reinforcement.branch === enemy.branch;
-      const speedFactor = (reinforced ? REINFORCED_SPEED : 1) * (enemy.slowRemaining > 0 ? TURRET_SLOW_FACTOR : 1);
+      const speedFactor = (reinforced ? REINFORCED_SPEED : 1) * (enemy.slowRemaining > 0 ? TURRET_SLOW_FACTOR : 1) * (enemy.speedScale ?? 1);
       enemy.slowRemaining = Math.max(0, enemy.slowRemaining - dt);
       if (reinforced && enemy.inletHold > 0) { enemy.inletHold -= dt; continue; }
       // The guided first breach retains its authored, guaranteed demonstration.
@@ -2041,7 +2051,8 @@ export class Simulation {
         else this.advanceSporeAttack(enemy, dt);
         continue;
       }
-      enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
+      // A swift elite recovers from its attacks sooner.
+      enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt / (enemy.cooldownScale ?? 1));
       enemy.y = spec.y + Math.sin(this.clock * 3.2 + enemy.id * 1.7) * .24 + this.hoverLift(enemy, dt);
       const target = controller.attackTarget();
       const attacksSuit = controller.targetKey?.startsWith('player:');
@@ -2100,6 +2111,7 @@ export class Simulation {
   }
 
   advanceVirusAttack(enemy, dt, spec) {
+    if (enemy.action === 'cling') { advanceCling(this, enemy, dt); return; }
     if (enemy.action === 'virus-windup') {
       if (this.advanceAction(enemy, dt, VIRUS_WINDUP)) {
         const target = enemy.actionTarget === 'player' ? this.attackPlayer(enemy.actionPlayerId) : enemy.node;
@@ -2130,6 +2142,8 @@ export class Simulation {
       const hitsTissue = enemy.actionTarget === 'tissue' && enemy.node.health > 0;
       if (hitsSuit || hitsTissue) this.damageTarget(enemy, enemy.actionTarget, hitsSuit ? spec.suitDamage : spec.tissueDamage);
       this.attackEvent(enemy, hitsSuit || hitsTissue ? 'impact' : 'miss', enemy.actionTarget);
+      // A Grip Phage that lands on a living, undodged suit holds on (grip-phage.mjs).
+      if (hitsSuit && spec.grip && player.health > 0 && !(player.guardUntil > this.clock) && startCling(this, enemy, player)) return;
       this.setEnemyAction(enemy, 'virus-recover');
       return;
     }

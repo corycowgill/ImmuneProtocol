@@ -145,7 +145,7 @@ Every mission ends with a boss. Once the final wave has sent its last pathogen t
 | Gastric Chamber | Pylori Drill | Burrows where nothing can hit it, trailing a tremor, then erupts under a node or a suit. | Follow the tremor, get clear of the eruption, and punish it during the seven seconds it stays up. |
 | Intestinal Bend | Tapeworm | A head leading seven segments on a circuit of the nodes, biting each as it passes. The head takes 8% damage while any segment survives and speeds up as they die. | Destroy every segment, then the exposed head. |
 | Colonic Reservoir | Biofilm Colossus | Regrows health after five seconds without being hit, sheds brood at 75%, 50% and 25%, and slams suits within nine metres. | Keep someone firing at all times and back off when the slam warning shows. |
-| Lymph Node | Rogue Macrophage | Drags a suit toward itself to engulf it, and eats any pathogen that touches it to heal. | Deal 5% of its health during the pull to break it and stagger it. Keep the swarm away from it. |
+| Lymph Node | Rogue Macrophage | Drags a suit toward itself to engulf it, and eats any pathogen that touches it to heal. Its pull smears your visor; an engulf puts you inside its milky cytoplasm for a moment and leaves a heavy coat your suit wipes off once you are free. | Deal 5% of its health during the pull to break it and stagger it. Keep the swarm away from it. |
 | Inner Ear | Otolith Screamer | Hovers and charges a sonic pulse that hits every suit it has a clear line to. Below half health it relocates and pulses faster. | Be behind an obstacle when the pulse fires. |
 | Neural Cortex | Mega Virus | Three cores (see [above](#neural-cortex-and-the-mega-virus)). | Shoot the exposed core. |
 
@@ -320,7 +320,7 @@ Every arena has raised ground. The suit walks up steps under 0.42 m and up ramps
 | Inner Ear | The cochlea: a spiral stair to a 2.5 m perch. A turret on the perch stands above the resonance and never jams. |
 | Neural Cortex | A walkway of raised synapse pads between the nodes, each a jump apart. |
 
-**White blood cells.** Friendly neutrophils patrol the bloodstream, colon and lymph node arenas, hunting stray bacteria, and the lymph node's macrophage roams its follicle. They are harmless, and you can walk straight through one. Inside, the view fills with milky cytoplasm; coming out, the visor is left coated in plasm that sags and drips for a moment before your suit wipes it off with the off hand (your weapon dips while it does), leaving a few streaks that clear on their own. **Visor cracks.** As your suit integrity falls, the visor glass cracks: the first at 70%, toward the edge of the glass, then more at 52%, 36%, 22% and 10%, the last near the middle of your view. Healing back above a crack's level (the medic drone, an antibody cache) seals it with a flash of green sealant. A pathogen that pounces onto your suit does the same with its own fluid: it splats across the visor, stays there while the pathogen is still on you, and is wiped off once you are free. Spat globs leave a lighter splat. With **Reduce motion** on, the goo stays still and the visor clears without the hand.
+**White blood cells.** Friendly neutrophils patrol the bloodstream, colon and lymph node arenas, hunting stray bacteria, and the lymph node's macrophage roams its follicle. They are harmless, and you can walk straight through one. Inside, the view fills with milky cytoplasm; coming out, the visor is left coated in plasm that sags and drips for a moment before your suit wipes it off with the off hand (your weapon dips while it does), leaving a few streaks that clear on their own. **Visor cracks.** As your suit integrity falls, the visor glass cracks: the first at 70%, toward the edge of the glass, then more at 52%, 36%, 22% and 10%, the last near the middle of your view. Healing back above a crack's level (the medic drone, an antibody cache) seals it with a flash of green sealant. A pathogen that pounces onto your suit does the same with its own fluid (a Grip Phage keeps it there for as long as it clings): it splats across the visor, stays there while the pathogen is still on you, and is wiped off once you are free. Spat globs leave a lighter splat. With **Reduce motion** on, the goo stays still and the visor clears without the hand.
 
 ## Pathogens and the disease guide
 
@@ -333,6 +333,7 @@ Biological pathogens lunge, latch or spit:
 - **Ranged** pathogens hang back and spit. Spores swell before spitting a slow projectile; step sideways during the windup.
 - **Shellbacks** guard their front. Aim for exposed tissue from the side or rear.
 - **Splitters** break into two smaller attackers on death, so keep the area in sight after the first kill.
+- **Grip Phages** hunt suits, not tissue. A green phage that senses suits all around it, it leaps at your visor and, if the pounce lands, **clings to it**: your visor is smeared with its fluid, you move at about half speed, and your suit drains (about 4% a second on Medium). An alarm under the crosshair names your bash control, and on touchscreens the bash button glows red. **Bash it off** (it is thrown back and stunned), shoot it point-blank, or stun it; it lets go by itself after about six seconds. Dashing through the pounce's dodge window stops it latching, and only one can hold a suit at a time.
 
 The hacked **Rogue Bot** hunts human players with a laser cannon: its aiming line commits for a 0.95-second warning, then fires once and cools down. Sidestep or use solid cover. It never attacks or damages tissue. Its ground-running sibling, the **Crawler**, sprints across the floor on eight legs, circles in close and fires a short surgical laser after a brief 0.5-second lock that reaches only 9 m. Keep your distance or step across its line, then shoot it while it recovers.
 
@@ -352,6 +353,17 @@ The hacked **Rogue Bot** hunts human players with a laser cannon: its aiming lin
 | Rogue Cell | Latcher, hits hard | Lymph Node |
 | Rogue Bot | Player-only laser drone, patrols and uses cover | Arterial Junction, Wave 3 |
 | Crawler | Fast eight-legged ground drone with a short-range laser, player-only | Arterial Junction, Wave 4 |
+| Grip Phage | Lunger that clings to a suit's visor and drains it until bashed off | Arterial Junction, Wave 3 |
+
+**Elite pathogens.** Now and then a pathogen arrives mutated. An elite glows in its mutation's colour, wears a glyph floating over it, and shows a coloured ring on the motion tracker:
+
+| Elite | Glow and glyph | What changes |
+| --- | --- | --- |
+| Armoured | Gold, a shield | Nearly twice the health, a coat that turns about a quarter of every hit, a little slower and bulkier |
+| Swift | Cyan, chevrons | Half again as fast, a little tougher, and recovers from its attacks sooner |
+| Splitting | Magenta, a split circle | Tougher, and bursts into two fast fragments when it dies |
+
+Elites first appear in the last two waves of Arterial Junction and grow more common through the campaign and with every wave (up to about one pathogen in five), and in Endless as the waves climb. Easy halves the chance and Hard raises it by 30%. Rogue Bots and Crawlers can only be armoured. Elites are worth 60–80% more score. They never appear in Capillary Junction, the Heart Valve, training or as bosses.
 
 ## Achievements
 

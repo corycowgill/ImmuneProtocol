@@ -17,6 +17,8 @@ export const ENEMY_MODELS = Object.freeze({
   guard: { size: 1.05, glow: 0x0c3434 },
   colony: { size: 1.4, glow: 0x1c2a0c },
   phage: { size: .98, glow: 0x2c1648 },
+  // The Grip Phage wears the phage's scan, stained a sickly green with longer, splayed fibres.
+  latcher: { size: .92, glow: 0x1e3a0c, file: 'phage', tint: 0x9fe07a },
   flagellate: { size: 1, glow: 0x24103c },
   blister: { size: .92, glow: 0x461410 },
   filovirus: { size: 1.2, glow: 0x46100a },
@@ -125,7 +127,7 @@ const clips = new WeakMap();
 const loads = new Map();
 
 function prepare(type, gltf) {
-  const { size, glow, brighten = 1 } = ENEMY_MODELS[type];
+  const { size, glow, brighten = 1, tint } = ENEMY_MODELS[type];
   // gltfpack keeps the named node as a dequantisation wrapper around the mesh,
   // so the name and the clip's track targets move onto the mesh itself.
   const node = gltf.scene.getObjectByName('attack-membrane');
@@ -138,6 +140,10 @@ function prepare(type, gltf) {
   mesh.material.emissive.setHex(glow);
   mesh.material.emissiveIntensity = .7;
   if (brighten !== 1) mesh.material.color.multiplyScalar(brighten);
+  if (tint != null) {
+    mesh.material = mesh.material.clone();
+    mesh.material.color.multiply(new THREE.Color(tint));
+  }
   if (type === 'rogue-bot' || type === 'crawler') {
     // HDR optics and telemetry so the red eyes bloom, and grime on body and legs.
     mesh.material.emissiveIntensity = 1.3;
@@ -165,7 +171,7 @@ function prepare(type, gltf) {
 export function loadEnemyModel(type) {
   if (!Object.hasOwn(ENEMY_MODELS, type)) return Promise.resolve(null);
   if (!loads.has(type)) {
-    const url = new URL('./assets/enemies/' + type + '.glb', import.meta.url).href;
+    const url = new URL('./assets/enemies/' + (ENEMY_MODELS[type].file ?? type) + '.glb', import.meta.url).href;
     loads.set(type, loadModel(url)
       .then(gltf => prepare(type, gltf))
       .catch(error => {

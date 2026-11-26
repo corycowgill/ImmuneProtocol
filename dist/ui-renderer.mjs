@@ -274,7 +274,12 @@ export class CanvasUiRenderer {
       }
       if (item.round) {
         const size = item.size ?? 10, ink = item.color ?? (item.primary ? '#efffd8' : t.paper);
-        this.box(r, item.primary ? '#c8f79485' : active ? '#293127c0' : '#171b165c', item.color ?? (focused ? t.green : '#e9f3cc85'), Math.min(r.w, r.h) / 2);
+        if (item.alarm) {
+          const pulse = Math.abs(Math.sin(performance.now() / 180));
+          c.save(); c.shadowColor = item.color; c.shadowBlur = 8 + pulse * 14;
+          this.box(r, `rgba(120,24,16,${(.45 + .35 * pulse).toFixed(3)})`, item.color, Math.min(r.w, r.h) / 2);
+          c.restore();
+        } else this.box(r, item.primary ? '#c8f79485' : active ? '#293127c0' : '#171b165c', item.color ?? (focused ? t.green : '#e9f3cc85'), Math.min(r.w, r.h) / 2);
         if (item.touchIcon) {
           const side = Math.round(Math.min(r.w, r.h) * (item.primary ? .5 : .6));
           this.touchIcon(item.touchIcon, { x: r.x + (r.w - side) / 2, y: r.y + (r.h - side) / 2, w: side, h: side }, ink);
@@ -518,6 +523,12 @@ export class CanvasUiRenderer {
       c.strokeStyle = item.color; c.lineWidth = 1.6; c.lineJoin = 'round'; c.beginPath(); c.moveTo(tx, ty - 7); c.lineTo(tx + 8, ty + 6); c.lineTo(tx - 8, ty + 6); c.closePath(); c.stroke();
       c.fillStyle = item.color; c.fillRect(tx - .8, ty - 3, 1.6, 5); c.fillRect(tx - .8, ty + 3.4, 1.6, 1.6);
       return this.text(upper(item.text), { x: r.x + 32, y: r.y + (r.h - (item.size ?? 11) * 1.3) / 2, w: r.w - 38, h: r.h - 4 }, item.size ?? 11, item.color, 700, 'left', 1, 1.3, undefined, .6);
+    }
+    if (kind === 'label' && item.alarm) {
+      // An urgent call to act (held by a Grip Phage): a red strip that throbs.
+      const pulse = .6 + .4 * Math.abs(Math.sin(performance.now() / 180));
+      this.box(r, `rgba(96,14,10,${(.78 * pulse).toFixed(3)})`, item.color, 3);
+      return this.text(item.text, { x: r.x + 6, y: r.y + (r.h - (item.size ?? 12) * 1.3) / 2, w: r.w - 12, h: r.h - 4 }, item.size ?? 12, item.color, 800, 'center', 1, 1.3, undefined, .8);
     }
     if (kind === 'label') {
       if (item.box) this.box(r, '#151515c9', item.color ?? '#d4c9aa55', 2);
@@ -875,6 +886,8 @@ export class CanvasUiRenderer {
         c.shadowColor = '#ff3b2f'; c.shadowBlur = 6; c.fillStyle = p.kind === 'boss' ? '#ff5f7e' : '#ff4a3a';
         c.beginPath(); c.arc(x, y, size, 0, Math.PI * 2); c.fill(); c.shadowBlur = 0;
         if (p.kind === 'boss') { c.strokeStyle = '#ff5f7e'; c.lineWidth = 1.2; c.beginPath(); c.arc(x, y, size + 3, 0, Math.PI * 2); c.stroke(); }
+        // An elite wears a ring in its mutation's colour (elites.mjs).
+        if (p.elite) { c.strokeStyle = { armoured: '#ffc24a', swift: '#5ff2ff', splitting: '#ff5ce1' }[p.elite] ?? '#fff'; c.lineWidth = 1.4; c.beginPath(); c.arc(x, y, size + 2.4, 0, Math.PI * 2); c.stroke(); }
         if (p.level) {
           const up = p.level === 'above', o = size + 3.2;
           c.fillStyle = '#ffb3aa'; c.beginPath();

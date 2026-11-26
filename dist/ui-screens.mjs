@@ -359,6 +359,12 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     ui.add({ kind: 'label', text: d.prompt, box: true, size: 11 }, { x: (w - width) / 2, y: h - bottom - (portrait ? 202 : 86), w: width, h: 38 });
     if (d.repair > 0) ui.add({ kind: 'meter', text: '', detail: '', value: d.repair }, { x: (w - width) / 2 + 8, y: h - bottom - (portrait ? 171 : 55), w: width - 16, h: 8 });
   }
+  if (d.grip) {
+    // Held by a Grip Phage: a pulsing alarm under the crosshair with the bash control.
+    const label = upper(d.grip.text) + (d.grip.key ? '  [' + d.grip.key + ']' : '');
+    const width = Math.min(area.w, measure(label, compact ? 12 : 14) + 40);
+    ui.add({ kind: 'label', text: label, box: true, alarm: true, size: compact ? 12 : 14, color: '#ffb3a3', align: 'center' }, { x: (w - width) / 2, y: h / 2 + (compact ? 46 : 70), w: width, h: compact ? 30 : 36 });
+  }
   if ((!d.aiming && !d.scope) || d.hit) ui.add({ kind: 'reticle', offset: d.spread, hit: d.hit ? d.hitStrength || 1 : 0, crit: d.crit, kill: d.kill, aiming: d.aiming || d.scope, color: '#eaf8d4' }, { x: w / 2 - 40, y: h / 2 - 40, w: 80, h: 80 });
   if (model.touch) {
     const by = h - bottom - 95, bx = w - right - 166;
@@ -366,7 +372,9 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     for (const [name, xx, yy] of [['swap', 0, 0], ['turret', 51, 0], ['reload', 0, 51], ['repair', 51, 51],
       ['jump', 0, -51], ['dash', 51, -51], ['melee', 102, -51], ['grenade', 51, -102], ['stun', 102, -102]]) {
       const source = act[name]; if (!source) continue;
-      ui.add({ ...source, kind: ['reload', 'repair', 'turret'].includes(name) ? 'hold' : 'button', text: source.text || name, size: 9, round: true }, { x: bx + xx, y: by + yy, w: 44, h: 44 });
+      ui.add({ ...source, kind: ['reload', 'repair', 'turret'].includes(name) ? 'hold' : 'button', text: source.text || name, size: 9, round: true,
+        // While a Grip Phage holds the suit, the bash button calls for a tap.
+        ...(name === 'melee' && d.grip ? { color: '#ff8a73', alarm: true } : {}) }, { x: bx + xx, y: by + yy, w: 44, h: 44 });
     }
     ui.add({ kind: 'hold', id: 'game:fire', action: 'game:fire', text: 'FIRE', touchIcon: 'fire', size: 12, primary: true, round: true }, { x: w - right - 64, y: by + 16, w: 64, h: 64 });
   }

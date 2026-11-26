@@ -151,6 +151,8 @@ Phones use a compact HUD in landscape and portrait. Healthy node markers stay su
 
 ## Gameplay systems
 
+**Grip Phage and elites.** `grip-phage.mjs` holds the Grip Phage's cling: a virus-behaviour pounce that, landing on a suit, switches to a `cling` action that pins it to the visor, drains the suit through `damageTarget` (so difficulty scaling and dodges apply) and slows it; `abilities.mjs` interrupts tear it off. `elites.mjs` chooses elites at spawn from a hash of the run's seed, wave and spawn index (so solo, co-op and tests agree) and applies their health, damage, speed, cooldown and score changes; the simulation reads `speedScale`, `damageScale`, `cooldownScale`, `scoreScale` and `elite`, and co-op snapshots carry them unchanged. `pathogen-views.mjs` dresses elites with a halo, a tinted membrane and a floating glyph.
+
 **Tactical AI.** Pathogens use local tactical AI: sight and hearing, fading memories, obstacle-aware routes, distinct biological profiles and nearby colony coordination. A pressure director spaces ordinary attacks while preserving the authored waves and bosses. See [the tactical AI architecture and validation](tactical-ai.md).
 
 **Encounters.** Ordinary waves are built from six encounter patterns using existing enemies. Fresh deployments vary the mix, while wave-checkpoint retries preserve the encounter seed. Scripted objectives keep their own arrival systems. See [encounter patterns, pacing and validation](encounters.md).

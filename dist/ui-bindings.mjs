@@ -332,6 +332,7 @@ export class BrowserUiBindings {
     }
     return { id: 'game', type: 'combat', touch: !this.get('touch-controls').hidden, actions, hud: {
       radar: hudFeed.radar,
+      grip: hudFeed.grip ? { text: translate('Grabbed') + ' · ' + translate('Bash it off'), key: hudFeed.grip.key } : null,
       nodes, markers, paths, special, health: parseFloat(t('health-value')), ammo: t('ammo-value'), weapon: t('equipment-label'), mode: t('wave-mode'), wave: t('wave-value'), threats: t('threats'), ammoState: t('reload-state'), reload: this.shown(this.get('reload-progress')) ? Number(this.get('reload-progress').value) : 0,
       repair: this.shown(this.get('repair-meter')) ? Number(this.get('repair-meter').getAttribute('aria-valuenow')) : 0,
       ally: visibleText('coop-match-status') || visibleText('coop-hud'), hazard: visibleText('organ-hazard') ? [t('organ-hazard-label'), visibleText('organ-hazard-time')].filter(Boolean).join(' · ') : '', notice: visibleText('encounter-card'), training: visibleText('training-hint') || visibleText('ability-hint'), alert: partsText('game-alert') || partsText('wave-outro'), surge: visibleText('junction-surge'), prompt: visibleText('action-prompt'), score: [...(this.get('scoreboard')?.children ?? [])].map(row => { const [name, points, kills] = [...row.children].map(part => this.text(part)); return `${translate(name)} ${points}  ·  ${translate(kills)}`.toUpperCase(); }).join('     ') || t('scoreboard'),

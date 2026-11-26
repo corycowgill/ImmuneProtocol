@@ -6,6 +6,7 @@ import { createGuardCarapace } from './organ-world.mjs';
 import { OBJECTIVE } from './simulation.mjs';
 import { addPathogenRim, animatePathogen, pathogenMotion, reapplyMachineGrime } from './enemy-models.mjs';
 import { BOSS_FLOATS } from './level-bosses.mjs';
+import { ELITES } from './elites.mjs';
 import { membraneMaps } from './arena-textures.mjs';
 import { TAU, UP, floorHeight, groundLevel, baseFloorHeight, addMesh } from './arena-scene.mjs';
 
@@ -38,6 +39,7 @@ const ATTACK_GLOW = {
   rogue: new THREE.Color(0xff4d3d),
   'rogue-bot': new THREE.Color(0xff5b35),
   crawler: new THREE.Color(0xff6a2a),
+  latcher: new THREE.Color(0x9cff5a),
 };
 
 // The Crawler runs on eight legs. Each leg is its own node pivoted at the hip; two alternating
@@ -208,7 +210,7 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       view.model.position.y += (world.random() - .5) * .05;
       view.model.position.z += (world.random() - .5) * .07;
     }
-    if (enemy.type === 'rogue-bot' || enemy.type === 'crawler') { updateBotView(world, enemy, view, dt, reduceMotion); continue; }
+    if (enemy.type === 'rogue-bot' || enemy.type === 'crawler') { updateBotView(world, enemy, view, dt, reduceMotion); dressElite(world, enemy, view, reduceMotion); continue; }
     if (enemy.type === 'colony') {
       // Rooted on the floor of its valve sleeve: the scan's roots (its lowest point, COLONY_ROOT below
       // the model's centre) sit just into the ground, and it rears up as it readies a spit.
@@ -297,10 +299,12 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       view.model.position.add(view.knock);
       view.knock.multiplyScalar(Math.exp(-dt * 9));
     }
+    dressElite(world, enemy, view, reduceMotion);
     placeShadow(world, enemy, view, 1.6);
   }
   for (const [id, view] of world.enemyViews) {
     if (view.present) continue;
+    if (view.eliteMark) view.eliteMark.visible = false;
     world.enemyViews.delete(id);
     // A pathogen that was killed plays its death before its model goes back to the pool.
     if (!world.deaths?.claim(id, view)) releaseEnemyView(world, view);
@@ -321,6 +325,8 @@ export function releaseEnemyView(world, view) {
     view.shadow.material.dispose();
     if (view.tethers) world.scene.remove(...view.tethers);
     view.clonedMembrane?.dispose();
+    view.eliteHalo?.material.dispose();
+    if (view.eliteMark) { world.scene.remove(view.eliteMark); view.eliteMark.material.dispose(); }
     view.motion?.mixer?.uncacheRoot(view.model);
     if (view.laser) {
       world.scene.remove(view.laser);
@@ -355,6 +361,17 @@ export function poseEnemyAttack(world, enemy, view, reduceMotion) {
       spikes?.scale.setScalar(1 + .11 * thrust * motion);
       view.clench = -.8 * thrust * motion;
       glow = .9;
+      break;
+    }
+    case 'cling': {
+      // Clamped onto the visor: legs splayed and gripping, the body heaving as it drains the suit,
+      // with a quick shudder each time it feeds.
+      const feed = reduceMotion ? 0 : Math.sin(world.clock * 9 + view.phase);
+      model.rotation.set(-.55 + feed * .05, enemy.heading, feed * .08);
+      // Drawn smaller than it is out in the arena so the near side stays in front of the lens.
+      model.scale.set(.62 + feed * .03, .52 - feed * .03, .62 + feed * .03);
+      view.clench = .75 + feed * .25;
+      glow = .7 + .3 * Math.max(0, feed);
       break;
     }
     case 'virus-recover': {
@@ -397,7 +414,77 @@ export function poseEnemyAttack(world, enemy, view, reduceMotion) {
   if (attackMembrane) {
     attackMembrane.emissive.copy(view.membraneGlow).lerp(ATTACK_GLOW[enemy.type], glow * .58);
     attackMembrane.emissiveIntensity = view.membraneIntensity + glow * .66;
+    // An elite's membrane burns in its mutation's colour.
+    if (view.eliteColor) {
+      attackMembrane.emissive.lerp(view.eliteColor, .65);
+      attackMembrane.emissiveIntensity += .55 + .25 * Math.sin(world.clock * 4 + view.phase);
+    }
   }
+}
+
+// The glyph floating over an elite, one per mutation: a shield (armoured), chevrons (swift) and a
+// circle split in two (splitting). Drawn once in white and tinted by the sprite.
+const ELITE_GLYPHS = new Map();
+function eliteGlyph(kind) {
+  if (ELITE_GLYPHS.has(kind)) return ELITE_GLYPHS.get(kind);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const c = canvas.getContext('2d');
+  c.translate(64, 64); c.lineCap = c.lineJoin = 'round';
+  const glyph = () => {
+    c.beginPath();
+    if (kind === 'armoured') { c.moveTo(0, -38); c.lineTo(32, -26); c.lineTo(28, 8); c.quadraticCurveTo(20, 30, 0, 40); c.quadraticCurveTo(-20, 30, -28, 8); c.lineTo(-32, -26); c.closePath(); }
+    else if (kind === 'swift') { for (const dx of [-18, 10]) { c.moveTo(dx - 12, -28); c.lineTo(dx + 14, 0); c.lineTo(dx - 12, 28); } }
+    else { c.arc(0, 0, 32, 0, Math.PI * 2); c.moveTo(-8, -36); c.lineTo(8, 36); }
+  };
+  // A dark outline so the glyph reads over bright tissue, then the white mark the sprite tints.
+  c.strokeStyle = 'rgba(0,0,0,.65)'; c.lineWidth = 20; glyph(); c.stroke();
+  c.strokeStyle = '#ffffff'; c.lineWidth = 10; glyph(); c.stroke();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  ELITE_GLYPHS.set(kind, texture);
+  return texture;
+}
+
+// Dresses a view for its pathogen's elite mutation (elites.mjs), or undresses a pooled one: a
+// halo in the mutation's colour around the body, a glyph floating over it, and the membrane tint
+// applied in poseEnemyAttack.
+function dressElite(world, enemy, view, reduceMotion) {
+  const kind = enemy.elite ?? null;
+  if (view.eliteKind !== kind) {
+    view.eliteKind = kind;
+    view.eliteColor = kind ? new THREE.Color(ELITES[kind].color) : null;
+    if (kind && !view.eliteHalo) {
+      view.eliteHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map: world.glow, color: 0xffffff, transparent: true,
+        depthWrite: false, blending: THREE.AdditiveBlending }));
+      view.model.add(view.eliteHalo);
+    }
+    if (view.eliteHalo) {
+      view.eliteHalo.visible = !!kind;
+      if (kind) view.eliteHalo.material.color.setHex(ELITES[kind].color);
+    }
+    if (kind && !view.eliteMark) {
+      view.eliteMark = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false }));
+      view.eliteMark.renderOrder = 4;
+      world.scene.add(view.eliteMark);
+    }
+    if (view.eliteMark) {
+      view.eliteMark.visible = !!kind;
+      if (kind) { view.eliteMark.material.map = eliteGlyph(kind); view.eliteMark.material.color.setHex(ELITES[kind].color); view.eliteMark.material.needsUpdate = true; }
+    }
+  }
+  if (!kind || !view.eliteHalo) return;
+  // The glyph bobs over the body, upright whatever the body is doing; not over one on a visor.
+  const bob = reduceMotion ? 0 : Math.sin(world.clock * 2.4 + view.phase) * .08;
+  view.eliteMark.visible = enemy.action !== 'cling';
+  view.eliteMark.position.set(view.model.position.x, view.model.position.y + (enemy.radius ?? 1) * 1.5 + .25 + bob, view.model.position.z);
+  view.eliteMark.scale.setScalar(.62);
+  // The model's own scale already carries the species' size; the halo wraps its body.
+  const breathe = reduceMotion ? 1 : 1 + .08 * Math.sin(world.clock * 3 + view.phase);
+  view.eliteHalo.scale.setScalar((enemy.radius ?? 1) * 4.6 * breathe / Math.max(.2, view.model.scale.x));
+  view.eliteHalo.material.opacity = .6 + (reduceMotion ? 0 : .12 * Math.sin(world.clock * 5 + view.phase));
+  // An armoured elite is visibly bulkier.
+  if (kind === 'armoured') view.model.scale.multiplyScalar(1.12);
 }
 
 export function updateTethers(world, enemy, view, angle, reduceMotion) {

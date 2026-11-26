@@ -4,4 +4,7 @@
 export const hudFeed = {
   // The motion tracker (radar.mjs radarSnapshot), plus the camera's horizontal field of view.
   radar: null,
+  // Set while a Grip Phage clings to the suit: { key } names the bash control (null on touch,
+  // where the bash button itself pulses).
+  grip: null,
 };

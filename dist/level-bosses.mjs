@@ -627,6 +627,8 @@ const BEHAVIOURS = {
         if (boss.timer <= 0) {
           boss.state = 'pull'; boss.timer = 3.4; boss.telegraph = null;
           boss.warning = 'PULLING · SHOOT OR BREAK LINE OF SIGHT';
+          // Its pseudopods have the suit: the visor takes the first smear (world.mjs).
+          emit(sim, boss, 'ability', { ability: 'pulling', ...(boss.victim != null ? { playerId: boss.victim } : {}) });
         }
       } else {
         const { player } = suit;
@@ -641,7 +643,7 @@ const BEHAVIOURS = {
           boss.state = 'hunt';
           boss.cooldown = boss.phase > 1 ? 6 : 7;
           warn(boss, '');
-          emit(sim, boss, 'ability', { ability: 'engulf' });
+          emit(sim, boss, 'ability', { ability: 'engulf', ...(player.id != null ? { playerId: player.id } : {}) });
         }
       }
     } else if (boss.state === 'swipe') {

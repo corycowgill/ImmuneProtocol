@@ -8,10 +8,12 @@ const CADENCE_STRETCH = .95;
 const SPECIES_CODES = {
   v: 'virus', b: 'bacillus', s: 'spore', g: 'guard', p: 'splitter',
   h: 'phage', f: 'flagellate', m: 'blister', w: 'filovirus', a: 'amoeba', r: 'rogue', d: 'rogue-bot', k: 'crawler',
+  l: 'latcher',
 };
 
 // Waves use one letter per pathogen (v virus, b bacillus, s spore, g shellback guard, p splitter,
-// h phage, f flagellate, m blister mortar, w filovirus, a amoeba, r rogue cell, d rogue bot, k crawler) and one
+// h phage, f flagellate, m blister mortar, w filovirus, a amoeba, r rogue cell, d rogue bot, k crawler,
+// l grip phage) and one
 // lane letter per pathogen (L first node, R second node, C third node).
 // Keep in step with WAVE_SCALE in simulation.mjs: each authored wave is fielded five times over.
 const WAVE_SCALE = 5;
@@ -40,8 +42,8 @@ export const ORGAN_MISSIONS = {
     },
     waves: [
       wave('Crosswind', 1.12, 'vvsgvsvsvvs', 'LLRLRRLRLRR'),
-      wave('Blocked Airway', .92, 'gdkmgvbshbvsvs', 'RRLRLLLRRLLRLR'),
-      wave('Hypoxic Surge', .84, 'mgvbshgsbvspvmgvb', 'LLRRLRLLRRLRRLLRL'),
+      wave('Blocked Airway', .92, 'gdkmglbshbvsvs', 'RRLRLLLRRLLRLR'),
+      wave('Hypoxic Surge', .84, 'mgvbshgsblspvmgvb', 'LLRRLRLLRRLRRLLRL'),
     ],
   },
   stomach: {
@@ -56,7 +58,7 @@ export const ORGAN_MISSIONS = {
       x: 0, z: -6, radius: 70, recovery: 5.8, warning: 3.6, active: 4.6, damage: 24,
     },
     waves: [
-      wave('Acid-Tolerant Bloom', 1.02, 'fpsvsgpavsfps', 'RLLRLRRLLRRLR'),
+      wave('Acid-Tolerant Bloom', 1.02, 'fpsvsgpalsfps', 'RLLRLRRLLRRLR'),
       wave('Gastric Siege', .80, 'pgdapfsgbskpsgfas', 'LLRLRRRLRLLRLRRLL'),
     ],
   },
@@ -83,9 +85,9 @@ export const ORGAN_MISSIONS = {
     },
     waves: [
       wave('Parasitic Bloom', 1.04, 'pfspbvsvpsfv', 'CLR'),
-      wave('Counterflow', 1.02, 'vspfsapsvpgvbsf', 'RLC'),
+      wave('Counterflow', 1.02, 'vspfsapslpgvbsf', 'RLC'),
       wave('Crypt Raid', .84, 'dfpsgakpsvsgpfbsvs', 'CLR'),
-      wave('Choke Point', .80, 'gppasfvsbpvsgpfasvpgsv', 'RCL'),
+      wave('Choke Point', .80, 'gppasfvsbplsgpfasvpgsv', 'RCL'),
     ],
   },
   colon: {
@@ -109,7 +111,7 @@ export const ORGAN_MISSIONS = {
     },
     waves: [
       wave('Fermentation', 1.04, 'vhsvbsfpvsvhs', 'LCR'),
-      wave('Biofilm Breach', .90, 'apdfgvbsppvshbsv', 'RCL'),
+      wave('Biofilm Breach', .90, 'apdfglbsppvshbsv', 'RCL'),
       wave('Gas Pocket', .82, 'sspfgsapsvshgpsbvs', 'CRL'),
       wave('Overgrowth', .72, 'gpasfpgbshpsgafpsvgsphb', 'LRC'),
     ],
@@ -136,7 +138,7 @@ export const ORGAN_MISSIONS = {
     },
     waves: [
       wave('Antigen Drift', 1.02, 'vsvbhsvvsrvvs', 'RLC'),
-      wave('Opsonized Swarm', .88, 'gdkprhsgvsvpws', 'CLR'),
+      wave('Opsonized Swarm', .88, 'gdkprhsglsvpws', 'CLR'),
       wave('Cytokine Storm', .80, 'psghsrvpsgvswphs', 'RLC'),
       wave('Sepsis Front', .76, 'gprsvspswhgspvrshvps', 'CRL'),
     ],
@@ -162,7 +164,7 @@ export const ORGAN_MISSIONS = {
     },
     waves: [
       wave('Harmonic Swarm', .92, 'ssgpvsmgvsvs', 'RLC'),
-      wave('Feedback', .80, 'gpdsgpbfspbsvm', 'LRC'),
+      wave('Feedback', .80, 'gpdsgpbfspbslm', 'LRC'),
       wave('Standing Wave', .78, 'gpmbsfpvbspmsvwspsf', 'LCR'),
     ],
   },
@@ -180,7 +182,7 @@ export const ORGAN_MISSIONS = {
     },
     waves: [
       wave('Signal Breach', .94, 'gpdagksprvsvs', 'LLRLRRLLRRLRL'),
-      wave('Synaptic Cascade', .86, 'gspavspmrsvpfsga', 'RRLRLLRLRLLRRLRL'),
+      wave('Synaptic Cascade', .86, 'gspalspmrsvpfsga', 'RRLRLLRLRLLRRLRL'),
       { name: 'Mega Virus', boss: true, species: [] },
     ],
   },

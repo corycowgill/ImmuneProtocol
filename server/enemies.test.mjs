@@ -3,13 +3,15 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { BOSS_MODELS } from '../dist/level-bosses.mjs';
 import { SPECIES, speciesHabitats } from '../dist/simulation.mjs';
+import { ENEMY_MODELS } from '../dist/enemy-models.mjs';
 
 const asset = path => readFileSync(new URL('../dist/assets/enemies/' + path, import.meta.url));
 
 test('every species has a runtime model with its animation targets', () => {
   // The drone, brood nest and level bosses are modelled in Blender rather than scanned.
   for (const type of [...Object.keys(SPECIES), 'nest', ...BOSS_MODELS]) {
-    const file = asset(type + '.glb');
+    // A species may wear another's scan (the Grip Phage wears the phage's), with its own tint.
+    const file = asset((ENEMY_MODELS[type]?.file ?? type) + '.glb');
     assert.equal(file.toString('ascii', 0, 4), 'glTF', type + ' is a binary glTF');
     const length = file.readUInt32LE(12);
     const json = JSON.parse(file.toString('utf8', 20, 20 + length));

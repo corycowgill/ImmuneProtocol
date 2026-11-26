@@ -2,7 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import { createArsenalView, weaponModelsReady, prepareWeaponCosmetics } from './arsenal-models.mjs';
 import { COOP_SUITS, loadSuitModels } from './suits.mjs';
 import { ExplosionFX } from './explosions.mjs';
-import { DeathFX, DEATHS } from './death-fx.mjs';
+import { DeathFX, DEATHS, BOSS_GORE } from './death-fx.mjs';
 import { PostFX } from './post-fx.mjs';
 import { ImpactFX } from './impact-fx.mjs';
 import { paintGround, patchGround, patchShell } from './ground-fx.mjs';
@@ -55,7 +55,7 @@ const MAX_PARTICLES = 288;
 const SPECIES_COLORS = {
   virus: 0xff6d4a, bacillus: 0xffd078, spore: 0xf384ff, colony: 0xa8e07a, guard: 0x6fd8cf, splitter: 0xc96bdc,
   phage: 0xb98cff, flagellate: 0xa678ff, blister: 0xff7a5c, filovirus: 0xff5a46, amoeba: 0xb7b2ff, rogue: 0xff6650,
-  'rogue-bot': 0xff4838, crawler: 0xff5a30,
+  'rogue-bot': 0xff4838, crawler: 0xff5a30, latcher: 0xa8f070,
 };
 const HEALTHY = new THREE.Color(0xffc6ad);
 const HEALTHY_FLANK = new THREE.Color(0xf1c1d5);
@@ -66,9 +66,11 @@ const REPAIR_LIGHT = new THREE.Color(0x9bf4c4);
 // away, or another is right on top of it, so the goo it left cannot be wiped yet.
 function pathogenOnSuit(sim) {
   const { player } = sim;
+  // The Rogue Macrophage dragging this suit in holds it too.
+  if (sim.enemies.some(enemy => enemy.boss === 'macrophage' && enemy.state === 'pull' && (enemy.victim ?? null) === (player.id ?? null))) return true;
   return sim.enemies.some(enemy => enemy.behavior === 'virus' && !enemy.boss && enemy.health > 0 && enemy.actionTarget === 'player' &&
     (enemy.actionPlayerId == null || enemy.actionPlayerId === player.id) &&
-    (enemy.action === 'virus-recover' || enemy.action === 'virus-pounce') &&
+    (enemy.action === 'virus-recover' || enemy.action === 'virus-pounce' || enemy.action === 'cling') &&
     Math.hypot(enemy.x - player.x, enemy.z - player.z) < (enemy.radius ?? 1) + .9);
 }
 // Each node's floor ring wears its HUD colour (styles.css .node-row), and turns red when critical.
@@ -378,12 +380,12 @@ export class World {
 
   // A pathogen's attack landed on this suit: its fluid splats across the visor. A pounce lands
   // the whole body on the glass; a spat glob leaves less. Machines' lasers leave nothing.
-  splatVisor(type) {
-    const gore = DEATHS[type]?.gore;
+  splatVisor(type, amount) {
+    const gore = DEATHS[type]?.gore ?? BOSS_GORE[type];
     if (gore == null || type === 'rogue-bot' || type === 'crawler') return;
     const fluid = new THREE.Color(gore);
     const colour = new THREE.Color(0xeadcd0).lerp(fluid, .55);
-    this.visor.splat(colour, fluid.multiplyScalar(.6), (SPECIES[type]?.behavior ?? type) === 'virus' ? 1 : .6);
+    this.visor.splat(colour, fluid.multiplyScalar(.6), amount ?? ((SPECIES[type]?.behavior ?? type) === 'virus' ? 1 : .6));
   }
 
   // Sound cues the view raised this frame (the visor's splat and wipe), for the audio engine.
@@ -926,6 +928,11 @@ export class World {
       for (const event of events) {
         if (event.type === 'enemyAttack' && event.stage === 'impact' && event.target === 'player' &&
           (event.targetPlayerId == null || event.targetPlayerId === playerId)) this.splatVisor(event.enemyType);
+        // The Rogue Macrophage: its pull smears the visor, and an engulf puts the suit inside it.
+        if (event.type === 'levelBoss' && event.boss === 'macrophage' && (event.playerId ?? null) === (playerId ?? null)) {
+          if (event.ability === 'pulling') this.splatVisor('macrophage', .45);
+          if (event.ability === 'engulf') this.visor.engulf(new THREE.Color(0xe8dcf0), new THREE.Color(BOSS_GORE.macrophage));
+        }
         if (event.type === 'shot') {
           if (event.playerId == null || event.playerId === playerId) this.addShot(event, flashStrength, reduceMotion);
           else this.addTeammateShot(event, reduceMotion);

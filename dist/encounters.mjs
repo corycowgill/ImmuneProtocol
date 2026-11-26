@@ -1,6 +1,6 @@
 // Recompose the authored wave roster into readable encounters. Never adds enemies or stats.
 export const ENCOUNTER_RULES = Object.freeze({ warning: 4, minimumGap: .55, safeSuit: 18, safeNode: 18, maxActive: 44, orderSeconds: 24 });
-const mobile = ['virus', 'phage', 'flagellate', 'splitter'];
+const mobile = ['virus', 'phage', 'flagellate', 'splitter', 'latcher'];
 const ranged = ['spore', 'blister'];
 const tissue = ['bacillus', 'filovirus', 'amoeba', 'rogue'];
 export const ENCOUNTER_PATTERNS = Object.freeze([

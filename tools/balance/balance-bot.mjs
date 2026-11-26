@@ -16,6 +16,7 @@ import { Simulation } from '../../dist/simulation.mjs';
 import { CAMPAIGN_AREAS } from '../../dist/coop-protocol.mjs';
 import { DIFFICULTIES, applyDifficulty } from '../../dist/difficulty.mjs';
 import { HEART_VALVES } from '../../dist/heart-chamber.mjs';
+import { grippedBy } from '../../dist/grip-phage.mjs';
 import { loadoutWithCompanion, normalizeWeaponLoadout } from '../../dist/weapon-mods.mjs';
 
 const STEP = 1 / 30;
@@ -124,6 +125,12 @@ function hiddenByTissue(sim, player, enemy) {
 function think(sim, rover, memory, clock) {
   const { player } = sim;
   const input = {};
+  // A Grip Phage on the visor: bash it off first, as a player would (held after a beat to react).
+  const grip = grippedBy(sim, player);
+  if (grip) {
+    memory.grippedAt ??= clock;
+    if (clock - memory.grippedAt > .45) input.melee = true;
+  } else memory.grippedAt = null;
   const enemies = sim.enemies.filter(enemy => !enemy.hidden && sim.colonyExposed?.(enemy) !== false);
   const pressure = node => enemies.filter(enemy => enemy.node === node && distance(enemy, node) < 14).length *
     (1 + (100 - node.health) / 50);

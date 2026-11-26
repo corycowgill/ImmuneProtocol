@@ -210,3 +210,22 @@ test('Otolith Screamer: the pulse only reaches suits it can see', () => {
   assert.equal(pulse(behind), 0, 'cover blocks the pulse');
   if (clearLine(sim, boss, open)) assert.ok(pulse(open) > 20, 'the open does not');
 });
+
+test('the Rogue Macrophage names the suit it pulls and engulfs, so that suit\'s visor takes the goo', () => {
+  const { sim, boss } = summon('lymph');
+  Object.assign(sim.player, { x: boss.x + 18, z: boss.z });
+  const seen = fight(sim, 20, { each: events => { sim.player.health = 100; return !abilities(events).includes('engulf'); } });
+  const pulling = seen.find(event => event.ability === 'pulling');
+  const engulf = seen.find(event => event.ability === 'engulf');
+  assert.ok(pulling, 'the pull taking hold is announced');
+  assert.ok(engulf, 'left unbroken, the pull ends in an engulf');
+  assert.ok(seen.indexOf(pulling) < seen.indexOf(engulf));
+  assert.equal(pulling.playerId ?? null, sim.player.id ?? null);
+
+  const coop = summon('lymph', new CoopSimulation([{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], 'lymph'));
+  const [a, b] = coop.sim.players;
+  Object.assign(a, { x: coop.boss.x + 60, z: coop.boss.z });
+  Object.assign(b, { x: coop.boss.x + 18, z: coop.boss.z });
+  const squad = fight(coop.sim, 20, { each: events => { for (const p of coop.sim.players) p.health = 100; return !abilities(events).includes('engulf'); } });
+  assert.equal(squad.find(event => event.ability === 'engulf')?.playerId, 'b', 'the engulfed suit is named');
+});

@@ -44,6 +44,8 @@ export class VisorGoo {
     this.residue = 0;
     this.age = 0;
     this.handRaise = 0;
+    this.forcedInside = 0;
+    this.forcedCell = null;
     this.cues = [];
     this.sync();
   }
@@ -69,9 +71,21 @@ export class VisorGoo {
     this.cues.push({ type: 'visor', stage: 'splat' });
   }
 
+  // Engulfed by the Rogue Macrophage: a moment inside its cytoplasm, as when swimming through a
+  // white blood cell, then the coat it leaves on the way out.
+  engulf(colour, nucleus, seconds = 1.1) {
+    this.forcedInside = seconds;
+    this.forcedCell = { colour, nucleus };
+  }
+
   // depth: 0 outside every cell, up to 1 at a cell's centre. cell: the colours of the cell.
   // held: a pathogen is still on the suit, so the goo stays put until it lets go.
   update(dt, depth, cell, reduceMotion = false, held = false) {
+    if (this.forcedInside > 0) {
+      this.forcedInside -= dt;
+      depth = Math.max(depth, .45);
+      cell = this.forcedCell;
+    }
     const inside = depth > ENTER_DEPTH;
     this.inside = THREE.MathUtils.damp(this.inside, inside ? Math.min(1, depth * 2.4 + .35) : 0, inside ? 14 : 9, dt);
     if (inside) {

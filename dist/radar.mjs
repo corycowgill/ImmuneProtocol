@@ -2,8 +2,9 @@
 // no three.js), so any renderer or platform can draw it. Coordinates are relative to the suit and
 // the way it faces: x to the right and y forward, both -1..1 across the tracker's range.
 //
-// Contacts: pathogens (with an up or down hint when well above or below the suit), bosses, brood
-// nests, squadmates, the suit's turret and medic drone, antibody caches and the tissue nodes.
+// Contacts: pathogens (with an up or down hint when well above or below the suit, and their elite
+// mutation if they have one), bosses, brood nests, squadmates, the suit's turret and medic drone,
+// antibody caches and the tissue nodes.
 // Nodes and squadmates beyond range stay on the rim, pointing the way to them.
 
 export const RADAR_RANGE = 30;
@@ -38,7 +39,8 @@ export function radarSnapshot(sim, { range = RADAR_RANGE, reduceMotion = false }
     const level = height > ABOVE ? 'above' : height < -BELOW ? 'below' : null;
     if (enemy.boss) add('boss', enemy, { size: Math.min(2.4, (enemy.radius ?? 2) / 1.2), level }, true);
     else if (enemy.nest) add('nest', enemy);
-    else add('enemy', enemy, { size: Math.max(.8, Math.min(1.5, (enemy.radius ?? 1) / .95)), level });
+    else add('enemy', enemy, { size: Math.max(.8, Math.min(1.5, (enemy.radius ?? 1) / .95)), level, ...(enemy.elite ? { elite: enemy.elite } : {}),
+      ...(enemy.action === 'cling' ? { gripping: true } : {}) });
   }
   (sim.nodes ?? []).forEach((node, index) => {
     if (sim.airway || (sim.tutorial && index > 0)) return;

@@ -4,6 +4,7 @@
 // attackers, inlets). It only reads the game; field-events.mjs and game.mjs change it.
 import { radarSnapshot } from './radar.mjs';
 import { hudFeed } from './hud-feed.mjs';
+import { grippedBy } from './grip-phage.mjs';
 import './interface-setup.mjs';
 import { JUNCTION_INLETS, RULES } from './simulation.mjs';
 import { ORGAN_MISSIONS } from './organs.mjs';
@@ -583,6 +584,9 @@ export function drawHud() {
   const camera = session.world?.camera;
   if (radar && camera) radar.fov = 2 * Math.atan(Math.tan(camera.fov * Math.PI / 360) * camera.aspect);
   hudFeed.radar = radar;
+  // A Grip Phage on the visor: the prompt names the suit's own bash control.
+  const held = session.sim.player && grippedBy(session.sim, session.sim.player);
+  hudFeed.grip = held ? { key: session.usingGamepad ? padActionKey('melee') : isTouch ? null : actionKey('melee') } : null;
   const { player, tissue, wave, waves, remaining, phase, intermission, valve } = session.sim;
   drawScoreboard();
   const suitPercent = Math.ceil(player.health);
