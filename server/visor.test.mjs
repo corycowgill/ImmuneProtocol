@@ -105,3 +105,43 @@ test('a pathogen that pounces onto the suit splats its fluid, which stays until 
   assert.equal(cellVisor.state, 'inside');
   assert.equal(cellVisor.uniforms.gooFocus.value, 0);
 });
+
+test('the visor cracks as the suit loses integrity and each crack is sealed once healing lifts it back', async () => {
+  const { VisorCracks, CRACK_LEVELS, CRACK_SEAL } = await import('../dist/visor-fx.mjs');
+  const cracks = new VisorCracks();
+  cracks.reset(4);
+  const step = (seconds, integrity) => { for (let t = 0; t < seconds - 1e-9; t += 1 / 60) cracks.update(1 / 60, integrity); };
+  step(.1, 100);
+  assert.equal(cracks.active, false, 'a whole suit has whole glass');
+  step(.1, 60);
+  assert.deepEqual(cracks.cracks.map(c => c.shown), [1, 0, 0, 0, 0], 'one crack per integrity level crossed');
+  assert.deepEqual(cracks.takeCues(), [{ type: 'visor', stage: 'crack' }]);
+  step(.1, 9);
+  assert.equal(cracks.cracks.filter(c => c.shown).length, CRACK_LEVELS.length);
+  assert.equal(cracks.takeCues().length, CRACK_LEVELS.length - 1);
+  // The first cracks stay toward the edges of the glass; only the last reaches near the middle.
+  const off = ({ x, y }) => Math.hypot(x - .5, y - .5);
+  assert.ok(cracks.cracks.slice(0, 4).every(c => off(c) > .25));
+
+  // Healing to 60%: the four deeper cracks are sealed, the first stays.
+  step(.1, 60);
+  assert.deepEqual(cracks.takeCues(), Array(4).fill({ type: 'visor', stage: 'seal' }));
+  assert.ok(cracks.uniforms.crackState.value[4].y > 0, 'sealant glows along a crack being sealed');
+  step(CRACK_SEAL, 60);
+  assert.deepEqual(cracks.cracks.map(c => c.shown), [1, 0, 0, 0, 0]);
+
+  // Hit again mid-seal: the crack opens back up.
+  step(.1, 100);
+  step(.1, 65);
+  assert.equal(cracks.cracks[0].sealing, 0);
+  assert.equal(cracks.cracks[0].shown, 1);
+  // Going down keeps the cracks as they were (no sealing on the way down); a fresh suit is whole.
+  step(.1, 9);
+  cracks.takeCues();
+  step(.5, 0);
+  assert.deepEqual(cracks.takeCues(), []);
+  assert.equal(cracks.cracks.filter(c => c.shown).length, CRACK_LEVELS.length);
+  const fresh = new VisorCracks();
+  fresh.update(1 / 60, 0);
+  assert.equal(fresh.active, false);
+});

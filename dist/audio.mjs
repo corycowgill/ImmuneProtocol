@@ -197,6 +197,19 @@ const SYNTHESIZED = {
     const drip = t < .5 ? 0 : noise(2600) * Math.exp(-(t - .5) * 40) * .6;
     return (drag + squeak + drip) * .5;
   }],
+  // The visor glass giving way: a sharp tick, a splintering run and a thin ring.
+  'suit/crack': [.5, (t, noise) => {
+    const tick = noise(7000) * Math.exp(-t * 120) * 1.4;
+    const run = noise(5200) * Math.min(1, t / .004) * Math.exp(-t * 14) * (.55 + .45 * Math.max(0, Math.sin(2 * Math.PI * 61 * t)) ** 3);
+    const ring = Math.sin(2 * Math.PI * 3150 * t) * Math.exp(-t * 18) * .18 + Math.sin(2 * Math.PI * 4720 * t) * Math.exp(-t * 26) * .1;
+    return (tick + run + ring) * .5;
+  }],
+  // Sealant flowing into a crack: a soft rising hiss with a few wet ticks.
+  'suit/seal': [.8, (t, noise) => {
+    const hiss = noise(2400 + 2600 * t) * Math.sin(Math.PI * Math.min(1, t / .8)) * .55;
+    const ticks = noise(4000) * Math.max(0, Math.sin(2 * Math.PI * 9 * t)) ** 16 * .4;
+    return (hiss + ticks) * .45;
+  }],
   'field/macrophage': [1.4, (t, noise) => (Math.sin(2 * Math.PI * (55 * t - 6.5 * t * t)) * .45 + noise(400) * .6) *
     (.6 + .4 * Math.sin(t * 2 * Math.PI * 1.7)) * Math.min(1, t / .2) * Math.min(1, (1.4 - t) / .5)],
 };
@@ -555,7 +568,9 @@ export class GameAudio {
         else if (event.stage === 'empty' && !event.teammate) this.playSample('suit/empty', .5);
         break;
       case 'visor':
-        this.playSample(event.stage === 'wipe' ? 'suit/wipe' : 'suit/goo', event.stage === 'wipe' ? .55 : .7, { rate: .94 + Math.random() * .12 });
+        if (event.stage === 'crack') this.playSample('suit/crack', .75, { rate: .9 + Math.random() * .2 });
+        else if (event.stage === 'seal') this.playSample('suit/seal', .45);
+        else this.playSample(event.stage === 'wipe' ? 'suit/wipe' : 'suit/goo', event.stage === 'wipe' ? .55 : .7, { rate: .94 + Math.random() * .12 });
         break;
       case 'stun':
         this.playSample('suit/stun', .95 / (1 + (event.distance ?? 0) * .03), { pan: this.spatialPan(event) });

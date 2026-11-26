@@ -40,7 +40,7 @@ import { TAU, UP, floorHeight, baseFloorHeight, setTerrainArea, shapeFloor, text
 import { prepareAll as prepareAllOf, prepareScenes as prepareScenesOf, prepareArea as prepareAreaOf, prepareMission as prepareMissionOf } from './world-preparation.mjs';
 import { enemyTemplate as enemyTemplateOf, dressGuardModel as dressGuardModelOf, updateEnemies as updateEnemiesOf, releaseEnemyView as releaseEnemyViewOf, poseEnemyAttack as poseEnemyAttackOf, updateTethers as updateTethersOf, updateProjectiles as updateProjectilesOf } from './pathogen-views.mjs';
 import { TracerPool } from './shot-fx.mjs';
-import { VisorGoo, createVisorOverlay } from './visor-fx.mjs';
+import { VisorGoo, VisorCracks, createVisorOverlay } from './visor-fx.mjs';
 import { updateWeapon as updateWeaponOf, updateRepairTool as updateRepairToolOf, addShot as addShotOf, addTracer as addTracerOf, addTeammateShot as addTeammateShotOf, addTurretShot as addTurretShotOf } from './weapon-view.mjs';
 
 // Every lit pixel walks all of the arena's point lights, and most of them are out of range of
@@ -143,7 +143,9 @@ export class World {
     this.weaponScene.add(this.carbine.model);
     // Plasm on the visor after swimming through a white blood cell (visor-fx.mjs).
     this.visor = new VisorGoo();
-    this.visorOverlay = createVisorOverlay(this.visor.uniforms);
+    // Cracks in the visor glass as the suit loses integrity, drawn by the same overlay.
+    this.cracks = new VisorCracks();
+    this.visorOverlay = createVisorOverlay(Object.assign(this.visor.uniforms, this.cracks.uniforms));
     this.weaponScene.add(this.visorOverlay);
     this.repairTool = createRepairTool(this.carbine.supportHand);
     this.weaponScene.add(this.repairTool.model);
@@ -362,7 +364,13 @@ export class World {
   updateVisor(sim, dt, reduceMotion) {
     const { depth, cell } = this.props?.immersion?.(this.camera.position) ?? { depth: 0, cell: null };
     this.visor.update(dt, depth, cell, reduceMotion, pathogenOnSuit(sim));
-    this.visorOverlay.visible = this.visor.active;
+    // A fresh mission starts with whole glass rather than sealing the last one's cracks.
+    if (this.cracksFor !== sim) {
+      this.cracksFor = sim;
+      this.cracks.reset();
+    }
+    this.cracks.update(dt, sim.player.health);
+    this.visorOverlay.visible = this.visor.active || this.cracks.active;
     const u = this.visor.uniforms;
     u.gooAspect.value = this.camera.aspect;
     u.gooTime.value = reduceMotion ? 0 : this.clock;
@@ -380,11 +388,13 @@ export class World {
 
   // Sound cues the view raised this frame (the visor's splat and wipe), for the audio engine.
   takeCues() {
-    return this.visor.takeCues();
+    return [...this.visor.takeCues(), ...this.cracks.takeCues()];
   }
 
   setArea(area) {
     this.visor.reset();
+    this.cracks.reset();
+    this.cracksFor = null;
     this.visorOverlay.visible = false;
     this.teammateView.hide();
     this.explosions?.clear();

@@ -147,6 +147,89 @@ export class VisorGoo {
   }
 }
 
+// Cracks in the visor glass as the suit loses integrity. Each crack belongs to an integrity
+// level: it splinters across the glass the moment the suit falls to that level and is sealed
+// (a glow of sealant along its lines, then gone) once healing lifts the suit back above it.
+// The first cracks sit toward the edges of the glass; only a badly damaged suit cracks near the
+// middle of the view. World feeds it the suit's integrity each frame.
+export const CRACK_LEVELS = Object.freeze([70, 52, 36, 22, 10]);
+// Where each level's crack strikes (screen 0..1, y up) and how large it grows.
+const CRACK_SITES = [[.16, .7, .42], [.86, .28, .46], [.24, .18, .5], [.8, .8, .52], [.5, .36, .58]];
+export const CRACK_SEAL = .8;
+
+export class VisorCracks {
+  constructor() {
+    this.uniforms = {
+      crackShape: { value: CRACK_SITES.map(() => new THREE.Vector4()) },
+      crackState: { value: CRACK_SITES.map(() => new THREE.Vector4()) },
+    };
+    this.reset();
+  }
+
+  reset(seed = Math.random() * 100) {
+    this.seed = seed;
+    this.cracks = CRACK_LEVELS.map((level, index) => {
+      const [x, y, size] = CRACK_SITES[index];
+      const jitter = k => Math.sin(seed * (index + 1) * 12.9898 + k * 78.233) * .5;
+      return { level, x: x + jitter(1) * .08, y: y + jitter(2) * .08, size: size * (1 + jitter(3) * .2), seed: seed + index * 7.3, shown: 0, sealing: 0 };
+    });
+    this.cues = [];
+    this.sync();
+  }
+
+  update(dt, integrity) {
+    // A downed suit keeps the glass it went down with until it is back up.
+    const downed = integrity <= 0;
+    for (const crack of this.cracks) {
+      if (downed) {
+        crack.age = (crack.age ?? 0) + dt;
+        continue;
+      }
+      const broken = integrity <= crack.level;
+      if (broken && crack.shown === 0) {
+        crack.shown = 1;
+        crack.sealing = 0;
+        crack.age = 0;
+        this.cues.push({ type: 'visor', stage: 'crack' });
+      } else if (!broken && crack.shown > 0 && crack.sealing === 0) {
+        crack.sealing = 1e-6;
+        this.cues.push({ type: 'visor', stage: 'seal' });
+      } else if (broken && crack.sealing > 0) {
+        // Hit again before the seal finished: the crack opens back up.
+        crack.sealing = 0;
+        crack.shown = 1;
+      }
+      crack.age = (crack.age ?? 0) + dt;
+      if (crack.sealing > 0) {
+        crack.sealing = Math.min(1, crack.sealing + dt / CRACK_SEAL);
+        if (crack.sealing >= 1) crack.shown = crack.sealing = 0;
+      }
+    }
+    this.sync();
+  }
+
+  get active() {
+    return this.cracks.some(crack => crack.shown > 0);
+  }
+
+  takeCues() {
+    const cues = this.cues;
+    this.cues = [];
+    return cues;
+  }
+
+  sync() {
+    this.cracks.forEach((crack, index) => {
+      this.uniforms.crackShape.value[index].set(crack.x, crack.y, crack.size, crack.seed);
+      // Visibility, sealant glow, and a brief white flash as the glass gives.
+      const fade = crack.sealing > 0 ? 1 - THREE.MathUtils.smoothstep(crack.sealing, .45, 1) : 1;
+      const glow = crack.sealing > 0 ? Math.sin(Math.min(1, crack.sealing / .7) * Math.PI) : 0;
+      const flash = crack.shown > 0 && crack.sealing === 0 ? Math.max(0, 1 - (crack.age ?? 1) / .18) : 0;
+      this.uniforms.crackState.value[index].set(crack.shown * fade, glow, flash, 0);
+    });
+  }
+}
+
 // The film itself: a full-screen quad drawn last in the first-person pass, so it sits on the
 // visor over the world and the weapon, with or without the post-processing chain. It is lit as
 // a wet layer (thickness, specular glints, drips running down), cleared along the wipe line with
@@ -168,6 +251,7 @@ export function createVisorOverlay(uniforms) {
       uniform float gooCoat, gooWipe, gooResidue, gooInside, gooHand, gooSeed, gooAge, gooAspect, gooTime;
       uniform vec3 gooColor, gooTint;
       uniform float gooFocus;
+      uniform vec4 crackShape[${CRACK_LEVELS.length}], crackState[${CRACK_LEVELS.length}];
       varying vec2 vUv;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float noise(vec2 p) {
@@ -256,6 +340,45 @@ export function createVisorOverlay(uniforms) {
           vec3 glove = vec3(.055, .06, .048) * (.85 + .3 * noise(q * 6. + gooSeed)) + vec3(.16, .14, .1) * rim * .6;
           float a = palm * gooHand * .97;
           result = vec4(mix(result.rgb, glove, a), a + result.a * (1. - a));
+        }
+        // Cracks in the glass itself, over everything outside the visor.
+        for (int i = 0; i < ${CRACK_LEVELS.length}; i++) {
+          if (crackState[i].x <= .001) continue;
+          vec4 c = crackShape[i];
+          vec2 q = (uv - c.xy) * vec2(gooAspect, 1.) / c.z;
+          float r = length(q), a = atan(q.y, q.x);
+          float px = fwidth(r) * 1.1;
+          float lines = 0.;
+          // Rays splintering out from the strike, each kinked and ending at its own reach.
+          for (int k = 0; k < 8; k++) {
+            float fk = float(k);
+            float angle = (fk + hash(vec2(c.w, fk)) * .7) / 8. * 6.2831853 - 3.14159265;
+            float reach = .35 + hash(vec2(fk, c.w + 1.)) * .65;
+            // Straight runs with sharp kinks, as glass fractures: the angle offset is interpolated
+            // linearly between a few random points along the ray, not smoothed.
+            float run = r * 5.;
+            float bend = mix(hash(vec2(floor(run), fk + c.w)), hash(vec2(floor(run) + 1., fk + c.w)), fract(run)) * .16 - .08;
+            float da = mod(a - angle - bend + 3.14159265, 6.2831853) - 3.14159265;
+            float d = abs(da) * r;
+            float width = px * (1.6 - r / reach);
+            lines = max(lines, (1. - smoothstep(width * .4, width + px, d)) * (1. - smoothstep(reach * .85, reach, r)));
+          }
+          // Concentric web segments between the rays, and a crushed spot at the strike.
+          for (int k = 0; k < 2; k++) {
+            float seg = a * 2.2;
+            float ring = .16 + float(k) * .17 + (mix(hash(vec2(floor(seg), c.w + float(k))), hash(vec2(floor(seg) + 1., c.w + float(k))), fract(seg)) - .5) * .05;
+            float piece = step(.45, noise(vec2(a * 2.6 + float(k) * 5., c.w)));
+            lines = max(lines, (1. - smoothstep(px * .5, px * 1.6, abs(r - ring))) * piece * .8);
+          }
+          float crush = (1. - smoothstep(.0, .06, r)) * (.5 + .5 * noise(q * 90.));
+          lines = max(lines, crush);
+          vec4 s = crackState[i];
+          // Bright where the fracture catches the light, with a faint dark seam beside it.
+          vec3 glass = mix(vec3(.86, .92, 1.), vec3(.45, 1., .7), min(1., s.y * 1.6)) * (1. + s.z * 2. + s.y * .25);
+          float a1 = clamp(lines * (.5 + s.z * .4 + s.y * .3) * s.x, 0., .9);
+          result = vec4(mix(result.rgb, glass, a1), a1 + result.a * (1. - a1));
+          float halo = (1. - smoothstep(.0, .5, r)) * .06 * s.x;
+          result = vec4(mix(result.rgb, vec3(.8, .85, .9), halo), halo + result.a * (1. - halo));
         }
         if (result.a <= .001) discard;
         gl_FragColor = result;
