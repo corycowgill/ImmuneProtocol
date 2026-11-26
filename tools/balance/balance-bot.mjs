@@ -12,7 +12,8 @@
 // Either jumps when something low (a ridge) stops it.
 // Some arenas favour one strategy over the other; a mission counts as winnable on a difficulty
 // when either strategy wins it. The script exits with an error if one never is.
-import { Simulation } from '../../dist/simulation.mjs';
+import { ARENA, Simulation, withinHazard } from '../../dist/simulation.mjs';
+import { HAZARD_CLEARANCE, groundHeight, terrainFor } from '../../dist/terrain.mjs';
 import { CAMPAIGN_AREAS } from '../../dist/coop-protocol.mjs';
 import { DIFFICULTIES, applyDifficulty } from '../../dist/difficulty.mjs';
 import { HEART_VALVES } from '../../dist/heart-chamber.mjs';
@@ -74,6 +75,98 @@ function aim(player, target, jitter) {
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
+// Raised ground high enough to ride out each arena's acid, contraction or squeeze, as points on
+// a grid over the arena (found once per arena).
+const refuges = new Map();
+function highGround(area) {
+  if (!refuges.has(area)) {
+    const clearance = HAZARD_CLEARANCE[area], pieces = terrainFor(area), points = [];
+    if (clearance != null) {
+      for (let x = -ARENA.x; x <= ARENA.x; x += 1.25) for (let z = -ARENA.z; z <= ARENA.z; z += 1.25) {
+        if (Math.hypot(x / ARENA.x, z / ARENA.z) < .97 && groundHeight(pieces, x, z) >= clearance + .05) points.push({ x, z });
+      }
+    }
+    refuges.set(area, points);
+  }
+  return refuges.get(area);
+}
+
+// Reads a boss's telegraphed attack the way a player would: sidesteps a charge lane (dashing
+// when it is close), backs out of a slam, crush, swipe, bite or pulse circle, and shoots the
+// Rogue Macrophage while it pulls the suit in, which is how a pull is broken.
+function dodgeBoss(sim, input) {
+  const player = sim.player;
+  for (const boss of sim.enemies) {
+    if (!boss.boss) continue;
+    if (boss.boss === 'macrophage' && (boss.state === 'pull' || boss.state === 'pull-windup') && (boss.victim ?? null) === (player.id ?? null)) {
+      aim(player, boss, .03); input.fire = true; input.repair = false;
+      continue;
+    }
+    const sign = boss.telegraph;
+    if (!sign) continue;
+    if (sign.kind === 'charge') {
+      const dx = sign.toX - sign.x, dz = sign.toZ - sign.z, length = Math.hypot(dx, dz) || 1;
+      const ux = dx / length, uz = dz / length;
+      const along = (player.x - sign.x) * ux + (player.z - sign.z) * uz;
+      const across = (player.x - sign.x) * -uz + (player.z - sign.z) * ux;
+      if (along < -2 || along > (sign.length ?? length) + 4 || Math.abs(across) > sign.radius + 2.5) continue;
+      const side = across >= 0 ? 1 : -1;
+      steer(player, player.x - uz * side * 6, player.z + ux * side * 6, input, true);
+      input.repair = false;
+      if (sign.remaining < .45) input.dash = true;
+      continue;
+    }
+    const cx = sign.kind === 'volley' ? sign.x : sign.x, cz = sign.z;
+    const gap = Math.hypot(player.x - cx, player.z - cz);
+    if (gap > sign.radius + 1.5) continue;
+    const away = gap > .01 ? 1 / gap : 1;
+    steer(player, player.x + (player.x - cx) * away * 8, player.z + (player.z - cz) * away * 8, input, true);
+    input.repair = false;
+    if (sign.remaining < .35) input.dash = true;
+  }
+}
+
+// Takes cover from the organ hazard the way a player would once warned: onto raised ground high
+// enough to clear it where the arena has some, otherwise out of the hazard's zone, still shooting.
+function dodgeHazard(sim, input, memory) {
+  const organ = sim.organ, player = sim.player;
+  if (!organ || !['warning', 'active'].includes(organ.phase)) { memory.refuge = null; return; }
+  const clearance = HAZARD_CLEARANCE[sim.area];
+  const spots = highGround(sim.area);
+  if (process.env.HAZARD_DEBUG && Math.round(sim.clock * 10) % 5 === 0) console.log('hz', organ.phase, sim.clock.toFixed(1), 'feet', (player.feet ?? 0).toFixed(2), 'refuge', memory.refuge ? distance(memory.refuge, player).toFixed(1) : '-', 'pos', player.x.toFixed(1), player.z.toFixed(1), 'hp', player.health.toFixed(0));
+  if (clearance != null && spots.length) {
+    // Safe once standing on ground high enough (not merely in the air above the acid).
+    const ground = groundHeight(terrainFor(sim.area), player.x, player.z);
+    const airborne = (player.feet ?? 0) - ground > .05;
+    if (ground >= clearance && !airborne) {
+      delete input.moveX; delete input.moveZ;
+      input.repair = false;
+      return;
+    }
+    memory.refuge ??= spots.reduce((best, spot) => distance(spot, player) < distance(best, player) ? spot : best);
+    // Keep moving onto it while in the air, and jump the sheer edge of a shelf or fold from the floor.
+    steer(player, memory.refuge.x, memory.refuge.z, input, true);
+    input.repair = false;
+    if (distance(memory.refuge, player) < 3 && !airborne) input.jump = true;
+    return;
+  }
+  if (!withinHazard(player, organ)) return;
+  if (!memory.refuge || withinHazard(memory.refuge, organ)) {
+    memory.refuge = null;
+    for (let radius = 3; radius <= 30 && !memory.refuge; radius += 1.5) {
+      for (let k = 0; k < 16; k++) {
+        const angle = k / 16 * Math.PI * 2;
+        const spot = { x: player.x + Math.cos(angle) * radius, z: player.z + Math.sin(angle) * radius };
+        if (Math.hypot(spot.x / ARENA.x, spot.z / ARENA.z) < .95 && !withinHazard(spot, organ)) { memory.refuge = spot; break; }
+      }
+    }
+  }
+  if (memory.refuge) {
+    steer(player, memory.refuge.x, memory.refuge.z, input, true);
+    input.repair = false;
+  }
+}
+
 // BALANCE_WHY=1 totals where the suit's integrity went, per mission.
 let why = null;
 function play(area, difficulty, rover) {
@@ -98,6 +191,7 @@ function play(area, difficulty, rover) {
       break;
     }
     const input = think(sim, rover, memory, clock);
+    if (!process.env.BALANCE_NO_DODGE) { dodgeHazard(sim, input, memory); dodgeBoss(sim, input); }
     // A turret goes down early; a drone just follows (the control would station it).
     if (!deployed && !sim.drone && sim.phase === 'combat' && clock > 3) input.deploy = deployed = true;
     // Barely moved for half a second while trying to: something low is in the way, so hop it.

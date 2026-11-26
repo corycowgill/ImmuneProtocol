@@ -6,7 +6,7 @@ import WebSocket from 'ws';
 import { hitBrainBoss } from '../dist/brain-boss.mjs';
 import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH, COOP_PROTOCOL_VERSION } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
-import { DIFFICULTIES, applyDifficulty } from '../dist/difficulty.mjs';
+import { DIFFICULTIES, MISSION_TUNING, applyDifficulty } from '../dist/difficulty.mjs';
 import {
   DEFAULT_WEAPON_LOADOUT, loadoutWithBuild, loadoutWithWeapon, normalizeWeaponLoadout, weaponStats,
 } from '../dist/weapon-mods.mjs';
@@ -413,7 +413,9 @@ test('difficulty reshapes solo missions and leaves scripted encounters intact', 
   const pathogens = sim => sim.missions.reduce((sum, wave) => sum + (wave.arrivals ?? wave.species).length, 0);
   for (const area of CAMPAIGN_AREAS) {
     const [easy, medium, hard] = ['easy', 'medium', 'hard'].map(level => deploy(area, level));
-    assert.deepEqual(medium.missions, new Simulation(area).missions, area);
+    // Medium is the authored campaign, apart from the missions with their own Medium relief.
+    if (MISSION_TUNING.medium[area]) assert.equal(medium.missions.length, new Simulation(area).missions.length, area);
+    else assert.deepEqual(medium.missions, new Simulation(area).missions, area);
     assert.equal(easy.missions.length, medium.missions.length, area);
     assert.equal(hard.missions.length, medium.missions.length, area);
     // The heart's only wave is its rooted colonies.

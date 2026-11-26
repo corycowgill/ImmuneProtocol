@@ -308,7 +308,8 @@ function pushOutOf(actor, circles) {
   }
 }
 
-function withinHazard(actor, hazard) {
+// Whether an actor stands inside an organ hazard's zone (exported for the balance bot).
+export function withinHazard(actor, hazard) {
   const dx = actor.x - hazard.x;
   const dz = actor.z - hazard.z;
   return hazard.radius ? Math.hypot(dx, dz) <= hazard.radius

@@ -121,7 +121,9 @@ function reshapeMission(wave, level) {
 // Applies a difficulty to a freshly constructed solo Simulation before it starts.
 export function applyDifficulty(sim, id) {
   sim.difficulty = normalizeDifficulty(id);
-  if (sim.difficulty === DEFAULT_DIFFICULTY) return sim;
+  // Medium is the baseline and changes nothing, except in the missions that carry their own
+  // Medium relief (MISSION_TUNING.medium), which used to be skipped here by mistake.
+  if (sim.difficulty === DEFAULT_DIFFICULTY && !MISSION_TUNING.medium[sim.area]) return sim;
   const level = { ...DIFFICULTIES[sim.difficulty], ...MISSION_TUNING[sim.difficulty]?.[sim.area] };
 
   // Reshaped waves are cached so the Capillary Junction overtime wave, appended mid-mission,
