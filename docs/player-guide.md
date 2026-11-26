@@ -333,7 +333,7 @@ Biological pathogens lunge, latch or spit:
 - **Ranged** pathogens hang back and spit. Spores swell before spitting a slow projectile; step sideways during the windup.
 - **Shellbacks** guard their front. Aim for exposed tissue from the side or rear.
 - **Splitters** break into two smaller attackers on death, so keep the area in sight after the first kill.
-- **Grip Phages** hunt suits, not tissue. A green phage that senses suits all around it, it leaps at your visor and, if the pounce lands, **clings to it**: your visor is smeared with its fluid, you move at about half speed, and your suit drains (about 4% a second on Medium). An alarm under the crosshair names your bash control, and on touchscreens the bash button glows red. **Bash it off** (it is thrown back and stunned), shoot it point-blank, or stun it; it lets go by itself after about six seconds. Dashing through the pounce's dodge window stops it latching, and only one can hold a suit at a time.
+- **Grip Phages** hunt suits, not tissue. A green phage that senses suits all around it, it leaps at your visor and, if the pounce lands, **clings to it**: your visor is smeared with its fluid, you move at about half speed, and your suit drains (about 2.5% a second on Medium). An alarm under the crosshair names your bash control, and on touchscreens the bash button glows red. **Bash it off** (it is thrown back and stunned), shoot it point-blank, or stun it; it lets go by itself after about four and a half seconds. Each wave that brings them brings a couple, not a swarm. Dashing through the pounce's dodge window stops it latching, and only one can hold a suit at a time.
 
 The hacked **Rogue Bot** hunts human players with a laser cannon: its aiming line commits for a 0.95-second warning, then fires once and cools down. Sidestep or use solid cover. It never attacks or damages tissue. Its ground-running sibling, the **Crawler**, sprints across the floor on eight legs, circles in close and fires a short surgical laser after a brief 0.5-second lock that reaches only 9 m. Keep your distance or step across its line, then shoot it while it recovers.
 
@@ -363,7 +363,7 @@ The hacked **Rogue Bot** hunts human players with a laser cannon: its aiming lin
 | Swift | Cyan, chevrons | Half again as fast, a little tougher, and recovers from its attacks sooner |
 | Splitting | Magenta, a split circle | Tougher, and bursts into two fast fragments when it dies |
 
-Elites first appear in the last two waves of Arterial Junction and grow more common through the campaign and with every wave (up to about one pathogen in five), and in Endless as the waves climb. Easy halves the chance and Hard raises it by 30%. Rogue Bots and Crawlers can only be armoured. Elites are worth 60–80% more score. They never appear in Capillary Junction, the Heart Valve, training or as bosses.
+Elites first appear in the last two waves of Arterial Junction and grow more common through the campaign and with every wave (up to about one pathogen in seven), and in Endless as the waves climb (up to one in four). Easy halves the chance and Hard raises it by 30%. Rogue Bots and Crawlers can only be armoured. Elites are worth 60–80% more score. They never appear in Capillary Junction, the Heart Valve, training or as bosses.
 
 ## Achievements
 
