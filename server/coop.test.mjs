@@ -457,7 +457,7 @@ test('difficulty reshapes solo missions and leaves scripted encounters intact', 
   brain.boss.state = 'exposed'; brain.boss.openness = 1;
   const health = brain.boss.health;
   hitBrainBoss(brain, { vulnerable: true }, brain.boss.weakPoint);
-  assert.equal(health - brain.boss.health, Math.round(28 / DIFFICULTIES.hard.enemyHealth));
+  assert.equal(health - brain.boss.health, Math.round(28 / (MISSION_TUNING.hard.brain?.enemyHealth ?? DIFFICULTIES.hard.enemyHealth)));
 
   // Hard raises tissue damage only where two nodes are defended; suits always take more.
   const tissueLoss = (area, level) => {

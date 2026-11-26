@@ -46,11 +46,20 @@ export const DEFAULT_DIFFICULTY = 'medium';
 // Per-mission exceptions layered on a mode, checked with tools/balance/balance-bot.mjs. Three-node
 // arenas already stretch one suit thin, so applyDifficulty never raises their tissue damage.
 export const MISSION_TUNING = Object.freeze({
+  // Medium is tuned with the balance bot (npm run balance) so the campaign climbs toward its finale:
+  // the opening missions are the easiest, the middle ones no longer spike, and the last two press
+  // hardest. Measured win rates are in tools/performance/difficulty-curve.txt.
   medium: Object.freeze({
-    // The longest final wave in the campaign, and the Biofilm Colossus arrives at the end of it.
-    colon: Object.freeze({ cadence: 1.35, tissueDamage: .85, suitDamage: .85 }),
+    // The longest final wave in the campaign, three nodes far apart, and the Biofilm Colossus at
+    // the end of it: the campaign's spike, eased to sit below the last missions.
+    // Its nodes took six times the tissue damage of the cortex's, so its waves are also thinned.
+    colon: Object.freeze({ cadence: 1.5, tissueDamage: .55, suitDamage: .85, drop: 5 }),
     // Pressure waves sweep the bend while the five-fold waves pile onto its nodes.
-    intestines: Object.freeze({ cadence: 1.2, tissueDamage: .85 }),
+    intestines: Object.freeze({ cadence: 1.3, tissueDamage: .62, drop: 6 }),
+    // The last two missions should be the hardest, not among the easiest: faster waves that hit
+    // tissue harder, and in the cortex a few more pathogens.
+    ear: Object.freeze({ cadence: .9, tissueDamage: 1.2 }),
+    brain: Object.freeze({ cadence: .75, tissueDamage: 1.6, enemyHealth: 1.15, extra: 5 }),
   }),
   hard: Object.freeze({
     // The drained basin already sends six flankers and two counterattacks into the final wave.
@@ -63,6 +72,8 @@ export const MISSION_TUNING = Object.freeze({
     lymph: Object.freeze({ suitDamage: 1, extra: 0, tissueDamage: 1 }),
     // Three nodes more than fifty metres apart and a squeeze that sweeps the whole chamber.
     colon: Object.freeze({ extra: 0, cadence: 1.3, suitDamage: 1, tissueDamage: 1 }),
+    // The finale is pushed on Medium, so Hard pushes it further rather than less.
+    brain: Object.freeze({ extra: 4, enemyHealth: 1.3, cadence: .68, tissueDamage: 1.75 }),
   }),
 });
 

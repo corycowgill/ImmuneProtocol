@@ -224,6 +224,12 @@ function play(area, difficulty, rover) {
         named += share;
       }
       if (lost - named > 1e-6) why.set('hazard/other', (why.get('hazard/other') ?? 0) + lost - named);
+      // And what tore the tissue: each damage event against a node, by the pathogen behind it.
+      for (const event of sim.events) {
+        if (event.type !== 'damage' || event.target !== 'tissue') continue;
+        const kind = 'tissue:' + (kinds.get(event.id) ?? 'other');
+        why.set(kind, (why.get(kind) ?? 0) + event.amount);
+      }
     }
     for (const event of sim.events) {
       if (event.type === 'shot') memory.misses = event.hit ? 0 : memory.misses + 1;
@@ -393,9 +399,12 @@ for (const area of options.areas) {
   if (why) {
     // The suit damage each run took, by source, averaged over this mission's runs.
     const runs = options.trials * options.players.length * options.difficulties.length;
-    const total = [...why.values()].reduce((sum, value) => sum + value, 0);
-    console.log('    suit damage per run ' + Math.round(total / runs) + ': ' + [...why].sort((a, b) => b[1] - a[1]).slice(0, 7)
-      .map(([kind, value]) => `${kind} ${Math.round(100 * value / total)}%`).join(', '));
+    for (const tissue of [false, true]) {
+      const rows = [...why].filter(([kind]) => kind.startsWith('tissue:') === tissue);
+      const total = rows.reduce((sum, [, value]) => sum + value, 0);
+      console.log(`    ${tissue ? 'tissue' : 'suit'} damage per run ` + Math.round(total / runs) + ': ' + rows.sort((a, b) => b[1] - a[1]).slice(0, 7)
+        .map(([kind, value]) => `${kind.replace('tissue:', '')} ${Math.round(100 * value / total)}%`).join(', '));
+    }
     why = null;
   }
 }
