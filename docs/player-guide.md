@@ -157,7 +157,7 @@ Each wave is a checkpoint. If a mission fails after the first wave, the report o
 
 ## Difficulty
 
-Choose **Easy**, **Medium**, or **Hard** on the deployment briefing. Hover, focus, or select an option to see exactly what it changes. The choice is saved in the browser and applies when each campaign or Free Mode mission starts, so you can change it between missions. The pause screen and mission report name the difficulty you're playing. Medium is the standard balance that every mission is tuned around.
+Choose **Easy**, **Medium**, or **Hard** on the deployment briefing. Hover, focus, or select an option to see exactly what it changes. The choice is saved in the browser and applies when each campaign or Free Mode mission starts, so you can change it between missions. The pause screen and mission report name the difficulty you're playing. Medium is the standard balance that every mission is tuned around, measured with a scripted player (see the development guide).
 
 | | Easy | Medium | Hard |
 | --- | --- | --- | --- |
@@ -168,6 +168,8 @@ Choose **Easy**, **Medium**, or **Hard** on the deployment briefing. Hover, focu
 | Suit damage, including hazards | −40% | Standard | +15% |
 | Tissue restored per repair pulse | +30% | Standard | −15% |
 | Auto-turret placements | Two, so you can move it once | One | One |
+
+**The campaign's curve.** Some missions adjust these to keep the campaign climbing toward its finale rather than spiking in the middle. On Medium, Intestinal Bend and Colonic Reservoir send slower, thinner waves (one pathogen in six and one in five held back) whose attacks tear tissue less (−38% and −45%); Inner Ear's waves come faster and tear tissue 20% harder; and Neural Cortex, the finale, sends faster waves with a few extra, tougher pathogens (+15% health) that tear tissue 60% harder. Hard pushes the finale further still and eases the tissue damage in Intestinal Bend and Colonic Reservoir so every mission can be won. The same exceptions as before keep Hard's extra pathogens out of the long organ missions.
 
 Capillary Junction thins or reinforces each surge but always keeps the pathogen that triggers its forecast, and Overtime follows the same rules. The Heart Valve colonies and flank patrol, the bronchus and gastric counterattacks, the lower-passage flank, and the Mega Virus brood keep their numbers and timing; only their health and damage change. Online co-op always plays Medium. The best score on the main menu counts runs from every difficulty.
 

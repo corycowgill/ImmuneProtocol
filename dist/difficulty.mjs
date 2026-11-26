@@ -67,11 +67,12 @@ export const MISSION_TUNING = Object.freeze({
     artery: Object.freeze({ suitDamage: 1 }),
     stomach: Object.freeze({ extra: 0, tissueDamage: 1, cadence: 1.15 }),
     // Pressure waves sweep the bend while the five-fold waves pile onto its nodes.
-    intestines: Object.freeze({ extra: 0, tissueDamage: 1, cadence: 1.1 }),
+    intestines: Object.freeze({ extra: 0, tissueDamage: .78, cadence: 1.2 }),
     // The Rogue Macrophage punishes a suit that is caught; Hard's extra suit damage made it a one-mistake fight.
     lymph: Object.freeze({ suitDamage: 1, extra: 0, tissueDamage: 1 }),
     // Three nodes more than fifty metres apart and a squeeze that sweeps the whole chamber.
-    colon: Object.freeze({ extra: 0, cadence: 1.3, suitDamage: 1, tissueDamage: 1 }),
+    // Still harder than Medium (full waves, faster), but its tissue damage is eased so it can be won.
+    colon: Object.freeze({ extra: 0, cadence: 1.35, suitDamage: 1, tissueDamage: .72 }),
     // The finale is pushed on Medium, so Hard pushes it further rather than less.
     brain: Object.freeze({ extra: 4, enemyHealth: 1.3, cadence: .68, tissueDamage: 1.75 }),
   }),

@@ -1,0 +1,43 @@
+Difficulty curve, measured with the balance bot (npm run balance) after the 2026-11-26 tuning.
+Wins per runs for the anchor and rover strategies, then the average of each run's lowest tissue
+node integrity. Missions in campaign order. Losses to the suit failing: 0 on Medium and Easy.
+
+Medium, 8 runs per strategy
+artery            8/8  23%       8/8  91%
+junction          8/8  65%       8/8  96%
+heart             8/8  59%       4/8   7%
+lungs             4/8   9%       6/8  52%
+stomach           4/8   4%       8/8  33%
+intestines        3/8   7%       8/8  38%
+colon             3/8   7%       6/8  28%
+lymph             8/8  25%       8/8  49%
+ear               8/8  37%       8/8  48%
+brain             5/8  16%       8/8  54%
+
+Easy, 4 runs per strategy
+artery            4/4  91%       4/4  97%
+junction          4/4  94%       4/4  97%
+heart             4/4  78%       4/4  38%
+lungs             4/4  57%       4/4  79%
+stomach           4/4  72%       4/4  77%
+intestines        4/4  34%       4/4  61%
+colon             4/4  36%       4/4  27%
+lymph             4/4  86%       4/4  88%
+ear               4/4  86%       4/4  93%
+brain             4/4  93%       4/4  96%
+
+Hard, 4 runs per strategy (Intestinal Bend and Colonic Reservoir re-measured with 6 after easing their tissue damage)
+artery            4/4  21%       4/4  73%
+junction          4/4  45%       4/4  89%
+heart             4/4  51%       1/4   1%
+lungs             0/4   0%       3/4  21%
+stomach           2/4   2%       4/4  22%
+intestines        0/6   0%       5/6  13%
+colon             0/6   0%       3/6   5%
+lymph             3/4   5%       2/4  21%
+ear               2/4  19%       4/4  46%
+brain             1/4   0%       3/4  42%
+
+Before the tuning (bot that did not dodge hazards or boss attacks), Medium: 38/80 wins, 32 losses to the suit.
+With the hazard-aware bot and before the tuning, Medium: 95/120 wins; Intestinal Bend 5/12, Colonic Reservoir 2/12,
+Inner Ear and Neural Cortex 12/12.
