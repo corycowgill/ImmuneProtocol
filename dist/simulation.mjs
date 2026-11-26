@@ -1,5 +1,6 @@
 import { ORGAN_MISSIONS } from './organs.mjs';
 import { grow, growPoint } from './arena-scale.mjs';
+import { arteryVesselFootprints } from './artery-vessels.mjs';
 import { AIWorld } from './tactical-ai.mjs';
 import { clearSegment } from './ai-navigation.mjs';
 import { bossDamageThreat, telegraph } from './boss-tactics.mjs';
@@ -52,6 +53,13 @@ const ARTERY_OBSTACLES = [
 // Solid scenery a suit cannot walk through, for any arena.
 export function arenaObstacles(area) {
   return ORGAN_MISSIONS[area]?.obstacles ?? (area === 'artery' ? ARTERY_OBSTACLES : area === 'heart' ? HEART_OBSTACLES : []);
+}
+
+// Scenery a suit cannot walk through that is not an obstacle for pathogens or the arena
+// dressing: the stretches of the artery's great vessels that come down to the floor.
+const ARTERY_VESSEL_FOOTPRINTS = Object.freeze(arteryVesselFootprints().map(Object.freeze));
+export function suitScenery(area) {
+  return area === 'artery' ? ARTERY_VESSEL_FOOTPRINTS : [];
 }
 
 export const JUNCTION_INLETS = Object.freeze({
@@ -273,14 +281,18 @@ function confineToChamber(player, obstacles) {
     player.x /= radius;
     player.z /= radius;
   }
-  if (!obstacles) return;
-  for (const [x, z, size] of obstacles) {
-    const dx = player.x - x;
-    const dz = player.z - z;
+  if (obstacles) pushOutOf(player, obstacles);
+}
+
+// Moves an actor out of any of the circles [x, z, radius] it stands in.
+function pushOutOf(actor, circles) {
+  for (const [x, z, size] of circles) {
+    const dx = actor.x - x;
+    const dz = actor.z - z;
     const distance = Math.hypot(dx, dz);
     if (distance >= size || distance < 1e-6) continue;
-    player.x = x + dx / distance * size;
-    player.z = z + dz / distance * size;
+    actor.x = x + dx / distance * size;
+    actor.z = z + dz / distance * size;
   }
 }
 
@@ -304,6 +316,7 @@ export class Simulation {
     this.organMission = Object.hasOwn(ORGAN_MISSIONS, area) ? ORGAN_MISSIONS[area] : null;
     this.area = this.organMission || area === 'heart' || area === 'junction' ? area : 'artery';
     this.obstacles = arenaObstacles(this.area);
+    this.suitScenery = suitScenery(this.area);
     // Raised ground (terrain.mjs): the suit stands on it, crawlers go round it.
     this.terrain = terrainFor(this.area);
     this.terrainFootprints = terrainFootprints(this.terrain);
@@ -1298,7 +1311,10 @@ export class Simulation {
   }
 
   confineToArena(actor, solid = false) {
-    if (solid) this.keepOffNodes(actor);
+    if (solid) {
+      this.keepOffNodes(actor);
+      pushOutOf(actor, this.suitScenery);
+    }
     confineToChamber(actor, solid ? this.obstacles : null);
   }
 

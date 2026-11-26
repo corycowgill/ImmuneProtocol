@@ -5,6 +5,7 @@ import * as THREE from './vendor/three.module.js';
 import { JUNCTION_GASH_SITES, JUNCTION_INLETS } from './simulation.mjs';
 import { HEART_OBSTACLES, HEART_VALVES } from './heart-chamber.mjs';
 import { ARENA_GROWTH } from './arena-scale.mjs';
+import { ARTERY_VESSELS, ARTERY_VESSEL_SCALE, VESSEL_TIP } from './artery-vessels.mjs';
 import { chunkInstances } from './decor-chunks.mjs';
 import { cloudTexture, membraneMaps } from './arena-textures.mjs';
 import { floorTerrainHeight, groundHeight, terrainFor } from './terrain.mjs';
@@ -470,21 +471,9 @@ export function makeRoom(scene, tile, normal, glow, random) {
     folds.setColorAt(i, new THREE.Color().setRGB(.66 + random() * .33, .55 + random() * .29, .54 + random() * .24));
   }
 
-  const branches = [
-    { points: [[-21, 1, 25], [-19, 7, 19], [-16, 9, 11], [-10, 12, 6], [-1, 13, 2], [12, 14, -1], [20, 10, -10]], radius: .86 },
-    { points: [[-19, 6.8, 19], [-15, 7.7, 11], [-10, 9.8, 7], [-3, 12, 7], [3, 12.2, 12]], radius: .46 },
-    { points: [[-14, 9.7, 9], [-18, 9.8, 1], [-20, 8.3, -5], [-16, 5.4, -16], [-14, 3.9, -23]], radius: .47 },
-    { points: [[19, -.7, 17], [19, 3, 12], [18, 5.5, 6], [13, 8.4, .7], [4, 10.6, -4], [-4, 12.4, -11], [-10, 13, -22]], radius: 1.05 },
-    { points: [[19, 2.4, 12], [17, 3.8, 8], [13, 5.5, 7], [10, 5.9, 5.5], [9, 6.7, 3]], radius: .39 },
-    { points: [[18, 5.6, 5.5], [16.5, 6.7, -.5], [16.5, 7.7, -5], [15, 7.8, -11], [12, 7.5, -15]], radius: .44 },
-    { points: [[-16, 0, -24], [-13, 5, -22], [-11, 7.3, -20], [-4, 8.8, -23], [0, 8.7, -29], [8, 10.2, -29], [16, 8.2, -25]], radius: .64 },
-    { points: [[-13, 5, -22], [-10, 4.1, -24], [-9, 3.4, -27], [-8, 3.1, -31]], radius: .23 },
-    { points: [[13, 1.5, -28], [15, 3.9, -25], [15, 6.2, -19], [19, 10, -13]], radius: .58 },
-    { points: [[12, 1.3, -29], [11, 2.7, -27], [10, 3.4, -25], [8, 4.8, -24]], radius: .29 },
-    { points: [[-11, 2.2, 28], [-13, 6, 25], [-13, 9.1, 20], [-8, 13, 17], [2, 15, 18]], radius: .57 },
-    { points: [[18, 1, 23], [14, 4.4, 24], [9, 7.2, 24], [6, 8.7, 28], [3, 9.4, 32]], radius: .48 },
-  ];
-  for (const { points, radius } of branches) addVessel(arteryDetails, vesselMaterial, points, radius, .37);
+  // The great vessels (artery-vessels.mjs, shared with the simulation, which makes the stretches
+  // that come down to the floor solid).
+  for (const { points, radius } of ARTERY_VESSELS) addVessel(arteryDetails, vesselMaterial, points, radius, VESSEL_TIP);
 
   for (let i = 0; i < 70; i++) {
     const angle = random() * TAU;
@@ -545,7 +534,7 @@ export function makeRoom(scene, tile, normal, glow, random) {
   filament.position.set(3.5, 3.8, -31.2);
   filament.scale.y *= 2.25;
   arteryDetails.add(filament);
-  arteryDetails.scale.set(1.25 * LAYOUT_SCALE, 1.18, 1.22 * LAYOUT_SCALE);
+  arteryDetails.scale.set(...ARTERY_VESSEL_SCALE);
 
   const junctionDetails = makeJunction(scene, skin, glow);
   const heartDetails = makeHeartChamber(scene, skin, glow, random);
