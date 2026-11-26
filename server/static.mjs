@@ -10,6 +10,8 @@ const CONTENT_TYPES = new Map([
   ['.mp4', 'video/mp4'], ['.woff2', 'font/woff2'], ['.glb', 'model/gltf-binary'],
   // Translations (dist/locales).
   ['.json', 'application/json; charset=utf-8'],
+  // The installable app's manifest.
+  ['.webmanifest', 'application/manifest+json; charset=utf-8'],
 ]);
 
 function readRange(value, size) {

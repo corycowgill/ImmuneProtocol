@@ -207,6 +207,8 @@ Saves stay in `localStorage`: the operator list is `immune-protocol.profiles`, a
 
 **Dynamic resolution.** When the frame rate drops below about 50 fps the game renders at a lower resolution, down to 60% per axis, and sharpens again once it has headroom.
 
+**Installable app and offline cache.** `manifest.webmanifest` (icons in `dist/assets/app/`) makes the game installable full screen in landscape, and `sw.js` caches it. Code and data (the page, modules, styles, translations) are network first with a four-second fallback to the cache, so a deploy is picked up on the next launch; models, textures, music, sounds and fonts are cache first and rechecked with the server at most once a day; story videos and range requests are left to the browser. `boot.mjs` registers the worker after the page loads, and not on `localhost` or `127.0.0.1` unless the URL has `?sw=1`, so local edits are never hidden by a cached module. To drop every cached copy after a change in caching itself, bump the cache names at the top of `sw.js`.
+
 **Verification.** Run `npm run verify:loading`, open the printed local URL, and wait for the browser report to exercise every arena and weapon with combat effects and report preparation time, render CPU time, GPU resource counts and any asset requests after upfront renderer preparation. This synthetic check does not replace long gameplay sessions or GPU profiling. Heavy scenes can still be limited by model complexity, transparency, resolution and hardware; Low graphics remains available in Settings.
 
 ## Rendering and arena dressing
