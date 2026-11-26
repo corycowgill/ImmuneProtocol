@@ -32,12 +32,12 @@ function hash(...values) {
 export function eliteChance(sim) {
   if (sim.tutorial || sim.valve || sim.area === 'junction' || !sim.wave) return 0;
   const difficulty = sim.difficulty === 'easy' ? .5 : sim.difficulty === 'hard' ? 1.3 : 1;
-  if (sim.endless) return Math.min(.3, .03 + .02 * sim.wave) * difficulty;
+  if (sim.endless) return Math.min(.25, .02 + .015 * sim.wave) * difficulty;
   const mission = Math.max(0, CAMPAIGN_AREAS.indexOf(sim.area));
   // The opening mission keeps its last waves for the first sightings.
   if (mission === 0 && sim.wave < 4) return 0;
   if (sim.wave < 2) return 0;
-  return Math.min(.22, .04 + .012 * mission + .025 * (sim.wave - 2)) * difficulty;
+  return Math.min(.15, .03 + .01 * mission + .02 * (sim.wave - 2)) * difficulty;
 }
 
 // Picks whether (and how) a freshly spawned pathogen is an elite, and applies it.

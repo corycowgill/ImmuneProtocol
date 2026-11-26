@@ -118,6 +118,14 @@ const GUARD_FRONT_THRESHOLD = .55;
 // regroup ordinary arrivals.
 export const WAVE_SCALE = 5;
 export const extendRoster = roster => Array.from({ length: WAVE_SCALE }, () => roster).flat();
+// The Grip Phage is authored once per wave, but a wave fields its roster five times over: only
+// the first GRIP_PER_WAVE stay Grip Phages and the rest are ordinary viruses, so a wave brings a
+// couple of them rather than a swarm.
+export const GRIP_PER_WAVE = 2;
+export function thinGrips(species) {
+  let grips = 0;
+  return species.map(type => type === 'latcher' && ++grips > GRIP_PER_WAVE ? 'virus' : type);
+}
 
 const MISSIONS = [
   { cadence: 1.55, species: ['virus', 'virus', 'virus', 'spore', 'virus', 'virus', 'spore', 'virus', 'virus'] },
@@ -127,7 +135,7 @@ const MISSIONS = [
   { cadence: 0.76, species: ['bacillus', 'spore', 'virus', 'filovirus', 'spore', 'phage', 'bacillus', 'rogue-bot', 'bacillus', 'latcher', 'spore', 'filovirus', 'spore', 'bacillus', 'phage', 'spore', 'crawler', 'bacillus', 'virus', 'blister', 'bacillus', 'virus'] },
 ];
 
-for (const mission of MISSIONS) mission.species = extendRoster(mission.species);
+for (const mission of MISSIONS) mission.species = thinGrips(extendRoster(mission.species));
 
 const SURGE_SPACING = .68;
 const JUNCTION_NODE_INDEX = { left: 0, right: 1 };

@@ -25,7 +25,10 @@ function wave(name, cadence, codes, lanes) {
   codes = codes.repeat(WAVE_SCALE);
   lanes = lanes.repeat(WAVE_SCALE);
   // Enemies walk farther in the enlarged arenas, so the spawn cadence is stretched to match.
-  return { name, cadence: cadence * CADENCE_STRETCH, species: [...codes].map(code => SPECIES_CODES[code]), lanes };
+  // Keep in step with thinGrips in simulation.mjs: a couple of Grip Phages per wave, not one per copy.
+  let grips = 0;
+  const species = [...codes].map(code => SPECIES_CODES[code]).map(type => type === 'latcher' && ++grips > 2 ? 'virus' : type);
+  return { name, cadence: cadence * CADENCE_STRETCH, species, lanes };
 }
 
 export const ORGAN_MISSIONS = {

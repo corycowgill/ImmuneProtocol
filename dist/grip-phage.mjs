@@ -11,10 +11,10 @@ export const GRIP_SPEC = Object.freeze({
   behavior: 'virus', radius: .84, y: 1.72, health: 70, speed: 2.95, suitDamage: 5, tissueDamage: 4, score: 210,
   grip: Object.freeze({
     // Authored suit damage per second while clinging, before difficulty and wave scaling (about
-    // 4% of a suit a second on Medium, so a full hold costs a quarter of it).
-    drain: 20,
+    // 2.5% of a suit a second on Medium, so a full hold costs about a ninth of it).
+    drain: 12.5,
     // Seconds before it lets go by itself, and how long it keeps off the suit afterwards.
-    hold: 6.5, rest: 2.4,
+    hold: 4.5, rest: 2.4,
     // How much it slows the suit it holds, and where it sits: ahead of and below the eye.
     slow: .55, ahead: .72, below: .34,
   }),

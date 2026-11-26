@@ -52,7 +52,7 @@ test('a Grip Phage that lands its pounce clings to the visor, drains the suit an
   assert.ok(Math.abs(ahead - GRIP_SPEC.grip.ahead) < 1e-6 && phage.y < sim.player.y);
   const before = sim.player.health;
   hold(sim, phage, 2);
-  assert.ok(before - sim.player.health > 6.5 && before - sim.player.health < 11, `drained ${(before - sim.player.health).toFixed(1)} in two seconds`);
+  assert.ok(before - sim.player.health > 4 && before - sim.player.health < 7, `drained ${(before - sim.player.health).toFixed(1)} in two seconds`);
   sim.player.yaw = Math.PI / 2;
   hold(sim, phage, DT);
   assert.ok(phage.x < sim.player.x - .5, 'it turns with the suit');
