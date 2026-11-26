@@ -62,7 +62,9 @@ function createCapture(renderer, width, height) {
   const pixels = context.createImageData(width, height);
   const stride = width * 4;
 
-  function draw(scene, camera) {
+  // `overlay`, if given, readies the scene for a second pass drawn over the first after the depth
+  // buffer is cleared.
+  function draw(scene, camera, overlay) {
     const previousTarget = renderer.getRenderTarget();
     const previousFace = renderer.getActiveCubeFace();
     const previousMipmap = renderer.getActiveMipmapLevel();
@@ -71,6 +73,12 @@ function createCapture(renderer, width, height) {
       renderer.setRenderTarget(target);
       renderer.autoClear = true;
       renderer.render(scene, camera);
+      if (overlay) {
+        overlay();
+        renderer.autoClear = false;
+        renderer.clearDepth();
+        renderer.render(scene, camera);
+      }
       renderer.readRenderTargetPixels(target, 0, 0, width, height, bytes);
     } finally {
       renderer.autoClear = previousAutoClear;
@@ -157,9 +165,97 @@ export async function prepareArmoryArt(renderer) {
   camera.lookAt(0, -.015, -.245);
   const preview = createCapture(renderer, width, height);
   const cards = createCapture(renderer, CARD_SIZE.width, CARD_SIZE.height);
+  const cardMasks = createCapture(renderer, CARD_SIZE.width, CARD_SIZE.height);
   const cardCamera = camera.clone();
   cardCamera.aspect = CARD_SIZE.width / CARD_SIZE.height;
   const thumbnails = {};
+
+  // Part cards show the part itself: lit on a lighter slate backdrop, framed on the part, drawn
+  // whole over a flat ghost silhouette of the weapon for context, with a lime halo around it.
+  const cardBackdrop = new THREE.Color(0x1c2a30);
+  const ghost = new THREE.MeshBasicMaterial({ color: 0x324a54 });
+  const unseen = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+  const silhouette = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const clearColor = new THREE.Color();
+  const partBounds = new THREE.Box3(), partSphere = new THREE.Sphere(), lookDirection = new THREE.Vector3();
+  const halo = Object.assign(document.createElement('canvas'), { width: CARD_SIZE.width, height: CARD_SIZE.height }).getContext('2d');
+  // The meshes the weapon draws in its current build.
+  function drawnMeshes() {
+    const drawn = new Set();
+    carbine.model.traverse(part => {
+      if (!part.isMesh) return;
+      for (let node = part; node && node !== carbine.model; node = node.parent) if (!node.visible) return;
+      drawn.add(part);
+    });
+    return drawn;
+  }
+  // The meshes each option of a slot adds: drawn with that option, but not with every option.
+  function slotParts(base, slot) {
+    const options = Object.keys(WEAPON_SLOTS[slot].options), drawn = {};
+    for (const option of options) {
+      carbine.setLoadout({ ...base, [slot]: option });
+      drawn[option] = drawnMeshes();
+    }
+    const shared = new Set([...drawn[options[0]]].filter(mesh => options.every(option => drawn[option].has(mesh))));
+    return Object.fromEntries(options.map(option => [option, [...drawn[option]].filter(mesh => !shared.has(mesh))]));
+  }
+  // Keeps the camera's angle but brings it in so the part fills most of the card.
+  function frameOnPart(lens, parts) {
+    if (!parts.length) return;
+    carbine.model.updateMatrixWorld(true);
+    partBounds.makeEmpty();
+    for (const mesh of parts) partBounds.expandByObject(mesh);
+    if (partBounds.isEmpty()) return;
+    partBounds.getBoundingSphere(partSphere);
+    const radius = Math.max(.045, partSphere.radius);
+    lens.getWorldDirection(lookDirection);
+    const distance = radius / Math.sin(THREE.MathUtils.degToRad(lens.fov / 2)) * 1.08;
+    lens.position.copy(partSphere.center).addScaledVector(lookDirection, -distance);
+    lens.lookAt(partSphere.center);
+    lens.updateProjectionMatrix();
+  }
+  // Draws one part card into `capture`'s canvas and returns it.
+  function photographCard(capture, mask, lens, parts) {
+    const own = new Set(parts), swapped = [];
+    carbine.model.traverse(mesh => { if (mesh.isMesh) swapped.push([mesh, mesh.material]); });
+    // The rest of the weapon wears `others`; the part keeps its own materials unless given `part`.
+    const dress = (others, part) => { for (const [mesh, material] of swapped) mesh.material = own.has(mesh) ? part ?? material : others; };
+    const clearAlpha = renderer.getClearAlpha();
+    renderer.getClearColor(clearColor);
+    let picture;
+    try {
+      // The weapon's silhouette first, then the part over it, never hidden behind the receiver.
+      dress(ghost, unseen);
+      photography.background = cardBackdrop;
+      picture = capture.draw(photography, lens, parts.length ? () => { dress(unseen); photography.background = null; } : null);
+      if (parts.length) {
+        // The part alone, flat white on a clear background, for the halo.
+        dress(unseen, silhouette);
+        photography.background = null;
+        renderer.setClearColor(0x000000, 0);
+        const shape = mask.draw(photography, lens);
+        // Dilate the shape a couple of pixels with a soft glow, colour it lime, then cut the shape
+        // itself back out, leaving an outline.
+        halo.globalCompositeOperation = 'source-over';
+        halo.clearRect(0, 0, CARD_SIZE.width, CARD_SIZE.height);
+        halo.shadowColor = '#c8f794';
+        halo.shadowBlur = 4;
+        for (let step = 0; step < 8; step++) halo.drawImage(shape, Math.cos(step * Math.PI / 4) * 1.8, Math.sin(step * Math.PI / 4) * 1.8);
+        halo.shadowBlur = 0;
+        halo.globalCompositeOperation = 'source-in';
+        halo.fillStyle = '#c8f794';
+        halo.fillRect(0, 0, CARD_SIZE.width, CARD_SIZE.height);
+        halo.globalCompositeOperation = 'destination-out';
+        halo.drawImage(shape, 0, 0);
+        picture.getContext('2d').drawImage(halo.canvas, 0, 0);
+      }
+    } finally {
+      for (const [mesh, material] of swapped) mesh.material = material;
+      renderer.setClearColor(clearColor, clearAlpha);
+      photography.background = studio;
+    }
+    return picture;
+  }
 
   // The complete preview and every thumbnail share one prebuilt weapon model.
   // Exercising each slot uploads its geometry and warms its material programs.
@@ -172,12 +268,16 @@ export async function prepareArmoryArt(renderer) {
       cardCamera.updateProjectionMatrix();
 
       thumbnails[slot] = {};
+      const parts = slotParts(DEFAULT_WEAPON_LOADOUT, slot);
       for (const option of Object.keys(options)) {
         carbine.setLoadout({ ...DEFAULT_WEAPON_LOADOUT, [slot]: option });
+        cardCamera.position.set(...view.position);
+        cardCamera.lookAt(...view.focus);
+        frameOnPart(cardCamera, parts[option]);
         // readPixels is synchronous: let earlier uploads and compiles finish first.
         await renderer.compileAsync(photography, cardCamera);
         await gpuIdle(renderer, nextTask);
-        const canvas = cards.draw(photography, cardCamera);
+        const canvas = photographCard(cards, cardMasks, cardCamera, parts[option]);
         thumbnails[slot][option] = await cardImage(canvas);
         await nextTask();
       }
@@ -191,11 +291,13 @@ export async function prepareArmoryArt(renderer) {
     throw error;
   } finally {
     cards.dispose();
+    cardMasks.dispose();
   }
 
   // Other weapons get their part cards the first time the armory shows them.
   const weaponThumbnails = { carbine: thumbnails };
   const cardCapture = createCapture(renderer, CARD_SIZE.width, CARD_SIZE.height);
+  const cardMaskCapture = createCapture(renderer, CARD_SIZE.width, CARD_SIZE.height);
   const previewCamera = camera.clone();
   const orbitCamera = camera.clone();
   const carbineFocus = new THREE.Vector3(0, -.015, -.245);
@@ -272,6 +374,7 @@ export async function prepareArmoryArt(renderer) {
     const base = loadoutWithWeapon(DEFAULT_WEAPON_LOADOUT, 'primary', weapon);
     try {
       for (const [slot, { options }] of Object.entries(WEAPON_SLOTS)) {
+        const parts = slotParts({ ...base, weapon }, slot);
         for (const option of Object.keys(options)) {
           carbine.setLoadout({ ...base, weapon, [slot]: option });
           const focus = carbine.anchors()[slot];
@@ -280,8 +383,9 @@ export async function prepareArmoryArt(renderer) {
           cardCamera.lookAt(focus);
           cardCamera.fov = 36;
           cardCamera.updateProjectionMatrix();
+          frameOnPart(cardCamera, parts[option]);
           // The capture canvas is reused: the caller encodes it before asking for the next card.
-          yield [slot, option, cardCapture.draw(photography, cardCamera)];
+          yield [slot, option, photographCard(cardCapture, cardMaskCapture, cardCamera, parts[option])];
         }
       }
     } finally {

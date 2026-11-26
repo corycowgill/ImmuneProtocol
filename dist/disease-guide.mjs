@@ -177,6 +177,28 @@ function element(tag, className, text) {
   return node;
 }
 
+// A soft cool disc of light on the stage under the specimen, so it stands on something.
+function floorGlow() {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const context = canvas.getContext('2d');
+  const gradient = context.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gradient.addColorStop(0, 'rgba(190,240,255,.85)');
+  gradient.addColorStop(.35, 'rgba(120,205,240,.45)');
+  gradient.addColorStop(.75, 'rgba(80,170,220,.12)');
+  gradient.addColorStop(1, 'rgba(80,170,220,0)');
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 128, 128);
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  const disc = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
+    map, transparent: true, opacity: .65, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+  }));
+  disc.rotation.x = -Math.PI / 2;
+  disc.renderOrder = -1;
+  return disc;
+}
+
 // A small turntable scene that shows one animated pathogen at a time, as a specimen in a petri
 // dish under the microscope (microscope-view.mjs).
 class PathogenViewer {
@@ -194,15 +216,21 @@ class PathogenViewer {
     this.scene.environment = this.environment;
     this.scene.environmentIntensity = .55;
     this.camera = new THREE.PerspectiveCamera(32, 1, .1, 50);
-    this.camera.position.set(0, .45, 5.2);
+    // A little above the stage, so the glow disc under the specimen reads as a floor.
+    this.camera.position.set(0, 1.3, 5.05);
     this.camera.lookAt(0, 0, 0);
     const key = new THREE.DirectionalLight(0xffe6cc, 2.6);
     key.position.set(3, 4, 4);
-    const rim = new THREE.DirectionalLight(0xff6a5a, 2.2);
-    rim.position.set(-2, 2, -4);
+    // Cool rim lights from behind cut the silhouette out of the warm agar.
+    const rim = new THREE.DirectionalLight(0x8fd6ff, 3.2);
+    rim.position.set(-2.5, 2, -4);
+    const rimRight = new THREE.DirectionalLight(0x7cc4ff, 1.8);
+    rimRight.position.set(3, .6, -3.5);
     const fill = new THREE.HemisphereLight(0x9cc4ff, 0x3a1d22, .7);
-    this.scene.add(key, rim, fill);
+    this.scene.add(key, rim, rimRight, fill);
     this.backdrop = new MicroscopeBackdrop(this.scene);
+    this.floorGlow = floorGlow();
+    this.scene.add(this.floorGlow);
     this.turntable = new THREE.Group();
     this.scene.add(this.turntable);
     this.yaw = .5;
@@ -245,6 +273,9 @@ class PathogenViewer {
     const bounds = new THREE.Box3().setFromObject(this.model), center = bounds.getCenter(new THREE.Vector3());
     this.model.position.sub(center);
     this.previewBounds = bounds.getSize(new THREE.Vector3());
+    // The glow disc sits just under the specimen and spreads a little past its footprint.
+    this.floorGlow.position.y = -this.previewBounds.y / 2 - .03;
+    this.floorGlow.scale.setScalar(Math.max(this.previewBounds.x, this.previewBounds.z) * 1.25);
     this.needsFit = true;
     this.motion = pathogenMotion(this.model);
   }
@@ -285,10 +316,11 @@ class PathogenViewer {
       this.camera.aspect = width / height;
       // Fit the actual specimen to its canvas stage, including room for yaw.
       // Flat drones can fill a wide phone stage without shrinking into an icon.
-      // The specimen fits inside the round field of view, not the whole canvas.
+      // The specimen fits inside the round field of view, not the whole canvas: about two thirds
+      // of its height, with its widest turn (the footprint's diagonal) still inside the field.
       const halfHeight = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)), halfWidth = halfHeight * Math.min(this.camera.aspect, 1);
       const b = this.previewBounds;
-      const distance = b ? Math.max(b.y / (2 * halfHeight), Math.hypot(b.x, b.z) / (2 * halfWidth)) * 1.25 + b.z / 2 : Math.max(5.2, 1.45 / halfWidth);
+      const distance = b ? Math.max(b.y / (2 * halfHeight * .7), Math.hypot(b.x, b.z) / (2 * halfWidth * .98)) + b.z / 4 : Math.max(5.2, 1.45 / halfWidth);
       this.camera.position.setLength(distance);
       this.camera.updateProjectionMatrix();
       this.needsFit = false;
@@ -304,6 +336,9 @@ class PathogenViewer {
   dispose() {
     this.disposed = true;
     this.backdrop.dispose();
+    this.floorGlow.geometry.dispose();
+    this.floorGlow.material.map.dispose();
+    this.floorGlow.material.dispose();
     this.environment.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();

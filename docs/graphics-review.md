@@ -86,7 +86,10 @@ What the graphics sprint changed, per catalog item. Items not listed were left f
 | F-04 | Done | Skip prompt sits on a dark pill over video. |
 | F-08 | Done | Turntable previews framed with viewfinder corners and a LIVE tag instead of a stray dash. |
 | F-09 | Done | Field Manual bindings drawn as keycaps. |
-| F-10 | Partly | ON/OFF settings drawn as switches; scrollbars have a visible track and a rounded thumb. |
+| F-05 | Done | The specimen fills about 70% of the field, standing on a cool glow disc under two cool rim lights; the microscope labels no longer overlap the LIVE tag or the drag hint. Every scrolling pane fades out its last 24 px when there is more below, so text never stops mid-glyph. Provoke is a lime accent button with a bolt icon, centred under the viewport at its own width. |
+| F-07 | Done | Attachment cards show only the attachment, framed on it, over a ghosted silhouette of the weapon and outlined in lime, on a #1c2a30 tile at 96×56 (lime frame when equipped). |
+| F-10 | Done | ON/OFF settings drawn as switches; scrollbars have a visible track and a rounded thumb. Values use the body face with even-width figures instead of the monospace. The footer "Sound on" button is now an action, "Mute all" / "Unmute all", with a speaker icon. |
+| F-11 | Done | The tagline starts 400 ms after the logo locks in and fades in over 400 ms, at an opaque #b2bac6 (about 10:1). The low contrast in the review was the tagline caught mid-fade. |
 
 `/__look?area=<arena>&scenario=<boss|brain|airway|gastric|hazard>` (served by `npm run profile`) renders one arena at High quality on demand through `window.__look` (`view`, `spawn`, `run`, `frame`), so the same staged moments can be photographed before and after a visual change, even under a software rasterizer.
 

@@ -274,7 +274,8 @@ function setMuted(value) {
   session.audio.setMuted(value);
   syncControllerAudioHint();
   writeSetting(muteKey, value);
-  setText(byId('audio-setting-state'), value ? 'Muted' : 'Sound on');
+  // The settings footer names the action, since Master volume already shows the level.
+  setText(byId('audio-setting-state'), value ? 'Unmute all' : 'Mute all');
   document.querySelectorAll('[data-mute]').forEach(button => {
     button.setAttribute('aria-pressed', String(value));
     button.title = value ? 'Unmute audio' : 'Mute audio';

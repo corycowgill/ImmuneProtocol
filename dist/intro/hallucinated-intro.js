@@ -233,7 +233,8 @@
     markIn: [1.70, 2.35],
     glitch: [2.20, 2.55],
     flash: 2.30,
-    tagline: [2.55, 3.25],
+    /* The tagline waits 400 ms after the mark resolves, then fades in over 400 ms. */
+    tagline: [2.75, 3.15],
     fade: [4.05, 4.60]
   };
 
@@ -417,7 +418,8 @@
     ctx.globalAlpha = a;
     ctx.textBaseline = 'middle';
     ctx.font = '600 38px ' + FONT_TEXT;
-    ctx.fillStyle = 'rgba(190,200,215,0.92)';
+    /* Opaque, and well above #8a9096: about 10:1 on the #07070c backdrop once faded in. */
+    ctx.fillStyle = '#b2bac6';
     drawTracked(ctx, text, W / 2, 742, 7);
 
     /* Rule that wipes outward above the tagline. */

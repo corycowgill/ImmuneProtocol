@@ -120,7 +120,7 @@ export class UiLayout {
     const inner = Math.max(20, width - pad * 2 - (node.src ? (node.thumbnail ?? 64) + 12 : 0) - (node.swatch ? 32 : 0) - (node.icon ? 32 : 0) - (node.badge ? 30 : 0) - (node.selected != null ? 18 : 0));
     const title = lines(node.text, inner, this.measure, size, uiWeight(node), node.face).length * size * uiLineHeight(node);
     const detail = node.detail ? lines(node.detail, inner, this.measure, 13).length * 18.2 + 5 : 0;
-    return Math.max(node.kind === 'button' ? 48 : 0, title + detail + pad * 2);
+    return Math.max(node.kind === 'button' ? 48 : 0, node.thumbHeight ? node.thumbHeight + 12 : 0, title + detail + pad * 2);
   }
   columns(node, width) { return node.kind === 'row' ? Math.max(1, node.children.length) : Math.max(1, Math.min(node.children.length, node.maxColumns ?? 6, Math.floor((width + (node.gap ?? 10)) / (node.minColumn ?? 170)))); }
   flow(nodes, rect, clip = rect, pane) {
@@ -140,6 +140,10 @@ export class UiLayout {
           });
           gy += rh + gap;
         }
+      } else if (node.fitWidth) {
+        // A button at its own width, centred in the column.
+        const fw = Math.min(rect.w, Math.max(120, node.fitWidth));
+        this.add(node, { x: rect.x + (rect.w - fw) / 2, y, w: fw, h }, clip, pane);
       } else this.add(node, { x: rect.x, y, w: rect.w, h }, clip, pane);
       y += h + 12;
     }

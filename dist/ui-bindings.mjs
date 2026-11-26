@@ -50,7 +50,9 @@ export class BrowserUiBindings {
     const detail = FIELD_UPGRADES[el.dataset.upgrade]?.shortDescription ?? (title ? clean(all.replace(main, '')) : '');
     const image = el.querySelector('img');
     if (el.classList.contains('coop-suit')) return { ...base, kind: 'button', variant: 'operator', text: main, detail: this.text(el.querySelector('small')), src: this.resource(image), height: 178, label };
-    return { ...base, kind: 'button', text: main, detail, swatch: el.querySelector('.gs-swatch')?.style.getPropertyValue('--swatch'), src: image ? this.resource(image) : null, primary: el.classList.contains('primary') || el.classList.contains('menu-campaign'), label: el.getAttribute('aria-label') || main, href: el.href };
+    // Armory part cards show their picture at 96 x 56 on a framed slate tile.
+    const part = image && el.classList.contains('gs-part') ? { thumbnail: 96, thumbHeight: 56 } : {};
+    return { ...base, ...part, kind: 'button', text: main, detail, swatch: el.querySelector('.gs-swatch')?.style.getPropertyValue('--swatch'), src: image ? this.resource(image) : null, primary: el.classList.contains('primary') || el.classList.contains('menu-campaign'), label: el.getAttribute('aria-label') || main, href: el.href };
   }
   block(el, excluded = new Set()) {
     if (!el || excluded.has(el) || !this.shown(el)) return null;
@@ -225,7 +227,9 @@ export class BrowserUiBindings {
       const copy = this.control(this.get('coop-copy')); if (copy) model.footer.unshift(copy);
     } else if (id === 'settings-dialog') {
       model.defaultFocus = this.id(this.get('look-sensitivity'));
-      model.footer.unshift(this.control(root.querySelector('[data-mute]')));
+      const mute = root.querySelector('[data-mute]'), muted = mute?.getAttribute('aria-pressed') === 'true';
+      // An action ("Mute all" / "Unmute all") with its icon rather than a checked state.
+      if (this.shown(mute)) model.footer.unshift({ ...this.control(mute), text: this.value('audio-setting-state') || (muted ? 'Unmute all' : 'Mute all'), icon: muted ? 'volume' : 'muted', selected: undefined });
       // Every group heading and option row in the dialog, in order (game-settings.mjs adds most rows).
       model.settingsGroups = [];
       for (const node of root.querySelector('.settings-list').children) {

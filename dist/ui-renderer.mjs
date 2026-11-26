@@ -58,6 +58,7 @@ export class CanvasUiRenderer {
       volume: 'M3 9h4l5-5v16l-5-5H3V9M16 8a6 6 0 0 1 0 8M19 4a11 11 0 0 1 0 16',
       muted: 'M3 9h4l5-5v16l-5-5H3V9M17 9l6 6M23 9l-6 6',
       pause: 'M8 5v14M16 5v14',
+      bolt: 'M13 2 4 14h7l-1 8 9-12h-7l1-8z',
       settings: 'M10 2h4l1 4 3 1 3-1 2 4-3 3v3l1 3-4 3-3-2h-3l-3 2-4-3 1-3v-3L1 10l2-4 3 1 3-1 1-4M12 8a4 4 0 1 0 .01 0',
       trophy: 'M7 3h10v5a5 5 0 0 1-10 0V3M7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4M12 13v4M8 21h8M9 17h6v4',
       lock: 'M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3M12 15v2',
@@ -73,6 +74,17 @@ export class CanvasUiRenderer {
     const c = this.c; c.save(); c.beginPath(); c.rect(r.x, r.y, r.w, r.h); c.clip(); c.globalAlpha *= alpha;
     try { c.drawImage(image, r.x + (r.w - iw * scale) / 2, r.y + (r.h - ih * scale) / 2, iw * scale, ih * scale); } catch { /* A still-loading/failed optional portrait gets the themed placeholder. */ }
     c.restore();
+  }
+  // Right-aligned text whose digits all take the width of a zero (tabular figures), in the body
+  // face. Canvas text has no font-variant-numeric, so each digit is placed in its own cell.
+  figures(text, r, size = 13, color = UI_THEME.paper, weight = 600) {
+    text = String(translate(text ?? ''));
+    if (!text) return;
+    const c = this.c; this.font(size, weight); c.fillStyle = color; c.textBaseline = 'top'; c.textAlign = 'center';
+    const cell = c.measureText('0').width, advance = ch => /\d/.test(ch) ? cell : c.measureText(ch).width;
+    let x = r.x + r.w - [...text].reduce((sum, ch) => sum + advance(ch), 0);
+    for (const ch of text) { const a = advance(ch); c.fillText(ch, x + a / 2, r.y); x += a; }
+    c.textAlign = 'left';
   }
   render(scene, state) {
     const c = this.c; c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0); c.clearRect(0, 0, this.w, this.h);
@@ -91,15 +103,37 @@ export class CanvasUiRenderer {
       c.fillStyle = ceiling; c.fillRect(0, 0, this.w, this.h * .16);
     } else if (scene.modal) { c.fillStyle = '#080e13e8'; c.fillRect(0, 0, this.w, this.h); }
     else if (scene.type === 'intro') { c.fillStyle = '#000'; c.fillRect(0, 0, this.w, this.h); }
+    // A pane with more content below fades its last 24 px out, so text never stops mid-glyph.
+    // Its items draw on a layer whose bottom edge is erased with a gradient, then composite.
+    const fading = new Map((scene.panes ?? []).filter(p => p.max > 0 && p.offset < p.max - 1).map(p => [p.id, p]));
+    let layerPane = null;
+    const flush = () => {
+      if (!layerPane) return;
+      const l = this.c, { rect } = fading.get(layerPane), bottom = rect.y + rect.h, fade = Math.min(24, rect.h / 3);
+      l.save(); l.globalCompositeOperation = 'destination-out';
+      const g = l.createLinearGradient(0, bottom - fade, 0, bottom); g.addColorStop(0, '#0000'); g.addColorStop(1, '#000f');
+      l.fillStyle = g; l.fillRect(rect.x - 2, bottom - fade, rect.w + 4, fade + 2); l.restore();
+      this.c = c; c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(l.canvas, 0, 0); c.restore();
+      layerPane = null;
+    };
     for (const item of scene.draw) {
       const visible = item.clip ? intersect(item.rect, item.clip) : item.rect;
       if (visible.w <= 0 || visible.h <= 0 || visible.y > this.h || visible.y + visible.h < 0) continue;
-      c.save();
-      if (item.clip) { c.beginPath(); c.rect(item.clip.x, item.clip.y, item.clip.w, item.clip.h); c.clip(); }
-      c.globalAlpha = item.disabled ? .4 : item.alpha ?? 1;
+      if (item.pane !== layerPane) flush();
+      if (!layerPane && fading.has(item.pane) && (this.layer ??= (typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(1, 1) : c.canvas.ownerDocument.createElement('canvas')).getContext('2d'))) {
+        const layer = this.layer;
+        if (layer.canvas.width !== c.canvas.width || layer.canvas.height !== c.canvas.height) { layer.canvas.width = c.canvas.width; layer.canvas.height = c.canvas.height; }
+        layer.setTransform(1, 0, 0, 1, 0, 0); layer.clearRect(0, 0, layer.canvas.width, layer.canvas.height); layer.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
+        this.c = layer; layerPane = item.pane;
+      }
+      const d = this.c;
+      d.save();
+      if (item.clip) { d.beginPath(); d.rect(item.clip.x, item.clip.y, item.clip.w, item.clip.h); d.clip(); }
+      d.globalAlpha = item.disabled ? .4 : item.alpha ?? 1;
       this.item(item, state);
-      c.restore();
+      d.restore();
     }
+    flush();
     for (const pane of scene.panes ?? []) if (pane.max > 0) {
       const thumb = Math.max(24, pane.rect.h * pane.rect.h / (pane.max + pane.rect.h));
       // A visible track with a rounded thumb, so scrollbars read as controls rather than stray lines.
@@ -210,7 +244,12 @@ export class CanvasUiRenderer {
       let textRect = inset(padding);
       if (item.badge) { this.text(item.badge, { x: r.x + 10, y: r.y + (r.h - 16) / 2, w: 24, h: 16 }, 11, item.selected ? t.green : t.faint, 500, 'left', 1, 1.3, 'mono'); textRect.x += 30; textRect.w -= 30; }
       if (item.icon) { this.icon(item.icon, { x: r.x + 13, y: r.y + (r.h - 19) / 2, w: 19, h: 19 }, item.primary ? ink : t.green); textRect.x += 31; textRect.w -= 31; }
-      if (item.src) { const tw = item.thumbnail ?? 64; this.image(item.src, { x: r.x + 6, y: r.y + 6, w: tw, h: r.h - 12 }); textRect.x += tw + 12; textRect.w -= tw + 12; }
+      if (item.src && item.thumbHeight) {
+        // A fixed-size picture tile, vertically centred, on a lighter slate with a hairline frame.
+        const tw = item.thumbnail ?? 96, th = item.thumbHeight, tile = { x: r.x + 8, y: r.y + Math.max(6, (r.h - th) / 2), w: tw, h: th };
+        this.box(tile, '#1c2a30', item.selected ? '#c8f79499' : '#ffffff24', 3); this.image(item.src, tile, true);
+        textRect.x += tw + 12; textRect.w -= tw + 12;
+      } else if (item.src) { const tw = item.thumbnail ?? 64; this.image(item.src, { x: r.x + 6, y: r.y + 6, w: tw, h: r.h - 12 }); textRect.x += tw + 12; textRect.w -= tw + 12; }
       if (item.swatch) { this.box({ x: r.x + r.w - 34, y: r.y + 10, w: 24, h: 24 }, item.swatch, '#ffffff60'); textRect.w -= 32; }
       if (item.selected != null && !tab) textRect.w -= 20;
       const size = item.size ?? 16, titleHeight = lines(item.text, textRect.w, this.measure, size, 600).length * size * 1.4;
@@ -231,7 +270,8 @@ export class CanvasUiRenderer {
         this.box({ x: r.x + 14, y: y + 29, w: r.w - 28, h: 3 }, '#dac8b33b');
         this.box({ x: r.x + 14, y: y + 29, w: (r.w - 28) * ratio, h: 3 }, t.green);
         c.beginPath(); c.arc(r.x + 14 + (r.w - 28) * ratio, y + 30, 7, 0, Math.PI * 2); c.fillStyle = t.green; c.fill();
-        this.text(item.display ?? String(item.value), { x: r.x + 14, y: y + 5, w: r.w - 28, h: 18 }, 12, t.paper, 500, 'right', 1, 1.3, 'mono');
+        // The value in the interface's own face, with tabular figures so it does not jitter while dragged.
+        this.figures(item.display ?? String(item.value), { x: r.x + 14, y: y + 5, w: r.w - 28, h: 18 }, 13, t.paper, 600);
       } else {
         this.text(kind === 'choice' ? (item.options?.find(o => o.value === item.value)?.text ?? item.text) : String(item.value || item.placeholder || ''), { x: r.x + 12, y: y + 13, w: r.w - 45, h: 25 }, 14, t.paper, 500, 'left', 1);
         if (kind === 'choice') this.icon('down', { x: r.x + r.w - 29, y: y + 14, w: 17, h: 17 }, t.muted);

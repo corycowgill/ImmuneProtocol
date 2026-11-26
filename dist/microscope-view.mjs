@@ -168,9 +168,11 @@ export function paintEyepiece(context, width, height, label) {
   context.textAlign = 'left';
   const small = Math.round(Math.max(10, Math.min(13, radius / 22)));
   context.font = `500 ${small}px "IBM Plex Mono", monospace`;
-  context.fillText(translate('OBJ 100× · OIL'), small, small * 1.8);
+  // Top right and bottom left: the game UI puts its LIVE tag top left and the drag hint bottom right.
   context.textAlign = 'right';
-  context.fillText(translate(label), width - small, height - small);
+  context.fillText(translate('OBJ 100× · OIL'), width - small * 2.8, small * 2.2);
+  context.textAlign = 'left';
+  context.fillText(translate(label), small * 2.8, height - small * 1.4);
 }
 
 // Holds both layers and the drifting specks for one WebGL viewer.

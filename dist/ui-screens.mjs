@@ -184,7 +184,9 @@ function buildDialog(ui, model, area, full, size, state, measure) {
     let content = { ...r };
     if (!phone) { const sideW = Math.min(254, r.w * .28); pane(ui, 'sidebar', sidebar, { ...r, w: sideW }, 'Pathogen index'); content = { ...r, x: r.x + sideW + 20, w: r.w - sideW - 20 }; }
     else { ui.add({ kind: 'choice', id: '@sidebar', action: '@sidebar', text: model.selection, value: '', options: model.sidebar.map(n => ({ value: n.action, text: n.text, disabled: n.disabled })), label: '' }, { ...r, h: 48 }); content.y += 60; content.h -= 60; }
-    const specimen = model.specimen.map(polish).map(n => n.kind === 'preview' ? { ...n, height: Math.max(160, Math.min(400, content.h - 110)), cover: true } : n), intel = model.intel.map(polish);
+    // "Provoke" is the stage's one action: an accent button with an icon, centred under it at its own width.
+    const provoke = n => ({ ...n, primary: true, icon: 'bolt', height: 44, fitWidth: Math.ceil(measure(upper(n.text), 14, 700) + .5 * String(n.text).length + 24 + 31 + 12) });
+    const specimen = model.specimen.map(polish).map(n => n.kind === 'preview' ? { ...n, height: Math.max(160, Math.min(400, content.h - 110)), cover: true } : n.kind === 'button' ? provoke(n) : n), intel = model.intel.map(polish);
     if (w >= 1100) { const cw = (content.w - 20) * .56; pane(ui, 'body', specimen, { ...content, w: cw }, 'Live specimen'); pane(ui, 'intel', intel, { ...content, x: content.x + cw + 20, w: content.w - cw - 20 }, 'Field intelligence'); }
     else { const views = [{ id: 'specimen', text: 'Specimen', body: specimen }, { id: 'intel', text: 'Intel', body: intel }], current = selectedView(model, state, views); tabsFor(ui, views, current.id, content, full); pane(ui, 'body', current.body, { ...content, y: content.y + 54, h: Math.max(35, content.h - 54) }); }
   } else if (left?.length && !phone) {
