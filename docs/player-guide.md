@@ -173,7 +173,7 @@ Capillary Junction thins or reinforces each surge but always keeps the pathogen 
 
 ## Weapons and the Armory
 
-You carry two weapons, a primary and a secondary, from the first mission. Pick any two different weapons in the **Armory**. Switch between them with **1** and **2**, the mouse wheel, **Y** on a controller, or the **Swap** button on touchscreens. Each weapon keeps its own magazine when you switch. Drawing a weapon takes a moment, and you can't fire until it's up. Missions start with the primary. Every weapon has unlimited reserve ammunition.
+You carry two weapons, a primary and a secondary, from the first mission. Pick any two different weapons in the **Armory**. Switch between them with **1** and **2**, the mouse wheel, **Y** on a controller, or the **Swap** button (two opposing arrows) on touchscreens. Each weapon keeps its own magazine when you switch. Drawing a weapon takes a moment, and you can't fire until it's up. Missions start with the primary. Every weapon has unlimited reserve ammunition.
 
 | Weapon | Role | How it plays |
 | --- | --- | --- |
@@ -226,7 +226,7 @@ Every suit brings one nano companion. Pick it in the Armory's Weapons tab under 
 
 ### The auto-turret
 
-You can deploy one turret per mission on clear ground ahead of you, or place it twice on Easy. Hold the turret control (Q, RB, or the touch Move button) at any time to pick it up: it slides along the clear ground in front of you and holds fire until you release. It fires on automatic at a third of the Needle Carbine's rate (22 damage about three times a second), at targets within 20 meters that it has a clear line to. It favours pathogens latched onto tissue, its hits slow pathogens, and it can knock a given pathogen out of an attack once every 1.6 seconds. Put it near an approach to the node you plan to leave. A turret placed on raised ground gains 12% range per metre of height.
+You can deploy one turret per mission on clear ground ahead of you, or place it twice on Easy. Hold the turret control (Q, RB, or the touch turret button, which shows a turret in a frame while the turret is out) at any time to pick it up: it slides along the clear ground in front of you and holds fire until you release. It fires on automatic at a third of the Needle Carbine's rate (22 damage about three times a second), at targets within 20 meters that it has a clear line to. It favours pathogens latched onto tissue, its hits slow pathogens, and it can knock a given pathogen out of an attack once every 1.6 seconds. Put it near an approach to the node you plan to leave. A turret placed on raised ground gains 12% range per metre of height.
 
 Fit its parts in Gunsmith:
 
@@ -240,7 +240,7 @@ Dress it in Customize with the same finishes, accents, skins, decals, stickers a
 
 The medic drone is a small quad-rotor medic that flies just ahead of your right shoulder, in the upper right of your view, and follows you everywhere, banking as it flies. It mends one target at a time: whichever suit (yours or a teammate's) or tissue node within 8 m of it has lost the most, with a green beam from its belly emitter. Mending is deliberately slow: **1 point a second**, against about 16 a second from the tissue sealer, so it tops a defence up between pushes rather than saving one in the middle of a fight. It mends a suit only once that suit has gone **2 seconds without being hit**, so it can't out-heal a pathogen chewing on you, and it waits out a suit's hits by mending a nearby node instead. It follows the sealer's rules: no mending through the Neural Cortex overload, and a heart wound only while its valve is shut. It never fights and can't be hurt. In the Inner Ear the resonance jams it, as it jams a turret on the floor, unless it hovers over the cochlea's perch.
 
-Press the turret control (Q, RB, or the touch **Station** button) to **station** the drone where it is: it holds that spot and keeps mending around it, for example over the node you are about to leave. Press again (**Recall**) to bring it back to your shoulder. The HUD shows what it is doing: following, stationed, mending a suit or tissue, or jammed. Mended tissue scores like a sealer repair.
+Press the turret control (Q, RB, or the touch drone button, which shows the drone over a pin) to **station** the drone where it is: it holds that spot and keeps mending around it, for example over the node you are about to leave. Press again (the drone with a return arrow) to bring it back to your shoulder. The HUD shows what it is doing: following, stationed, mending a suit or tissue, or jammed. Mended tissue scores like a sealer repair.
 
 Fit its parts in Gunsmith:
 
@@ -285,7 +285,7 @@ Select **Sealer** in the Armory to paint it like your guns in Customize: finish 
 
 **Controller.** Connect an Xbox controller to your device and press a button with the game tab focused. Use the D-pad or left stick to navigate menus, **A** to select, and **B** to go back. Enter co-op callsigns and room codes with your keyboard.
 
-**Touch.** On touchscreens, move with the joystick, drag to look, and use the action buttons. When mouse capture is unavailable, drag the view to look. Phones use a compact HUD in landscape and portrait: tissue bars across the top, small health and ammo readouts, and touch buttons in the lower corners. Score remains available in Pause.
+**Touch.** On touchscreens, move with the joystick, drag to look, and use the action buttons. Each button shows a drawn icon rather than a word: a reticle to **fire**, a frag grenade, a lightning bolt in a ring for the **stun charge**, an up arrow for **jump**, chevrons for **dash**, a fist for **bash**, opposing arrows to **swap** weapons, a turret (or the medic drone) for your companion, a magazine in a turning arrow to **reload**, and a wrench to **repair**. When mouse capture is unavailable, drag the view to look. Phones use a compact HUD in landscape and portrait: tissue bars across the top, small health and ammo readouts, and touch buttons in the lower corners. Score remains available in Pause.
 
 If your browser blocks audio until you interact, click the game or press a key once to turn it on.
 

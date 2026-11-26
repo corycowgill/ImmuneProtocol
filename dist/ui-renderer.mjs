@@ -65,6 +65,89 @@ export class CanvasUiRenderer {
     };
     const path = paths[name] ?? paths.target; c.stroke(new Path2D(path)); c.restore();
   }
+  // The touch controls' icons, drawn on a 24-unit grid: what each button does, not its name.
+  // Outlines in the button's ink, with a faint fill where a solid shape reads better at thumb size.
+  touchIcon(name, r, color) {
+    const c = this.c;
+    c.save(); c.translate(r.x, r.y); c.scale(r.w / 24, r.h / 24);
+    c.strokeStyle = color; c.fillStyle = color; c.lineWidth = 1.7; c.lineCap = 'round'; c.lineJoin = 'round';
+    const stroke = path => c.stroke(new Path2D(path));
+    const fill = (path, alpha = .22) => { c.globalAlpha = alpha; c.fill(new Path2D(path)); c.globalAlpha = 1; };
+    const drone = () => {
+      fill('M7.5 10h9l-1 3.5h-7z', .35); stroke('M7.5 10h9l-1 3.5h-7zM9 8v2M15 8v2M4 7.5h7M13 7.5h7');
+    };
+    const turretBody = () => {
+      fill('M7 9h8v5H7z', .35); stroke('M7 9h8v5H7zM15 11h6M11 14v3M11 17l-4.5 4.5M11 17l4.5 4.5M11 17v4.5');
+    };
+    switch (name) {
+      case 'grenade': {
+        // A frag grenade: a segmented egg body, the fuse head, its spoon down the side and the pin ring.
+        const body = new Path2D(); body.ellipse(11, 15.2, 6.4, 7.1, 0, 0, Math.PI * 2);
+        c.globalAlpha = .28; c.fill(body); c.globalAlpha = 1;
+        c.save(); c.clip(body); c.lineWidth = 1.1; stroke('M3 12.2h16M3 15.4h16M3 18.6h16M8 7v17M14 7v17'); c.restore();
+        c.stroke(body);
+        fill('M8.4 5.6h5.2v3.2H8.4z', .5); stroke('M8.4 5.6h5.2v3.2H8.4z');
+        stroke('M13.6 6.2c3 .2 4.6 1.8 4.9 5');
+        c.lineWidth = 1.4; c.beginPath(); c.arc(17.6, 3.8, 1.9, 0, Math.PI * 2); c.stroke(); stroke('M13.6 5.6l2.3-.9');
+        break;
+      }
+      case 'stun':
+        // A stun charge: a bolt inside its ring.
+        c.beginPath(); c.arc(12, 12, 9.2, 0, Math.PI * 2); c.stroke();
+        fill('M13.2 4.6 7.6 13h4l-1.2 6.4L16.4 11h-4z', .9); stroke('M13.2 4.6 7.6 13h4l-1.2 6.4L16.4 11h-4z');
+        break;
+      case 'jump':
+        stroke('M12 17V4.5M6.5 10 12 4.5l5.5 5.5M5 21h14'); c.lineWidth = 1.2; stroke('M8 17.5h1.5M14.5 17.5H16');
+        break;
+      case 'dash':
+        stroke('M10 6l6 6-6 6M15 6l6 6-6 6'); c.lineWidth = 1.3; stroke('M2.5 8.5h5M1.5 12h6M2.5 15.5h5');
+        break;
+      case 'melee':
+        // A bash: a clenched fist with an impact flash.
+        fill('M6.5 11.5V9a1.6 1.6 0 0 1 3.2 0V8a1.6 1.6 0 0 1 3.2 0v.5a1.6 1.6 0 0 1 3.2 0v1a1.6 1.6 0 0 1 3.2 0v4.3c0 4-2.8 6.7-6.8 6.7h-1.2c-3.1 0-4.8-2.1-4.8-5v-3z', .3);
+        stroke('M6.5 11.5V9a1.6 1.6 0 0 1 3.2 0v2M9.7 10V8a1.6 1.6 0 0 1 3.2 0v2.5M12.9 10.5v-2a1.6 1.6 0 0 1 3.2 0v2M16.1 10.5v-1a1.6 1.6 0 0 1 3.2 0v4.3c0 4-2.8 6.7-6.8 6.7h-1.2c-3.1 0-4.8-2.1-4.8-5v-4c0-1.2 2-1.5 3 0');
+        c.lineWidth = 1.3; stroke('M2.5 6.5l2 1.5M3.5 2.5l1.6 2.4M8.5 1.8v2.6');
+        break;
+      case 'swap':
+        stroke('M4 8.5h15M15.5 5l3.5 3.5-3.5 3.5M20 15.5H5M8.5 12 5 15.5 8.5 19');
+        break;
+      case 'reload':
+        // A magazine inside a turning arrow.
+        fill('M10 8.5h4l.6 7h-5.2z', .4); stroke('M10 8.5h4l.6 7h-5.2zM10.4 11h3.4');
+        stroke('M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 3.5v3.7h-3.7');
+        break;
+      case 'repair':
+        // A wrench.
+        c.lineWidth = 3.2; stroke('M5 19.2 13.4 10.8'); c.lineWidth = 2.1;
+        c.beginPath(); c.arc(16, 8.2, 3.9, -Math.PI / 4 + .75, -Math.PI / 4 - .75 + Math.PI * 2); c.stroke();
+        c.lineWidth = 1; c.beginPath(); c.arc(5, 19.2, .7, 0, Math.PI * 2); c.stroke();
+        break;
+      case 'fire':
+        // A reticle with a hot centre.
+        c.beginPath(); c.arc(12, 12, 6.8, 0, Math.PI * 2); c.stroke();
+        stroke('M12 1.8v5.2M12 17v5.2M1.8 12H7M17 12h5.2');
+        c.beginPath(); c.arc(12, 12, 1.7, 0, Math.PI * 2); c.fill();
+        break;
+      case 'move':
+        turretBody(); c.lineWidth = 1.3; stroke('M3 4h5M3 4v5M21 4h-5M21 4v5');
+        break;
+      case 'jammed':
+        turretBody(); c.lineWidth = 1.5; stroke('M17 2.5l4 4M21 2.5l-4 4');
+        break;
+      case 'station':
+        // Send the drone to hold here: drone over a placed pin.
+        drone(); stroke('M12 15v6M9.5 18.5 12 21l2.5-2.5');
+        break;
+      case 'recall':
+        // Bring the drone back: drone with a returning arrow.
+        drone(); stroke('M18 21.5h-6a3.5 3.5 0 0 1 0-7h1M10.5 12.8l2.5 1.7-2 2.3');
+        break;
+      default:
+        turretBody();
+    }
+    c.restore();
+  }
+
   image(key, r, cover = false, alpha = 1) {
     const image = this.resource(key);
     if (!image || !(image.videoWidth ?? image.naturalWidth ?? image.width) || image.complete === false) return;
@@ -190,9 +273,14 @@ export class CanvasUiRenderer {
         return;
       }
       if (item.round) {
-        const size = item.size ?? 10;
+        const size = item.size ?? 10, ink = item.color ?? (item.primary ? '#efffd8' : t.paper);
         this.box(r, item.primary ? '#c8f79485' : active ? '#293127c0' : '#171b165c', item.color ?? (focused ? t.green : '#e9f3cc85'), Math.min(r.w, r.h) / 2);
-        this.text(item.text, { x: r.x + 4, y: r.y + (r.h - size * 1.3) / 2, w: r.w - 8, h: r.h - 8 }, size, item.color ?? (item.primary ? '#efffd8' : t.paper), 500, 'center'); return;
+        if (item.touchIcon) {
+          const side = Math.round(Math.min(r.w, r.h) * (item.primary ? .5 : .6));
+          this.touchIcon(item.touchIcon, { x: r.x + (r.w - side) / 2, y: r.y + (r.h - side) / 2, w: side, h: side }, ink);
+          return;
+        }
+        this.text(item.text, { x: r.x + 4, y: r.y + (r.h - size * 1.3) / 2, w: r.w - 8, h: r.h - 8 }, size, ink, 500, 'center'); return;
       }
       if (item.variant === 'menu') {
         // A title-menu row: borderless condensed caps over a hairline; hover or focus slides in a

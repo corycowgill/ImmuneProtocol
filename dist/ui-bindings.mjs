@@ -325,7 +325,9 @@ export class BrowserUiBindings {
     const actions = { mute: { ...this.control(root.querySelector('[data-mute]')), text: '', icon: root.querySelector('[data-mute]')?.getAttribute('aria-pressed') === 'true' ? 'muted' : 'volume', iconOnly: true }, pause: { ...this.control(this.get('pause')), icon: 'pause', iconOnly: true } };
     for (const name of ['swap', 'turret', 'reload', 'repair', 'jump', 'dash', 'melee', 'grenade', 'stun']) {
       const el = root.querySelector(`[data-touch="${name}"]`);
-      const control = this.control(el); if (control) actions[name] = { ...control, id: 'game:' + name, action: 'game:' + name, color: name === 'turret' ? el.dataset.state === 'jammed' ? '#ff977d' : '#b2e8ff' : undefined };
+      const control = this.control(el); if (control) actions[name] = { ...control, id: 'game:' + name, action: 'game:' + name, color: name === 'turret' ? el.dataset.state === 'jammed' ? '#ff977d' : '#b2e8ff' : undefined,
+        // Touch buttons show a drawn icon; the word stays as the button's accessible name.
+        touchIcon: name === 'turret' ? el.dataset.icon || 'turret' : name };
     }
     return { id: 'game', type: 'combat', touch: !this.get('touch-controls').hidden, actions, hud: {
       nodes, markers, paths, special, health: parseFloat(t('health-value')), ammo: t('ammo-value'), weapon: t('equipment-label'), mode: t('wave-mode'), wave: t('wave-value'), threats: t('threats'), ammoState: t('reload-state'), reload: this.shown(this.get('reload-progress')) ? Number(this.get('reload-progress').value) : 0,

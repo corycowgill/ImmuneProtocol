@@ -352,6 +352,7 @@ export function drawTurretHud() {
     const mode = drone.jammed ? 'jammed' : drone.targetKind ? 'engaging' : 'online';
     turretStatus.dataset.state = touchTurret.dataset.state = mode;
     setText(touchTurret, drone.mode === 'station' ? 'Recall' : 'Station');
+    touchTurret.dataset.icon = drone.mode === 'station' ? 'recall' : 'station';
     const where = drone.mode === 'station' ? 'STATIONED' : 'FOLLOWING';
     setText(turretStatusValue, drone.jammed ? 'DRONE JAMMED' : drone.targetKind === 'suit' ? 'DRONE MENDING SUIT'
       : drone.targetKind === 'node' ? 'DRONE MENDING TISSUE' : 'DRONE ' + where);
@@ -366,6 +367,8 @@ export function drawTurretHud() {
   turretStatus.dataset.state = state;
   touchTurret.dataset.state = state;
   setText(touchTurret, compact && turret ? state === 'jammed' ? 'Jammed' : 'Move' : 'Turret');
+  // The touch button draws an icon for what a tap does, not the word (ui-renderer.mjs touchIcon).
+  touchTurret.dataset.icon = compact && turret ? state === 'jammed' ? 'jammed' : 'move' : 'turret';
   setText(turretStatusValue, {
     online: 'TURRET ONLINE', engaging: 'TURRET ENGAGING', jammed: 'TURRET JAMMED', moving: 'MOVING TURRET',
     ready: 'TURRET READY', blocked: 'FIND CLEAR GROUND',

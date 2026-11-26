@@ -356,7 +356,7 @@ function buildCombat(ui, model, area, full, size, state, measure) {
       const source = act[name]; if (!source) continue;
       ui.add({ ...source, kind: ['reload', 'repair', 'turret'].includes(name) ? 'hold' : 'button', text: source.text || name, size: 9, round: true }, { x: bx + xx, y: by + yy, w: 44, h: 44 });
     }
-    ui.add({ kind: 'hold', id: 'game:fire', action: 'game:fire', text: 'FIRE', size: 12, primary: true, round: true }, { x: w - right - 64, y: by + 16, w: 64, h: 64 });
+    ui.add({ kind: 'hold', id: 'game:fire', action: 'game:fire', text: 'FIRE', touchIcon: 'fire', size: 12, primary: true, round: true }, { x: w - right - 64, y: by + 16, w: 64, h: 64 });
   }
   if (d.supply?.length) {
     const width = Math.min(480, area.w), height = 200;
