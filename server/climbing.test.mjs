@@ -157,3 +157,27 @@ test('crawlers climb a clot after a suit on it, and rogue bots shoot down onto i
     if (type === 'crawler') assert.ok(highest > 1.5, 'the crawler walked up onto the clot');
   }
 });
+
+test('a suit walks up a rising vessel only as far as the climbing ceiling', async () => {
+  const { CLIMB_CEILING } = await import('../dist/abilities.mjs');
+  const sim = new Simulation('artery');
+  sim.start();
+  sim.tutorial = null;
+  sim.enemies = [];
+  sim.spawnIndex = 1e9;
+  // The run of tube samples that climbs from the floor; stand on its low end facing up it.
+  const tubes = sim.solids.filter(solid => solid.kind === 'tube');
+  const top = tube => tube.c + tube.half;
+  const start = tubes.findIndex(tube => top(tube) < 1.6 && top(tube) > .6 && tube.r > 2);
+  assert.ok(start >= 0);
+  const low = tubes[start];
+  const up = tubes.slice(start).find(tube => top(tube) > CLIMB_CEILING + 1);
+  const state = abilityState(sim);
+  Object.assign(state, { feet: low.c + low.half, airborne: false, vy: 0, mantle: null });
+  Object.assign(sim.player, { x: low.x, z: low.z, feet: state.feet });
+  sim.player.yaw = Math.atan2(-(up.x - low.x), -(up.z - low.z));
+  let highest = 0;
+  for (let t = 0; t < 8; t += DT) { sim.events = []; sim.movePlayer(DT, { moveZ: 1 }); highest = Math.max(highest, sim.player.feet); }
+  assert.ok(highest > 1.5, `it walks up the vessel (${highest.toFixed(2)} m)`);
+  assert.ok(highest <= CLIMB_CEILING + .05, `but not past ${CLIMB_CEILING} m`);
+});

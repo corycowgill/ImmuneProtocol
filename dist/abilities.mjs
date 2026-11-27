@@ -22,6 +22,9 @@ import { STANCE, solidGround, surfaceUnder } from './solids.mjs';
 // is within this reach of its feet (about 2.4 m from the floor at the top of a jump). It takes
 // a moment: up first, then over the edge.
 export const MANTLE = Object.freeze({ reach: 1.3, time: .32, perMetre: .16, over: .55 });
+// How high a suit can climb on scenery: a vessel that rises on into the canopy is too steep and
+// slick past this, so the suit walks up it this far and no further.
+export const CLIMB_CEILING = 4.5;
 
 const GRAVITY = 22;
 const KNOCK_DECAY = 8;
@@ -125,6 +128,9 @@ export function settleOnTerrain(sim, suit, fromX, fromZ, dt) {
     else if (ground(fromX, player.z) <= reach) player.x = fromX;
     else { player.x = fromX; player.z = fromZ; }
   }
+  // No further up a vessel than the climbing ceiling.
+  const rise = footing(player.x, player.z);
+  if (rise > CLIMB_CEILING && rise > state.feet + .01) { player.x = fromX; player.z = fromZ; }
   const floor = footing(player.x, player.z);
   if (state.airborne) {
     state.feet += state.vy * dt;
