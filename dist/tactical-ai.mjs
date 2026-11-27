@@ -305,6 +305,11 @@ export class EnemyAIController {
       desired = { x: this.home.x + (desired.x - this.home.x) / length * p.territory, z: this.home.z + (desired.z - this.home.z) / length * p.territory };
     }
     this.destination = action === 'objective' && d < 5 ? world.navigation.project(desired) : world.squads.reserve(this, desired);
+    // A floating pathogen after a suit up on a clot or mound goes right up to it, over the top.
+    if (['virus', 'spore'].includes(enemy.behavior) && this.targetKey?.startsWith('player:') &&
+      (world.players.find(player => playerKey(player) === this.targetKey)?.feet ?? 0) > .3) {
+      this.destination = world.airNavigation.project(desired);
+    }
     if (action === 'cover' && threat && world.navigation.clear(threat, this.destination, 0)) this.destination = world.navigation.project(desired);
     if (action === 'investigate' && distance(enemy, this.target) < 2.5) {
       this.memory.targets.delete(this.targetKey); this.cooldowns.investigate = now + 1.2; this.nextDecision = now;
@@ -332,7 +337,11 @@ export class EnemyAIController {
     // walk back down off it).
     const climbing = enemy.type === 'crawler' && (world.sim.groundUnder?.(enemy) > .05 ||
       (world.players.find(player => playerKey(player) === this.targetKey)?.feet ?? 0) > .3);
-    const nav = enemy.type === 'crawler' && !climbing ? world.groundNavigation : world.navigation;
+    // A floating pathogen flies over low scenery after a suit standing up on it (and back off it).
+    const floating = ['virus', 'spore'].includes(enemy.behavior);
+    const flying = floating && ((world.players.find(player => playerKey(player) === this.targetKey)?.feet ?? 0) > .3 ||
+      world.sim.overLowScenery?.(enemy));
+    const nav = enemy.type === 'crawler' && !climbing ? world.groundNavigation : flying ? world.airNavigation : world.navigation;
     if (this.profile.family !== 'mutated' && enemy.encounterOrder?.until > now && !enemy.encounterOrder.reached &&
         this.targetKey?.startsWith('node:') && ['objective', 'flank'].includes(this.action)) stopDistance = 0;
     if (!this.destination || this.action === 'idle' || (this.blockedUntil ?? 0) > now) return;
@@ -419,6 +428,16 @@ export class AIWorld {
       this.groundRoutes = footprints.length ? new NavigationSystem([...this.sim.obstacles, ...footprints], this.sim.area) : this.navigation;
     }
     return this.groundRoutes;
+  }
+
+  // Floating pathogens fly over low scenery (clots, mounds: solids.mjs) to reach a suit up on it,
+  // so their routes avoid only the walls. Built on first use.
+  get airNavigation() {
+    if (!this.airRoutes) {
+      const walls = this.sim.suitWalls;
+      this.airRoutes = walls && walls.length < this.sim.obstacles.length ? new NavigationSystem(walls, this.sim.area) : this.navigation;
+    }
+    return this.airRoutes;
   }
 
   constructor(sim, options = {}) {

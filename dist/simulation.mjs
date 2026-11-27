@@ -2163,6 +2163,8 @@ export class Simulation {
     enemy.attackPoint = { x: target.x, y: target.y, z: target.z };
     const controller = this.ai.controllers.get(enemy.id);
     if (controller && enemy.behavior === 'spore') enemy.attackPoint = controller.aim(target, SPORE_SPEED);
+    // Aimed at a suit up on a clot or mound: its line of attack runs over the obstacle.
+    if ((target.feet ?? 0) > .3) enemy.attackPoint.feet = target.feet;
     if (enemy.behavior === 'virus') {
       // Leave the virus on the near side of what it strikes so it stays shootable.
       const dx = enemy.x - target.x;
@@ -2271,7 +2273,16 @@ export class Simulation {
   // of the top instead of sinking into it, and near a perched suit it rises to meet it.
   hoverLift(enemy, dt) {
     const perch = this.perchLift(enemy, dt);
-    return Math.max(perch, this.groundUnder(enemy));
+    // Over a clot or mound it floats clear of the top.
+    const top = this.overLowScenery(enemy);
+    const clear = top ? top + (enemy.radius ?? .6) * .7 + .15 - (SPECIES[enemy.type]?.y ?? 1.4) : 0;
+    return Math.max(perch, this.groundUnder(enemy), clear);
+  }
+
+  // The top of the low scenery (a clot, a mound) under a point, or 0.
+  overLowScenery(point) {
+    this.lowScenery ??= (this.solids ?? []).filter(climbable);
+    return this.lowScenery.length ? solidTopAt(this.lowScenery, point.x, point.z) : 0;
   }
 
   launchSpore(enemy) {

@@ -113,3 +113,25 @@ test('a suit up on a clot can be seen and hit; spit passes over a clot below it'
   assert.equal(clearSegment(sim.obstacles, enemy, perched), true, 'in plain view up there');
   assert.equal(clearSegment(sim.obstacles, enemy, { x: clot.x, z: clot.z - clot.r - 3, feet: 0 }), false, 'but the clot hides a suit behind it');
 });
+
+test('floating pathogens fly up and over to attack a suit standing on a clot', () => {
+  for (const type of ['virus', 'spore']) {
+    const sim = new Simulation('artery', { ai: { seed: 4 } });
+    sim.start();
+    sim.tutorial = null;
+    sim.spawnIndex = 1e9;
+    const clot = sim.solids[2], player = sim.player;
+    const state = abilityState(sim);
+    Object.assign(state, { feet: clot.c + clot.half, airborne: false, vy: 0, mantle: null });
+    Object.assign(player, { x: clot.x, z: clot.z, y: state.eye + state.feet, feet: state.feet });
+    sim.enemies = [sim.createEnemy(type, clot.x + 7, clot.z + 2, sim.nodes[0])];
+    const health = player.health;
+    let highest = 0;
+    for (let t = 0; t < 14 && sim.enemies.length; t += DT) {
+      sim.step(DT, {});
+      highest = Math.max(highest, sim.enemies[0]?.y ?? 0);
+    }
+    assert.ok(player.health < health, `${type}: the suit on the clot is hit`);
+    assert.ok(highest > clot.c + clot.half, `${type}: it rises above the clot`);
+  }
+});
