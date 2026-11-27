@@ -757,8 +757,9 @@ export function levelBossStatus(sim) {
   if (own) {
     return {
       name: boss.name, health: boss.health, maxHealth: boss.maxHealth, hint: boss.hint, warning: boss.warning,
-      phase: boss.phase ?? 1, remaining: boss.telegraph?.remaining ?? 0, state: own.state,
+      phase: boss.phase ?? 1, phaseCount: own.phaseCount, remaining: own.remaining, state: own.state,
       detail: own.detail + ' · Phase ' + (boss.phase ?? 1) + ' / ' + own.phaseCount,
+      instruction: own.instruction, targets: own.targets,
     };
   }
   return {

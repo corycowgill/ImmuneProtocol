@@ -7,4 +7,9 @@ export const hudFeed = {
   // Set while a Grip Phage clings to the suit: { key } names the bash control (null on touch,
   // where the bash button itself pulses).
   grip: null,
+  // Where to shoot a boss with weak points (the Mega Nano Bot's pylons, then its brain), on screen:
+  // [{ x, y, text }].
+  bossTargets: [],
+  // Set for a moment after this suit's shot bounces off a shielded boss: { text }.
+  shielded: null,
 };

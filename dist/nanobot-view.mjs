@@ -79,7 +79,9 @@ export function dressNanobot(world, enemy, view, dt, reduceMotion, enemies = [])
   n.shield.position.copy(model.position);
   n.shield.scale.setScalar(NANOBOT.radius * 1.32);
   n.shield.material.uniforms.time.value = reduceMotion ? 0 : world.clock;
-  n.shield.material.uniforms.strength.value = n.shieldLevel * (reduceMotion ? 1 : 1 + .2 * Math.sin(world.clock * 13) * (standing.size < 3 ? 1 : 0));
+  // Shots it turns make it flare.
+  world.shieldPing = Math.max(0, (world.shieldPing ?? 0) - dt * 4);
+  n.shield.material.uniforms.strength.value = n.shieldLevel * (reduceMotion ? 1 : 1 + .2 * Math.sin(world.clock * 13) * (standing.size < 3 ? 1 : 0)) + (n.shieldLevel > .01 ? world.shieldPing * .9 : 0);
 
   // The brain glows, harder and faster while it is exposed.
   if (n.brainGlow) {

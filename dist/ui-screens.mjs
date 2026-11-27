@@ -365,6 +365,12 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     const width = Math.min(area.w, measure(label, compact ? 12 : 14) + 40);
     ui.add({ kind: 'label', text: label, box: true, alarm: true, size: compact ? 12 : 14, color: '#ffb3a3', align: 'center' }, { x: (w - width) / 2, y: h / 2 + (compact ? 46 : 70), w: width, h: compact ? 30 : 36 });
   }
+  if (d.shielded && !d.grip) {
+    // A shot bounced off a shield: say which weak point to shoot instead.
+    const label = upper(d.shielded.text);
+    const width = Math.min(area.w, measure(label, compact ? 11 : 13) + 36);
+    ui.add({ kind: 'label', text: label, box: true, size: compact ? 11 : 13, color: '#8ff0ff', align: 'center' }, { x: (w - width) / 2, y: h / 2 + (compact ? 46 : 62), w: width, h: compact ? 26 : 30 });
+  }
   if ((!d.aiming && !d.scope) || d.hit) ui.add({ kind: 'reticle', offset: d.spread, hit: d.hit ? d.hitStrength || 1 : 0, crit: d.crit, kill: d.kill, aiming: d.aiming || d.scope, color: '#eaf8d4' }, { x: w / 2 - 40, y: h / 2 - 40, w: 80, h: 80 });
   if (model.touch) {
     const by = h - bottom - 95, bx = w - right - 166;

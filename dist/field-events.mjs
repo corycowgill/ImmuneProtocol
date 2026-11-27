@@ -178,6 +178,11 @@ export function applyEvents() {
     if (event.type === 'kill' && event.enemyType === 'colony' && session.sim.tissue < 100) {
       announce('COLONY NEUTRALIZED', 'CLEAR THE FLANK AND RESTORE BOTH NODES', 3);
     }
+    // A shot that bounced off a shielded boss: the HUD says why it did nothing.
+    if (event.type === 'hit' && event.blocked && ['player', 'melee'].includes(event.source) &&
+      (event.playerId == null || event.playerId === session.sim.player.id)) {
+      session.shieldedTimer = 1.1;
+    }
     if (event.type === 'shot' && event.hit) {
       session.hitTimer = 0.19;
       hitMarker.classList.toggle('critical', Boolean(event.crit));

@@ -205,3 +205,22 @@ test('in the finale it follows the Mega Virus, keeps the mission open until it f
   squad.sim.hitEnemy(squad.boss, 1e9, false, squad.boss, 'carbine', squad.sim.suits[0]);
   assert.equal(nanobotParts(squad.sim, squad.boss).length, 0);
 });
+
+test('the boss bar says where to shoot, with a countdown while the brain is exposed', () => {
+  const { sim, boss } = arena();
+  assert.match(levelBossStatus(sim).instruction, /untouchable/);
+  settle(sim, boss);
+  let status = levelBossStatus(sim);
+  assert.equal(status.instruction, 'Shielded · shoot the 3 pylons');
+  assert.deepEqual(status.targets.map(target => target.kind), ['pylon', 'pylon', 'pylon']);
+  // A shot into the shield is reported as blocked, so the HUD can say why it did nothing.
+  sim.events = [];
+  sim.hitEnemy(boss, 50, false, { x: boss.x, y: boss.y, z: boss.z }, 'player', sim);
+  assert.ok(sim.events.some(event => event.type === 'hit' && event.blocked));
+  for (const pylon of pylons(sim, boss)) sim.hitEnemy(pylon, 1e4, false, pylon, 'carbine', sim);
+  run(sim, DT);
+  status = levelBossStatus(sim);
+  assert.equal(status.instruction, 'Shield down · shoot the brain');
+  assert.deepEqual(status.targets.map(target => target.kind), ['brain']);
+  assert.ok(status.remaining > NANOBOT_RULES.exposed - 1);
+});

@@ -360,9 +360,22 @@ function launchDrones(sim, boss, phase, helpers) {
 
 // What the boss bar shows for it.
 export function nanobotStatus(sim, boss) {
-  const pylons = sim.enemies.filter(enemy => enemy.pylonOf === boss.id).length;
+  const standing = sim.enemies.filter(enemy => enemy.pylonOf === boss.id && enemy.health > 0);
+  const pylons = standing.length;
+  const entering = boss.state === 'enter';
+  const brain = sim.enemies.find(enemy => enemy.relayTo === boss.id);
   return {
     phaseCount: 3,
+    // What to do now, in plain words, for the boss bar.
+    instruction: entering ? 'Descending · untouchable' : boss.shielded
+      ? pylons === 1 ? 'Shielded · shoot the last pylon' : `Shielded · shoot the ${pylons} pylons`
+      : 'Shield down · shoot the brain',
+    // Seconds left in the shield-down window.
+    remaining: !entering && !boss.shielded ? Math.max(0, (boss.exposedUntil ?? 0) - sim.clock) : 0,
+    // Where to shoot: the standing pylons, or the brain while the shield is down.
+    targets: entering ? [] : boss.shielded
+      ? standing.map(pylon => ({ x: pylon.x, y: pylon.y, z: pylon.z, kind: 'pylon' }))
+      : brain ? [{ x: brain.x, y: brain.y, z: brain.z, kind: 'brain' }] : [],
     detail: boss.state === 'enter' ? 'Descending' : boss.shielded ? pylons === 1 ? 'Shield up · 1 pylon left' : `Shield up · ${pylons} pylons left` : 'Shield down · brain exposed',
     state: boss.shielded || boss.state === 'enter' ? 'sealed' : 'exposed',
   };

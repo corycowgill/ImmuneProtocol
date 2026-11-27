@@ -1298,6 +1298,7 @@ function playFrame(now) {
     input.lookX += padX;
     input.lookY += padY;
     session.hitTimer = Math.max(0, session.hitTimer - dt);
+    session.shieldedTimer = Math.max(0, session.shieldedTimer - dt);
     session.killTimer = Math.max(0, session.killTimer - dt);
     session.damageTimer = Math.max(0, session.damageTimer - dt);
     if (session.damageFrom && (session.damageFrom.remaining -= dt) <= 0) session.damageFrom = null;

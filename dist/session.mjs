@@ -32,6 +32,8 @@ export const session = {
   // the Shellback hint may show again. A kill confirmation and the direction of the last hit on
   // the suit (in world x/z) are kept alongside them.
   hitTimer: 0,
+  // Counts down after this suit's shot bounces off a shielded boss.
+  shieldedTimer: 0,
   killTimer: 0,
   damageTimer: 0,
   damageFrom: null,

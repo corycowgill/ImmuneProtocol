@@ -390,26 +390,35 @@ function drawOrganHazard() {
   setText(organHazardTime, Math.max(1, Math.ceil(hazard.remaining + leadTime)) + 's');
 }
 
+// What the "shielded" cue says: which weak point to shoot instead.
+function shieldedHint() {
+  const status = levelBossStatus(session.sim);
+  return status?.targets?.[0]?.kind === 'pylon' ? 'Shielded · shoot the pylons' : status?.targets?.[0]?.kind === 'brain' ? 'Armoured · shoot the brain' : 'Shielded';
+}
+
 function drawBossHud() {
-  const boss = session.sim.boss;
-  const levelBoss = boss ? null : levelBossStatus(session.sim);
+  // In the finale the Mega Virus stays as sim.boss once it is down; the Mega Nano Bot that
+  // follows it takes over the bar.
+  const levelBoss = levelBossStatus(session.sim);
+  const boss = session.sim.boss && !(levelBoss && session.sim.boss.state === 'defeated') ? session.sim.boss : null;
   bossHud.hidden = !boss && !levelBoss;
   const name = levelBoss?.name ?? 'Mega Virus';
   setText(byId('boss-name'), name);
   if (bossHealth.getAttribute('aria-label') !== name + ' health') bossHealth.setAttribute('aria-label', name + ' health');
-  if (levelBoss) {
+  if (levelBoss && !boss) {
     // The same bar serves every level boss: its name and health. What it is doing shows only in
-    // the boss itself.
-    bossHud.dataset.state = 'warning';
-    setText(bossPhase, '');
+    // the boss itself, except for a boss with weak points, which says where to shoot.
+    bossHud.dataset.state = levelBoss.instruction ? levelBoss.state : 'warning';
+    setText(bossPhase, levelBoss.instruction ? 'Phase ' + levelBoss.phase + ' / ' + levelBoss.phaseCount : '');
     const percent = Math.ceil(levelBoss.health * 100 / levelBoss.maxHealth);
     if (bossHealth.getAttribute('aria-valuenow') !== String(percent)) {
       bossHealth.setAttribute('aria-valuenow', percent);
       bossHealthFill.style.width = percent + '%';
     }
-    setText(bossStatus, percent + '%');
+    setText(bossStatus, levelBoss.instruction ? levelBoss.instruction : percent + '%');
     setText(bossStatusDetail, '');
-    bossTime.hidden = true;
+    bossTime.hidden = !(levelBoss.remaining > 0);
+    if (!bossTime.hidden) setText(bossTime, Math.max(1, Math.ceil(levelBoss.remaining)) + 's');
     return;
   }
   if (!boss) return;
@@ -587,6 +596,7 @@ export function drawHud() {
   // A Grip Phage on the visor: the prompt names the suit's own bash control.
   const held = session.sim.player && grippedBy(session.sim, session.sim.player);
   hudFeed.grip = held ? { key: session.usingGamepad ? padActionKey('melee') : isTouch ? null : actionKey('melee') } : null;
+  hudFeed.shielded = session.shieldedTimer > 0 ? { text: shieldedHint() } : null;
   const { player, tissue, wave, waves, remaining, phase, intermission, valve } = session.sim;
   drawScoreboard();
   const suitPercent = Math.ceil(player.health);
@@ -769,6 +779,7 @@ export function drawMarkers() {
   drawTurretMarker(top, width, height);
   drawGastricMarker(top, width, height, edgePositions);
   drawFieldMarkers(top, width, height, edgePositions);
+  drawBossTargets(top, width, height);
   const weakPoint = session.sim.boss?.state === 'exposed' ? session.sim.boss.weakPoint : null;
   bossMarker.hidden = true;
   if (weakPoint) {
@@ -783,6 +794,17 @@ export function drawMarkers() {
       bossMarker.hidden = false;
     }
   }
+}
+
+// The Mega Nano Bot's weak points go to the canvas HUD (hud-feed.mjs) as screen positions.
+const TARGET_LABELS = { pylon: 'Pylon', brain: 'Shoot the brain' };
+function drawBossTargets(top, width, height) {
+  const targets = levelBossStatus(session.sim)?.targets ?? [];
+  hudFeed.bossTargets = targets.flatMap(target => {
+    const point = session.world.project(target.x, target.y + (target.kind === 'brain' ? .2 : .9), target.z);
+    if (!point.visible || point.y < top || point.y > height * .84 || point.x < 40 || point.x > width - 40) return [];
+    return [{ x: point.x, y: point.y, text: TARGET_LABELS[target.kind], kind: target.kind }];
+  });
 }
 
 function drawGastricMarker(top, width, height, occupied) {

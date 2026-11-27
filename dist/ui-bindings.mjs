@@ -317,6 +317,10 @@ export class BrowserUiBindings {
       const edge = el.classList.contains('objective-edge'), quiet = el.classList.contains('quiet') || el.classList.contains('compact');
       return { x: parseFloat(edge ? el.style.getPropertyValue('--objective-x') : el.style.left), y: parseFloat(edge ? el.style.getPropertyValue('--objective-y') : el.style.top), text: this.text(el).replace(/\s*·\s*$/, '').replace(/\s*·?\s*(\d+ m)/, '\n$1'), kind: el.dataset.kind, edge, quiet, angle: edge ? parseFloat(el.style.getPropertyValue('--objective-angle')) : null, attacker: el.classList.contains('attacker-marker'), color: getComputedStyle(el).color };
     }).filter(m => Number.isFinite(m.x + m.y));
+    // A boss's weak points come as data (hud-feed.mjs), not page elements.
+    for (const target of hudFeed.bossTargets ?? []) {
+      markers.push({ x: target.x, y: target.y, text: translate(target.text), kind: 'weak-point', edge: false, quiet: false, angle: null, attacker: false, color: target.kind === 'brain' ? '#ff8ad8' : '#6fe8ff' });
+    }
     const paths = [...root.querySelectorAll('svg[style*="position:fixed"] path')].filter(el => el.parentElement.style.display !== 'none').map(el => ({ path: el.getAttribute('d') || '', fill: el.getAttribute('fill') === 'none' ? '#0000' : el.getAttribute('fill'), color: el.getAttribute('stroke') }));
     let special = null;
     for (const [id, prefix] of [['boss-hud', 'boss'], ['airway-hud', 'airway'], ['gastric-hud', 'gastric']]) if (this.shown(this.get(id))) {
@@ -333,6 +337,7 @@ export class BrowserUiBindings {
     return { id: 'game', type: 'combat', touch: !this.get('touch-controls').hidden, actions, hud: {
       radar: hudFeed.radar,
       grip: hudFeed.grip ? { text: translate('Grabbed') + ' · ' + translate('Bash it off'), key: hudFeed.grip.key } : null,
+      shielded: hudFeed.shielded ? { text: translate(hudFeed.shielded.text) } : null,
       nodes, markers, paths, special, health: parseFloat(t('health-value')), ammo: t('ammo-value'), weapon: t('equipment-label'), mode: t('wave-mode'), wave: t('wave-value'), threats: t('threats'), ammoState: t('reload-state'), reload: this.shown(this.get('reload-progress')) ? Number(this.get('reload-progress').value) : 0,
       repair: this.shown(this.get('repair-meter')) ? Number(this.get('repair-meter').getAttribute('aria-valuenow')) : 0,
       ally: visibleText('coop-match-status') || visibleText('coop-hud'), hazard: visibleText('organ-hazard') ? [t('organ-hazard-label'), visibleText('organ-hazard-time')].filter(Boolean).join(' · ') : '', notice: visibleText('encounter-card'), training: visibleText('training-hint') || visibleText('ability-hint'), alert: partsText('game-alert') || partsText('wave-outro'), surge: visibleText('junction-surge'), prompt: visibleText('action-prompt'), score: [...(this.get('scoreboard')?.children ?? [])].map(row => { const [name, points, kills] = [...row.children].map(part => this.text(part)); return `${translate(name)} ${points}  ·  ${translate(kills)}`.toUpperCase(); }).join('     ') || t('scoreboard'),

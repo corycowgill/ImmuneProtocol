@@ -1796,7 +1796,7 @@ export class Simulation {
     if (target.relayTo != null) {
       const host = this.enemies.find(enemy => enemy.id === target.relayTo);
       if (!host || !(target.relayScale > 0)) {
-        this.events.push({ type: 'hit', id: target.id, damage: 0, blocked: true, source, ...impact });
+        this.events.push({ type: 'hit', id: target.id, damage: 0, blocked: true, source, ...impact, ...(suit?.id != null ? { playerId: suit.id } : {}) });
         return;
       }
       // The weak point is not armoured: its hits skip the hull's damage scale.
@@ -1804,6 +1804,11 @@ export class Simulation {
     }
     // Bosses shrug off or soak up fire depending on what they are doing.
     if (!direct) damage *= target.damageScale ?? 1;
+    // A boss that takes nothing (the Mega Nano Bot behind its shield) says so, for the HUD.
+    if (target.boss && damage <= 0) {
+      this.events.push({ type: 'hit', id: target.id, damage: 0, blocked: true, source, ...impact, ...(suit?.id != null ? { playerId: suit.id } : {}) });
+      return;
+    }
     if (target.boss) target.damageTaken += damage;
     if (target.boss) bossDamageThreat(target, suit?.player, damage, this.clock);
     target.health -= damage;
