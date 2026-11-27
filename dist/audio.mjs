@@ -44,8 +44,12 @@ const NANOBOT_CUES = {
 const NANOBOT_SOUNDS = ['arrive', 'salvo-launch', 'salvo-impact', 'laser-charge', 'laser-burn', 'emp-charge', 'emp-blast',
   'shield-down', 'shield-up', 'pylon-break', 'drone-bay', 'death', 'shield-hit', 'armour-hit'].map(name => 'nanobot/' + name);
 
+// The suit's footsteps on each surface and its slide (assets/sfx/suit/, made with Stable Audio
+// Open by tools/audio/generate_nanobot_sfx.py).
+const SUIT_SOUNDS = ['suit/step-flesh', 'suit/step-plaque', 'suit/step-vessel', 'suit/slide'];
+
 const EFFECTS = [
-  ...NANOBOT_SOUNDS,
+  ...NANOBOT_SOUNDS, ...SUIT_SOUNDS,
   ...SHOTS, 'field/deploy', 'field/arterial-bed',
   'weapon/dry', 'weapon/hit', 'weapon/kill', 'weapon/reload-start', 'weapon/reload-complete',
   'field/branch', 'field/tissue-hit', 'field/suit-hit',
@@ -563,6 +567,10 @@ export class GameAudio {
         break;
       case 'jump':
         if (!event.teammate) this.playSample('suit/jump', .42, { rate: .95 + Math.random() * .1 });
+        break;
+      case 'step':
+        // Your own footsteps, a touch different each time; softer crouched.
+        if (!event.teammate) this.playSample('suit/step-' + (event.surface ?? 'flesh'), event.crouched ? .14 : .24, { rate: .9 + Math.random() * .2 });
         break;
       case 'slide':
         if (!event.teammate) {

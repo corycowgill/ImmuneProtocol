@@ -113,3 +113,39 @@ test('a slide from a sprint carries the suit further than a sprint, and ends cro
   assert.equal(sim.player.sliding, false);
   assert.equal(sim.player.crouched, true, 'it ends crouched');
 });
+
+test('footsteps fall every stride and name the surface underfoot', () => {
+  const sim = field();
+  stand(sim, 0, 40);
+  sim.player.yaw = 0;
+  const steps = [];
+  for (let t = 0; t < 2; t += DT) { sim.events = []; sim.movePlayer(DT, { moveZ: 1 }); steps.push(...sim.events.filter(e => e.type === 'step')); }
+  assert.ok(steps.length >= 4 && steps.length <= 10, `${steps.length} steps in 2 s of walking`);
+  assert.ok(steps.every(step => step.surface === 'flesh'), 'on the tissue floor');
+  // On the plaque shelf in the middle of the chamber they ring on plaque.
+  const shelf = sim.terrain.find(piece => piece.kind === 'shelf');
+  stand(sim, shelf.x, shelf.z + 1, shelf.top);
+  const onShelf = [];
+  for (let t = 0; t < 1; t += DT) { sim.events = []; sim.movePlayer(DT, { moveZ: 1 }); onShelf.push(...sim.events.filter(e => e.type === 'step')); }
+  assert.ok(onShelf.length && onShelf.every(step => step.surface === 'plaque'));
+});
+
+test('walking uphill is slower than on the flat', () => {
+  const sim = field();
+  const mound = sim.terrain.find(piece => piece.kind === 'mound');
+  const flat = () => { stand(sim, 0, 40); sim.player.yaw = 0; const z = sim.player.z; run(sim, .25, { moveZ: 1 }); return z - sim.player.z; };
+  const up = () => { stand(sim, mound.x, mound.z + mound.radius + mound.slope * .8); sim.player.yaw = 0; const z = sim.player.z; run(sim, .25, { moveZ: 1 }); return z - sim.player.z; };
+  assert.ok(up() < flat() * .97, 'the climb costs speed');
+});
+
+test('a sprint-jump keeps its speed through the air; steering only bends it', () => {
+  const sim = field();
+  stand(sim, 0, 40);
+  sim.player.yaw = 0;
+  run(sim, .3, { moveZ: 1, sprint: true });
+  const z = sim.player.z;
+  run(sim, DT, { moveZ: 1, sprint: true, jump: true });
+  // Let go of the stick in the air: it still carries on.
+  run(sim, .25, {});
+  assert.ok(z - sim.player.z > 10.8 * .25 * .5, `carried ${(z - sim.player.z).toFixed(2)} m with no input`);
+});

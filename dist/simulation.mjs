@@ -264,6 +264,8 @@ const VIRUS_RECOVERY = 0.42;
 // Seconds between the Mega Virus's collapse and the Mega Nano Bot's arrival.
 const FINALE_DELAY = 4;
 const VIRUS_RANGE = 3.6;
+// How fast steering in the air bends a jump's momentum (per second).
+const AIR_CONTROL = 2.6;
 const SPORE_WINDUP = 0.55;
 const SPORE_RECOVERY = 0.55;
 const SPORE_RANGE = 8.2;
@@ -1344,12 +1346,26 @@ export class Simulation {
     // A Grip Phage on the visor drags the suit down.
     if (grippedBy(this, player)) speed *= GRIP_SPEC.grip.slow;
     if (abilityState(suit).crouched) speed = Math.min(speed, 6.9 * (weapon.moveSpeed ?? 1)) * CROUCH.speed;
-    if (abilityState(suit).airborne) speed *= 1.05;
+    const state = abilityState(suit);
     const travel = speed * dt / diagonal;
     const sin = Math.sin(player.yaw);
     const cos = Math.cos(player.yaw);
-    player.x += (strafe * cos - forward * sin) * travel;
-    player.z -= (strafe * sin + forward * cos) * travel;
+    let stepX = (strafe * cos - forward * sin) * travel;
+    let stepZ = -(strafe * sin + forward * cos) * travel;
+    if (state.airborne) {
+      // In the air the suit keeps the speed it took off with; steering only bends it.
+      const blend = 1 - Math.exp(-dt * AIR_CONTROL);
+      state.airVX = (state.airVX ?? stepX / dt) + (stepX / dt - (state.airVX ?? stepX / dt)) * blend;
+      state.airVZ = (state.airVZ ?? stepZ / dt) + (stepZ / dt - (state.airVZ ?? stepZ / dt)) * blend;
+      stepX = state.airVX * dt;
+      stepZ = state.airVZ * dt;
+    } else {
+      // Its ground speed, which a jump carries into the air.
+      state.airVX = stepX / dt;
+      state.airVZ = stepZ / dt;
+    }
+    player.x += stepX;
+    player.z += stepZ;
     this.confineToArena(player, true);
     settleOnTerrain(this, suit, fromX, fromZ, dt);
   }

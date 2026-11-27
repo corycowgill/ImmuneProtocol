@@ -16,7 +16,7 @@ export const ABILITIES = Object.freeze({
 
 import { releaseCling } from './grip-phage.mjs';
 import { STEP_HEIGHT, groundHeight } from './terrain.mjs';
-import { SUIT_HEAD, STANCE, solidGround, surfaceUnder } from './solids.mjs';
+import { SUIT_HEAD, STANCE, solidGround, solidSpan, surfaceUnder } from './solids.mjs';
 
 // Mantling: a suit in the air that runs into a ledge grabs it and pulls itself up, if the top
 // is within this reach of its feet (about 2.4 m from the floor at the top of a jump). It takes
@@ -33,6 +33,11 @@ export const CLIMB_CEILING = 4.5;
 // forward) carries it `speed` m/s, slowing over `time`, and ends crouched.
 export const CROUCH = Object.freeze({ drop: .62, head: 1.12, speed: .52, ease: 10 });
 export const SLIDE = Object.freeze({ speed: 12.5, end: 4, time: .78, cooldown: .55 });
+// Slopes: speed falls by `grade` per unit of rise over run, no lower than `uphill` of a walk on
+// the flat and no higher than `downhill`.
+export const SLOPE = Object.freeze({ grade: .35, uphill: .7, downhill: 1.12 });
+// A footstep every so many metres, walking and running.
+export const STEP = Object.freeze({ walk: 1.9, run: 2.6 });
 
 const GRAVITY = 22;
 const KNOCK_DECAY = 8;
@@ -152,7 +157,8 @@ export function settleOnTerrain(sim, suit, fromX, fromZ, dt) {
   // The ground under the suit: raised terrain and the solids it stands on (not ones overhead).
   // The body (its full footprint) stops at a wall's surface; it stands on what is under its feet.
   const head = headHeight(state);
-  const ground = (x, z, feet = state.feet) => Math.max(groundHeight(pieces, x, z, sim.clock ?? 0), solidGround(solids, x, z, feet, undefined, head));
+  // A sheer edge is met by the body's footprint, so it stops the suit at any frame rate.
+  const ground = (x, z, feet = state.feet) => Math.max(terrainUnderFootprint(pieces, x, z, sim.clock ?? 0), solidGround(solids, x, z, feet, undefined, head));
   const footing = (x, z, feet = state.feet) => Math.max(groundHeight(pieces, x, z, sim.clock ?? 0), solidGround(solids, x, z, feet, STANCE, head));
   if (state.mantle) { climbLedge(sim, suit, state, dt); return; }
   // Feet clear an edge only if they are already (nearly) above it.
@@ -169,7 +175,18 @@ export function settleOnTerrain(sim, suit, fromX, fromZ, dt) {
   // No further up a vessel than the climbing ceiling.
   const rise = footing(player.x, player.z);
   if (rise > CLIMB_CEILING && rise > state.feet + .01) { player.x = fromX; player.z = fromZ; }
+  // Uphill costs a little speed and downhill gives a little back.
+  if (!state.airborne) {
+    const moved = Math.hypot(player.x - fromX, player.z - fromZ);
+    const slope = moved > 1e-4 ? (footing(player.x, player.z) - state.feet) / moved : 0;
+    const keep = Math.max(SLOPE.uphill, Math.min(SLOPE.downhill, 1 - slope * SLOPE.grade));
+    if (keep !== 1 && Math.abs(slope) < 2) {
+      player.x = fromX + (player.x - fromX) * keep;
+      player.z = fromZ + (player.z - fromZ) * keep;
+    }
+  }
   const floor = footing(player.x, player.z);
+  if (!state.airborne && !state.slide && player.health > 0) stride(sim, suit, state, Math.hypot(player.x - fromX, player.z - fromZ), floor, dt);
   if (state.airborne) {
     state.feet += state.vy * dt;
     state.vy -= ABILITIES.jump.gravity * dt;
@@ -190,12 +207,41 @@ export function settleOnTerrain(sim, suit, fromX, fromZ, dt) {
   player.feet = state.feet;
 }
 
+// Footsteps: one each `length` metres walked (longer strides at a run), on whatever the suit
+// stands on, for the audio and teammates' views.
+function stride(sim, suit, state, moved, floor, dt) {
+  state.stride = (state.stride ?? 0) + moved;
+  const length = moved / Math.max(1e-3, dt) > 8 ? STEP.run : STEP.walk;
+  if (state.stride < length) return;
+  state.stride = 0;
+  const { player } = suit;
+  sim.events.push({ type: 'step', playerId: player.id, surface: surfaceKind(sim, player, floor, state.feet), crouched: state.crouched, x: player.x, y: player.y, z: player.z });
+}
+
+// What the suit is standing on: the artery's vessels, raised plaque, or the tissue floor.
+function surfaceKind(sim, player, floor, feet) {
+  if (floor < .05) return 'flesh';
+  const terrain = groundHeight(sim.terrain ?? [], player.x, player.z, sim.clock ?? 0);
+  if (Math.abs(terrain - floor) < .05) return 'plaque';
+  const tube = (sim.solids ?? []).some(solid => solid.kind === 'tube' && Math.abs((solidSpan(solid, player.x, player.z, STANCE)?.[1] ?? -9) - floor) < .05);
+  return tube ? 'vessel' : 'flesh';
+}
+
 // Eases the crouch in and out.
 function settleStance(player, state, dt) {
   const target = state.crouched ? 1 : 0;
   state.crouch += (target - state.crouch) * Math.min(1, dt * CROUCH.ease);
   if (Math.abs(target - state.crouch) < .002) state.crouch = target;
   player.crouched = state.crouched;
+}
+
+// The highest raised ground under a suit's footprint (its centre and a ring round it).
+const RING = [[0, 0], ...Array.from({ length: 8 }, (_, i) => [Math.cos(i * Math.PI / 4) * .3, Math.sin(i * Math.PI / 4) * .3])];
+function terrainUnderFootprint(pieces, x, z, time) {
+  if (!pieces.length) return 0;
+  let height = 0;
+  for (const [dx, dz] of RING) height = Math.max(height, groundHeight(pieces, x + dx, z + dz, time));
+  return height;
 }
 
 // The suit's head height now: lower while crouched.
