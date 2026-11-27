@@ -224,3 +224,25 @@ test('the boss bar says where to shoot, with a countdown while the brain is expo
   assert.deepEqual(status.targets.map(target => target.kind), ['brain']);
   assert.ok(status.remaining > NANOBOT_RULES.exposed - 1);
 });
+
+test('while shielded it turns, so every pylon comes round to the suit\'s side', () => {
+  const { sim, boss } = arena();
+  settle(sim, boss);
+  const seen = new Set();
+  const player = sim.player;
+  run(sim, 16, () => {
+    for (const pylon of pylons(sim, boss)) {
+      if ((pylon.x - boss.x) * (player.x - boss.x) + (pylon.z - boss.z) * (player.z - boss.z) > 0) seen.add(pylon.slot);
+    }
+  });
+  assert.equal(seen.size, 3);
+  // With only a far-side pylon left it swings that one round quickly.
+  const far = pylons(sim, boss).sort((a, b) =>
+    ((a.x - boss.x) * (player.x - boss.x) + (a.z - boss.z) * (player.z - boss.z)) - ((b.x - boss.x) * (player.x - boss.x) + (b.z - boss.z) * (player.z - boss.z)))[0];
+  for (const pylon of pylons(sim, boss)) if (pylon !== far) sim.hitEnemy(pylon, 1e4, false, pylon, 'carbine', sim);
+  let front = null;
+  run(sim, 5, () => {
+    if (front == null && (far.x - boss.x) * (player.x - boss.x) + (far.z - boss.z) * (player.z - boss.z) > 0) front = sim.clock;
+  });
+  assert.ok(front != null, 'the last pylon comes round within a few seconds');
+});

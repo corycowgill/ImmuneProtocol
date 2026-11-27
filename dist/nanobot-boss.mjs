@@ -45,6 +45,9 @@ const ATTACKS = Object.freeze([
 ]);
 export const NANOBOT_RULES = Object.freeze({
   enter: 3.6, enterHeight: 16,
+  // While shielded it turns on the spot (radians a second), faster when its pylons are all
+  // on the far side, so no pylon stays out of reach; turnRate caps how fast it swings round.
+  spin: .45, fastSpin: 1.2, turnRate: 2.4,
   // The shield stays down this long once its pylons fall, the first part of it reeling.
   exposed: 12, reel: 3,
   // A pylon's and the brain's hit spheres, in metres.
@@ -169,7 +172,7 @@ export function nanobotBehaviour(sim, boss, dt, helpers) {
   if (boss.state === 'hover' && !reeling) helpers.approach(sim, boss, anchor.x, anchor.z, 3.2, dt, .5);
   boss.y = NANOBOT.y + Math.sin(sim.clock * .8) * .35 - (reeling ? 1.2 : 0);
   const suit = helpers.nearestSuit(sim, boss, 90);
-  if (suit && boss.state !== 'sweep') boss.heading = Math.atan2(suit.player.x - boss.x, suit.player.z - boss.z);
+  if (suit && boss.state !== 'sweep') turn(sim, boss, suit, dt);
   helpers.setNode(boss, helpers.weakestNode(sim));
   placeParts(sim, boss);
 
@@ -194,6 +197,24 @@ export function nanobotBehaviour(sim, boss, dt, helpers) {
   else if (boss.state === 'sweep') stepSweep(sim, boss, dt, helpers);
   else if (boss.state === 'emp' && boss.timer <= 0) fireEmp(sim, boss, helpers);
   else if (boss.state === 'drones' && boss.timer <= 0) launchDrones(sim, boss, phase, helpers);
+}
+
+// It faces the nearest suit, but while its shield is up it slowly turns on the spot so every pylon
+// comes round to the front, faster once the only pylons left are on its far side.
+function turn(sim, boss, suit, dt) {
+  const { spin, fastSpin, turnRate } = NANOBOT_RULES;
+  const toSuit = { x: suit.player.x - boss.x, z: suit.player.z - boss.z };
+  const facing = Math.atan2(toSuit.x, toSuit.z);
+  if (boss.shielded && boss.state !== 'enter') {
+    const pylons = sim.enemies.filter(enemy => enemy.pylonOf === boss.id);
+    const hidden = pylons.length && pylons.every(pylon => (pylon.x - boss.x) * toSuit.x + (pylon.z - boss.z) * toSuit.z < 0);
+    boss.spin = ((boss.spin ?? 0) + dt * (hidden ? fastSpin : spin)) % (Math.PI * 2);
+  }
+  const target = facing + (boss.shielded ? boss.spin ?? 0 : 0);
+  // Kept apart from heading, which drifting toward its anchor also sets.
+  const current = boss.turned ?? boss.heading ?? target;
+  const delta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+  boss.turned = boss.heading = current + Math.max(-turnRate * dt, Math.min(turnRate * dt, delta));
 }
 
 function startAttack(sim, boss, attack, suit, phase, helpers) {
@@ -295,7 +316,7 @@ function stepSweep(sim, boss, dt, helpers) {
   const previous = state.bearing ?? state.from;
   const bearing = state.from + (state.to - state.from) * t;
   state.bearing = bearing;
-  boss.heading = bearing;
+  boss.turned = boss.heading = bearing;
   const beam = aimBeam(sim, boss, bearing, 'fire');
   // Far out the beam moves metres between frames, so it hits what it swept across since the last
   // one (within its reach, which scenery cuts short), not only what lies on it now.
