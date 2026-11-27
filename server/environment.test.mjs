@@ -54,3 +54,62 @@ test('a grenade thrown along the floor into a clot bounces off its side', () => 
   for (let t = 0; t < 2; t += DT) { sim.events = []; updateThrowables(sim, DT); }
   assert.ok(sim.throwables[0].z > clot.z + clot.r * .8, 'it did not pass into the clot');
 });
+
+const run = (sim, seconds, input) => { for (let t = 0; t < seconds; t += DT) { sim.events = []; sim.movePlayer(DT, input); } };
+
+test('crouching lowers the eye and slows the suit; crouch again to stand', () => {
+  const sim = field();
+  stand(sim, 0, 30);
+  run(sim, .2, {});
+  const eye = sim.player.y;
+  run(sim, DT, { crouch: true });
+  run(sim, .6, {});
+  assert.ok(sim.player.crouched);
+  assert.ok(sim.player.y < eye - .5, 'eye lower');
+  const z = sim.player.z;
+  run(sim, 1, { moveZ: 1 });
+  const crouched = Math.abs(sim.player.z - z);
+  run(sim, DT, { crouch: true });
+  run(sim, .3, {});
+  assert.equal(sim.player.crouched, false);
+  const z2 = sim.player.z;
+  run(sim, 1, { moveZ: 1 });
+  assert.ok(crouched < Math.abs(sim.player.z - z2) * .7, 'slower crouched');
+});
+
+test('a crouched suit fits under a vessel run too low to walk under, and cannot stand up beneath it', async () => {
+  const { solidGround } = await import('../dist/solids.mjs');
+  const sim = field();
+  // A run whose underside is 1.4 m up: under a standing suit's head, over a crouched one's.
+  const spot = { x: 0, z: 40 };
+  assert.equal(solidGround(sim.solids, spot.x, spot.z, 0), 0, 'open floor');
+  sim.solids = [...sim.solids, Object.freeze({ x: spot.x, z: spot.z, r: 2, c: 2.4, half: 1, kind: 'tube' })];
+  const approach = () => { stand(sim, spot.x, spot.z + 4.5); sim.player.yaw = 0; };
+  const gap = () => Math.abs(sim.player.z - spot.z);
+  approach();
+  run(sim, 1, { moveZ: 1 });
+  assert.ok(gap() > 1.5, `standing, it is blocked (${gap().toFixed(2)} m short)`);
+  approach();
+  run(sim, DT, { crouch: true });
+  run(sim, .3, {});
+  for (let t = 0; t < 3 && gap() > .2; t += DT) run(sim, DT, { moveZ: 1 });
+  assert.ok(gap() <= .2, 'crouched, it gets under');
+  run(sim, DT, { crouch: true });
+  assert.equal(sim.player.crouched, true, 'no room to stand');
+});
+
+test('a slide from a sprint carries the suit further than a sprint, and ends crouched', () => {
+  const sim = field();
+  stand(sim, 0, 40);
+  sim.player.yaw = 0;
+  run(sim, .3, { moveZ: 1, sprint: true });
+  const z = sim.player.z;
+  run(sim, DT, { moveZ: 1, sprint: true, crouch: true });
+  assert.ok(sim.player.sliding, 'sliding');
+  run(sim, .4, { moveZ: 1, sprint: true });
+  const slid = z - sim.player.z;
+  assert.ok(slid > 10.8 * .43 * 1.05, `the slide outpaces a sprint (${slid.toFixed(2)} m)`);
+  run(sim, .6, { moveZ: 1 });
+  assert.equal(sim.player.sliding, false);
+  assert.equal(sim.player.crouched, true, 'it ends crouched');
+});

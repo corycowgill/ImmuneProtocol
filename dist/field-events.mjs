@@ -81,7 +81,7 @@ export function applyEvents() {
         : isTouch ? (session.sim.drone ? 'TAP STATION TO HOLD YOUR DRONE' : 'TAP TURRET TO DEPLOY') : 'PRESS Q ' + goal, 3.8);
       session.audio.play({ type: 'wave', stage: 'start' });
     }
-    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'drone', 'organ', 'guard', 'boss', 'levelBoss', 'airway', 'gastric', 'explosion', 'stun', 'throw', 'melee', 'dash', 'jump', 'land', 'mantle', 'dodge'].includes(event.type) && Number.isFinite(event.x)) {
+    if (['branch', 'valve', 'enemyAttack', 'damage', 'hit', 'kill', 'turret', 'drone', 'organ', 'guard', 'boss', 'levelBoss', 'airway', 'gastric', 'explosion', 'stun', 'throw', 'melee', 'dash', 'jump', 'land', 'mantle', 'slide', 'crouch', 'dodge'].includes(event.type) && Number.isFinite(event.x)) {
       const { x, z, yaw } = session.sim.player;
       const dx = event.x - x;
       const dz = event.z - z;

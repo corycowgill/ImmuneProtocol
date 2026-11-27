@@ -77,6 +77,10 @@ export function updateWeapon(world, sim, dt, input, aiming, reduceMotion) {
     model.rotation.x += -wind * .25 + strike * .12 - toss * .3;
     model.rotation.y += strike * .95 - wind * .2;
     model.rotation.z += strike * .55 + toss * .4 + feel.side * feel.rush * .12;
+    // Sliding: the weapon drops and cants; crouched, it rides a little lower.
+    model.position.y -= feel.slide * .06 + feel.crouch * .015;
+    model.rotation.z += feel.slide * .32;
+    model.rotation.x -= feel.slide * .08;
     // Mantling: the weapon drops and rolls out of the way, then comes back up as the suit tops out.
     const climb = feel.climb > 0 ? Math.sin(Math.min(1, (1 - feel.climb) * 1.15) * Math.PI) : 0;
     model.position.y -= climb * .2;

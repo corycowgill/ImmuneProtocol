@@ -87,12 +87,12 @@ export function solidSpan(solid, x, z, footprint = SUIT_RADIUS) {
 
 // The highest solid surface under a suit whose feet are at `feet`: solids whose underside clears
 // its head are ignored (it walks under them). 0 where there is none.
-export function solidGround(solids, x, z, feet, footprint = SUIT_RADIUS) {
+export function solidGround(solids, x, z, feet, footprint = SUIT_RADIUS, head = SUIT_HEAD) {
   let height = 0;
   for (const solid of solids) {
     if (Math.abs(x - solid.x) > solid.r + footprint || Math.abs(z - solid.z) > solid.r + footprint) continue;
     const span = solidSpan(solid, x, z, footprint);
-    if (!span || span[0] > feet + SUIT_HEAD) continue;
+    if (!span || span[0] > feet + head) continue;
     if (span[1] > height) height = span[1];
   }
   return height;

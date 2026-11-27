@@ -376,7 +376,7 @@ function buildCombat(ui, model, area, full, size, state, measure) {
     const by = h - bottom - 95, bx = w - right - 166;
     ui.add({ kind: 'stick', id: 'game:stick', action: 'game:stick' }, { x: x + 5, y: h - bottom - 141, w: 92, h: 92 });
     for (const [name, xx, yy] of [['swap', 0, 0], ['turret', 51, 0], ['reload', 0, 51], ['repair', 51, 51],
-      ['jump', 0, -51], ['dash', 51, -51], ['melee', 102, -51], ['grenade', 51, -102], ['stun', 102, -102]]) {
+      ['jump', 0, -51], ['dash', 51, -51], ['melee', 102, -51], ['crouch', 0, -102], ['grenade', 51, -102], ['stun', 102, -102]]) {
       const source = act[name]; if (!source) continue;
       ui.add({ ...source, kind: ['reload', 'repair', 'turret'].includes(name) ? 'hold' : 'button', text: source.text || name, size: 9, round: true,
         // While a Grip Phage holds the suit, the bash button calls for a tap.

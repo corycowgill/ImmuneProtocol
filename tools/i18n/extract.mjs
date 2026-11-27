@@ -52,6 +52,8 @@ function shown(text) {
   if (/^(?:immune-protocol|dom|media|@|data-|aria-|--)/.test(value)) return false;
   if (/^[#.\[]|\bbutton$|\[data-|", "|\*|\b(?:sin|cos|atan|mix|clamp|smoothstep|position|uv)\(/.test(value)) return false;
   if (/^\.\/|^https?:/.test(value)) return false;
+  // Path prefixes ('nanobot/' + name).
+  if (/^[\w-]+\/$/.test(value)) return false;
   // SVG path data for drawn icons ('M4 12h15M14 6l6 6-6 6').
   if (/^[Mm][\d.\s,-]/.test(value) && /^[MmLlHhVvCcSsQqTtAaZz\d.\s,-]+$/.test(value)) return false;
   if (/<\/?[a-z][^>]*>|^[|:]/.test(value)) return false;

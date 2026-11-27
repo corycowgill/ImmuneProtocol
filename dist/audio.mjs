@@ -564,6 +564,14 @@ export class GameAudio {
       case 'jump':
         if (!event.teammate) this.playSample('suit/jump', .42, { rate: .95 + Math.random() * .1 });
         break;
+      case 'slide':
+        if (!event.teammate) {
+          if (!this.playSample('suit/slide', .55, { rate: .95 + Math.random() * .1 })) this.playSample('suit/dash', .45, { rate: .7 });
+        }
+        break;
+      case 'crouch':
+        if (!event.teammate) this.playSample('suit/land', .16, { rate: event.down ? 1.4 : 1.6 });
+        break;
       case 'mantle':
         // Gauntlets on the ledge, then the haul up.
         if (!event.teammate) this.playSample('suit/land', .38, { rate: 1.25 + Math.random() * .1 });

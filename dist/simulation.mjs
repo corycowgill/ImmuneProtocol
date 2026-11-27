@@ -16,7 +16,7 @@ import { FIELD_UPGRADES } from './loadouts.mjs';
 import { suitSolids, climbable, solidTopAt, raySolids } from './solids.mjs';
 import { HAZARD_CLEARANCE, RESONANCE_CLEARANCE, groundHeight, onMovingGround, terrainFor, terrainFootprints } from './terrain.mjs';
 import { companionOf, createDrone, stepDrones, toggleDrone } from './companions.mjs';
-import { abilityState, dodges, knockBack, moveAbilities, settleOnTerrain, restockThrowables, throwItems, updateThrowables, useMelee } from './abilities.mjs';
+import { CROUCH, abilityState, dodges, knockBack, moveAbilities, settleOnTerrain, restockThrowables, throwItems, updateThrowables, useMelee } from './abilities.mjs';
 import {
   DEFAULT_WEAPON_STATS, WEAPON_SLOTS, TURRET_BASE, SEALER_BASE, legacyWeaponLoadout, normalizeTurretBuild, turretStats, loadoutInSlot, magazineCapacity, normalizeWeaponLoadout,
   otherSlot, weaponStats,
@@ -1343,6 +1343,7 @@ export class Simulation {
     }
     // A Grip Phage on the visor drags the suit down.
     if (grippedBy(this, player)) speed *= GRIP_SPEC.grip.slow;
+    if (abilityState(suit).crouched) speed = Math.min(speed, 6.9 * (weapon.moveSpeed ?? 1)) * CROUCH.speed;
     if (abilityState(suit).airborne) speed *= 1.05;
     const travel = speed * dt / diagonal;
     const sin = Math.sin(player.yaw);

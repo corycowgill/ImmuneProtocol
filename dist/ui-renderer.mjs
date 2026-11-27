@@ -102,6 +102,13 @@ export class CanvasUiRenderer {
       case 'dash':
         stroke('M10 6l6 6-6 6M15 6l6 6-6 6'); c.lineWidth = 1.3; stroke('M2.5 8.5h5M1.5 12h6M2.5 15.5h5');
         break;
+      case 'crouch':
+        // Crouch / slide: a figure down on one knee, with a down arrow over it.
+        c.beginPath(); c.arc(13.5, 7.2, 2.1, 0, Math.PI * 2); c.stroke();
+        fill('M11.5 10.2l4 1.2-1 4.6 3.6 1.8-.6 1.6-5.2-2.2z', .3);
+        stroke('M11.5 10.2l4 1.2-1 4.6 3.6 1.8M14.5 16 9 16.4l-.8 4.6M11.6 11.4 7.8 14.2');
+        stroke('M4 21h16'); c.lineWidth = 1.3; stroke('M4.5 2.5v5M2.5 5.5l2 2 2-2');
+        break;
       case 'melee':
         // A bash: a clenched fist with an impact flash.
         fill('M6.5 11.5V9a1.6 1.6 0 0 1 3.2 0V8a1.6 1.6 0 0 1 3.2 0v.5a1.6 1.6 0 0 1 3.2 0v1a1.6 1.6 0 0 1 3.2 0v4.3c0 4-2.8 6.7-6.8 6.7h-1.2c-3.1 0-4.8-2.1-4.8-5v-3z', .3);

@@ -11,8 +11,8 @@ const MAX_ROOMS = 24;
 const MAX_LOOK = 1200;
 const EMPTY_INPUT = Object.freeze({});
 // One-frame presses a slow tick must not drop.
-const TAP_FLAGS = ['jump', 'dash', 'melee', 'grenade', 'stun'];
-const INPUT_FLAGS = ['fire', 'aim', 'sprint', 'repair', 'reload', 'deploy', 'carry', 'swap', 'jump', 'dash', 'melee', 'grenade', 'stun'];
+const TAP_FLAGS = ['jump', 'dash', 'melee', 'grenade', 'stun', 'crouch'];
+const INPUT_FLAGS = ['fire', 'aim', 'sprint', 'repair', 'reload', 'deploy', 'carry', 'swap', 'jump', 'dash', 'melee', 'grenade', 'stun', 'crouch'];
 const INPUT_AXES = { moveX: 1, moveZ: 1, lookX: MAX_LOOK, lookY: MAX_LOOK };
 
 function clampAxis(value, limit) {
@@ -58,7 +58,7 @@ function error(client, code, message) {
 
 function resetInput(player) {
   player.input = EMPTY_INPUT;
-  player.pending = { lookX: 0, lookY: 0, fire: false, deploy: false, reload: false, swap: false, jump: false, dash: false, melee: false, grenade: false, stun: false };
+  player.pending = { lookX: 0, lookY: 0, fire: false, deploy: false, reload: false, swap: false, jump: false, dash: false, melee: false, grenade: false, stun: false, crouch: false };
   player.lastInputAt = 0;
 }
 
@@ -331,7 +331,7 @@ export class CoopRooms {
     if (now - player.lastInputAt > INPUT_TIMEOUT) resetInput(player);
     const { input, pending } = player;
     const turn = { ...input, ...pending, fire: input.fire || pending.fire };
-    player.pending = { lookX: 0, lookY: 0, fire: false, deploy: false, reload: false, swap: false, jump: false, dash: false, melee: false, grenade: false, stun: false };
+    player.pending = { lookX: 0, lookY: 0, fire: false, deploy: false, reload: false, swap: false, jump: false, dash: false, melee: false, grenade: false, stun: false, crouch: false };
     player.ack = player.sequence;
     return turn;
   }

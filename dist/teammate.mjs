@@ -221,6 +221,7 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     flash.visible = false;
   }
 
+  let crouchPose = 0, climbPose = 0;
   function update(player, ground, dt, reduceMotion) {
     if (!player) {
       if (actorId !== undefined) hide();
@@ -246,8 +247,11 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     const prone = Number(!!player.downed);
     downedPose = reduceMotion ? prone : damp(downedPose, prone, 12, dt);
     const rise = reduceMotion ? 0 : Math.sin(stride * 2) * .024 * gait * (1 - downedPose);
-    body.position.y = rise + .23 * downedPose;
-    body.rotation.x = downedPose * 1.52;
+    // A teammate crouches (or slides) low, and leans into a ledge as it climbs.
+    crouchPose = reduceMotion ? Number(!!player.crouched) : damp(crouchPose, Number(!!player.crouched), 12, dt);
+    climbPose = reduceMotion ? Number(!!player.mantling) : damp(climbPose, Number(!!player.mantling), 14, dt);
+    body.position.y = rise + .23 * downedPose - crouchPose * .5 * (1 - downedPose);
+    body.rotation.x = downedPose * 1.52 + climbPose * .45 + (player.sliding ? -.35 : 0);
     body.rotation.z = reduceMotion ? 0 : Math.sin(stride) * .027 * gait * (1 - downedPose);
     shadow.position.set(0, .025, downedPose * .79);
     shadow.scale.set(.88, lerp(.73, 2.15, downedPose), 1);

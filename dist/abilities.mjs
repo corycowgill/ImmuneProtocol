@@ -16,7 +16,7 @@ export const ABILITIES = Object.freeze({
 
 import { releaseCling } from './grip-phage.mjs';
 import { STEP_HEIGHT, groundHeight } from './terrain.mjs';
-import { STANCE, solidGround, surfaceUnder } from './solids.mjs';
+import { SUIT_HEAD, STANCE, solidGround, surfaceUnder } from './solids.mjs';
 
 // Mantling: a suit in the air that runs into a ledge grabs it and pulls itself up, if the top
 // is within this reach of its feet (about 2.4 m from the floor at the top of a jump). It takes
@@ -25,6 +25,11 @@ export const MANTLE = Object.freeze({ reach: 1.3, time: .32, perMetre: .16, over
 // How high a suit can climb on scenery: a vessel that rises on into the canopy is too steep and
 // slick past this, so the suit walks up it this far and no further.
 export const CLIMB_CEILING = 4.5;
+// Crouching: the eye drops by `drop`, the head by `head` (a crouched suit fits under a vessel run
+// too low to walk under), and it moves at `speed` of a walk. A slide (crouch while sprinting
+// forward) carries it `speed` m/s, slowing over `time`, and ends crouched.
+export const CROUCH = Object.freeze({ drop: .62, head: 1.12, speed: .52, ease: 10 });
+export const SLIDE = Object.freeze({ speed: 12.5, end: 4, time: .78, cooldown: .55 });
 
 const GRAVITY = 22;
 const KNOCK_DECAY = 8;
@@ -47,7 +52,7 @@ const REST_HEIGHT = .14;
 export function abilityState(suit) {
   return suit.ability ??= {
     dashCooldown: 0, dashTime: 0, dashX: 0, dashZ: 0,
-    feet: 0, vy: 0, eye: null, airborne: false,
+    feet: 0, vy: 0, eye: null, airborne: false, crouched: false, crouch: 0, slide: null, slideCooldown: 0,
     meleeCooldown: 0, meleeStrike: 0, throwCooldown: 0,
     grenades: ABILITIES.grenade.carry, stuns: ABILITIES.stun.carry,
   };
@@ -67,6 +72,20 @@ export function moveAbilities(sim, suit, input, dt) {
   state.eye ??= player.y;
   // Climbing a ledge carries the suit on its own.
   if (state.mantle) return true;
+  state.slideCooldown = Math.max(0, state.slideCooldown - dt);
+  if (input.crouch && player.health > 0) {
+    if (state.slide) state.slide = null;
+    else if (!state.airborne && !state.crouched && input.sprint && (input.moveZ || 0) > .5 && state.slideCooldown === 0) {
+      // Sprinting forward: drop into a slide.
+      const sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
+      state.slide = { t: 0, x: -sin, z: -cos };
+      state.crouched = true;
+      sim.events.push({ type: 'slide', playerId: player.id, x: player.x, y: player.y, z: player.z });
+    } else if (state.crouched) standUp(sim, suit, state);
+    else { state.crouched = true; sim.events.push({ type: 'crouch', playerId: player.id, down: true, x: player.x, y: player.y, z: player.z }); }
+  }
+  // Sprinting or jumping from a crouch stands the suit up first (if there is room to).
+  if (state.crouched && !state.slide && (input.sprint || input.jump) && !standUp(sim, suit, state)) input = { ...input, jump: false };
   state.dashCooldown = Math.max(0, state.dashCooldown - dt);
   const playerId = player.id;
 
@@ -86,12 +105,27 @@ export function moveAbilities(sim, suit, input, dt) {
     sim.events.push({ type: 'dash', playerId, side: strafe / length, forward: forward / length, x: player.x, y: player.y, z: player.z });
   }
 
-  if (input.jump && !state.airborne && player.health > 0) {
+  if (input.jump && !state.airborne && player.health > 0 && !state.crouched) {
+    state.slide = null;
     state.vy = ABILITIES.jump.velocity;
     state.airborne = true;
     sim.events.push({ type: 'jump', playerId, x: player.x, y: player.y, z: player.z });
   }
 
+  if (state.slide) {
+    // The slide: fast at first, slowing to a crouch walk.
+    const slide = state.slide;
+    slide.t += dt;
+    const k = Math.min(1, slide.t / SLIDE.time);
+    const speed = SLIDE.speed + (SLIDE.end - SLIDE.speed) * k * k;
+    player.x += slide.x * speed * dt;
+    player.z += slide.z * speed * dt;
+    if (k >= 1 || state.airborne) { state.slide = null; state.slideCooldown = SLIDE.cooldown; }
+    player.sliding = !!state.slide;
+    player.dashing = false;
+    return true;
+  }
+  player.sliding = false;
   if (state.dashTime > 0) {
     const step = Math.min(dt, state.dashTime);
     state.dashTime = Math.max(0, state.dashTime - dt);
@@ -114,8 +148,9 @@ export function settleOnTerrain(sim, suit, fromX, fromZ, dt) {
   const solids = sim.solids ?? [];
   // The ground under the suit: raised terrain and the solids it stands on (not ones overhead).
   // The body (its full footprint) stops at a wall's surface; it stands on what is under its feet.
-  const ground = (x, z, feet = state.feet) => Math.max(groundHeight(pieces, x, z, sim.clock ?? 0), solidGround(solids, x, z, feet));
-  const footing = (x, z, feet = state.feet) => Math.max(groundHeight(pieces, x, z, sim.clock ?? 0), solidGround(solids, x, z, feet, STANCE));
+  const head = headHeight(state);
+  const ground = (x, z, feet = state.feet) => Math.max(groundHeight(pieces, x, z, sim.clock ?? 0), solidGround(solids, x, z, feet, undefined, head));
+  const footing = (x, z, feet = state.feet) => Math.max(groundHeight(pieces, x, z, sim.clock ?? 0), solidGround(solids, x, z, feet, STANCE, head));
   if (state.mantle) { climbLedge(sim, suit, state, dt); return; }
   // Feet clear an edge only if they are already (nearly) above it.
   const reach = state.feet + (state.airborne ? .05 : STEP_HEIGHT);
@@ -146,9 +181,33 @@ export function settleOnTerrain(sim, suit, fromX, fromZ, dt) {
     state.airborne = true;
     state.vy = 0;
   } else state.feet = floor;
-  player.y = state.eye + state.feet;
+  settleStance(player, state, dt);
+  player.y = state.eye - state.crouch * CROUCH.drop + state.feet;
   player.lift = state.feet - floor;
   player.feet = state.feet;
+}
+
+// Eases the crouch in and out.
+function settleStance(player, state, dt) {
+  const target = state.crouched ? 1 : 0;
+  state.crouch += (target - state.crouch) * Math.min(1, dt * CROUCH.ease);
+  if (Math.abs(target - state.crouch) < .002) state.crouch = target;
+  player.crouched = state.crouched;
+}
+
+// The suit's head height now: lower while crouched.
+export const headHeight = state => state.crouched ? CROUCH.head : SUIT_HEAD;
+
+// Stands a crouched suit up if nothing overhead is in the way. Returns true if it stood.
+function standUp(sim, suit, state) {
+  const { player } = suit;
+  const low = solidGround(sim.solids ?? [], player.x, player.z, state.feet, STANCE, CROUCH.head);
+  const tall = solidGround(sim.solids ?? [], player.x, player.z, state.feet, STANCE, SUIT_HEAD);
+  if (tall > low + .01) return false;
+  state.crouched = false;
+  state.slide = null;
+  sim.events.push({ type: 'crouch', playerId: player.id, down: false, x: player.x, y: player.y, z: player.z });
+  return true;
 }
 
 // Looks along the suit's move for a ledge it can grab: the top just past the edge it ran into,
@@ -200,7 +259,9 @@ function climbLedge(sim, suit, state, dt) {
     sim.events.push({ type: 'land', playerId: player.id, speed: 1.5, mantle: true, x: player.x, y: state.eye + state.feet, z: player.z });
   }
   player.mantling = !!state.mantle;
-  player.y = state.eye + state.feet;
+  state.crouched = false;
+  settleStance(player, state, dt);
+  player.y = state.eye - state.crouch * CROUCH.drop + state.feet;
   player.lift = 0;
   player.feet = state.feet;
 }

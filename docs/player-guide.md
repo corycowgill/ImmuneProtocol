@@ -283,6 +283,7 @@ Select **Sealer** in the Armory to paint it like your guns in Customize: finish 
 | Fire | Left click or Enter | Hold RT |
 | Jump | Space | A |
 | Dash (dodges hits during the first 0.3 s) | C | B |
+| Crouch (press again to stand); slide while sprinting | X | D-pad left |
 | Bash | V or F | Click the right stick |
 | Antibody grenade | G | D-pad up |
 | Stun charge | T | D-pad down |
@@ -299,7 +300,7 @@ Select **Sealer** in the Armory to paint it like your guns in Customize: finish 
 
 **Controller.** Connect an Xbox controller to your device and press a button with the game tab focused. Use the D-pad or left stick to navigate menus, **A** to select, and **B** to go back. Enter co-op callsigns and room codes with your keyboard.
 
-**Touch.** On touchscreens, move with the joystick, drag to look, and use the action buttons. Each button shows a drawn icon rather than a word: a reticle to **fire**, a frag grenade, a lightning bolt in a ring for the **stun charge**, an up arrow for **jump**, chevrons for **dash**, a fist for **bash**, opposing arrows to **swap** weapons, a turret (or the medic drone) for your companion, a magazine in a turning arrow to **reload**, and a wrench to **repair**. When mouse capture is unavailable, drag the view to look. Phones use a compact HUD in landscape and portrait: tissue bars across the top, small health and ammo readouts, and touch buttons in the lower corners.
+**Touch.** On touchscreens, move with the joystick, drag to look, and use the action buttons. Each button shows a drawn icon rather than a word: a reticle to **fire**, a frag grenade, a lightning bolt in a ring for the **stun charge**, an up arrow for **jump**, a kneeling figure for **crouch**, chevrons for **dash**, a fist for **bash**, opposing arrows to **swap** weapons, a turret (or the medic drone) for your companion, a magazine in a turning arrow to **reload**, and a wrench to **repair**. When mouse capture is unavailable, drag the view to look. Phones use a compact HUD in landscape and portrait: tissue bars across the top, small health and ammo readouts, and touch buttons in the lower corners.
 
 **Motion tracker.** A round radar in the top-right corner shows what is around you within 30 m, with the way you face at the top and the view cone shaded: red dots for pathogens (larger for bigger ones, with a ▲ or ▼ when one is well above or below you, and a ringed dot for a boss), orange rings for brood nests, green crosses for antibody caches, small teal squares for your turret and medic drone, and yellow dots for squadmates. Tissue nodes are diamonds in their HUD colours, turning red when critical and ringed while under attack. Nodes, bosses and squadmates beyond range sit on the rim, pointing the way to them. A ping sweeps out from the centre every 1.6 seconds (not with Reduce motion). Score remains available in Pause.
 
@@ -311,6 +312,7 @@ The grenade and stun counts and the dash and bash charge bars sit above your sui
 
 - **Dash** throws the suit about 5 m in the direction you are moving (backwards if you are standing still). Any hit that lands in the first 0.3 s is dodged outright: in solo play time slows for a beat and the view drains to steel while you reposition. It recharges in 1.1 s. A pathogen winding up is the moment to dash.
 - **Jump** clears about a metre: hop a crawler or a spore's burst. You keep steering in the air.
+- **Crouch** drops you low behind cover and slows you to about half a walk; press it again, sprint or jump to stand (not while something low is overhead). Crouched you also fit under a vessel run too low to walk under. **Slide**: crouch while sprinting forward and you slide about 6 m, fast at first, ending crouched.
 - **Mantle**: jump at a ledge you cannot quite clear and the suit grabs it and pulls itself up and over, onto anything up to about 2.4 m (the weapon swings aside, and you cannot fire, for the moment it takes). Walk up gentle slopes and short steps without jumping.
 - **Bash** swings the weapon butt in front of you. It deals 36 damage, knocks pathogens back several metres and staggers them, and tears off any pathogen latched onto a tissue node within 4 m, even behind you. It recharges in 0.7 s.
 - **Antibody grenade** arcs where you aim, bounces, and bursts after 1.5 s or on contact with a pathogen: 150 damage in a 6 m blast that also throws smaller pathogens off the tissue they held. You carry two, restocked at every wave start, and each antibody cache adds one (up to three).

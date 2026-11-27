@@ -328,7 +328,7 @@ export class BrowserUiBindings {
       special = { title: this.text(panel.querySelector('h2')), detail: [t(prefix + '-status'), visibleText(prefix + '-time'), ...[...panel.querySelectorAll('.airway-port,.gastric-valve')].map(e => this.text(e))].filter(Boolean).join(' · '), phase: t('boss-phase'), health: prefix === 'boss' ? Number(this.get('boss-health').getAttribute('aria-valuenow')) : null };
     }
     const actions = { mute: { ...this.control(root.querySelector('[data-mute]')), text: '', icon: root.querySelector('[data-mute]')?.getAttribute('aria-pressed') === 'true' ? 'muted' : 'volume', iconOnly: true }, pause: { ...this.control(this.get('pause')), icon: 'pause', iconOnly: true } };
-    for (const name of ['swap', 'turret', 'reload', 'repair', 'jump', 'dash', 'melee', 'grenade', 'stun']) {
+    for (const name of ['swap', 'turret', 'reload', 'repair', 'jump', 'dash', 'melee', 'grenade', 'stun', 'crouch']) {
       const el = root.querySelector(`[data-touch="${name}"]`);
       const control = this.control(el); if (control) actions[name] = { ...control, id: 'game:' + name, action: 'game:' + name, color: name === 'turret' ? el.dataset.state === 'jammed' ? '#ff977d' : '#b2e8ff' : undefined,
         // Touch buttons show a drawn icon; the word stays as the button's accessible name.

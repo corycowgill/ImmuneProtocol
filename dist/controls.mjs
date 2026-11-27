@@ -21,7 +21,7 @@ export const controls = {
   leftButton: false, rightButton: false,
   fireTap: false, reloadTap: false, deployTap: false, swapTap: false,
   // One-frame ability presses: jump, dash, melee and the two throwables.
-  jumpTap: false, dashTap: false, meleeTap: false, grenadeTap: false, stunTap: false,
+  jumpTap: false, dashTap: false, meleeTap: false, grenadeTap: false, stunTap: false, crouchTap: false,
   lookPointer: null, stickPointer: null,
   // The controller's state this frame, or null when it is not in use during play.
   xboxState: null,
@@ -64,7 +64,7 @@ const xboxMenus = new GamepadMenu({ main: byId('menu'), onBack: backFromControll
 export const keys = new Set();
 export const touch = { fire: false, repair: false, reload: false, carry: false, x: 0, z: 0 };
 export const input = { moveX: 0, moveZ: 0, lookX: 0, lookY: 0, fire: false, reload: false, repair: false, deploy: false, carry: false, sprint: false, aim: false, swap: false,
-  jump: false, dash: false, melee: false, grenade: false, stun: false };
+  jump: false, dash: false, melee: false, grenade: false, stun: false, crouch: false };
 // Keys the game always owns in play; everything else follows the player's bindings (keybinds.mjs).
 const fixedKeys = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape']);
 const supplyKeys = { Digit1: 'left', Digit2: 'right', Digit3: 'ammo' };
@@ -88,7 +88,7 @@ gameUi.bindControls({
   tap(name) {
     if (!playing()) return;
     if (name === 'swap' && !session.sim.tutorial) controls.swapTap = true;
-    if (['jump', 'dash', 'melee', 'grenade', 'stun'].includes(name)) controls[name + 'Tap'] = true;
+    if (['jump', 'dash', 'melee', 'grenade', 'stun', 'crouch'].includes(name)) controls[name + 'Tap'] = true;
     if (name === 'turret' && !session.sim.tutorial && companionReady()) controls.deployTap = true;
   },
   stick(value) { touch.x = value.x; touch.z = value.z; },
@@ -132,7 +132,7 @@ export function clearControls() {
   controls.fireTap = false;
   controls.reloadTap = false;
   controls.deployTap = false;
-  for (const tap of ['jumpTap', 'dashTap', 'meleeTap', 'grenadeTap', 'stunTap']) controls[tap] = false;
+  for (const tap of ['jumpTap', 'dashTap', 'meleeTap', 'grenadeTap', 'stunTap', 'crouchTap']) controls[tap] = false;
   controls.keyCarry = false;
   controls.padCarry = false;
   controls.swapTap = false;
@@ -225,6 +225,7 @@ export function controllerFrame(now) {
   controls.meleeTap ||= pressed('melee');
   controls.grenadeTap ||= pressed('grenade');
   controls.stunTap ||= pressed('stun');
+  controls.crouchTap ||= pressed('crouch');
   if (!junctionSupply.hidden) {
     const direction = Object.keys(supplyPad).find(key => current.pressed[key]);
     if (direction) supplyButtons.find(button => button.dataset.junctionSupply === supplyPad[direction])?.click();
@@ -290,7 +291,7 @@ window.addEventListener('keydown', event => {
     return;
   }
   if (!event.repeat) {
-    const tap = { fire: 'fireTap', jump: 'jumpTap', dash: 'dashTap', melee: 'meleeTap', grenade: 'grenadeTap', stun: 'stunTap', reload: 'reloadTap' }[action];
+    const tap = { fire: 'fireTap', jump: 'jumpTap', dash: 'dashTap', melee: 'meleeTap', grenade: 'grenadeTap', stun: 'stunTap', crouch: 'crouchTap', reload: 'reloadTap' }[action];
     if (tap) controls[tap] = true;
   }
   if (!event.repeat && action === 'turret' && !session.sim.tutorial && companionReady()) controls.deployTap = true;

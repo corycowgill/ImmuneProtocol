@@ -1257,6 +1257,7 @@ function playFrame(now) {
     } else turnHeld = 0;
     input.fire = controls.fireTap || controls.leftButton || touch.fire || isDown(keys, 'fire') || !!controller?.fire;
     input.jump = controls.jumpTap;
+    input.crouch = controls.crouchTap;
     input.dash = controls.dashTap;
     input.melee = controls.meleeTap;
     input.grenade = controls.grenadeTap;
@@ -1336,7 +1337,7 @@ function playFrame(now) {
       controls.reloadTap = false;
       controls.deployTap = false;
       controls.swapTap = false;
-      controls.jumpTap = controls.dashTap = controls.meleeTap = controls.grenadeTap = controls.stunTap = false;
+      controls.jumpTap = controls.dashTap = controls.meleeTap = controls.grenadeTap = controls.stunTap = controls.crouchTap = false;
       touch.reload = false;
     }
     const aiming = session.world.render(session.sim, simDt, input, session.reduceMotion);

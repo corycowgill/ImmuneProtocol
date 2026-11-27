@@ -214,7 +214,7 @@ export class World {
     this.abilityFx = new AbilityFX(this.scene, this.glow, this.random);
     this.terrainViews = new Map();
     // How the suit's own moves feel through the camera and the weapon (see applyFeel).
-    this.feel = { rush: 0, side: 0, forward: 0, dip: 0, dipV: 0, focus: 0, bash: 0, throw: 0, climb: 0, climbTime: .4 };
+    this.feel = { rush: 0, side: 0, forward: 0, dip: 0, dipV: 0, focus: 0, bash: 0, throw: 0, climb: 0, climbTime: .4, slide: 0, crouch: 0 };
     for (const view of this.turretViews) this.scene.add(view.model);
     // Medic drones, one per suit in the largest squad, built once their model has loaded.
     this.droneViews = null;
@@ -635,6 +635,8 @@ export class World {
         if (event.type === 'dodge') feel.focus = 1;
         // Grabbing a ledge: the weapon swings aside while the hands pull the suit up.
         if (event.type === 'mantle') Object.assign(feel, { climb: 1, climbTime: MANTLE.time + (event.rise ?? 1) * MANTLE.perMetre });
+        // A slide: a rush of speed and a lean into it.
+        if (event.type === 'slide') Object.assign(feel, { slide: 1, rush: Math.max(feel.rush, .7), side: 0, forward: 1 });
         if (event.type === 'melee') {
           feel.bash = 1;
           if (event.hits && !reduceMotion) this.explosions.shake = Math.min(1, this.explosions.shake + .2);
@@ -647,6 +649,8 @@ export class World {
     feel.bash = Math.max(0, feel.bash - dt / .42);
     feel.throw = Math.max(0, feel.throw - dt / .5);
     feel.climb = Math.max(0, feel.climb - dt / feel.climbTime);
+    feel.slide = sim.player.sliding ? Math.min(1, feel.slide + dt * 8) : Math.max(0, feel.slide - dt * 4);
+    feel.crouch += ((sim.player.crouched ? 1 : 0) - feel.crouch) * Math.min(1, dt * 10);
     // The landing dip is a stiff spring back to eye height.
     const step = Math.min(dt, .05);
     feel.dipV += (-feel.dip * 110 - feel.dipV * 15) * step;

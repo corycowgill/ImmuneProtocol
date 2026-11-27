@@ -4,9 +4,11 @@ import { attachLobby } from './coop-lobby.mjs';
 import { savedSuit } from './suits.mjs';
 import { COOP_PATH, COOP_HEALTH_PATH, COOP_PROTOCOL_VERSION, COOP_RECONNECT_MS, COOP_SERVICE, COOP_TICK_RATE } from './coop-protocol.mjs';
 import { terrainFor } from './terrain.mjs';
+import { suitSolids, climbable } from './solids.mjs';
+import { arenaObstacles } from './simulation.mjs';
 
 // One-frame presses held until the next input packet, so a quick tap is never lost.
-const TAPS = ['jump', 'dash', 'melee', 'grenade', 'stun'];
+const TAPS = ['jump', 'dash', 'melee', 'grenade', 'stun', 'crouch'];
 
 export const PUBLIC_COOP_ORIGIN = 'https://immune-protocol-coop.onrender.com';
 
@@ -286,7 +288,14 @@ export class CoopClient extends EventTarget {
     if (this.connected && this.room?.phase === 'playing' && !this.room.reconnectDeadline && !player.downed) {
       const { weapon, valve, organ, organMission } = state;
       // The suit's dash and jump state rides along so prediction carries a dash through to its end.
+      // Prediction meets the same scenery as the server: what to climb, walk under and walk round.
+      this.solids ??= new Map();
+      if (!this.solids.has(state.area)) {
+        const solids = suitSolids(state.area, arenaObstacles(state.area));
+        this.solids.set(state.area, { solids, suitWalls: solids.filter(solid => !climbable(solid)).map(solid => [solid.x, solid.z, solid.r]) });
+      }
       const movement = { player, weapon, valve, organ, organMission, events: [], clock: state.clock, terrain: terrainFor(state.area),
+        ...this.solids.get(state.area),
         ability: state.ability ? { ...state.ability } : undefined, confineToArena: Simulation.prototype.confineToArena };
       for (const packet of this.pending) Simulation.prototype.movePlayer.call(movement, INPUT_TICK, packet.input);
       Simulation.prototype.movePlayer.call(movement, this.elapsed, this.buffer);
