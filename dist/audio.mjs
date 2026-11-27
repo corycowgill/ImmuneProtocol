@@ -46,7 +46,7 @@ const NANOBOT_SOUNDS = ['arrive', 'salvo-launch', 'salvo-impact', 'laser-charge'
 
 // The suit's footsteps on each surface and its slide (assets/sfx/suit/, made with Stable Audio
 // Open by tools/audio/generate_nanobot_sfx.py).
-const SUIT_SOUNDS = ['suit/step-flesh', 'suit/step-plaque', 'suit/step-vessel', 'suit/slide'];
+const SUIT_SOUNDS = ['suit/step-flesh'];
 
 const EFFECTS = [
   ...NANOBOT_SOUNDS, ...SUIT_SOUNDS,
@@ -570,7 +570,10 @@ export class GameAudio {
         break;
       case 'step':
         // Your own footsteps, a touch different each time; softer crouched.
-        if (!event.teammate) this.playSample('suit/step-' + (event.surface ?? 'flesh'), event.crouched ? .14 : .24, { rate: .9 + Math.random() * .2 });
+        if (!event.teammate) {
+          const name = this.samples.has('suit/step-' + event.surface) ? 'suit/step-' + event.surface : 'suit/step-flesh';
+          this.playSample(name, event.crouched ? .14 : .24, { rate: .9 + Math.random() * .2 });
+        }
         break;
       case 'slide':
         if (!event.teammate) {
