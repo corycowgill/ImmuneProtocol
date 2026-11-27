@@ -31,6 +31,8 @@ export const MISSION_ACHIEVEMENTS = Object.freeze({
 });
 export const MISSION_AREAS = Object.freeze(Object.keys(MISSION_ACHIEVEMENTS));
 // The eight mission bosses and the Mega Virus. The Heart Valve's colonies are not one boss.
+// Short Circuit: from the shield rising to its last pylon falling, in seconds.
+const SHORT_CIRCUIT_TIME = 8;
 export const BOSS_IDS = Object.freeze(['thrombus', 'leech', 'bloom', 'drill', 'tapeworm', 'colossus', 'macrophage', 'screamer', 'mega-virus']);
 export const FIELD_UPGRADE_IDS = Object.freeze(['fast-sealer', 'deep-magazine', 'insulated-suit', 'turret-stabilizer']);
 const WEAPON_KILLS = Object.freeze({ carbine: 'needle-point', sniper: 'one-shot-one-cure', shotgun: 'bedside-blast', launcher: 'phage-therapy', pistol: 'sting-operation' });
@@ -58,7 +60,7 @@ export const ACHIEVEMENTS = Object.freeze([
   a('patient-zero', 'Patient Zero', 'Neutralize your first pathogen.', 'bronze', 10, 'combat', count('kills', 1)),
   a('antibody-count', 'Antibody Count', 'Neutralize 500 pathogens.', 'bronze', 10, 'combat', count('kills', 500)),
   a('white-cell-army', 'White Cell Army', 'Neutralize 5,000 pathogens.', 'silver', 15, 'combat', count('kills', 5000)),
-  a('pandemic-over', 'Pandemic Over', 'Neutralize 25,000 pathogens.', 'gold', 80, 'combat', count('kills', 25000)),
+  a('pandemic-over', 'Pandemic Over', 'Neutralize 25,000 pathogens.', 'gold', 65, 'combat', count('kills', 25000)),
   a('critical-care', 'Critical Care', 'Land 1,000 critical hits.', 'bronze', 10, 'combat', count('crits', 1000)),
   a('needle-point', 'Needle Point', 'Neutralize 300 pathogens with the Needle Carbine.', 'bronze', 10, 'combat', count('kills:carbine', 300)),
   a('one-shot-one-cure', 'One Shot, One Cure', 'Neutralize 100 pathogens with the Lancet Rifle.', 'bronze', 10, 'combat', count('kills:sniper', 100)),
@@ -78,8 +80,11 @@ export const ACHIEVEMENTS = Object.freeze([
   a('worm-has-turned', 'The Worm Has Turned', 'Destroy all seven Tapeworm segments in one fight.', 'bronze', 10, 'bosses'),
   a('indigestion', 'Indigestion', 'Break the Rogue Macrophage\'s pull before it engulfs a suit.', 'bronze', 10, 'bosses'),
   a('going-viral', 'Going Viral', 'Defeat the Mega Virus.', 'silver', 20, 'bosses'),
+  a('lobotomy', 'Lobotomy', 'Destroy the Mega Nano Bot.', 'silver', 20, 'bosses'),
+  a('short-circuit', 'Short Circuit', 'Shoot out all three of the Mega Nano Bot\'s shield pylons within eight seconds.', 'bronze', 10, 'bosses'),
+  a('ghost-in-the-machine', 'Ghost in the Machine', 'Destroy the Mega Nano Bot without it ever damaging your suit.', 'silver', 15, 'bosses'),
   a('final-diagnosis', 'Final Diagnosis', 'Land the killing blow on five bosses.', 'silver', 15, 'bosses', count('bossBlows', 5)),
-  a('rogues-gallery', 'Rogues\' Gallery', 'Defeat all eight mission bosses and the Mega Virus.', 'gold', 80, 'bosses', count('bosses', BOSS_IDS.length)),
+  a('rogues-gallery', 'Rogues\' Gallery', 'Defeat all eight mission bosses and the Mega Virus.', 'gold', 65, 'bosses', count('bosses', BOSS_IDS.length)),
   // Field ops
   a('egg-hunt', 'Egg Hunt', 'Destroy 10 brood nests.', 'bronze', 10, 'support', count('nests', 10)),
   a('pest-control', 'Pest Control', 'Destroy 75 brood nests.', 'silver', 15, 'support', count('nests', 75)),
@@ -97,7 +102,7 @@ export const ACHIEVEMENTS = Object.freeze([
   a('second-opinion', 'Second Opinion', 'Win a mission after retrying it from a checkpoint.', 'bronze', 10, 'mastery'),
   a('overtime-hero', 'Overtime Hero', 'Hold the Capillary Junction through Overtime.', 'silver', 15, 'mastery'),
   a('vital-signs', 'Vital Signs', 'Score 75,000 in a single mission.', 'silver', 15, 'mastery'),
-  a('off-the-charts', 'Off the Charts', 'Score 100,000 in a single mission.', 'gold', 70, 'mastery', { hidden: true }),
+  a('off-the-charts', 'Off the Charts', 'Score 100,000 in a single mission.', 'gold', 55, 'mastery', { hidden: true }),
   a('field-tested', 'Field Tested', 'Win a mission with each of the four field upgrades.', 'silver', 15, 'mastery', count('upgrades', FIELD_UPGRADE_IDS.length)),
   a('immune-protocol', 'Immune Protocol', 'Earn every other achievement.', 'platinum', 0, 'mastery'),
 ]);
@@ -117,6 +122,7 @@ export const REWARDS = Object.freeze([
   ['chief-of-medicine', 'finish', 'surgical', 'Surgical steel finish'],
   ['house-call', 'accent', 'code-red', 'Code red accent'],
   ['going-viral', 'accent', 'viral', 'Viral magenta accent'],
+  ['lobotomy', 'emblem', 'boss-nanobot', 'Mega Nano Bot emblem'],
   ['rogues-gallery', 'sticker', 'trophy', 'Trophy sticker'],
   ['tissue-engineer', 'sticker', 'medic', 'Field medic sticker'],
   ['squad-goals', 'sticker', 'squad', 'Squad up sticker'],
@@ -331,11 +337,16 @@ export class AchievementTracker {
         case 'levelBoss':
           // Rogues' Gallery counts the eight mission bosses and the Mega Virus (the finale's Mega Nano Bot is extra).
           if (event.stage === 'defeated') { this.unlock('giant-slayer'); if (BOSS_IDS.includes(event.boss)) this.include('bosses', event.boss); }
+          if (event.boss === 'nanobot') this.observeNanobot(run, event, clock);
           if (event.stage === 'ability') {
             if (event.boss === 'thrombus' && event.ability === 'stunned') this.unlock('off-the-wall');
             if (event.boss === 'leech' && event.ability === 'knocked') this.unlock('leech-removal');
             if (event.boss === 'macrophage' && event.ability === 'broken') this.unlock('indigestion');
           }
+          break;
+        case 'damage':
+          // Any hurt the Mega Nano Bot does to this suit spoils Ghost in the Machine.
+          if (event.boss === 'nanobot' && event.target === 'player' && local && run.nanobot) run.nanobot.hurt = true;
           break;
         case 'boss':
           if (event.stage === 'defeated') { this.unlock('going-viral'); this.include('bosses', 'mega-virus'); }
@@ -345,6 +356,21 @@ export class AchievementTracker {
     // Splash kills from one rocket all land in the step it bursts.
     if (rocketBlast && rocketKills >= 5) this.unlock('collateral-damage');
     if (grenadeKills >= 4) this.unlock('fire-in-the-hole');
+  }
+
+  // The Mega Nano Bot's fight: how fast its pylons fall, and whether it ever touched this suit.
+  observeNanobot(run, event, clock) {
+    if (event.stage === 'arrive') run.nanobot = { hurt: false, shieldAt: null };
+    const fight = run.nanobot;
+    if (event.stage === 'ability' && event.ability === 'shield-up' && fight) fight.shieldAt = clock;
+    if (event.stage === 'ability' && event.ability === 'shield-down' && fight?.shieldAt != null && clock - fight.shieldAt <= SHORT_CIRCUIT_TIME) {
+      this.unlock('short-circuit');
+    }
+    if (event.stage === 'defeated') {
+      this.unlock('lobotomy');
+      if (fight && !fight.hurt) this.unlock('ghost-in-the-machine');
+      run.nanobot = null;
+    }
   }
 
   // The mission report is about to show.

@@ -96,6 +96,8 @@ function silenced(ancestors) {
     const parent = ancestors[index];
     const child = ancestors[index + 1];
     if ((parent.type === 'CallExpression' || parent.type === 'NewExpression') && parent.arguments.includes(child)) {
+      // console.warn is silent; a boss's warn(boss, 'CHARGING · SIDESTEP') is shown on the HUD.
+      if (calleeName(parent) === 'warn') return parent.callee.type === 'MemberExpression' && parent.callee.object?.name === 'console';
       if (SILENT_CALLS.has(calleeName(parent))) return true;
       return false;
     }

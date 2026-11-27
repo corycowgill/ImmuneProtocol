@@ -1823,7 +1823,7 @@ export class Simulation {
     this.events.push({
       type: 'kill', id: target.id, enemyType: target.type, source, x: target.x, y: target.y, z: target.z,
       ...(suit?.id != null ? { playerId: suit.id } : {}),
-      ...(target.boss ? { boss: target.boss } : target.segmentOf ? { segment: true } : target.nest ? { nest: true } : {}),
+      ...(target.boss ? { boss: target.boss } : target.pylonOf != null ? { pylon: true } : target.segmentOf ? { segment: true } : target.nest ? { nest: true } : {}),
       ...(target.elite ? { elite: target.elite } : {}),
     });
     if (target.boss) {
@@ -2047,6 +2047,7 @@ export class Simulation {
     const impact = { type: 'damage', target, amount, id: enemy.id, x: origin.x, y: origin.y, z: origin.z };
     if (player?.id != null) impact.playerId = player.id;
     if (target === 'tissue') impact.nodeId = node.id;
+    if (enemy.boss) impact.boss = enemy.boss;
     if (enemy.branch) impact.branch = enemy.branch;
     if (enemy.attackAnchor === origin) impact.anchor = 'gash';
     this.events.push(impact);

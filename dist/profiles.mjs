@@ -43,6 +43,7 @@ export const PROFILE_EMBLEMS = Object.freeze([
   { id: 'boss-colossus', name: 'Colossus' }, { id: 'boss-thrombus', name: 'Thrombus' }, { id: 'boss-leech', name: 'Leech' },
   { id: 'boss-tapeworm', name: 'Tapeworm' }, { id: 'boss-macrophage', name: 'Macrophage' }, { id: 'boss-screamer', name: 'Screamer' },
   { id: 'boss-bloom', name: 'Mold Crown' }, { id: 'boss-drill', name: 'Pylori Drill' },
+  { id: 'boss-nanobot', name: 'Mega Nano Bot' },
 ].map(emblem => Object.freeze({ src: 'assets/enemies/portraits/' + emblem.id + '.webp', ...emblem })));
 const EMBLEM_IDS = new Set(PROFILE_EMBLEMS.map(emblem => emblem.id));
 // Accent colours for the emblem ring, so operators are told apart at a glance.

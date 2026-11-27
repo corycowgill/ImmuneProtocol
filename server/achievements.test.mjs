@@ -200,7 +200,7 @@ test('the Achievements screen has an overview and a tab per category, with hidde
   const secret = all.find(card => card.achievement === 'close-shave');
   assert.ok(secret.secret && secret.text === 'Hidden achievement' && secret.src.endsWith('hidden.webp'));
   assert.equal(Object.keys(screen.details).length, ACHIEVEMENTS.length);
-  assert.match(achievementMenuDetail(t), /^1 of 56 earned · 10 \/ 1000 G$/);
+  assert.match(achievementMenuDetail(t), /^1 of 59 earned · 10 \/ 1000 G$/);
 });
 
 test('a real mission feeds the tracker without errors and credits the turret', () => {
@@ -251,4 +251,39 @@ test('reward names show on the card, the detail and the toast', () => {
   assert.equal(card.reward, 'Thrombus Titan emblem');
   assert.ok(screen.details['off-the-wall'].some(node => /Reward: Thrombus Titan emblem/.test(node.text ?? '')));
   assert.equal(toastState(ACHIEVEMENT_BY_ID['immune-protocol'], 1).reward, 'Prismatic skin + Platinum finish');
+});
+
+test('the Mega Nano Bot: destroying it, a fast pylon break, and an untouched kill', () => {
+  const nano = (stage, extra = {}) => ({ type: 'levelBoss', stage, boss: 'nanobot', ...extra });
+  const { t, unlocked } = tracker();
+  t.observe([nano('arrive')], { clock: 0 });
+  t.observe([nano('ability', { ability: 'shield-up' })], { clock: 4 });
+  t.observe([nano('ability', { ability: 'shield-down' })], { clock: 15 });
+  assert.ok(!unlocked.includes('short-circuit'), 'eleven seconds is too slow');
+  t.observe([nano('ability', { ability: 'shield-up' })], { clock: 30 });
+  t.observe([nano('ability', { ability: 'shield-down' })], { clock: 37 });
+  assert.ok(unlocked.includes('short-circuit'));
+  // A teammate being hurt does not count against this suit; its own hurt does.
+  t.observe([{ type: 'damage', target: 'player', boss: 'nanobot', playerId: 'someone-else' }], { isLocal: event => event.playerId == null });
+  t.observe([nano('defeated')]);
+  assert.ok(unlocked.includes('lobotomy') && unlocked.includes('ghost-in-the-machine'));
+  assert.ok(!unlocked.includes('rogues-gallery'), 'it is not one of the nine for Rogues\' Gallery');
+
+  const hurt = tracker();
+  hurt.t.observe([nano('arrive')]);
+  hurt.t.observe([{ type: 'damage', target: 'player', boss: 'nanobot' }]);
+  hurt.t.observe([nano('defeated')]);
+  assert.ok(hurt.unlocked.includes('lobotomy') && !hurt.unlocked.includes('ghost-in-the-machine'));
+});
+
+test('the Mega Nano Bot\'s pylons are not tapeworm segments', () => {
+  const sim = new Simulation('brain');
+  sim.start();
+  const pylon = sim.createEnemy('nanobot-part', 0, 0, sim.nodes[0], { health: 1, score: 0 });
+  Object.assign(pylon, { segmentOf: 99, pylonOf: 99, slot: 0, score: 250 });
+  sim.enemies.push(pylon);
+  sim.events = [];
+  sim.hitEnemy(pylon, 10, false, pylon, 'player', sim.player);
+  const killed = sim.events.find(event => event.type === 'kill');
+  assert.ok(killed.pylon && !killed.segment);
 });

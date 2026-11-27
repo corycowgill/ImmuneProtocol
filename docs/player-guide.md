@@ -140,7 +140,7 @@ The Mega Virus is Neural Cortex's third wave. Its connected membranes protect th
 - **Drone bay.** The bay drops open and launches Rogue Bots, and later Crawlers.
 - **EMP.** A pulse knocks out every turret and medic drone near it for seven seconds and stings suits inside it. Keep your companion away from it, or expect to fight without it for a moment.
 
-It has three phases (above two thirds of its health, above one third, and the rest), each attacking faster with bigger salvos and wider sweeps. Clear any survivors after it falls.
+It has three phases (above two thirds of its health, above one third, and the rest), each attacking faster with bigger salvos and wider sweeps. When it falls its brain overloads and flickers out, the dome bursts, the thrusters cut out and it crashes into the cortex before its reactor blows. Clear any survivors after it falls.
 
 ## Bosses
 
@@ -380,7 +380,7 @@ Elites first appear in the last two waves of Arterial Junction and grow more com
 
 ## Achievements
 
-Fifty-six achievements, worth 1,000 points in all, work like console achievements and trophies. Each has its own artwork, a tier (**bronze**, **silver**, **gold** or **platinum**) and a score. When you earn one, an **Achievement unlocked** banner pops in with the art, the trophy and the score, plays a chime and a light rumble, then folds away; several in a row queue up. In a mission it sits under the wave panel, clear of the crosshair; in menus it appears low in the centre. Earn every other achievement for the platinum, **Immune Protocol**. See [every tile](achievement-artwork.png).
+Fifty-nine achievements, worth 1,000 points in all, work like console achievements and trophies. Each has its own artwork, a tier (**bronze**, **silver**, **gold** or **platinum**) and a score. When you earn one, an **Achievement unlocked** banner pops in with the art, the trophy and the score, plays a chime and a light rumble, then folds away; several in a row queue up. In a mission it sits under the wave panel, clear of the crosshair; in menus it appears low in the centre. Earn every other achievement for the platinum, **Immune Protocol**. See [every tile](achievement-artwork.png).
 
 Open **Achievements** from the main menu or the pause screen. The overview shows your completion ring, score and trophy count per tier, what you earned most recently and what you are closest to; tabs (or a picker on narrow screens) group the rest into Campaign, Combat, Bosses, Field ops and Mastery. Locked achievements show their art dimmed under a lock, and counting ones show a progress bar. Select one for large art, its tier, score and date earned. Two are hidden until you earn them.
 
@@ -388,11 +388,11 @@ Open **Achievements** from the main menu or the pause screen. The overview shows
 | --- | --- |
 | Campaign | Secure each of the ten missions (*Clot Buster*, *Be Still, My Heart*, *Iron Stomach*, *Hear Me Out* …), finish the campaign (*The President Is Safe*), win on Hard (*House Call*) and win every mission on Hard (*Chief of Medicine*). |
 | Combat | Kill milestones from *Patient Zero* to *Pandemic Over* (25,000), 1,000 critical hits, a milestone for each weapon, five kills with one rocket (*Collateral Damage*), four with one grenade, fifteen in five seconds (*Fever Pitch*), melee kills, a six-pathogen stun and 25 perfect dodges. |
-| Bosses | Your first boss, then each boss's own trick: run the Thrombus Titan into a wall (*Off the Wall*), knock the Leech loose, destroy all seven Tapeworm segments, break the Macrophage's pull; defeat the Mega Virus and every boss (*Rogues' Gallery*). |
+| Bosses | Your first boss, then each boss's own trick: run the Thrombus Titan into a wall (*Off the Wall*), knock the Leech loose, destroy all seven Tapeworm segments, break the Macrophage's pull; defeat the Mega Virus and every boss (*Rogues' Gallery*). The Mega Nano Bot has three of its own: destroy it (*Lobotomy*), break all three shield pylons within eight seconds of the shield going up (*Short Circuit*), and destroy it without it ever damaging your suit (*Ghost in the Machine*). It does not count toward *Rogues' Gallery*. |
 | Field ops | Brood nests, antibody caches, sealed gashes, tissue restored, turret kills, a co-op win, studying 12 pathogens in the Disease guide, and deploying a weapon with a skin, decal, sticker and charm. |
 | Mastery | Win with every node at full integrity, with your suit at 10% or less, without deploying the turret, after a checkpoint retry, through Capillary Overtime, with each field upgrade; score 75,000 and 100,000 in one mission. |
 
-Twenty-two **rewards** are locked until their achievement is earned. They are cosmetic only and never change how a weapon handles. The Armory's Customize tab lists them with a lock and the achievement that unlocks them. Achievement cards, the detail view and the unlock banner name the reward.
+Twenty-three **rewards** are locked until their achievement is earned. They are cosmetic only and never change how a weapon handles. The Armory's Customize tab lists them with a lock and the achievement that unlocks them. Achievement cards, the detail view and the unlock banner name the reward.
 
 | Reward | Earned by |
 | --- | --- |
@@ -401,7 +401,7 @@ Twenty-two **rewards** are locked until their achievement is earned. They are co
 | Accents: Code red, Viral magenta | *House Call*, *Going Viral* |
 | Stickers: Trophy, Field medic, Squad up | *Rogues' Gallery*, *Tissue Engineer*, *Squad Goals* |
 | Decals: Heartbeat, Blast radius | *Vital Signs*, *Collateral Damage* |
-| Boss operator emblems: Biofilm Colossus, Thrombus Titan, Capillary Leech, Tapeworm, Rogue Macrophage, Otolith Screamer, Mold Crown, Pylori Drill | *Giant Slayer*, *Off the Wall*, *Leech Removal*, *The Worm Has Turned*, *Indigestion*, *Final Diagnosis*, *Take a Deep Breath*, *Iron Stomach* |
+| Boss operator emblems: Biofilm Colossus, Thrombus Titan, Capillary Leech, Tapeworm, Rogue Macrophage, Otolith Screamer, Mold Crown, Pylori Drill, Mega Nano Bot | *Giant Slayer*, *Off the Wall*, *Leech Removal*, *The Worm Has Turned*, *Indigestion*, *Final Diagnosis*, *Take a Deep Breath*, *Iron Stomach*, *Lobotomy* |
 
 Achievements count in the campaign, Free Mode and co-op. In co-op, your own kills, hits, dodges and pickups count for you; squad events such as sealed gashes and bosses count for everyone. Hard-mode achievements need solo runs, because co-op always plays Medium. Mega Virus practice earns *Going Viral* but not the Neural Cortex. Progress is saved in the browser for the active operator profile, every few seconds during play and at the end of each mission.
 

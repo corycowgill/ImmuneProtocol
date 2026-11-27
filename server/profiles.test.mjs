@@ -42,7 +42,7 @@ test('an existing save moves into the first operator, named after its co-op call
   assert.equal(storage.getItem(profileKey(id, 'immune-protocol.best-score')), '52000');
   assert.equal(storage.getItem('immune-protocol.graphics-quality'), 'low', 'device settings stay shared');
   assert.equal(storage.getItem('immune-protocol.keybinds'), '{}');
-  assert.deepEqual(profiles.summary(id), { secured: 3, missions: 10, achievements: 2, totalAchievements: 56, points: 20, best: 52000 });
+  assert.deepEqual(profiles.summary(id), { secured: 3, missions: 10, achievements: 2, totalAchievements: 59, points: 20, best: 52000 });
 });
 
 test('progress keys follow the active operator; device settings do not', () => {

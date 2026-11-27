@@ -47,8 +47,14 @@ export const BOSS_GORE = Object.freeze({
   nanobot: 0x2a2e34,
 });
 export const BOSS_DEATH_TIME = 2;
+// The Mega Nano Bot's end, in seconds: its brain overloads, the dome cracks, the thrusters cut
+// out, it crashes into the cortex and burns, then its reactor goes. It ends inside the mission's
+// outro (simulation WAVE_OUTRO_TIME), so the victory comes after the blast.
+export const NANOBOT_DEATH = Object.freeze({ overload: .8, crack: 1.15, cutout: 1.55, burn: 3.6 });
+const NANOBOT_RECIPE = Object.freeze({ style: 'nanobot', flash: 0x9fe8ff, gore: 0x1c1e22, time: NANOBOT_DEATH.burn, splat: 3 });
 
 export function deathRecipe(enemy) {
+  if (enemy.boss === 'nanobot') return NANOBOT_RECIPE;
   if (enemy.boss) return { style: 'boss', flash: 0xffd2a0, gore: BOSS_GORE[enemy.boss] ?? 0xb03a2a, time: BOSS_DEATH_TIME, splat: 3 };
   if (enemy.segmentOf) return DEATHS.segment;
   if (enemy.nest) return DEATHS.nest;
@@ -327,6 +333,12 @@ export class DeathFX {
       case 'engulf':
         this.world.burst(position.x, position.y, position.z, recipe.flash, reduce ? 4 : 12, 1.4);
         break;
+      case 'nanobot':
+        // The killing blow lands in the brain: a white-blue snap from the dome.
+        this.flash({ x: position.x, y: position.y + size * .35, z: position.z }, 0xbff4ff, size * .35, .3);
+        this.world.burst(position.x, position.y + size * .35, position.z, 0x9fe8ff, reduce ? 12 : 40, 4);
+        if (this.fx && !reduce) this.fx.shake = Math.min(1, this.fx.shake + .35);
+        break;
     }
   }
 
@@ -404,6 +416,7 @@ export class DeathFX {
       case 'crash': clench = this.poseCrash(corpse, dt, reduceMotion); break;
       case 'collapse': clench = this.poseCollapse(corpse, dt, reduceMotion); break;
       case 'boss': clench = this.poseBoss(corpse, dt, reduceMotion); break;
+      case 'nanobot': clench = this.poseNanobot(corpse, dt, reduceMotion); break;
       case 'engulf': {
         // Dragged into the macrophage and swallowed.
         const pull = k * k;
@@ -597,6 +610,104 @@ export class DeathFX {
     return Math.sin(corpse.t * 30);
   }
 
+  // The Mega Nano Bot comes down: the brain flares and flickers out, the dome bursts, the
+  // thrusters sputter and cut, it hits the cortex nose-first and burns until the reactor goes.
+  poseNanobot(corpse, dt, reduceMotion) {
+    const { view, position, rotation, size } = corpse;
+    const { model } = view;
+    const { overload, crack, cutout } = NANOBOT_DEATH;
+    const t = corpse.t, motion = reduceMotion ? 0 : 1;
+    const parts = corpse.nano ??= {
+      y: position.y, vy: 0, landed: false, cracked: false, popped: 0, tick: 0,
+      dome: model.getObjectByName('nanobot-dome'),
+      pods: ['nanobot-pod-L', 'nanobot-pod-R'].map(name => model.getObjectByName(name)).filter(Boolean),
+    };
+    const at = (object, out = new THREE.Vector3()) => object ? object.getWorldPosition(out) : out.copy(model.position);
+    const rest = corpse.floor + size.y * .75;
+
+    // Height: it holds, sags as the thrusters sputter, then drops.
+    if (!parts.landed) {
+      if (t < overload) parts.vy = 0;
+      else if (t < cutout) {
+        // Each sputter catches it for a moment, a little less each time.
+        const sputter = Math.sin((t - overload) * 22) > .3;
+        parts.vy = sputter ? Math.max(parts.vy, -.6) : parts.vy - GRAVITY * .35 * dt;
+      } else parts.vy -= GRAVITY * .7 * dt;
+      parts.y = Math.max(rest, parts.y + parts.vy * dt);
+      if (parts.y === rest && t > overload) {
+        parts.landed = t;
+        const ground = { x: model.position.x, y: corpse.floor + .3, z: model.position.z };
+        this.world.burst(ground.x, ground.y, ground.z, 0xc9a07a, reduceMotion ? 16 : 70, 7);
+        this.world.burst(ground.x, ground.y, ground.z, 0xffb060, reduceMotion ? 8 : 30, 5);
+        this.mist(ground, 0x3a3236, corpse.size0 * 2.2, reduceMotion ? 3 : this.low ? 5 : 10, { rise: .5, life: 2, opacity: .5 });
+        this.splat(ground.x, ground.z, 0x14161a, corpse.size0 * 1.1, { grow: .6, life: 14, opacity: .8 });
+        for (let i = 0; i < (this.low ? 6 : 12); i++) {
+          this.chunk(ground, i % 3 ? 0x8a9098 : 0x3a2a24, { shape: i % 2 ? 'shard' : 'rod', size: .3, speed: 7, up: 6, metal: true, glow: i % 3 ? 0 : 0xff5a20, life: 2.4 });
+        }
+        if (this.fx && !reduceMotion) this.fx.shake = Math.min(1, this.fx.shake + .7);
+      }
+    }
+    // Nose-down and rolling as it falls; settled at a broken angle once down.
+    const fall = Math.min(1, Math.max(0, (t - overload) / (cutout + .6 - overload)));
+    const jitter = reduceMotion ? 0 : (this.random() - .5) * .05 * (1 - fall * .5);
+    model.position.set(position.x + jitter * size.x, parts.y + jitter * size.y, position.z + jitter * size.z);
+    model.rotation.set(rotation.x + .32 * fall + (parts.landed ? 0 : Math.sin(t * 9) * .05 * motion * fall),
+      rotation.y + .25 * fall * fall, rotation.z + .2 * fall + Math.sin(t * 6.5) * .06 * motion * (1 - fall));
+
+    // The brain overloads white-hot, then flickers out.
+    const brain = view.nanobot?.brainGlow;
+    if (brain) {
+      let level;
+      if (t < overload) level = 1 + 5 * (t / overload);
+      else {
+        const fade = Math.max(0, 1 - (t - overload) / (NANOBOT_DEATH.burn - overload));
+        const on = reduceMotion || this.random() < .25 + .6 * fade;
+        level = on ? 3.5 * fade : .05;
+      }
+      brain.material.emissiveIntensity = brain.base * level;
+    }
+
+    // The dome bursts: glass, fluid and a blue flash.
+    if (!parts.cracked && t >= crack) {
+      parts.cracked = true;
+      if (parts.dome) parts.dome.visible = false;
+      const top = at(parts.dome);
+      this.flash(top, 0x9fe8ff, corpse.size0 * .25, .22);
+      this.world.burst(top.x, top.y, top.z, 0xbff4ff, reduceMotion ? 10 : 36, 5);
+      this.mist(top, 0xd88aa8, corpse.size0 * .7, reduceMotion ? 2 : 5, { rise: .3, life: 1.4, opacity: .45 });
+      for (let i = 0; i < (this.low ? 8 : 16); i++) {
+        this.chunk(top, 0x9fe8ff, { shape: 'shard', size: .28, speed: 6, up: 5, glow: 0x4fc8ff, life: 2.2, stain: false });
+      }
+    }
+
+    // Its missile pods cook off, one then the other.
+    for (const [index, pod] of parts.pods.entries()) {
+      if (parts.popped > index || t < .45 + index * .6) continue;
+      parts.popped = index + 1;
+      const point = at(pod);
+      this.fx?.explode(point.x, point.y, point.z, 2.4, reduceMotion);
+      pod.visible = false;
+    }
+
+    // Sparks and smoke while it falls; fire once it is down.
+    if ((parts.tick -= dt) <= 0) {
+      parts.tick = reduceMotion ? .3 : parts.landed ? .11 : .08;
+      const angle = this.random() * TAU;
+      const point = {
+        x: model.position.x + Math.cos(angle) * corpse.size0 * .4,
+        y: model.position.y + corpse.size0 * (this.random() * .3 - .1),
+        z: model.position.z + Math.sin(angle) * corpse.size0 * .4,
+      };
+      this.world.burst(point.x, point.y, point.z, parts.landed ? 0xff7a30 : 0xffd27a, reduceMotion ? 4 : 12, parts.landed ? 2.4 : 3.4);
+      if (this.random() < (parts.landed ? .6 : .35)) this.mist(point, 0x26262a, 1.8, 1, { rise: 1.1, life: 1.8, opacity: .5 });
+    }
+
+    // The hull glows hot through its seams and darkens as it dies.
+    const heat = parts.landed ? 1 - Math.min(1, (t - parts.landed) / (NANOBOT_DEATH.burn - parts.landed)) * .7 : 1;
+    this.glow(view.attackMembrane, view, 0xff5a20, (.6 + (reduceMotion ? .3 : this.random() * .6)) * heat);
+    return parts.landed ? 1 : Math.sin(t * 17) * .6;
+  }
+
   // The last moment: the model is gone and its remains fly.
   end(corpse) {
     const { recipe, view } = corpse;
@@ -663,6 +774,25 @@ export class DeathFX {
       }
       case 'engulf':
         break;
+      case 'nanobot': {
+        // The reactor goes: a huge blast, burning scrap and the last of the brain.
+        const shake = this.fx?.shake ?? 0;
+        this.fx?.explode(point.x, point.y, point.z, 11, reduce);
+        if (this.fx && reduce) this.fx.shake = shake;
+        this.flash(point, 0xffd2a0, size * .6, .35);
+        this.world.burst(point.x, point.y, point.z, 0xffb060, reduce ? 30 : 140, 10);
+        this.world.burst(point.x, point.y + size * .3, point.z, 0x9fe8ff, reduce ? 10 : 40, 6);
+        for (let i = 0; i < (this.low ? 14 : 30); i++) {
+          const hot = i % 4 === 0;
+          this.chunk(point, hot ? 0x3a2a24 : i % 3 ? 0x8a9098 : 0xd8d4cc, {
+            shape: i % 2 ? 'shard' : 'rod', size: .45, speed: 9, up: 9, metal: true, glow: hot ? 0xff5a20 : 0, life: 2.8,
+          });
+        }
+        for (let i = 0; i < (this.low ? 4 : 8); i++) this.chunk(point, 0xd88a9a, { shape: 'blob', size: .35, speed: 5, up: 7, life: 2.4 });
+        this.mist(point, 0x26262a, size * 1.4, reduce ? 3 : this.low ? 5 : 10, { rise: .9, life: 2.6, opacity: .55 });
+        this.splat(point.x, point.z, 0x14161a, size * 1.5, { grow: .5, life: 14, opacity: .85 });
+        break;
+      }
     }
   }
 
@@ -676,6 +806,12 @@ export class DeathFX {
       view.attackMembrane.emissiveIntensity = view.membraneIntensity;
     }
     if (view.guard) view.guard.visible = true;
+    if (corpse.nano) {
+      // The Mega Nano Bot's dome and pods come back, and its brain's glow, for the pooled model.
+      if (corpse.nano.dome) corpse.nano.dome.visible = true;
+      for (const pod of corpse.nano.pods) pod.visible = true;
+      if (view.nanobot?.brainGlow) view.nanobot.brainGlow.material.emissiveIntensity = view.nanobot.brainGlow.base;
+    }
     if (view.legs) for (const leg of view.legs) leg.node.rotation.set(0, 0, 0);
     if (view.fringe) view.fringe.scale.set(1, 1, 1);
     if (view.motion?.clench !== undefined) view.motion.influences[view.motion.clench] = 0;
