@@ -5,7 +5,10 @@
 #   python tools/audio/generate_nanobot_sfx.py OUT_DIR [name ...] [--takes N]
 #
 # Writes OUT_DIR/<name>-<take>.wav for each take; the chosen take is copied by hand to
-# dist/assets/sfx/nanobot/<name>.wav. Needs torch, diffusers, torchsde, soundfile, scipy.
+# dist/assets/sfx/nanobot/<name>.wav. The model gave the EMP and shield-up prompts only sub-bass,
+# so those three are cut from its other takes: emp-charge is shield-down reversed (its last 1.4 s),
+# emp-blast is emp-blast take 0 layered with shield-down, and shield-up is shield-up take 1
+# reversed over take 0's hum. Needs torch, diffusers, torchsde, soundfile, scipy.
 import os, sys
 import numpy as np
 import soundfile as sf
