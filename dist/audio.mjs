@@ -46,7 +46,7 @@ const NANOBOT_SOUNDS = ['arrive', 'salvo-launch', 'salvo-impact', 'laser-charge'
 
 // The suit's footsteps on each surface and its slide (assets/sfx/suit/, made with Stable Audio
 // Open by tools/audio/generate_nanobot_sfx.py).
-const SUIT_SOUNDS = ['suit/step-flesh', 'suit/step-plaque'];
+const SUIT_SOUNDS = ['suit/step-flesh', 'suit/step-plaque', 'suit/step-vessel', 'suit/slide'];
 
 const EFFECTS = [
   ...NANOBOT_SOUNDS, ...SUIT_SOUNDS,
