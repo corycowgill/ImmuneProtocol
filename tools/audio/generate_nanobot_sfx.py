@@ -66,7 +66,7 @@ def main():
             if os.path.exists(path):
                 continue
             generator = torch.Generator('cpu').manual_seed(1000 + take * 77 + len(name))
-            audio = pipe(prompt, negative_prompt=NEGATIVE, num_inference_steps=60, guidance_scale=7,
+            audio = pipe(prompt, negative_prompt=NEGATIVE, num_inference_steps=int(os.environ.get('STEPS', 60)), guidance_scale=7,
                          audio_end_in_s=max(2.0, seconds + .4), generator=generator).audios[0]
             sf.write(path, finish(audio.float().numpy(), rate, seconds), RATE, subtype='PCM_16')
             print('wrote', path, flush=True)
