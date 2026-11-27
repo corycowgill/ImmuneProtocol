@@ -280,7 +280,7 @@ The Crawler is the NMD-11, built in Blender by `tools/enemies/build_crawler.py` 
 
 ### Nanonaut
 
-The enemy soldier is generated with Hugging Face models: FLUX.1 Krea concept art (`tools/nanonaut/concept.py`), a TRELLIS mesh (`generate.py`) and NVIDIA Kimodo motion capture (`motion.py`), all on ZeroGPU Spaces with the logged-in account. `blender -b -P tools/nanonaut/build_nanonaut.py -- [--skip-bake] [--preview] [--portrait]` remeshes the scan into a clean watertight mesh, bakes its maps, rigs and skins it, retargets the mocap (`retarget.py`), bakes every clip and exports `dist/assets/enemies/nanonaut.glb` and its portrait. `blender -b tools/nanonaut/work/nanonaut.blend -P tools/nanonaut/qa.py -- --render` checks weights, tears, volume, ground contact and grip. [The Nanonaut](nanonaut.md) covers its AI, the pipeline and validation.
+The enemy soldier is generated with Hugging Face models on ZeroGPU Spaces with the logged-in account: FLUX.1 Krea concept art (`tools/nanonaut/concept.py`), a TRELLIS.2 mesh (`generate.py`), a Make-It-Animatable skeleton and weights (`autorig.py`) and NVIDIA Kimodo motion capture (`motion.py`). `prepare_mesh.py` cleans the scan's double-sided shells, decimates it and bakes its maps. `build_nanonaut.py` fits the rig, binds rigid gear and repairs seam weights, retargets the mocap (`retarget.py`), bakes every clip and exports `dist/assets/enemies/nanonaut.glb`. `portrait.py` renders its guide portrait. `blender -b tools/nanonaut/work/nanonaut.blend -P tools/nanonaut/qa.py -- --render` checks weights, tears, volume, ground contact and grip. [The Nanonaut](nanonaut.md) covers its AI, the pipeline and validation.
 
 ### Medic drone
 

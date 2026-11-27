@@ -8,15 +8,17 @@ import * as THREE from './vendor/three.module.js';
 import { createArsenalView } from './arsenal-models.mjs';
 
 // Bones that belong to the legs' layer; everything else is the upper body's.
-const LOWER = new Set(['root', 'hips', 'thigh_L', 'thigh_R', 'shin_L', 'shin_R', 'foot_L', 'foot_R', 'toe_L', 'toe_R']);
+const LOWER = new Set(['root', 'Hips', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot', 'LeftToeBase', 'RightToeBase']);
 const LOWER_CLIPS = ['Stand', 'Walk', 'WalkBack', 'StrafeL', 'StrafeR', 'Run', 'Crouch', 'CrouchWalk'];
 const UPPER_CLIPS = ['Aim', 'LowReady', 'Cover', 'Reload'];
 const FULL_CLIPS = ['DodgeL', 'DodgeR', 'Stagger', 'DeathBack', 'DeathFront'];
 // The speed each locomotion clip was captured at (tools/nanonaut/reports/clips.json): playback
 // is scaled to the real speed so feet do not slide.
-const CLIP_SPEED = { Walk: 1.6, WalkBack: 1.24, StrafeL: 1.31, StrafeR: 1.04, Run: 2.5, CrouchWalk: .55 };
-// The carbine in the weapon bone's frame: the same hold and scale as a teammate's.
+const CLIP_SPEED = { Walk: 1.78, WalkBack: 1.38, StrafeL: 1.65, StrafeR: 1.16, Run: 2.78, CrouchWalk: .61 };
+// The carbine at a teammate's scale, its pistol grip (the first-person grip hand, carbine.mjs) in
+// the weapon bone's origin, which the build puts in the right palm.
 const CARBINE_SCALE = .68;
+const CARBINE_OFFSET = new THREE.Vector3(-.026, .051, .078);
 const UP = new THREE.Vector3(0, 1, 0);
 
 // Clones a skinned template with its own skeleton (Object3D.clone shares the original's bones).
@@ -74,14 +76,14 @@ export function createNanonautRig(model) {
   for (const name of FULL_CLIPS) add(name, clips.get(name), false);
   for (const name of FULL_CLIPS) actions[name]?.stop();
   const bone = name => model.getObjectByName(name);
-  const bones = { spine: bone('spine'), chest: bone('chest'), neck: bone('neck'), head: bone('head'), weapon: bone('weapon') };
+  const bones = { spine: bone('Spine1'), chest: bone('Spine2'), neck: bone('Neck'), head: bone('Head'), weapon: bone('weapon') };
   // The carbine.
   const { model: gunTemplate, muzzle: muzzlePoint } = carbine();
   const gun = gunTemplate.clone();
   gun.scale.setScalar(CARBINE_SCALE);
   // Carbine forward is -Z and up +Y; the bone's barrel axis is +Y and up +Z.
   gun.rotation.x = Math.PI / 2;
-  gun.position.set(0, 0, .012);
+  gun.position.copy(CARBINE_OFFSET);
   gun.traverse(part => { if (part.isMesh) { part.castShadow = true; part.frustumCulled = false; } });
   bones.weapon?.add(gun);
   const muzzle = new THREE.Object3D();

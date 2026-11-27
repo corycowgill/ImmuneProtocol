@@ -58,7 +58,7 @@ try {
       world.renderer.clear(); world.renderer.render(world.scene, world.camera);
     } else if (chase.checked && e) {
       orbit += dt * .25;
-      const r = 5.5;
+      const r = Number(new URLSearchParams(location.search).get('r')) || 5.5;  // ?r=2.5 for a close look
       world.camera.position.set(e.x + Math.sin(orbit) * r, (e.feet ?? 0) + 2.2, e.z + Math.cos(orbit) * r);
       world.camera.lookAt(e.x, (e.feet ?? 0) + 1.1, e.z);
       world.renderer.clear(); world.renderer.render(world.scene, world.camera);

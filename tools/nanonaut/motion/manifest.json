@@ -31,8 +31,8 @@
   "seed": 3,
   "model": "nvidia/Kimodo-SOMA-RP",
   "space": "hugging-apps/kimodo-motion",
-  "chosen_seed": 205,
-  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.2 s, total 2.4 s."
+  "chosen_seed": 306,
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.2 s, total 2.3 s."
  },
  "StrafeR": {
   "prompt": "A soldier walks sideways to his right, stepping sideways without turning, chest and rifle facing straight ahead the whole time.",
@@ -41,7 +41,7 @@
   "model": "nvidia/Kimodo-SOMA-RP",
   "space": "hugging-apps/kimodo-motion",
   "chosen_seed": 407,
-  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.2 s, total 2.3 s."
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.3 s, total 2.4 s."
  },
  "Run": {
   "prompt": "A soldier runs forward fast holding a rifle across his chest.",
@@ -74,8 +74,8 @@
   "seed": 8,
   "model": "nvidia/Kimodo-SOMA-RP",
   "space": "hugging-apps/kimodo-motion",
-  "chosen_seed": 311,
-  "info": "Generated 60 frames (2.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 1.7 s, total 1.8 s."
+  "chosen_seed": 614,
+  "info": "Generated 60 frames (2.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 3.2 s, total 3.3 s."
  },
  "DodgeR": {
   "prompt": "A soldier quickly dives and rolls to his right, then comes up crouched.",
@@ -83,8 +83,8 @@
   "seed": 8,
   "model": "nvidia/Kimodo-SOMA-RP",
   "space": "hugging-apps/kimodo-motion",
-  "chosen_seed": 513,
-  "info": "Generated 60 frames (2.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 1.7 s, total 1.7 s."
+  "chosen_seed": 412,
+  "info": "Generated 60 frames (2.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 3.0 s, total 3.2 s."
  },
  "Stagger": {
   "prompt": "A soldier is hit hard in the chest, flinches and staggers one step backward, then recovers.",
@@ -109,5 +109,50 @@
   "model": "nvidia/Kimodo-SOMA-RP",
   "space": "hugging-apps/kimodo-motion",
   "info": "Generated 90 frames (3.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 1.8 s, total 1.9 s."
+ },
+ "Aim": {
+  "prompt": "A soldier stands still aiming a rifle at shoulder height, both hands on the rifle, looking down the sights, breathing steadily.",
+  "seconds": 4,
+  "seed": 21,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 21,
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 3.6 s, total 3.7 s."
+ },
+ "LowReady": {
+  "prompt": "A soldier stands holding a rifle at low ready across his chest with both hands, muzzle pointed down, scanning left and right.",
+  "seconds": 4,
+  "seed": 22,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 22,
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.2 s, total 2.3 s."
+ },
+ "Cover": {
+  "prompt": "A soldier crouches low behind cover holding his rifle upright close to his chest with both hands, ducking his head.",
+  "seconds": 4,
+  "seed": 23,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 23,
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.2 s, total 2.3 s."
+ },
+ "Reload": {
+  "prompt": "A soldier standing holds his rifle with his right hand, removes the magazine with his left hand, inserts a new magazine and pulls the charging handle, then aims again.",
+  "seconds": 3,
+  "seed": 24,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 24,
+  "info": "Generated 90 frames (3.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 1.9 s, total 1.9 s."
+ },
+ "Fire": {
+  "prompt": "A soldier stands firing a rifle in short controlled bursts, the rifle kicking against his shoulder, both hands on the rifle.",
+  "seconds": 3,
+  "seed": 25,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 25,
+  "info": "Generated 90 frames (3.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 1.9 s, total 2.0 s."
  }
 }

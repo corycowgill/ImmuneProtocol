@@ -19,7 +19,7 @@ SPACE = os.environ.get('KIMODO_SPACE', 'hugging-apps/kimodo-motion')
 # clip: (prompt, seconds, seed). WANT: the direction a clip should travel (x left, z forward); for
 # those, several seeds are tried and the take that travels closest to it without turning is kept.
 WANT = {'StrafeL': (1, 0), 'StrafeR': (-1, 0), 'DodgeL': (1, 0), 'DodgeR': (-1, 0), 'Walk': (0, 1), 'WalkBack': (0, -1), 'Run': (0, 1)}
-TRIES = 6
+TRIES = 8
 CLIPS = {
     'Stand': ('A soldier stands still in a ready combat stance holding a rifle at the shoulder, feet apart, knees slightly bent, shifting weight slightly.', 4, 11),
     'Walk': ('A soldier walks forward at a steady tactical pace, aiming a rifle forward down the sights.', 4, 7),
@@ -33,6 +33,12 @@ CLIPS = {
     'DodgeR': ('A soldier quickly dives and rolls to his right, then comes up crouched.', 2, 8),
     'Stagger': ('A soldier is hit hard in the chest, flinches and staggers one step backward, then recovers.', 2, 2),
     'DeathBack': ('A soldier is shot, his knees buckle and he collapses backward onto the ground and lies still.', 3, 12),
+    # Upper body: the carbine is placed from these hands in the build (grip in the right, barrel toward the left).
+    'Aim': ('A soldier stands still aiming a rifle at shoulder height, both hands on the rifle, looking down the sights, breathing steadily.', 4, 21),
+    'LowReady': ('A soldier stands holding a rifle at low ready across his chest with both hands, muzzle pointed down, scanning left and right.', 4, 22),
+    'Cover': ('A soldier crouches low behind cover holding his rifle upright close to his chest with both hands, ducking his head.', 4, 23),
+    'Reload': ('A soldier standing holds his rifle with his right hand, removes the magazine with his left hand, inserts a new magazine and pulls the charging handle, then aims again.', 3, 24),
+    'Fire': ('A soldier stands firing a rifle in short controlled bursts, the rifle kicking against his shoulder, both hands on the rifle.', 3, 25),
     'DeathFront': ('A soldier is shot in the back, stumbles forward and falls face down onto the ground and lies still.', 3, 12),
 }
 
@@ -49,7 +55,12 @@ def take_score(npz, want):
     off = abs(math.atan2(travel[0] * want[1] - travel[2] * want[0], travel[0] * want[0] + travel[2] * want[1]))
     hips = pj[:, 67] - pj[:, 72]
     face = np.unwrap(np.arctan2(-hips[:, 2], hips[:, 0]))
-    return off + .5 * float(np.ptp(face))
+    # A right-handed rifle hold: the left hand leads the right along the facing direction.
+    forward = np.stack([-hips[:, 2], np.zeros(len(hips)), hips[:, 0]], 1)
+    forward /= np.linalg.norm(forward, axis=1, keepdims=True)
+    lead = pj[:, 14] - pj[:, 42]
+    hand = float(np.mean(np.einsum('ij,ij->i', lead, forward)) / max(1e-6, np.mean(np.linalg.norm(lead, axis=1))))
+    return off + .5 * float(np.ptp(face)) + 2 * max(0, .5 - hand)
 
 
 def main():

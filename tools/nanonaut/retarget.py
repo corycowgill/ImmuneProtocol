@@ -1,4 +1,4 @@
-"""Retargets Kimodo motion (tools/nanonaut/motion/<clip>.npz) onto the Nanonaut's skeleton.
+"""Retargets Kimodo motion (tools/nanonaut/motion/<clip>.npz) onto the Nanonaut's Mixamo-standard skeleton.
 
 Kimodo's SOMA skeleton and the Nanonaut's have different proportions and different rest poses
 (SOMA rests in a T-pose; the scan in an A-pose with its arms forward), so joint rotations cannot
@@ -27,21 +27,48 @@ K = {'hips': 0, 'spine1': 1, 'spine2': 2, 'chest': 3, 'neck1': 4, 'neck2': 5, 'h
      'hip_R': 72, 'knee_R': 73, 'ankle_R': 74, 'ball_R': 75, 'toe_R': 76}
 
 
+# Left/right joint pairs, for mirroring a take: eyes, the whole arm and hand, the whole leg.
+MIRROR = list(range(77))
+for a, b in [(9, 10)] + [(i, i + 28) for i in range(11, 39)] + [(i, i + 5) for i in range(67, 72)]:
+    MIRROR[a], MIRROR[b] = b, a
+
+
+def mirror(pj):
+    """The take reflected left to right (Blender axes: x is the character's left)."""
+    out = pj[:, MIRROR].copy()
+    out[..., 0] *= -1
+    return out
+
+
+def handedness(pj):
+    """+1 when the left hand leads the right along the body's forward axis (a right-handed rifle
+    hold), -1 when the right hand leads (left-handed), near 0 when the rifle is carried across."""
+    left = pj[:, K['hip_L']] - pj[:, K['hip_R']]
+    up = np.array([0, 0, 1.0])
+    forward = np.cross(left, up)
+    forward /= np.linalg.norm(forward, axis=1, keepdims=True)
+    lead = pj[:, K['hand_L']] - pj[:, K['hand_R']]
+    return float(np.mean(np.einsum('ij,ij->i', lead, forward)) / max(1e-6, np.mean(np.linalg.norm(lead, axis=1))))
+
+
 def to_blender(p):
     """Kimodo (x left, y up, z forward) to Blender (x left, -y forward, z up)."""
     return np.stack([p[..., 0], -p[..., 2], p[..., 1]], -1)
 
 
-def load(path, rig, loop=False, in_place=True, loop_range=(.75, 1.6), search_from=0.0):
+def load(path, rig, loop=False, in_place=True, loop_range=(.75, 1.6), search_from=0.0, flip=False):
     """Returns joint positions [T, 77, 3] in the rig's armature space, scaled to its legs."""
     d = np.load(path)
     pj = to_blender(d['posed_joints'].astype(np.float64))
     root = to_blender(d['smooth_root_pos'].astype(np.float64))
+    if flip:
+        pj = mirror(pj)
+        root = root * np.array([-1, 1, 1])
     # Scale: mocap leg (hip to ankle, plus ankle height) to the rig's.
     def leg(p):
         return (np.linalg.norm(p[:, K['hip_L']] - p[:, K['knee_L']], axis=-1) + np.linalg.norm(p[:, K['knee_L']] - p[:, K['ankle_L']], axis=-1)).mean()
     bones = rig.data.bones
-    ours = (bones['thigh_L'].length + bones['shin_L'].length)
+    ours = (bones['LeftUpLeg'].length + bones['LeftLeg'].length)
     scale = ours / leg(pj)
     pj = pj * scale
     root = root * scale
@@ -51,7 +78,7 @@ def load(path, rig, loop=False, in_place=True, loop_range=(.75, 1.6), search_fro
     contact = d['foot_contacts'][:, 0].astype(bool) if 'foot_contacts' in d.files else np.ones(len(pj), bool)
     ankles = np.concatenate([pj[contact, K['ankle_L'], 2], pj[d['foot_contacts'][:, 3].astype(bool) if 'foot_contacts' in d.files else contact, K['ankle_R'], 2]])
     planted = float(np.median(ankles)) if len(ankles) else float(pj[:, K['ankle_L'], 2].min())
-    lift = bones['foot_L'].head_local.z - planted
+    lift = bones['LeftFoot'].head_local.z - planted
     pj[..., 2] += lift
     if in_place:
         # Remove travel and any gradual turn: rotate every frame about the root so the hips face
@@ -94,6 +121,25 @@ def best_cycle(pj, seconds, search_from=0.0):
     return pair
 
 
+def source(motion_dir, name, partner=None):
+    """Which take to use for a clip, and whether to mirror it, so every clip holds the rifle
+    right-handed. A left-handed strafe or dodge is replaced by its mirrored opposite."""
+    import os
+    def raw(n):
+        path = os.path.join(motion_dir, n + '.npz')
+        return path, (handedness(to_blender(np.load(path)['posed_joints'].astype(np.float64))) if os.path.exists(path) else None)
+    path, hand = raw(name)
+    if hand is None or hand > -.2:
+        return path, False, hand
+    if partner:
+        # Mirroring a directional take would reverse it: use the opposite take mirrored, or keep this one.
+        other, other_hand = raw(partner)
+        if other_hand is not None and other_hand < -.2:
+            return other, True, -other_hand
+        return path, False, hand
+    return path, True, -hand
+
+
 def frame(direction, secondary):
     """An orthonormal frame: Y along `direction`, X along `secondary` made perpendicular to it."""
     y = Vector(direction).normalized()
@@ -106,109 +152,138 @@ def frame(direction, secondary):
     return Matrix((x, y, z)).transposed()  # columns x, y, z
 
 
-class Retargeter:
-    """Poses one rig from mocap positions, frame by frame."""
+SIDES = (('Left', '_L'), ('Right', '_R'))
+# Mixamo finger N is mocap finger N + 1 (SOMA counts the metacarpal); the thumbs line up.
+FINGERS = {'Thumb': [1, 2, 3, 'End'], 'Index': [2, 3, 4, 'End'], 'Middle': [2, 3, 4, 'End'], 'Ring': [2, 3, 4, 'End'], 'Pinky': [2, 3, 4, 'End']}
+FINGER_BASE = {'Thumb': 15, 'Index': 19, 'Middle': 24, 'Ring': 29, 'Pinky': 34}  # left hand; the right is +28
+FINGER_SLOT = {1: 0, 2: 1, 3: 2, 4: 3, 'End': 4}
+THUMB_SLOT = {1: 0, 2: 1, 3: 2, 'End': 3}
 
-    TRUNK = [  # bone, mocap from, mocap to, twist reference (mocap), the same reference on the rig at rest
-        ('spine', 'spine1', 'chest', ('hip_L', 'hip_R', 'arm_L', 'arm_R'), ('thigh_L', 'thigh_R', 'upperarm_L', 'upperarm_R')),
-        ('chest', 'chest', 'neck1', ('arm_L', 'arm_R'), ('upperarm_L', 'upperarm_R')),
-        ('neck', 'neck1', 'head', ('eye_L', 'eye_R'), None),
-        ('head', 'head', 'head_end', ('eye_L', 'eye_R'), None),
-    ]
+
+def finger_index(name, n, right):
+    base = FINGER_BASE[name] + (28 if right else 0)
+    return base + (THUMB_SLOT if name == 'Thumb' else FINGER_SLOT)[n]
+
+
+class Retargeter:
+    """Poses a Mixamo-standard rig from mocap positions, frame by frame. Each bone is turned so a
+    frame built from mocap landmarks (its direction plus a twist reference) lands on the same
+    frame built from the rig at rest: the two skeletons' rest poses cancel exactly."""
 
     def __init__(self, rig):
         self.rig = rig
         b = rig.data.bones
+        self.b = b
+        self.rest = {x.name: x.matrix_local.to_3x3() for x in b}
         head = lambda n: b[n].head_local.copy()
-        self.rest = {n: b[n].matrix_local.to_3x3() for n in [x.name for x in b]}
-        left = head('thigh_L') - head('thigh_R')
+        left = head('LeftUpLeg') - head('RightUpLeg')
+        shoulders = head('LeftArm') - head('RightArm')
         self.rest_frames = {
-            'hips': frame(head('spine') - head('hips'), left),
-            'spine': frame(head('chest') - head('spine'), (left + head('upperarm_L') - head('upperarm_R')) / 2),
-            'chest': frame(head('neck') - head('chest'), head('upperarm_L') - head('upperarm_R')),
-            'neck': frame(head('head') - head('neck'), Vector((1, 0, 0))),
-            'head': frame(b['head'].tail_local - head('head'), Vector((1, 0, 0))),
+            'Hips': frame(head('Spine') - head('Hips'), left),
+            'Spine': frame(head('Spine1') - head('Spine'), (left + shoulders) / 2),
+            'Spine1': frame(head('Spine2') - head('Spine1'), shoulders),
+            'Spine2': frame(head('Neck') - head('Spine2'), shoulders),
+            'Neck': frame(head('Head') - head('Neck'), shoulders),
+            'Head': frame(b['Head'].tail_local - head('Head'), shoulders),
         }
-        for s in ('_L', '_R'):
-            self.rest_frames['upperarm' + s] = frame(head('forearm' + s) - head('upperarm' + s), self.bend(head('upperarm' + s), head('forearm' + s), head('hand' + s), s))
-            self.rest_frames['forearm' + s] = frame(head('hand' + s) - head('forearm' + s), self.bend(head('upperarm' + s), head('forearm' + s), head('hand' + s), s))
-            self.rest_frames['foot' + s] = frame(b['foot' + s].tail_local - head('foot' + s), Vector((1, 0, 0)))
+        for side, _ in SIDES:
+            arm, fore, hand = head(side + 'Arm'), head(side + 'ForeArm'), head(side + 'Hand')
+            n = self.bend(arm, fore, hand)
+            self.rest_frames[side + 'Arm'] = frame(fore - arm, n)
+            self.rest_frames[side + 'ForeArm'] = frame(hand - fore, n)
+            palm = head(side + 'HandIndex1') - head(side + 'HandPinky1')
+            self.rest_frames[side + 'Hand'] = frame(head(side + 'HandMiddle1') - hand, palm)
+            foot, toe, leg = head(side + 'Foot'), head(side + 'ToeBase'), head(side + 'Leg')
+            self.rest_frames['foot' + side] = frame(toe - foot, (toe - foot).cross(leg - foot))
+        self.ik = 'ik_foot_Left' in b
 
     @staticmethod
-    def bend(a, b, c, side):
-        """The normal of the plane a limb bends in, pointing the same way on both sides."""
+    def bend(a, b, c):
         n = (b - a).cross(c - b)
-        if n.length < 1e-6:
-            n = Vector((0, -1, 0))
-        return n.normalized()
+        return n.normalized() if n.length > 1e-6 else Vector((0, -1, 0))
 
     def set_world(self, bone, rotation, location=None):
+        import bpy
         pb = self.rig.pose.bones[bone]
-        m = rotation.to_4x4()
+        # A pure rotation: any scale left in the input would compound frame after frame.
+        m = rotation.to_quaternion().normalized().to_matrix().to_4x4()
         m.translation = location if location is not None else pb.matrix.translation
         pb.matrix = m
-        import bpy
+        pb.scale = (1, 1, 1)
         bpy.context.view_layer.update()
 
-    def aim(self, bone, target_frame):
-        """Turn `bone` so its rest frame lands on `target_frame` (the rest-pose difference cancels)."""
-        R = target_frame @ self.rest_frames[bone].inverted() @ self.rest[bone]
+    def aim(self, bone, target_frame, rest_key=None):
+        R = target_frame @ self.rest_frames[rest_key or bone].inverted() @ self.rest[bone]
         self.set_world(bone, R)
 
+    def swing(self, bone, want):
+        """Turn a bone (keeping its twist from its parent) to point along `want`."""
+        pb = self.rig.pose.bones[bone]
+        cur = (pb.tail - pb.head).normalized()
+        self.set_world(bone, cur.rotation_difference(Vector(want).normalized()).to_matrix() @ pb.matrix.to_3x3())
+
     def pose(self, p, frame_index, parts, key):
-        """Pose the rig from mocap positions p [77, 3]; parts: 'lower', 'trunk', 'arms'."""
         v = lambda name: Vector(p[K[name]])
-        bones = self.rig.pose.bones
+        j = lambda i: Vector(p[i])
         if 'lower' in parts:
             hips = v('hips')
             left = v('hip_L') - v('hip_R')
-            up = (v('spine1') - hips)
-            R = frame(up, left) @ self.rest_frames['hips'].inverted() @ self.rest['hips']
-            # Put the rig's hip joint where the mocap's pelvis is, keeping the leg roots aligned.
+            R = frame(v('spine1') - hips, left) @ self.rest_frames['Hips'].inverted() @ self.rest['Hips']
             mid = (v('hip_L') + v('hip_R')) / 2
-            rest_mid = (self.rig.data.bones['thigh_L'].head_local + self.rig.data.bones['thigh_R'].head_local) / 2
-            offset = R @ (self.rest['hips'].inverted() @ (rest_mid - self.rig.data.bones['hips'].head_local))
-            self.set_world('hips', R, mid - offset)
-            key('hips', ('location', 'rotation_quaternion'))
-            for s in ('_L', '_R'):
-                ankle, ball, knee, hip = v('ankle' + s), v('ball' + s), v('knee' + s), v('hip' + s)
-                # A planted boot never dips below its own ankle height (its sole would go through the floor).
-                ankle.z = max(ankle.z, self.rig.data.bones['foot' + s].head_local.z - .01)
+            rest_mid = (self.b['LeftUpLeg'].head_local + self.b['RightUpLeg'].head_local) / 2
+            offset = R @ (self.rest['Hips'].inverted() @ (rest_mid - self.b['Hips'].head_local))
+            self.set_world('Hips', R, mid - offset)
+            key('Hips', ('location', 'rotation_quaternion'))
+            for side, s in SIDES:
+                ankle, ball, knee, hip, toe = v('ankle' + s), v('ball' + s), v('knee' + s), v('hip' + s), v('toe' + s)
+                ankle.z = max(ankle.z, self.b[side + 'Foot'].head_local.z - .01)
                 foot = frame(ball - ankle, (ball - ankle).cross(knee - ankle))
-                rest_foot = frame(self.rig.data.bones['foot' + s].tail_local - self.rig.data.bones['foot' + s].head_local,
-                                  (self.rig.data.bones['foot' + s].tail_local - self.rig.data.bones['foot' + s].head_local).cross(
-                                      self.rig.data.bones['shin' + s].head_local - self.rig.data.bones['foot' + s].head_local))
-                rot = foot @ rest_foot.inverted() @ self.rest['ik_foot' + s]
-                self.set_world('ik_foot' + s, rot, ankle)
-                key('ik_foot' + s, ('location', 'rotation_quaternion'))
-                # The knee pole: out along the mocap's knee bend, half a metre.
-                mid_leg = (hip + ankle) / 2
-                out = knee - mid_leg
-                if out.length < .02:
-                    out = Vector((0, -1, 0))
-                pole = knee + out.normalized() * .5
-                self.set_world('pole_knee' + s, self.rig.pose.bones['pole_knee' + s].matrix.to_3x3(), pole)
-                key('pole_knee' + s, ('location', 'rotation_quaternion'))
+                if self.ik:
+                    rot = foot @ self.rest_frames['foot' + side].inverted() @ self.rest['ik_foot_' + side]
+                    self.set_world('ik_foot_' + side, rot, ankle)
+                    key('ik_foot_' + side, ('location', 'rotation_quaternion'))
+                    out = knee - (hip + ankle) / 2
+                    if out.length < .02:
+                        out = Vector((0, -1, 0))
+                    self.set_world('pole_knee_' + side, self.rig.pose.bones['pole_knee_' + side].matrix.to_3x3(), knee + out.normalized() * .5)
+                    key('pole_knee_' + side, ('location', 'rotation_quaternion'))
+                else:
+                    self.swing(side + 'UpLeg', knee - hip)
+                    self.swing(side + 'Leg', ankle - knee)
+                    self.aim(side + 'Foot', foot, 'foot' + side)
+                self.swing(side + 'ToeBase', toe - ball)
+                key(side + 'ToeBase', ('rotation_quaternion',))
         if 'trunk' in parts:
-            for bone, a, b, twist, _ in self.TRUNK:
-                ref = (v(twist[0]) - v(twist[1])) if len(twist) == 2 else ((v(twist[0]) - v(twist[1])) + (v(twist[2]) - v(twist[3]))) / 2
+            shoulders = v('arm_L') - v('arm_R')
+            hipline = v('hip_L') - v('hip_R')
+            for bone, a, b, ref in (('Spine', 'spine1', 'spine2', (hipline + shoulders) / 2), ('Spine1', 'spine2', 'chest', shoulders),
+                                    ('Spine2', 'chest', 'neck1', shoulders), ('Neck', 'neck1', 'head', v('eye_L') - v('eye_R')),
+                                    ('Head', 'head', 'head_end', v('eye_L') - v('eye_R'))):
                 self.aim(bone, frame(v(b) - v(a), ref))
                 key(bone, ('rotation_quaternion',))
         if 'arms' in parts:
-            for s in ('_L', '_R'):
-                sh, el, wr, mid = v('arm' + s), v('forearm' + s), v('hand' + s), v('middle' + s)
-                # Clavicle: swing towards the mocap shoulder.
-                pb = bones['clavicle' + s]
-                cur = (pb.tail - pb.head).normalized()
-                want = (sh - v('shoulder' + s)).normalized()
-                self.set_world('clavicle' + s, cur.rotation_difference(want).to_matrix() @ pb.matrix.to_3x3())
-                key('clavicle' + s, ('rotation_quaternion',))
-                n = self.bend(sh, el, wr, s)
-                self.aim('upperarm' + s, frame(el - sh, n))
-                key('upperarm' + s, ('rotation_quaternion',))
-                self.aim('forearm' + s, frame(wr - el, n))
-                key('forearm' + s, ('rotation_quaternion',))
-                pb = bones['hand' + s]
-                cur = (pb.tail - pb.head).normalized()
-                self.set_world('hand' + s, cur.rotation_difference((mid - wr).normalized()).to_matrix() @ pb.matrix.to_3x3())
-                key('hand' + s, ('rotation_quaternion',))
+            for side, s in SIDES:
+                self.swing(side + 'Shoulder', v('arm' + s) - v('shoulder' + s))
+                key(side + 'Shoulder', ('rotation_quaternion',))
+                sh, el, wr = v('arm' + s), v('forearm' + s), v('hand' + s)
+                n = self.bend(sh, el, wr)
+                self.aim(side + 'Arm', frame(el - sh, n))
+                key(side + 'Arm', ('rotation_quaternion',))
+                self.aim(side + 'ForeArm', frame(wr - el, n))
+                key(side + 'ForeArm', ('rotation_quaternion',))
+                right = side == 'Right'
+                knuckle = j(finger_index('Middle', 2, right))
+                palm = j(finger_index('Index', 2, right)) - j(finger_index('Pinky', 2, right))
+                self.aim(side + 'Hand', frame(knuckle - wr, palm))
+                key(side + 'Hand', ('rotation_quaternion',))
+        if 'fingers' in parts:
+            for side, s in SIDES:
+                right = side == 'Right'
+                for name, joints in FINGERS.items():
+                    for seg in range(3):
+                        bone = f'{side}Hand{name}{seg + 1}'
+                        if bone not in self.b:
+                            continue
+                        a, b2 = joints[seg], joints[seg + 1]
+                        self.swing(bone, j(finger_index(name, b2, right)) - j(finger_index(name, a, right)))
+                        key(bone, ('rotation_quaternion',))

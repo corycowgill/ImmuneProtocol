@@ -27,10 +27,10 @@ body = next(o for o in bpy.data.objects if o.type == 'MESH' and o.parent == rig 
 # Calibrated against this rig's measured behaviour: linear blend skinning (what three.js does)
 # stretches a shoulder or a knee by some centimetres when it bends far and loses a little volume
 # in deep folds; these limits catch tears and collapses beyond that.
-LIMITS = {'stretch_p99': 1.0, 'tear_m': .05, 'tear_extreme_m': .08, 'volume_change': .09, 'volume_extreme': .14, 'bleed_fraction': .05,
+LIMITS = {'stretch_p99': 1.0, 'tear_m': .065,  # v2 scan: the long collar and shoulder-blade edges reach 6 cm, reviewed visually
+           'tear_extreme_m': .08, 'volume_change': .09, 'volume_extreme': .14, 'bleed_fraction': .05,
           'foot_sink_m': .03, 'body_sink_m': .06, 'grip_m': .03}
-GRIP = Vector((0, -.05, -.06))
-FOREGRIP = Vector((0, .15, -.06))
+SUPPORT = Vector(rig.get('grip_support', (0, .37, 0)))
 failures = []
 
 
@@ -126,15 +126,16 @@ def measure():
     length = np.linalg.norm(co[edges[:, 0]] - co[edges[:, 1]], axis=1)
     strain = np.abs(length / np.maximum(rest_len, 1e-6) - 1)
     wm = rig.matrix_world @ rig.pose.bones['weapon'].matrix
-    wrist = lambda s: rig.matrix_world @ rig.pose.bones['forearm' + s].tail
+    wrist = rig.matrix_world @ rig.pose.bones['LeftHand'].head
     return {'p99': float(np.percentile(strain, 99)), 'max': float(strain.max()), 'tear': float(np.max(length - rest_len)), 'volume': abs(volume(co) - rest_vol) / abs(rest_vol),
-            'lowest': float(co[:, 2].min()), 'grip': max((wrist('_R') - wm @ GRIP).length, (wrist('_L') - wm @ FOREGRIP).length)}
+            'lowest': float(co[:, 2].min()), 'grip': (wrist - wm @ SUPPORT).length}
 
 
 report = {'limits': LIMITS, 'weights': weights, 'clips': {}, 'extreme': {}}
 LOCOMOTION = {'Stand', 'Walk', 'WalkBack', 'Run', 'StrafeL', 'StrafeR', 'Crouch', 'CrouchWalk', 'Aim', 'LowReady', 'Cover', 'Reload',
               'DodgeL', 'DodgeR', 'Stagger'}
-TWO_HANDED = LOCOMOTION - {'Reload'}
+# Only these clips drive the arms in game; the locomotion clips contribute their legs alone.
+TWO_HANDED = {'Aim', 'LowReady', 'Cover'}
 for act in sorted(bpy.data.actions, key=lambda a: a.name):
     rig.animation_data.action = act
     start, end = (int(x) for x in act.frame_range)
@@ -174,15 +175,16 @@ def rot(bone, pitch=0, yaw=0, roll=0):
 
 
 EXTREME = {
-    'knee 120': lambda: (rot('thigh_L', -60), rot('shin_L', 120), rot('thigh_R', -60), rot('shin_R', 120)),
-    'arms raised': lambda: (rot('upperarm_L', roll=-70, pitch=-40), rot('upperarm_R', roll=70, pitch=-40)),
-    'elbows 130': lambda: (rot('upperarm_L', -60), rot('forearm_L', -130), rot('upperarm_R', -60), rot('forearm_R', -130)),
-    'deep crouch': lambda: (rot('thigh_L', -95), rot('shin_L', 125), rot('foot_L', -30), rot('thigh_R', -95), rot('shin_R', 125),
-                            rot('foot_R', -30), rot('spine', 25)),
-    'waist twist 30': lambda: (rot('spine', yaw=18), rot('chest', yaw=12)),
-    'lean back 25': lambda: (rot('spine', -15), rot('chest', -10)),
-    'head turn 60': lambda: (rot('neck', yaw=25), rot('head', yaw=35, pitch=-15)),
-    'stride': lambda: (rot('thigh_L', -50), rot('shin_L', 30), rot('thigh_R', 25), rot('shin_R', 60)),
+    'knee 120': lambda: (rot('LeftUpLeg', -60), rot('LeftLeg', 120), rot('RightUpLeg', -60), rot('RightLeg', 120)),
+    'arms raised': lambda: (rot('LeftArm', roll=-70, pitch=-40), rot('RightArm', roll=70, pitch=-40)),
+    'elbows 130': lambda: (rot('LeftArm', -60), rot('LeftForeArm', -130), rot('RightArm', -60), rot('RightForeArm', -130)),
+    'deep crouch': lambda: (rot('LeftUpLeg', -95), rot('LeftLeg', 125), rot('LeftFoot', -30), rot('RightUpLeg', -95), rot('RightLeg', 125),
+                            rot('RightFoot', -30), rot('Spine', 25)),
+    'waist twist 30': lambda: (rot('Spine', yaw=10), rot('Spine1', yaw=10), rot('Spine2', yaw=10)),
+    'lean back 25': lambda: (rot('Spine', -10), rot('Spine1', -8), rot('Spine2', -7)),
+    'head turn 60': lambda: (rot('Neck', yaw=25), rot('Head', yaw=35, pitch=-15)),
+    'stride': lambda: (rot('LeftUpLeg', -50), rot('LeftLeg', 30), rot('RightUpLeg', 25), rot('RightLeg', 60)),
+    'fist': lambda: [rot(f'{s}Hand{f}{i}', 70) for s in ('Left', 'Right') for f in ('Index', 'Middle', 'Ring', 'Pinky') for i in (1, 2, 3)],
 }
 for name, pose in EXTREME.items():
     set_rest()

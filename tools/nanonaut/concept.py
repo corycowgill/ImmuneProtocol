@@ -9,14 +9,15 @@ from huggingface_hub import get_token
 
 OUT = pathlib.Path(__file__).parent / 'concept'
 PROMPT = (
-    "full body photoreal 3D character render of a hostile sci-fi hazmat soldier in a sealed biosuit, "
-    "standing in a strict T-pose with arms straight out to the sides, palms down, legs slightly apart, front view, "
-    "symmetric, centered, the whole figure visible from helmet to boots, "
-    "the suit is bright crimson red armored plating with hazard yellow panels, yellow chevron stripes and yellow knee and shoulder guards, "
-    "dark charcoal rubber joints, black tactical gloves and black armored boots, chest rig with ammo pouches, utility belt, "
-    "sealed rounded helmet with a dark tinted visor glowing faint orange, small respirator filters on the jaw, "
-    "worn chipped paint, weathered, hard surface detail, military tactical gear, "
-    "studio lighting, plain light grey seamless background, no weapon, no text, game character concept, unreal engine 5 render"
+    "full body character turnaround sheet, single figure, orthographic front view, game character model reference, "
+    "a hostile special forces soldier in a sealed hazmat biosuit, realistic adult male proportions, eight heads tall, long legs, broad shoulders, "
+    "standing in a relaxed A-pose with both arms held straight down and out at 40 degrees away from the body, open hands with separated fingers, "
+    "feet shoulder width apart, clear gaps between the arms and the torso and between the legs, "
+    "crimson red rubberized suit with hard-surface armor plates on chest, shoulders, forearms, thighs and shins, "
+    "hazard yellow chevron stripes and yellow trims, black tactical chest rig with magazine pouches, black belt and thigh holster, "
+    "fully enclosed rounded helmet with a large dark smoked visor and twin respirator filters, black gloves, black combat boots, "
+    "crisp sharp hard-surface detail, clean silhouette, weathered paint, physically based materials, "
+    "even flat studio lighting, no cast shadows, plain light grey seamless background, no weapon, no text, unreal engine 5 render, 8k"
 )
 
 def main():

@@ -165,7 +165,9 @@ test('its model is a skinned, animated glTF with baked maps, and the guide has i
   assert.ok(json.nodes.some(node => node.name === 'weapon'), 'a weapon bone to hold the carbine');
   const material = json.materials[0];
   assert.ok(material.pbrMetallicRoughness.baseColorTexture && material.pbrMetallicRoughness.metallicRoughnessTexture &&
-    material.normalTexture && material.emissiveTexture, 'albedo, ORM, normal and emission maps');
+    material.normalTexture, 'albedo, ORM and normal maps');
+  assert.ok(json.extensionsUsed.includes('EXT_meshopt_compression'), 'meshopt-compressed');
+  assert.ok(json.skins[0].joints.some(i => json.nodes[i].name === 'LeftHandIndex1'), 'fingers');
   assert.ok(file.length < 5e6, 'under 5 MB');
   assert.ok(readFileSync(new URL('../dist/assets/enemies/portraits/nanonaut.webp', import.meta.url)).length > 1000);
 });

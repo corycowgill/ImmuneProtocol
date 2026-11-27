@@ -7,7 +7,7 @@ A browser FPS about a nano-soldier injected into a patient. Defend two or three 
 ## Features
 
 - **A ten-mission campaign** through the body, each with its own organ hazard, raised ground and a boss to finish it: from the Thrombus Titan in the artery to the Mega Virus in the brain. Each wave is a checkpoint.
-- **Enemy soldiers.** Nanonauts, human operators in red and yellow biosuits fighting for the nanobots, take cover, peek out to fire carbine bursts, strafe, dodge your aim, reload behind scenery and push a wounded suit as a fireteam. Motion-captured with NVIDIA's Kimodo and built from a TRELLIS scan. See [the Nanonaut](docs/nanonaut.md).
+- **Enemy soldiers.** Nanonauts, human operators in red and yellow biosuits fighting for the nanobots, take cover, peek out to fire carbine bursts, strafe, dodge your aim, reload behind scenery and push a wounded suit as a fireteam. Built from a TRELLIS.2 scan on a learned Make-It-Animatable skeleton with fingers, and motion-captured with NVIDIA's Kimodo. See [the Nanonaut](docs/nanonaut.md).
 - **Swarms that think.** Pathogens see, hear, remember and coordinate, and waves mix six encounter patterns you read from the pathogens themselves, not from on-screen labels. Brood nests and antibody caches pull you away from your nodes.
 - **Five weapons and a nano companion to build.** Carry any two of the carbine, sniper rifle, shotgun, rocket launcher and pistol, plus an auto-turret or a medic drone. Fit parts in the Armory's gunsmith bench and dress them, and your tissue sealer, in finishes, skins, decals, stickers and charms.
 - **Suit abilities:** dash with a perfect-dodge window, jump, bash, antibody grenades and stun charges.

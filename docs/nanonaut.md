@@ -23,29 +23,36 @@ One shared AI bug was found and left alone: `EnemyAIController.perceive` compute
 
 It fights in every area. One Spitting Spore becomes a Nanonaut in each wave from the second wave of every organ mission on, and in Arterial Junction waves 2–5, keeping each wave's length and lanes (each authored slot is fielded five times over, so this is a fireteam of five). The Heart Valve's flank patrols bring one, and the Capillary Junction's Breach brings a "Nanonaut fireteam" surge. Mission code `n` in [`organs.mjs`](../dist/organs.mjs). It can fill a Predator Pack's ranged slot.
 
-## The model: TRELLIS, Blender, Kimodo
+## The model: TRELLIS.2, Make-It-Animatable, Kimodo
 
-Everything is generated with Hugging Face models on the logged-in account, then built and checked in Blender. The scripts are in `tools/nanonaut/`.
+Everything is generated with Hugging Face models on the logged-in account (ZeroGPU Spaces through `gradio_client`), then built and checked in Blender 5. The scripts are in `tools/nanonaut/`. This is the second build: the first one skinned a 17k-triangle TRELLIS scan with heat weights on a hand-placed 22-bone skeleton, and it stretched and tore in motion.
 
-1. **Concept** (`concept.py`): FLUX.1 Krea on its ZeroGPU Space, a hostile red and yellow hazmat soldier in an A-pose (arms clear of the body, so the mesh can be rigged).
-2. **Mesh** (`generate.py`): TRELLIS image-to-3D on its ZeroGPU Space, 16.8k triangles with a 2K texture. The source is `tools/nanonaut/originals/nanonaut-7.glb`.
-3. **Clean mesh and maps** (`build_nanonaut.py`): TRELLIS meshes are triangle soup with no joint topology, and the first build, skinned directly, tore and stretched. The build voxel-remeshes the scan into a watertight mesh, decimates it to 26k triangles and unwraps it afresh, then bakes the scan's colour onto it and a normal map from the scan's surface plus fabric folds and paint-chip relief. Roughness/metallic come from material classes (red and yellow paint, black rubber, bare metal, the visor), occlusion from Cycles, and the visor glows through an emission map.
-4. **Skeleton and weights**: 22 deform bones placed at the scan's measured joints, then re-centred in each limb's cross-section. Heat-diffusion weights are faded softly to each bone's own region, so a leg cannot reach a waist pouch, and gear is bound rigidly to one bone (helmet to head, pack to chest, gloves to hands, boots to feet). Then smoothing, four influences, normalized, nothing under 0.01. The IK pole angles are calibrated numerically so solved limbs match the rest pose without twist.
-5. **Motion** (`motion.py`, `retarget.py`): locomotion, dodges, the stagger and both deaths are motion capture from NVIDIA's Kimodo (`nvidia/Kimodo-SOMA-RP-v1.2`, trained on 700 hours of optical mocap) on the `hugging-apps/kimodo-motion` ZeroGPU Space. Directional takes are chosen from six seeds by how closely they travel the intended way without turning. Retargeting works from joint positions: each bone is turned so a frame built from mocap landmarks (bone direction plus a twist reference: hip, shoulder or eye line) matches the same frame built from the rig at rest, so the two skeletons' different rest poses cancel exactly. Legs use IK to the mocap ankles, scaled to the rig's leg length and raised to its ankle height. Loops are cut at the best-matching gait cycle, and locomotion is in place. The aiming, low-ready, cover and reload poses are keyframed with IK hands on the carbine. Everything is baked to plain bone rotations, and deaths are settled onto the floor.
-6. **Export**: one skinned GLB (`dist/assets/enemies/nanonaut.glb`, 3.3 MB) with 17 clips and a `weapon` bone (its +Y down the barrel, +Z up), plus the Cycles guide portrait.
+1. **Concept** (`concept.py`): FLUX.1 Krea, a hostile red and yellow hazmat soldier with realistic proportions in an A-pose, with hard-surface gear (seed 2101).
+2. **Mesh** (`generate.py`): Microsoft TRELLIS.2 at 1536³ resolution, 293k triangles with 4K PBR maps (`originals/nanonaut-trellis2-11.glb`): real fingers, a gas mask and crisp pouches.
+3. **Clean mesh** (`prepare_mesh.py`): TRELLIS.2 surfaces are thin double-sided shells, with an outer skin and an inward-facing copy a millimetre below it, which broke every bake. The script keeps only faces a ray can see from outside, turns any that face inward, and welds the result. It then decimates to 60k triangles, keeping the hands and helmet denser, unwraps afresh, and bakes albedo, metal/roughness and a tangent normal map from the full-resolution scan onto 2K maps. `rig_input.glb` is the same mesh for the auto-rigger.
+4. **Skeleton** (`autorig.py`): Make-It-Animatable (CVPR 2025, `jasongzy/Make-It-Animatable`) predicts a Mixamo-standard 52-bone skeleton with full fingers and learned blend weights for the mesh.
+5. **Assembly and weights** (`build_nanonaut.py`):
+   - The rig is fitted back onto the game mesh by a least-squares rotation, scale and offset (Kabsch). The auto-rigger tilts the mesh about 5°, and the fit is exact. Weights are then copied vertex for vertex.
+   - Separate gear pieces (plates, pouches, holster, mask, boots: 331 of 509 pieces) are bound wholly to their dominant bone, so they move as solid objects.
+   - The learned weights split hard between the thighs at the crotch and between arm and chest at the armpit, so the build blends the pelvis into the crotch, relaxes the weights over the trunk, armpits and shoulder blades, and keeps limb influence out of the centre of the torso.
+   - Finally: four influences, normalized, nothing under 0.01.
+6. **Motion** (`motion.py`, `retarget.py`):
+   - Every clip is motion capture from NVIDIA's Kimodo (`hugging-apps/kimodo-motion`): locomotion, rifle aiming, low-ready, cover, reloading, dodges, the stagger and both deaths. Each take is chosen from several seeds by direction, and right-handedness for the rifle clips (left-handed takes of non-directional clips are mirrored).
+   - Retargeting works from joint positions: each bone, fingers included, is turned so a frame built from mocap landmarks matches the same frame built from the rig at rest, so the two rest poses cancel exactly. Every pose is a pure rotation, so no bone scale can creep in.
+   - Legs use IK to the mocap ankles. The support hand is held on the handguard by IK (position and orientation), and both hands close round the carbine.
+   - Loops are cut at the best-matching gait cycle and played in place. Deaths are settled onto the floor.
+7. **Export**: one skinned, meshopt-compressed GLB (`dist/assets/enemies/nanonaut.glb`, 3.2 MB, 54 joints) with 17 clips and a `weapon` bone (its origin in the right palm, +Y down the barrel, +Z up). `portrait.py` renders the Cycles guide portrait.
 
-`blender -b -P tools/nanonaut/build_nanonaut.py -- [--skip-bake] [--preview] [--portrait]` rebuilds it, and `python tools/nanonaut/motion.py [clip ...]` regenerates motion. `tools/nanonaut/viewer.html` is a small GLB viewer with every clip, and `gallery.py` writes a review page of the preview renders.
+The order is `prepare_mesh.py`, `autorig.py` and `build_nanonaut.py` (`blender -b -P …`; set `GLTFPACK` to the gltfpack binary or the npm package's `cli.js`, and `CLIPS=Aim,Walk` to build a subset), then `portrait.py` on `work/nanonaut.blend`. `python tools/nanonaut/motion.py [clip ...]` regenerates motion. `tools/nanonaut/viewer.html` is a small GLB viewer with every clip, and `closeup.py` renders four views of any clip frame.
 
 ### Automated QA
 
 `blender -b tools/nanonaut/work/nanonaut.blend -P tools/nanonaut/qa.py -- --render` checks the rig and exits non-zero on failure. It currently passes:
 
-- **Weights:** 12,998 vertices, none over four bones, unnormalized, under 0.01 or unweighted. 443 (3.4%) blend bones that are not skeleton neighbours, mostly spine with upper arm at the armpit, under the 5% limit.
-- **Tears:** the worst tear (how much longer any edge gets than at rest) is 2–5 cm in play clips and at most 5.9 cm in the extreme test poses: knee at 120°, arms raised, elbows at 130°, deep crouch, waist twist, lean back, head turn, stride.
-- **Volume change:** 1–7% in play clips, up to 12% in the deepest folds (deaths, dives, kneeling).
-- **Ground and grip:** boots stay within 3 cm of the floor, and hands stay on the carbine in every two-handed clip.
-
-The limits were calibrated against the measured rig for linear blend skinning, which is what three.js uses.
+- **Weights:** 36,087 vertices, none over four bones, unnormalized, under 0.01 or unweighted.
+- **Tears** (how much longer any edge gets than at rest): 3–6 cm in play clips. The worst are long fabric edges at the collar and shoulder blades, reviewed in renders. Extreme test poses (knee 120°, arms raised, elbows 130°, deep crouch, waist twist, lean back, head turn, stride, closed fists) reach at most 5.5 cm.
+- **Volume change:** 1–6% in play clips.
+- **Ground and grip:** boots stay within 3 cm of the floor. The support hand stays within 3 cm of the handguard in the clips that drive the arms in game (aim, low-ready, cover); the locomotion clips contribute only their legs.
 
 ## In the game
 
@@ -66,8 +73,8 @@ Each frame the spine and chest are turned so the barrel points exactly where the
 - backs off a close suit;
 - the humanoid hitbox (head critical, over-the-helmet miss, crouched shorter);
 - co-op-safe state;
-- the GLB contract (skin, 17 clips, weapon bone, PBR and emission maps, portrait).
+- the GLB contract (skin with fingers, 17 clips, weapon bone, PBR maps, meshopt compression, portrait).
 
 The species contract in `enemies.test.mjs` has a humanoid branch. All 350 other tests still pass; the one failure, serving translation files on this Windows checkout, fails the same way before the change.
 
-`/__nanonaut` on the verification server (`npm run verify:loading`) runs a three-soldier fireteam in a real arena with the real renderer, with buttons to aim at, shoot and kill the followed soldier. There it opened fire on the suit, strafed, dropped to a knee, dodged, reloaded crouched, and died falling backward onto the vessel floor, with no console errors.
+`/__nanonaut` on the verification server (`npm run verify:loading`) runs a three-soldier fireteam in a real arena with the real renderer, with buttons to aim at, shoot and kill the followed soldier (`?r=2.4` brings the camera close). There it opened fire on the suit, strafed, dropped to a knee, dodged, reloaded crouched, and died falling backward onto the vessel floor, with no console errors.
