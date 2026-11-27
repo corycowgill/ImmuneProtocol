@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import { publishUiFrame, uiViewport } from './ui-media.mjs';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
-import { ENEMY_MODELS, animatePathogen, loadEnemyModel, pathogenMotion } from './enemy-models.mjs';
+import { ENEMY_MODELS, animatePathogen, cloneEnemyModel, loadEnemyModel, pathogenMotion } from './enemy-models.mjs';
 import { SPECIES, speciesHabitats } from './simulation.mjs';
 import { MicroscopeBackdrop } from './microscope-view.mjs';
 
@@ -9,6 +9,16 @@ import { MicroscopeBackdrop } from './microscope-view.mjs';
 // turn), its field description, live stats from the simulation, where it attacks,
 // and some facts. Portraits are Cycles renders from tools/enemies/process.py.
 export const PATHOGENS = [
+  {
+    type: 'nanonaut', name: 'Nanonaut', family: 'Human operator in a hijacked biosuit', inspiration: 'Special-forces hazmat teams (fictional)',
+    description: 'A human operator sealed in a red and yellow biosuit, shrunk and injected alongside the nanobots and fighting for them. It carries a carbine, works in fireteams and fights like a soldier: from cover, in short bursts, on the move.',
+    tactics: 'It takes cover and peeks out to fire, so keep it pinned with fire and flank its cover. It dodges when you line up a shot, strafes in the open and reloads behind cover. Aim for the helmet: a headshot is critical. It never attacks tissue.',
+    facts: [
+      'Its suit is rated for the inside of a patient. Its loyalty, apparently, is not.',
+      'It is the only enemy in the body that knows what cover is, and it will use yours.',
+      'The chevrons are a hazard warning. The operator inside is the hazard.',
+    ],
+  },
   {
     type: 'rogue-bot', name: 'Rogue Bot', family: 'Compromised medical nanodrone', inspiration: 'Surgical robotics (fictional)',
     description: 'An NMD-07 medical drone hijacked inside the host. Sterile ceramic armor, surgical manipulators and magnetic stabilizers now carry a mini laser cannon aimed exclusively at the human response team.',
@@ -276,7 +286,7 @@ class PathogenViewer {
     this.model = null;
     this.motion = null;
     if (!template) return;
-    this.model = template.clone();
+    this.model = cloneEnemyModel(template);
     // Show every model at the same apparent size, whatever its in-game scale.
     this.model.scale.setScalar(1 / ENEMY_MODELS[type].size);
     this.turntable.add(this.model);
@@ -293,6 +303,7 @@ class PathogenViewer {
   // Coils the model, then flares it, like an attack windup and strike.
   provoke() {
     this.provoked = 0;
+    this.motion?.provoke?.();
   }
 
   start() {

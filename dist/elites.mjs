@@ -18,7 +18,8 @@ export const ELITES = Object.freeze({
   splitting: Object.freeze({ health: 1.35, score: 1.7, splits: true, color: 0xff5ce1 }),
 });
 export const ELITE_KINDS = Object.freeze(Object.keys(ELITES));
-const MACHINES = new Set(['rogue-bot', 'crawler']);
+// Drones and the Nanonaut can only come armoured (a splitting or regenerating soldier would make no sense).
+const MACHINES = new Set(['rogue-bot', 'crawler', 'nanonaut']);
 const NEVER = new Set(['colony']);
 
 // Deterministic 0..1 from integers.

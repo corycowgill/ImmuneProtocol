@@ -1,0 +1,73 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Nanonaut combat check</title>
+<style>body{margin:20px;background:#131918;color:#dff2d9;font:14px/1.5 monospace}canvas{width:1280px;height:720px;max-width:100%}button,label,select{margin:5px;padding:8px}pre{white-space:pre-wrap}</style>
+<h1>Nanonaut — fireteam combat check</h1><p id="status">Loading the arena and the skinned model…</p>
+<button id="reset">Reset encounter</button><button id="aim">Suit aims at followed soldier</button><button id="shoot">Shoot followed soldier</button>
+<button id="kill">Kill followed soldier</button><button id="next">Follow next</button><button id="pause">Pause</button>
+<label><input id="chase" type="checkbox" checked>Follow camera</label>
+<select id="arena"><option>artery</option><option>lungs</option><option>stomach</option><option>brain</option></select>
+<pre id="report"></pre><canvas id="world"></canvas>
+<script type="module">
+import { World } from './world.mjs';
+import { Simulation } from './simulation.mjs';
+const status = document.querySelector('#status'), report = document.querySelector('#report');
+const chase = document.querySelector('#chase'), arena = document.querySelector('#arena');
+try {
+  const world = new World(document.querySelector('#world')); world.setQuality('high');
+  await world.prepareAll(['artery']);
+  let sim, team = [], follow = 0, paused = false, last = 0, rounds = 0, hits = 0, orbit = 0, corpseView = null;
+  const pending = []; // button actions, run inside the frame so their events reach the renderer
+  async function reset() {
+    sim?.ai.dispose();
+    const area = arena.value;
+    if (area !== 'artery') await world.prepareAll([area]);
+    sim = new Simulation(area, { ai: { seed: 31 }, encounterSeed: 31 }); sim.start();
+    Object.assign(sim.player, { x: 0, z: 30, yaw: Math.PI, y: 1.7, health: 100 });
+    team = [[-6, 6], [0, 2], [6, 6]].map(([x, z]) => { const e = sim.createEnemy('nanonaut', x, z); e.heading = e.soldier.aimYaw = 0; return e; });
+    sim.enemies = [...team]; rounds = hits = 0; follow = 1;
+    world.setArea?.(area);
+  }
+  await reset();
+  document.querySelector('#reset').onclick = reset;
+  arena.onchange = reset;
+  document.querySelector('#next').onclick = () => { follow = (follow + 1) % team.length; };
+  document.querySelector('#pause').onclick = () => { paused = !paused; };
+  const followed = () => team.filter(e => sim.enemies.includes(e))[follow % Math.max(1, team.filter(e => sim.enemies.includes(e)).length)];
+  document.querySelector('#aim').onclick = () => { const e = followed(); if (e) sim.player.yaw = Math.atan2(-(e.x - sim.player.x), -(e.z - sim.player.z)); };
+  const shoot = damage => pending.push(() => { const e = followed(); if (e) sim.hitEnemy(e, damage, false, { x: e.x, y: e.y, z: e.z }, 'player', sim); });
+  document.querySelector('#shoot').onclick = () => shoot(30);
+  document.querySelector('#kill').onclick = () => shoot(999);
+  function frame(at) {
+    requestAnimationFrame(frame); const dt = Math.min(.05, (at - (last || at)) / 1000); last = at;
+    sim.events = [];
+    for (const action of pending.splice(0)) action();
+    if (!paused) {
+      sim.clock += dt; sim.advanceEnemies(dt);
+      if (sim.player.health < 20) sim.player.health = 100;
+      for (const event of sim.events) {
+        if (event.type === 'enemyAttack' && event.behavior === 'rifle' && event.stage === 'release') rounds++;
+        if (event.type === 'damage' && event.target === 'player') hits++;
+      }
+    }
+    world.render(sim, paused ? 0 : dt, { moveX: 0, moveZ: 0, lookX: 0, lookY: 0 }, false);
+    const e = followed();
+    // After a kill, watch the body fall for a few seconds.
+    const corpse = world.deaths.corpses.find(c => c.view.rig);
+    if (chase.checked && corpse && corpse.t < 5) {
+      const p = corpse.view.model.position;
+      world.camera.position.set(p.x + 3.4, p.y + 1.7, p.z + 2.6); world.camera.lookAt(p.x, p.y + .5, p.z);
+      world.renderer.clear(); world.renderer.render(world.scene, world.camera);
+    } else if (chase.checked && e) {
+      orbit += dt * .25;
+      const r = 5.5;
+      world.camera.position.set(e.x + Math.sin(orbit) * r, (e.feet ?? 0) + 2.2, e.z + Math.cos(orbit) * r);
+      world.camera.lookAt(e.x, (e.feet ?? 0) + 1.1, e.z);
+      world.renderer.clear(); world.renderer.render(world.scene, world.camera);
+    }
+    status.textContent = paused ? 'PAUSED' : 'RUNNING: real simulation, tactical AI and renderer';
+    report.textContent = team.map((t, i) => `${i === follow ? '>' : ' '} #${t.id} ${sim.enemies.includes(t) ? t.soldier.state.padEnd(9) + ' ' + t.soldier.stance.padEnd(6) + ' mag ' + String(t.soldier.mag).padStart(2) + ' hp ' + t.health.toFixed(0) : 'dead'}`).join('\n') +
+      `\nSuit: ${sim.player.health.toFixed(1)} · rounds fired ${rounds} · hits ${hits} · tissue ${sim.nodes.map(n => n.health.toFixed(0)).join(' / ')}`;
+  }
+  requestAnimationFrame(frame);
+  window.__nanonaut = { get sim() { return sim; }, get team() { return team; }, world };
+} catch (error) { status.textContent = 'FAIL: ' + error.message; console.error(error); }
+</script></html>

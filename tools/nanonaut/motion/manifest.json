@@ -1,0 +1,113 @@
+{
+ "Stand": {
+  "prompt": "A soldier stands still in a ready combat stance holding a rifle at the shoulder, feet apart, knees slightly bent, shifting weight slightly.",
+  "seconds": 4,
+  "seed": 11,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 3.7 s, total 3.8 s."
+ },
+ "Walk": {
+  "prompt": "A soldier walks forward at a steady tactical pace, aiming a rifle forward down the sights.",
+  "seconds": 4,
+  "seed": 7,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 209,
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.2 s, total 2.3 s."
+ },
+ "WalkBack": {
+  "prompt": "A soldier walks backward slowly and steadily, aiming a rifle forward.",
+  "seconds": 4,
+  "seed": 5,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 308,
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.2 s, total 2.3 s."
+ },
+ "StrafeL": {
+  "prompt": "A soldier walks sideways to his left, stepping sideways without turning, chest and rifle facing straight ahead the whole time.",
+  "seconds": 4,
+  "seed": 3,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 205,
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.2 s, total 2.4 s."
+ },
+ "StrafeR": {
+  "prompt": "A soldier walks sideways to his right, stepping sideways without turning, chest and rifle facing straight ahead the whole time.",
+  "seconds": 4,
+  "seed": 3,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 407,
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.2 s, total 2.3 s."
+ },
+ "Run": {
+  "prompt": "A soldier runs forward fast holding a rifle across his chest.",
+  "seconds": 4,
+  "seed": 9,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 110,
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.2 s, total 2.3 s."
+ },
+ "Crouch": {
+  "prompt": "A soldier kneels down on his right knee and stays kneeling, aiming a rifle forward.",
+  "seconds": 4,
+  "seed": 4,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.2 s, total 2.3 s."
+ },
+ "CrouchWalk": {
+  "prompt": "A soldier moves forward slowly in a low crouch, knees deeply bent, holding a rifle.",
+  "seconds": 4,
+  "seed": 6,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "info": "Generated 120 frames (4.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 2.2 s, total 2.3 s."
+ },
+ "DodgeL": {
+  "prompt": "A soldier quickly dives sideways to his left, lands and comes up crouched.",
+  "seconds": 2,
+  "seed": 8,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 311,
+  "info": "Generated 60 frames (2.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 1.7 s, total 1.8 s."
+ },
+ "DodgeR": {
+  "prompt": "A soldier quickly dives and rolls to his right, then comes up crouched.",
+  "seconds": 2,
+  "seed": 8,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 513,
+  "info": "Generated 60 frames (2.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 1.7 s, total 1.7 s."
+ },
+ "Stagger": {
+  "prompt": "A soldier is hit hard in the chest, flinches and staggers one step backward, then recovers.",
+  "seconds": 2,
+  "seed": 2,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "info": "Generated 60 frames (2.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 1.7 s, total 1.8 s."
+ },
+ "DeathBack": {
+  "prompt": "A soldier is shot, his knees buckle and he collapses backward onto the ground and lies still.",
+  "seconds": 3,
+  "seed": 12,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "info": "Generated 90 frames (3.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 3.2 s, total 3.3 s."
+ },
+ "DeathFront": {
+  "prompt": "A soldier is shot in the back, stumbles forward and falls face down onto the ground and lies still.",
+  "seconds": 3,
+  "seed": 12,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "info": "Generated 90 frames (3.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 1.8 s, total 1.9 s."
+ }
+}

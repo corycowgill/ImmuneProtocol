@@ -4,7 +4,8 @@
 import * as THREE from './vendor/three.module.js';
 import { createGuardCarapace } from './organ-world.mjs';
 import { OBJECTIVE } from './simulation.mjs';
-import { addPathogenRim, animatePathogen, pathogenMotion, reapplyMachineGrime } from './enemy-models.mjs';
+import { addPathogenRim, animatePathogen, cloneEnemyModel, pathogenMotion, reapplyMachineGrime } from './enemy-models.mjs';
+import { createNanonautRig, updateNanonautView } from './nanonaut-view.mjs';
 import { BOSS_FLOATS } from './level-bosses.mjs';
 import { ELITES } from './elites.mjs';
 import { dressNanobot, hideNanobot, releaseNanobot } from './nanobot-view.mjs';
@@ -173,8 +174,19 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
         view.knock?.set(0, 0, 0);
         view.phase = world.random() * TAU;
         view.motion?.mixer?.setTime(0);
+        if (view.rig) Object.assign(view.rig, { lastPosition: null, facing: null, full: null, recoil: 0, flashTime: 0, vx: 0, vz: 0 });
         world.enemyViews.set(enemy.id, view);
       }
+    }
+    if (!view && world.enemyTemplate(enemy.type).userData.humanoid) {
+      // A Nanonaut: its own skeleton, carbine and animation layers (nanonaut-view.mjs).
+      const model = cloneEnemyModel(world.enemyTemplate(enemy.type));
+      world.scene.add(model);
+      const shadow = new THREE.Mesh(world.shadowGeometry, world.shadowMaterial.clone());
+      shadow.rotation.x = -Math.PI / 2;
+      world.scene.add(shadow);
+      view = { model, shadow, type: enemy.type, present: true, hit: 0, strike: 0, phase: world.random() * TAU, rig: createNanonautRig(model), clench: 0, sacs: [] };
+      world.enemyViews.set(enemy.id, view);
     }
     if (!view) {
       const model = world.enemyTemplate(enemy.type).clone();
@@ -214,6 +226,12 @@ export function updateEnemies(world, enemies, dt, reduceMotion = false) {
       view.model.position.z += (world.random() - .5) * .07;
     }
     if (enemy.type === 'rogue-bot' || enemy.type === 'crawler') { updateBotView(world, enemy, view, dt, reduceMotion); dressElite(world, enemy, view, reduceMotion); continue; }
+    if (view.rig) {
+      updateNanonautView(world, enemy, view, frameDt, reduceMotion, baseFloorHeight(enemy.x, enemy.z));
+      dressElite(world, enemy, view, reduceMotion);
+      placeShadow(world, enemy, view, 1.05, .06);
+      continue;
+    }
     if (enemy.type === 'colony') {
       // Rooted on the floor of its valve sleeve: the scan's roots (its lowest point, COLONY_ROOT below
       // the model's centre) sit just into the ground, and it rears up as it readies a spit.

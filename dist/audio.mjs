@@ -15,13 +15,16 @@ const ENEMY_CUES = {
   bacillus: { windup: ['field/bacillus-windup', .43] },
   // Heart colonies gurgle and spit like spores, deeper, out of their valve sleeves.
   colony: { release: ['field/spore-spit', .34] },
+  // The Nanonaut's carbine: the suits' own rifle samples, pitched down a little (it is the enemy's,
+  // and further off). Each round picks the next of the four takes, so a burst is not one sound.
+  rifle: { release: ['weapon/shot-1', .24], reload: ['field/rifle-reload', .42], dodge: ['suit/dash', .3] },
 };
 // Which death each pathogen dies (see death-fx.mjs), by species.
 const DEATH_VOICES = {
   virus: ['death/pop', .5, 1], phage: ['death/pop', .46, 1.18], splitter: ['death/pop', .48, .9], rogue: ['death/squelch', .54, .86],
   blister: ['death/splat', .55, 1], flagellate: ['death/whip', .48, 1], spore: ['death/puff', .5, 1],
   bacillus: ['death/squelch', .5, 1], filovirus: ['death/squelch', .48, 1.12], amoeba: ['death/squelch', .52, .8],
-  guard: ['death/crack', .55, 1], 'rogue-bot': ['death/bot', .6, 1], crawler: ['death/bot', .55, 1.22], colony: ['death/nest', .66, .85], nest: ['death/nest', .62, 1],
+  guard: ['death/crack', .55, 1], 'rogue-bot': ['death/bot', .6, 1], nanonaut: ['death/suit', .62, 1], crawler: ['death/bot', .55, 1.22], colony: ['death/nest', .66, .85], nest: ['death/nest', .62, 1],
   segment: ['death/splat', .55, .7],
 };
 const ORGAN_CUES = {
@@ -166,6 +169,21 @@ const SYNTHESIZED = {
     const gurgle = noise(520) * (.5 + .5 * Math.sin(2 * Math.PI * (11 + 16 * t) * t)) * Math.min(1, t / .08) * Math.exp(-t * 2.6);
     const groan = Math.sin(2 * Math.PI * (150 * t - 38 * t * t)) * Math.exp(-t * 3.2) * .35;
     return (tear + gurgle * .9 + groan) * Math.min(1, t / .003) * .55;
+  }],
+  // A suit operator going down: a grunt through the respirator, the suit breaching with a hiss, the
+  // body and its kit hitting the floor.
+  'death/suit': [1.3, (t, noise) => {
+    const grunt = t < .32 ? (Math.sin(2 * Math.PI * (118 - 40 * t) * t) * .5 + Math.sin(2 * Math.PI * (236 - 80 * t) * t) * .25 +
+      noise(900) * .25) * Math.min(1, t / .02) * Math.exp(-t * 7) * (.6 + .4 * Math.sin(2 * Math.PI * 23 * t)) : 0;
+    const hiss = t > .05 ? noise(5200) * .42 * Math.exp(-(t - .05) * 2.4) * Math.min(1, (t - .05) / .04) : 0;
+    const fall = (at, gain) => t < at ? 0 : (Math.sin(2 * Math.PI * 62 * (t - at)) * .9 + noise(500) * .5) * gain * Math.exp(-(t - at) * 20);
+    const rattle = t > .66 ? noise(3800) * .3 * Math.exp(-(t - .66) * 14) * (Math.sin(2 * Math.PI * 41 * t) > 0 ? 1 : .3) : 0;
+    return (grunt + hiss + fall(.62, 1) + fall(.74, .55) + rattle) * .62;
+  }],
+  // A carbine magazine change: the old one drops, the new one seats, the bolt is racked.
+  'field/rifle-reload': [1.9, (t, noise) => {
+    const click = (at, pitch, gain) => t < at ? 0 : (noise(pitch) * .7 + Math.sin(2 * Math.PI * pitch * .3 * (t - at)) * .3) * gain * Math.exp(-(t - at) * 60);
+    return click(.05, 4200, .7) + click(.42, 2600, .5) + click(.95, 3400, .9) + click(1.02, 5200, .6) + click(1.5, 3000, .8) + click(1.6, 4600, .9);
   }],
   'death/crack': [1, (t, noise) => {
     const crack = (at, gain) => t < at ? 0 : noise(6500) * gain * Math.exp(-(t - at) * 48);
@@ -708,9 +726,10 @@ export class GameAudio {
         const family = event.behavior ?? event.enemyType;
         const cue = ENEMY_CUES[family]?.[event.stage];
         if (!cue) break;
-        const [name, volume] = cue;
+        let [name, volume] = cue;
+        if (family === 'rifle' && event.stage === 'release') name = 'weapon/shot-' + (1 + (this.rifleShot = ((this.rifleShot ?? 0) + 1) % 4));
         // The Crawler's short lock charges in about half the Rogue Bot's time, at a higher pitch.
-        const rate = event.enemyType === 'crawler' ? (event.stage === 'windup' ? 1.85 : 1.3) : 1;
+        const rate = event.enemyType === 'crawler' ? (event.stage === 'windup' ? 1.85 : 1.3) : family === 'rifle' && event.stage === 'release' ? .84 + Math.random() * .08 : 1;
         const now = this.context.currentTime;
         if (now - (this.enemyCueAt.get(name) ?? -Infinity) < .14) break;
         const distance = event.distance ?? 0;

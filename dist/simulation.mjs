@@ -6,6 +6,7 @@ import { clearSegment } from './ai-navigation.mjs';
 import { bossDamageThreat, telegraph } from './boss-tactics.mjs';
 import { planEncounters, stepEncounters, ENCOUNTER_RULES } from './encounters.mjs';
 import { CRAWLER_SPEC, ROGUE_BOT_SPEC, startBotLaser, stepRogueBot } from './rogue-bot.mjs';
+import { NANONAUT_SPEC, createSoldier, humanoidHit, stepNanonaut } from './nanonaut.mjs';
 import { GRIP_SPEC, advanceCling, grippedBy, releaseCling, startCling } from './grip-phage.mjs';
 import { maybeElite } from './elites.mjs';
 import { advanceNest, planFieldObjectives, stepFieldObjectives } from './field-objectives.mjs';
@@ -91,7 +92,8 @@ export const RULES = Object.freeze({
 });
 
 // Biological species lunge, latch or spit. The hacked medical drone has its own
-// player-only laser state machine. Variants retain their own authored statistics.
+// player-only laser state machine, and the Nanonaut (a human soldier, nanonaut.mjs) its own
+// carbine and cover tactics. Variants retain their own authored statistics.
 export const SPECIES = {
   virus: { radius: 0.92, y: 1.63, health: 60, speed: 2.28, suitDamage: 11, tissueDamage: 6, score: 100 },
   bacillus: { radius: 1.12, y: 1.13, health: 115, speed: 1.47, tissueDamage: 10, period: 1.75, score: 180 },
@@ -108,6 +110,7 @@ export const SPECIES = {
   rogue: { behavior: 'bacillus', radius: 1.2, y: 1.3, health: 128, speed: 1.5, tissueDamage: 11, period: 1.8, score: 225 },
   'rogue-bot': ROGUE_BOT_SPEC,
   crawler: CRAWLER_SPEC,
+  nanonaut: NANONAUT_SPEC,
   // Clings to a suit's visor and drains it until bashed off (grip-phage.mjs).
   latcher: GRIP_SPEC,
 };
@@ -131,10 +134,10 @@ export function thinGrips(species) {
 
 const MISSIONS = [
   { cadence: 1.55, species: ['virus', 'virus', 'virus', 'spore', 'virus', 'virus', 'spore', 'virus', 'virus'] },
-  { cadence: 1.30, species: ['virus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'bacillus', 'virus', 'virus', 'spore', 'virus', 'bacillus', 'spore'] },
-  { cadence: 1.05, species: ['spore', 'virus', 'bacillus', 'latcher', 'rogue-bot', 'spore', 'bacillus', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'virus', 'bacillus'] },
-  { cadence: 0.90, species: ['virus', 'bacillus', 'spore', 'spore', 'bacillus', 'crawler', 'phage', 'bacillus', 'spore', 'filovirus', 'spore', 'latcher', 'bacillus', 'spore', 'virus', 'phage', 'spore', 'bacillus', 'virus'] },
-  { cadence: 0.76, species: ['bacillus', 'spore', 'virus', 'filovirus', 'spore', 'phage', 'bacillus', 'rogue-bot', 'bacillus', 'latcher', 'spore', 'filovirus', 'spore', 'bacillus', 'phage', 'spore', 'crawler', 'bacillus', 'virus', 'blister', 'bacillus', 'virus'] },
+  { cadence: 1.30, species: ['virus', 'spore', 'virus', 'bacillus', 'virus', 'nanonaut', 'bacillus', 'virus', 'virus', 'spore', 'virus', 'bacillus', 'spore'] },
+  { cadence: 1.05, species: ['spore', 'virus', 'bacillus', 'latcher', 'rogue-bot', 'nanonaut', 'bacillus', 'virus', 'bacillus', 'spore', 'virus', 'bacillus', 'virus', 'spore', 'virus', 'bacillus'] },
+  { cadence: 0.90, species: ['virus', 'bacillus', 'nanonaut', 'spore', 'bacillus', 'crawler', 'phage', 'bacillus', 'spore', 'filovirus', 'spore', 'latcher', 'bacillus', 'spore', 'virus', 'phage', 'spore', 'bacillus', 'virus'] },
+  { cadence: 0.76, species: ['bacillus', 'spore', 'virus', 'filovirus', 'nanonaut', 'phage', 'bacillus', 'rogue-bot', 'bacillus', 'latcher', 'spore', 'filovirus', 'spore', 'bacillus', 'phage', 'spore', 'crawler', 'bacillus', 'virus', 'blister', 'bacillus', 'virus'] },
 ];
 
 for (const mission of MISSIONS) mission.species = thinGrips(extendRoster(mission.species));
@@ -168,7 +171,7 @@ const JUNCTION_MISSIONS = [
   junctionMission('Breach', [
     [1.2, 'left', 'Virus rush', ['virus', 'virus', 'virus']],
     [7.2, 'right', 'Bacillus breach', ['bacillus', 'spore']],
-    [11.8, 'left', 'Spore volley', ['spore', 'spore']],
+    [11.8, 'left', 'Nanonaut fireteam', ['nanonaut', 'spore']],
   ]),
 ];
 
@@ -180,8 +183,8 @@ const JUNCTION_OVERTIME = junctionMission('Overtime', [
 
 // The Heart Valve's one wave is its colonies, three behind each of the four valves.
 const HEART_MISSIONS = [{ species: HEART_VALVES.flatMap(valve => valve.colonies.map(() => 'colony')) }];
-// Flank patrols, nano drones among them, come in from the four quarters between the valves.
-const HEART_PATROL = extendRoster(['virus', 'spore', 'bacillus', 'crawler', 'virus', 'rogue-bot', 'spore', 'bacillus', 'crawler', 'virus', 'spore', 'rogue-bot']);
+// Flank patrols, nano drones and a Nanonaut fireteam among them, come in from the four quarters between the valves.
+const HEART_PATROL = extendRoster(['virus', 'spore', 'bacillus', 'crawler', 'virus', 'rogue-bot', 'nanonaut', 'bacillus', 'crawler', 'virus', 'spore', 'rogue-bot']);
 // Seconds between patrol arrivals.
 const HEART_PATROL_PACE = 3;
 // Colony spit: fast, straight, and aimed to fit through the open aperture.
@@ -1694,6 +1697,12 @@ export class Simulation {
     let part = null, partDistance = range, partCritical = false;
     for (const enemy of this.enemies) {
       if ((enemy.tutorial && this.tutorial === 'observe') || enemy.hidden) continue;
+      // A human is a body and a head, not a sphere: a head hit is critical.
+      if (enemy.humanoid) {
+        const hit = humanoidHit(enemy, player, ray, distance);
+        if (hit && hit.entry < distance) { distance = hit.entry; target = enemy; critical = hit.head; }
+        continue;
+      }
       const x = enemy.x - player.x;
       const y = enemy.y - player.y;
       const z = enemy.z - player.z;
@@ -1965,7 +1974,7 @@ export class Simulation {
   }
 
   createEnemy(type, x, z, node = this.objective, spec = SPECIES[type]) {
-    return {
+    const enemy = {
       id: this.nextEnemyId++,
       type, behavior: spec.behavior ?? type, x, y: spec.y, z, node, nodeId: node.id,
       radius: spec.radius,
@@ -1981,6 +1990,8 @@ export class Simulation {
       actionTarget: null,
       slowRemaining: 0,
     };
+    if (spec.humanoid) { enemy.humanoid = true; createSoldier(enemy); }
+    return enemy;
   }
 
   setEnemyAction(enemy, action) {
@@ -2093,7 +2104,7 @@ export class Simulation {
   }
 
   damageTarget(enemy, target, amount, origin = enemy, playerId = enemy.actionPlayerId, node = enemy.node) {
-    if (enemy.behavior === 'laser' && target !== 'player') return;
+    if ((enemy.behavior === 'laser' || enemy.behavior === 'rifle') && target !== 'player') return;
     const player = target === 'player' ? this.attackPlayer(playerId) : null;
     const boss = !!(enemy.boss || enemy.segmentOf);
     if (target === 'player') {
@@ -2154,6 +2165,7 @@ export class Simulation {
       if (!controller) continue;
       controller.tick(dt);
       if (enemy.behavior === 'laser') { stepRogueBot(this, enemy, dt, spec, speedFactor, controller); continue; }
+      if (enemy.behavior === 'rifle') { stepNanonaut(this, enemy, dt, spec, speedFactor, controller); continue; }
       if (enemy.behavior === 'bacillus') {
         const defensive = ['retreat', 'cover', 'regroup', 'protect'].includes(controller.action) && !enemy.attackAnchor;
         if (defensive) {

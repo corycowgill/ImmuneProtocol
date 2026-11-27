@@ -1,5 +1,14 @@
 {
  "strings": {
+  "Nanonaut": "Nanonaute",
+  "Nanonaut fireteam": "Escouade de nanonautes",
+  "Human operator in a hijacked biosuit": "Opérateur humain dans une combinaison détournée",
+  "Special-forces hazmat teams (fictional)": "Équipes NRBC des forces spéciales (fictif)",
+  "A human operator sealed in a red and yellow biosuit, shrunk and injected alongside the nanobots and fighting for them. It carries a carbine, works in fireteams and fights like a soldier: from cover, in short bursts, on the move.": "Un opérateur humain scellé dans une combinaison biologique rouge et jaune, miniaturisé et injecté avec les nanobots, et qui se bat pour eux. Il porte une carabine, opère en escouade et se bat comme un soldat : à couvert, par courtes rafales, en mouvement.",
+  "It takes cover and peeks out to fire, so keep it pinned with fire and flank its cover. It dodges when you line up a shot, strafes in the open and reloads behind cover. Aim for the helmet: a headshot is critical. It never attacks tissue.": "Il se met à couvert et se penche pour tirer : clouez-le sur place par vos tirs et contournez son abri. Il esquive quand vous le mettez en joue, se déplace latéralement à découvert et recharge à couvert. Visez le casque : un tir à la tête est critique. Il n'attaque jamais les tissus.",
+  "Its suit is rated for the inside of a patient. Its loyalty, apparently, is not.": "Sa combinaison est homologuée pour l'intérieur d'un patient. Sa loyauté, apparemment, non.",
+  "It is the only enemy in the body that knows what cover is, and it will use yours.": "C'est le seul ennemi du corps qui sait ce qu'est un abri, et il se servira du vôtre.",
+  "The chevrons are a hazard warning. The operator inside is the hazard.": "Les chevrons signalent un danger. Le danger, c'est l'opérateur à l'intérieur.",
   "· Campaign": "· Campagne",
   "· Down": "· À terre",
   "· inspired by": "· inspiré de",

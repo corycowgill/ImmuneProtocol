@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { loadModel } from './asset-loading.mjs';
+import { cloneSkinned, createNanonautDisplay } from './nanonaut-view.mjs';
 
 // Photoreal pathogen models. Each one is a 3D scan that tools/enemies/process.py
 // refines, retopologises, texture-bakes and animates in Blender
@@ -28,6 +29,9 @@ export const ENEMY_MODELS = Object.freeze({
   'rogue-bot': { size: 1, glow: 0xffffff },
   // Its eight-legged ground sibling (tools/enemies/build_crawler.py); legs are separate nodes.
   crawler: { size: 1, glow: 0xffffff },
+  // A human soldier: a skinned, motion-captured TRELLIS scan (tools/nanonaut/build_nanonaut.py), not
+  // a morphing membrane, animated by nanonaut-view.mjs.
+  nanonaut: { size: 1, glow: 0xffffff, humanoid: true },
   // The brood nest (field-objectives.mjs) is modelled in Blender by tools/enemies/build_nest.py.
   nest: { size: 1, glow: 0x4a1608 },
   // Level bosses (level-bosses.mjs), sculpted by tools/enemies/build_bosses.py.
@@ -128,7 +132,35 @@ void main() {`)
 const clips = new WeakMap();
 const loads = new Map();
 
+// The Nanonaut's model: a skinned mesh and its clips. Its suit material keeps its baked PBR maps;
+// the visor glows through the emission map, and it gets the pathogens' rim light so it reads
+// against the tissue behind it.
+function prepareHumanoid(type, gltf) {
+  const root = new THREE.Group();
+  root.name = type;
+  gltf.scene.traverse(part => {
+    if (!part.isMesh) return;
+    part.castShadow = true;
+    part.frustumCulled = false; // skinned: its bounds move with the pose
+    [part.material].flat().forEach(material => {
+      material.emissiveIntensity = 1.8;
+      material.envMapIntensity = 1.1;
+      addPathogenRim(material);
+    });
+  });
+  root.add(gltf.scene);
+  root.userData.humanoid = true;
+  root.userData.clips = gltf.animations;
+  return root;
+}
+
+// A placed copy of a template: skinned models need their own skeleton.
+export function cloneEnemyModel(template) {
+  return template?.userData.humanoid ? Object.assign(cloneSkinned(template), { userData: template.userData }) : template.clone();
+}
+
 function prepare(type, gltf) {
+  if (ENEMY_MODELS[type].humanoid) return prepareHumanoid(type, gltf);
   const { size, glow, brighten = 1, tint } = ENEMY_MODELS[type];
   // gltfpack keeps the named node as a dequantisation wrapper around the mesh,
   // so the name and the clip's track targets move onto the mesh itself.
@@ -196,6 +228,7 @@ export async function loadEnemyModels() {
 // Starts the looping idle animation on one placed copy of a template, at a random
 // point in the loop. Returns null for models without morph animation.
 export function pathogenMotion(model) {
+  if (model.userData.humanoid) return createNanonautDisplay(model);
   const mesh = model.getObjectByName('attack-membrane');
   const clip = mesh?.geometry && clips.get(mesh.geometry);
   if (!clip) return null;
@@ -208,6 +241,7 @@ export function pathogenMotion(model) {
 // Advances the idle loop and applies the attack clench (-1 flared to 1 coiled).
 export function animatePathogen(motion, dt, clench = 0) {
   if (!motion) return;
+  if (motion.humanoid) { motion.update(dt); return; }
   motion.mixer.update(dt * (1 + Math.abs(clench) * 1.6));
   if (motion.clench !== undefined) motion.influences[motion.clench] = clench;
 }

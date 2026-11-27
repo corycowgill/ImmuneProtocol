@@ -1,5 +1,14 @@
 {
  "strings": {
+  "Nanonaut": "नैनोनॉट",
+  "Nanonaut fireteam": "नैनोनॉट फ़ायरटीम",
+  "Human operator in a hijacked biosuit": "अपहृत बायोसूट में मानव ऑपरेटर",
+  "Special-forces hazmat teams (fictional)": "विशेष बलों की हैज़मैट टीमें (काल्पनिक)",
+  "A human operator sealed in a red and yellow biosuit, shrunk and injected alongside the nanobots and fighting for them. It carries a carbine, works in fireteams and fights like a soldier: from cover, in short bursts, on the move.": "लाल और पीले बायोसूट में सील एक मानव ऑपरेटर, जिसे छोटा करके नैनोबॉट्स के साथ शरीर में डाला गया है और जो उन्हीं के लिए लड़ता है। उसके पास एक कार्बाइन है, वह फ़ायरटीम में काम करता है और सैनिक की तरह लड़ता है: आड़ से, छोटी बौछारों में, चलते-चलते।",
+  "It takes cover and peeks out to fire, so keep it pinned with fire and flank its cover. It dodges when you line up a shot, strafes in the open and reloads behind cover. Aim for the helmet: a headshot is critical. It never attacks tissue.": "वह आड़ लेता है और झाँककर गोली चलाता है, इसलिए उसे गोलीबारी से दबाए रखें और उसकी आड़ को बगल से घेरें। जब आप उस पर निशाना साधते हैं तो वह बचकर हटता है, खुले में बगल की ओर चलता है और आड़ के पीछे रीलोड करता है। हेलमेट पर निशाना लगाएँ: सिर पर लगी गोली क्रिटिकल होती है। वह कभी ऊतक पर हमला नहीं करता।",
+  "Its suit is rated for the inside of a patient. Its loyalty, apparently, is not.": "उसका सूट मरीज़ के शरीर के अंदर के लिए प्रमाणित है। उसकी वफ़ादारी, ज़ाहिर है, नहीं।",
+  "It is the only enemy in the body that knows what cover is, and it will use yours.": "शरीर में वही अकेला दुश्मन है जो जानता है कि आड़ क्या होती है, और वह आपकी आड़ इस्तेमाल करेगा।",
+  "The chevrons are a hazard warning. The operator inside is the hazard.": "ये पट्टियाँ ख़तरे की चेतावनी हैं। ख़तरा अंदर बैठा ऑपरेटर है।",
   "· Campaign": "· कैंपेन",
   "· Down": "· धराशायी",
   "· inspired by": "· प्रेरणा:",

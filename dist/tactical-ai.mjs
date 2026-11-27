@@ -339,7 +339,7 @@ export class EnemyAIController {
     // Floating pathogens and flying bots go over low scenery, and crawlers climb it, after a suit
     // standing up on it (and back off it afterwards).
     const overScenery = climbsAfterPerched(enemy) && (perchedTarget(world, this.targetKey) || world.sim.overLowScenery?.(enemy) > 0);
-    const nav = overScenery ? world.airNavigation : enemy.type === 'crawler' && !climbing ? world.groundNavigation : world.navigation;
+    const nav = overScenery ? world.airNavigation : (enemy.type === 'crawler' && !climbing) || enemy.humanoid ? world.groundNavigation : world.navigation;
     if (this.profile.family !== 'mutated' && enemy.encounterOrder?.until > now && !enemy.encounterOrder.reached &&
         this.targetKey?.startsWith('node:') && ['objective', 'flank'].includes(this.action)) stopDistance = 0;
     if (!this.destination || this.action === 'idle' || (this.blockedUntil ?? 0) > now) return;

@@ -7,6 +7,7 @@
 import * as THREE from './vendor/three.module.js';
 import { floorHeight } from './arena-scene.mjs';
 import { BOSS_FLOATS } from './level-bosses.mjs';
+import { dieNanonaut } from './nanonaut-view.mjs';
 
 const TAU = Math.PI * 2;
 const GRAVITY = 17;
@@ -34,6 +35,9 @@ export const DEATHS = Object.freeze({
   'rogue-bot': { style: 'crash', flash: 0xffc070, gore: 0x1a1414, splat: 2.2 },
   // The Crawler's legs curl in under it like a dead spider's as it shorts out on the floor.
   crawler: { style: 'crash', flash: 0xffb060, gore: 0x1a1414, splat: 1.6, curl: true },
+  // The Nanonaut falls the way the killing shot pushed it (motion capture), its suit vents and bleeds,
+  // and it lies there a while before the host's tissue takes it.
+  nanonaut: { style: 'human', flash: 0xffc08a, gore: 0x5a0d0c, splat: 1.1, time: 9, lie: 6 },
   colony: { style: 'collapse', flash: 0xd8ff9a, gore: 0x7a9a3a, splat: 1.5, time: 1.5 },
   nest: { style: 'collapse', flash: 0xffd080, gore: 0xb0482a, splat: 1.5, time: 1.4 },
   segment: { style: 'rupture', flash: 0xfff0c0, gore: 0xc8a860, chunk: 'blob', chunks: 9, swell: .2, time: .12, splat: 1.2 },
@@ -333,6 +337,11 @@ export class DeathFX {
       case 'engulf':
         this.world.burst(position.x, position.y, position.z, recipe.flash, reduce ? 4 : 12, 1.4);
         break;
+      case 'human':
+        // The suit is breached: a spray of its fluid and a few sparks from the rig.
+        this.world.burst(position.x, position.y + .35, position.z, recipe.gore, reduce ? 6 : 18, 2.2);
+        this.world.burst(position.x, position.y + .5, position.z, 0xffd27a, reduce ? 3 : 8, 2.8);
+        break;
       case 'nanobot':
         // The killing blow lands in the brain: a white-blue snap from the dome.
         this.flash({ x: position.x, y: position.y + size * .35, z: position.z }, 0xbff4ff, size * .35, .3);
@@ -414,6 +423,15 @@ export class DeathFX {
       }
       case 'melt': clench = this.poseMelt(corpse, dt, reduceMotion); break;
       case 'crash': clench = this.poseCrash(corpse, dt, reduceMotion); break;
+      case 'human': {
+        if (!view.rig) break;
+        dieNanonaut(view.rig, model, corpse, dt);
+        // Once down, a pool spreads under it; after lying still it sinks into the tissue.
+        if (!corpse.puddle && corpse.t > 1.2) corpse.puddle = this.splat(model.position.x, model.position.z, recipe.gore, recipe.splat, { grow: .5, life: recipe.time });
+        const sink = Math.max(0, corpse.t - recipe.lie) / Math.max(.1, recipe.time - recipe.lie);
+        model.position.y = corpse.position.y - sink * sink * .5; // where it stood, even up on a mound
+        break;
+      }
       case 'collapse': clench = this.poseCollapse(corpse, dt, reduceMotion); break;
       case 'boss': clench = this.poseBoss(corpse, dt, reduceMotion); break;
       case 'nanobot': clench = this.poseNanobot(corpse, dt, reduceMotion); break;

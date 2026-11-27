@@ -15,6 +15,14 @@ test('every species has a runtime model with its animation targets', () => {
     assert.equal(file.toString('ascii', 0, 4), 'glTF', type + ' is a binary glTF');
     const length = file.readUInt32LE(12);
     const json = JSON.parse(file.toString('utf8', 20, 20 + length));
+    // The Nanonaut is a skinned human, not a membrane: a skeleton and motion clips instead of morphs
+    // (its own contract is in nanonaut.test.mjs).
+    if (ENEMY_MODELS[type]?.humanoid) {
+      assert.equal(json.skins?.length, 1, type + ' is skinned');
+      assert.ok(json.animations?.some(animation => animation.name === 'Stand'), type + ' has a Stand clip');
+      assert.ok(asset('portraits/' + type + '.webp').length > 1000, type + ' has a guide portrait');
+      continue;
+    }
     const node = json.nodes.find(item => item.name === 'attack-membrane');
     assert.ok(node, type + ' has an attack-membrane node');
     const mesh = json.meshes.find(item => item.extras?.targetNames);

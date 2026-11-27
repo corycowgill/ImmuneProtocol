@@ -1,5 +1,14 @@
 {
  "strings": {
+  "Nanonaut": "Nanonauta",
+  "Nanonaut fireteam": "Escuadra de nanonautas",
+  "Human operator in a hijacked biosuit": "Operador humano con un biotraje secuestrado",
+  "Special-forces hazmat teams (fictional)": "Equipos de fuerzas especiales con trajes de protección (ficticio)",
+  "A human operator sealed in a red and yellow biosuit, shrunk and injected alongside the nanobots and fighting for them. It carries a carbine, works in fireteams and fights like a soldier: from cover, in short bursts, on the move.": "Un operador humano sellado en un biotraje rojo y amarillo, miniaturizado e inyectado junto a los nanobots, y luchando para ellos. Lleva una carabina, trabaja en escuadras y combate como un soldado: desde cobertura, en ráfagas cortas, en movimiento.",
+  "It takes cover and peeks out to fire, so keep it pinned with fire and flank its cover. It dodges when you line up a shot, strafes in the open and reloads behind cover. Aim for the helmet: a headshot is critical. It never attacks tissue.": "Se pone a cubierto y asoma para disparar, así que mantenlo inmovilizado con fuego y flanquea su cobertura. Esquiva cuando le apuntas, se desplaza lateralmente en campo abierto y recarga a cubierto. Apunta al casco: un disparo en la cabeza es crítico. Nunca ataca el tejido.",
+  "Its suit is rated for the inside of a patient. Its loyalty, apparently, is not.": "Su traje está homologado para el interior de un paciente. Su lealtad, por lo visto, no.",
+  "It is the only enemy in the body that knows what cover is, and it will use yours.": "Es el único enemigo del cuerpo que sabe lo que es una cobertura, y usará la tuya.",
+  "The chevrons are a hazard warning. The operator inside is the hazard.": "Los galones son una advertencia de peligro. El peligro es el operador que va dentro.",
   "· Campaign": "· Campaña",
   "· Down": "· Caído",
   "· inspired by": "· inspirado en",

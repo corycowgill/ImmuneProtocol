@@ -1,5 +1,14 @@
 {
  "strings": {
+  "Nanonaut": "Nanonaut",
+  "Nanonaut fireteam": "Nanonauten-Trupp",
+  "Human operator in a hijacked biosuit": "Menschlicher Operator in einem gekaperten Bioanzug",
+  "Special-forces hazmat teams (fictional)": "ABC-Teams von Spezialeinheiten (fiktiv)",
+  "A human operator sealed in a red and yellow biosuit, shrunk and injected alongside the nanobots and fighting for them. It carries a carbine, works in fireteams and fights like a soldier: from cover, in short bursts, on the move.": "Ein menschlicher Operator, versiegelt in einem rot-gelben Bioanzug, geschrumpft und zusammen mit den Nanobots injiziert, und er kämpft für sie. Er trägt einen Karabiner, arbeitet im Trupp und kämpft wie ein Soldat: aus der Deckung, in kurzen Feuerstößen, in Bewegung.",
+  "It takes cover and peeks out to fire, so keep it pinned with fire and flank its cover. It dodges when you line up a shot, strafes in the open and reloads behind cover. Aim for the helmet: a headshot is critical. It never attacks tissue.": "Er geht in Deckung und lehnt sich zum Feuern heraus, also halte ihn mit Feuer nieder und flankiere seine Deckung. Er weicht aus, wenn du auf ihn anlegst, bewegt sich im Freien seitwärts und lädt in Deckung nach. Ziele auf den Helm: Ein Kopftreffer ist kritisch. Er greift nie Gewebe an.",
+  "Its suit is rated for the inside of a patient. Its loyalty, apparently, is not.": "Sein Anzug ist für das Innere eines Patienten zugelassen. Seine Loyalität offenbar nicht.",
+  "It is the only enemy in the body that knows what cover is, and it will use yours.": "Er ist der einzige Feind im Körper, der weiß, was Deckung ist, und er wird deine benutzen.",
+  "The chevrons are a hazard warning. The operator inside is the hazard.": "Die Winkelstreifen sind eine Gefahrenwarnung. Die Gefahr ist der Operator darin.",
   "· Campaign": "· Kampagne",
   "· Down": "· Am Boden",
   "· inspired by": "· inspiriert von",

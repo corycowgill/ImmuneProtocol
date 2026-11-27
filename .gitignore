@@ -18,3 +18,8 @@ tools/weapons/work/
 tools/companions/work/
 tools/lobby/work/
 tools/armory/work/
+
+# Nanonaut build: the editable .blend, bakes and preview renders are rebuilt by build_nanonaut.py.
+tools/nanonaut/work/
+tools/nanonaut/reports/*.png
+tools/nanonaut/originals/*.mp4

@@ -38,6 +38,12 @@ export const AI_PROFILES = Object.freeze({
   // ignores tissue unless no suit is in reach, and closes fast.
   grappler: profile({ family: 'swarm', name: 'Suit grappler', aggression: .95, courage: .95, playerPriority: 2.4,
     tissuePriority: .35, preferredDistance: 2.6, sight: 30, fov: 6.3, awareness: 1.3, evasion: .35, sophistication: .5 }),
+  // The Nanonaut is a soldier: it sees well, reacts like a person, dodges a suit that lines up on it
+  // and fights from cover (nanonaut.mjs runs its tactics on top of these).
+  soldier: profile({ family: 'human', name: 'Nanonaut rifleman', courage: .6, aggression: .75, tissuePriority: 0,
+    playerPriority: 2, preferredDistance: 16, sight: 46, fov: 2.6, biologicalRange: 0, awareness: 1.1,
+    sophistication: .95, reaction: .32, evasion: .45, teamwork: .9, hearing: 40, decisionInterval: .3,
+    actions: ['patrol', 'pursue', 'investigate', 'flank', 'strafe', 'retreat', 'cover', 'idle'] }),
   // The Crawler skitters in close on the floor, circles its target and darts away after it fires.
   skitter: profile({ family: 'mechanical', name: 'Hacked crawler drone', courage: .8, aggression: .95, tissuePriority: 0,
     playerPriority: 2, preferredDistance: 5, sight: 34, fov: 4.2, biologicalRange: 0,
@@ -50,7 +56,7 @@ export const SPECIES_AI = Object.freeze({
   virus: 'swarm', phage: 'swarm', flagellate: 'fast', splitter: 'fast',
   spore: 'harasser', blister: 'harasser', bacillus: 'colony', filovirus: 'colony',
   guard: 'tank', amoeba: 'territorial', rogue: 'territorial',
-  'rogue-bot': 'drone', crawler: 'skitter', latcher: 'grappler',
+  'rogue-bot': 'drone', crawler: 'skitter', latcher: 'grappler', nanonaut: 'soldier',
 });
 export const AI_DIFFICULTY = Object.freeze({
   easy: Object.freeze({ reaction: 1.5, decision: 1.25, pressure: 4, teamwork: .6, accuracy: .8 }),

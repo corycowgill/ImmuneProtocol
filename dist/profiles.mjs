@@ -38,7 +38,7 @@ export const PROFILE_EMBLEMS = Object.freeze([
   { id: 'spore', name: 'Spore' }, { id: 'flagellate', name: 'Flagellate' }, { id: 'amoeba', name: 'Amoeba' },
   { id: 'blister', name: 'Blister' }, { id: 'filovirus', name: 'Filovirus' }, { id: 'guard', name: 'Shellback' },
   { id: 'splitter', name: 'Splitter' }, { id: 'colony', name: 'Colony' }, { id: 'crawler', name: 'Crawler' },
-  { id: 'rogue-bot', name: 'Rogue Bot' }, { id: 'nest', name: 'Brood Nest' },
+  { id: 'rogue-bot', name: 'Rogue Bot' }, { id: 'nanonaut', name: 'Nanonaut' }, { id: 'nest', name: 'Brood Nest' },
   // Boss emblems are achievement rewards (achievements.mjs REWARDS).
   { id: 'boss-colossus', name: 'Colossus' }, { id: 'boss-thrombus', name: 'Thrombus' }, { id: 'boss-leech', name: 'Leech' },
   { id: 'boss-tapeworm', name: 'Tapeworm' }, { id: 'boss-macrophage', name: 'Macrophage' }, { id: 'boss-screamer', name: 'Screamer' },

@@ -1,0 +1,113 @@
+{
+ "Stand": {
+  "source": "kimodo",
+  "frames": 48,
+  "seconds": 1.6,
+  "speed": 0.0,
+  "scale": 0.914
+ },
+ "Walk": {
+  "source": "kimodo",
+  "frames": 28,
+  "seconds": 0.9333333333333333,
+  "speed": 1.639,
+  "scale": 0.914
+ },
+ "WalkBack": {
+  "source": "kimodo",
+  "frames": 30,
+  "seconds": 1.0,
+  "speed": 1.267,
+  "scale": 0.914
+ },
+ "StrafeL": {
+  "source": "kimodo",
+  "frames": 30,
+  "seconds": 1.0,
+  "speed": 1.338,
+  "scale": 0.914
+ },
+ "StrafeR": {
+  "source": "kimodo",
+  "frames": 47,
+  "seconds": 1.5666666666666667,
+  "speed": 1.067,
+  "scale": 0.914
+ },
+ "Run": {
+  "source": "kimodo",
+  "frames": 21,
+  "seconds": 0.7,
+  "speed": 2.555,
+  "scale": 0.914
+ },
+ "Crouch": {
+  "source": "kimodo",
+  "frames": 30,
+  "seconds": 1.0,
+  "speed": 0.016,
+  "scale": 0.914
+ },
+ "CrouchWalk": {
+  "source": "kimodo",
+  "frames": 54,
+  "seconds": 1.8,
+  "speed": 0.563,
+  "scale": 0.914
+ },
+ "DodgeL": {
+  "source": "kimodo",
+  "frames": 59,
+  "seconds": 1.9666666666666666,
+  "speed": 0.0,
+  "scale": 0.914
+ },
+ "DodgeR": {
+  "source": "kimodo",
+  "frames": 59,
+  "seconds": 1.9666666666666666,
+  "speed": 0.0,
+  "scale": 0.914
+ },
+ "Stagger": {
+  "source": "kimodo",
+  "frames": 59,
+  "seconds": 1.9666666666666666,
+  "speed": 0.0,
+  "scale": 0.914
+ },
+ "DeathBack": {
+  "source": "kimodo",
+  "frames": 89,
+  "seconds": 2.966666666666667,
+  "speed": 0.0,
+  "scale": 0.914
+ },
+ "DeathFront": {
+  "source": "kimodo",
+  "frames": 89,
+  "seconds": 2.966666666666667,
+  "speed": 0.0,
+  "scale": 0.914
+ },
+ "Aim": {
+  "source": "keyframed",
+  "frames": 60,
+  "seconds": 2.0
+ },
+ "LowReady": {
+  "source": "keyframed",
+  "frames": 44,
+  "seconds": 1.4666666666666666
+ },
+ "Cover": {
+  "source": "keyframed",
+  "frames": 60,
+  "seconds": 2.0
+ },
+ "Reload": {
+  "source": "keyframed",
+  "frames": 66,
+  "seconds": 2.2
+ }
+}

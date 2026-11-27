@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GLB Viewer</title>
+<style>
+  :root { --bg: #15181c; --panel: #1f242a; --text: #e6e9ec; --muted: #8b949e; --accent: #ff5a3c; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px system-ui, sans-serif; overflow: hidden; }
+  canvas { display: block; }
+  #panel { position: fixed; top: 12px; left: 12px; width: 240px; max-height: calc(100% - 24px); overflow: auto;
+    background: var(--panel); border-radius: 8px; padding: 12px; box-sizing: border-box; box-shadow: 0 4px 20px #0006; }
+  h1 { font-size: 15px; margin: 0 0 8px; }
+  .muted { color: var(--muted); font-size: 12px; }
+  button { display: block; width: 100%; margin: 3px 0; padding: 6px 8px; text-align: left; background: #2a3038;
+    color: var(--text); border: 1px solid #343b44; border-radius: 5px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--accent); }
+  button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  label { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+  input[type=text] { width: 100%; box-sizing: border-box; background: #2a3038; color: var(--text); border: 1px solid #343b44; border-radius: 5px; padding: 5px; }
+  #drop { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; font-size: 22px; background: #000a; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <h1>GLB Viewer</h1>
+  <div class="muted" id="info">Loading…</div>
+  <p class="muted" id="updated"></p>
+  <p class="muted">Drag to orbit, right-drag to pan, wheel to zoom. Drop a .glb anywhere to open it.</p>
+  <input type="text" id="url" value="../../dist/assets/enemies/nanonaut.glb">
+  <button id="load">Load URL</button>
+  <label><input type="checkbox" id="skeleton"> Show skeleton</label>
+  <label><input type="checkbox" id="floor" checked> Floor grid</label>
+  <label>Speed <input type="range" id="speed" min="0" max="2" step=".05" value="1"></label>
+  <div id="clips"></div>
+</div>
+<div id="drop">Drop .glb to open</div>
+<script type="module">
+import * as THREE from '../../dist/vendor/three.module.js';
+import { GLTFLoader } from '../../dist/vendor/GLTFLoader.js';
+import { MeshoptDecoder } from '../../dist/vendor/meshopt_decoder.mjs';
+import { RoomEnvironment } from '../../dist/vendor/RoomEnvironment.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x15181c);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+const camera = new THREE.PerspectiveCamera(40, 1, .01, 200);
+const key = new THREE.DirectionalLight(0xfff1e0, 2.2);
+key.position.set(3, 5, 4); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3 });
+scene.add(key, new THREE.HemisphereLight(0x9fc4ff, 0x2a1a14, .6));
+const rim = new THREE.DirectionalLight(0x88aaff, 1.4); rim.position.set(-3, 3, -4); scene.add(rim);
+const grid = new THREE.GridHelper(10, 20, 0x444c56, 0x2a3038); scene.add(grid);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.ShadowMaterial({ opacity: .35 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+// Minimal orbit controls.
+const orbit = { target: new THREE.Vector3(0, 1, 0), radius: 4, yaw: .6, pitch: .15 };
+let drag = null;
+renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+renderer.domElement.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, pan: e.button === 2 || e.shiftKey }; renderer.domElement.setPointerCapture(e.pointerId); });
+renderer.domElement.addEventListener('pointerup', () => drag = null);
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+  if (drag.pan) {
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0), up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+    orbit.target.addScaledVector(right, -dx * orbit.radius * .0015).addScaledVector(up, dy * orbit.radius * .0015);
+  } else { orbit.yaw -= dx * .008; orbit.pitch = THREE.MathUtils.clamp(orbit.pitch + dy * .006, -1.4, 1.4); }
+});
+renderer.domElement.addEventListener('wheel', e => { orbit.radius = THREE.MathUtils.clamp(orbit.radius * Math.exp(e.deltaY * .001), .2, 60); e.preventDefault(); }, { passive: false });
+
+let model = null, mixer = null, helper = null, current = null;
+const info = document.getElementById('info'), clipsEl = document.getElementById('clips');
+const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+
+function show(gltf, name) {
+  if (model) scene.remove(model);
+  if (helper) { scene.remove(helper); helper = null; }
+  model = gltf.scene;
+  let tris = 0;
+  model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; } });
+  scene.add(model);
+  const box = new THREE.Box3().setFromObject(model), size = box.getSize(new THREE.Vector3());
+  orbit.target.copy(box.getCenter(new THREE.Vector3()));
+  orbit.radius = Math.max(size.x, size.y, size.z) * 2.2;
+  document.getElementById('updated').textContent = 'Loaded ' + new Date().toLocaleTimeString() + ' (auto-reloads on rebuild)';
+  info.textContent = `${name} · ${Math.round(tris).toLocaleString()} tris · ${size.y.toFixed(2)} m tall · ${gltf.animations.length} clips`;
+  mixer = new THREE.AnimationMixer(model);
+  helper = new THREE.SkeletonHelper(model); helper.visible = document.getElementById('skeleton').checked; scene.add(helper);
+  clipsEl.innerHTML = '';
+  const none = document.createElement('button'); none.textContent = 'Rest pose';
+  none.onclick = () => play(null, none); clipsEl.appendChild(none);
+  for (const clip of gltf.animations) {
+    const b = document.createElement('button'); b.textContent = `${clip.name} (${clip.duration.toFixed(2)}s)`;
+    b.onclick = () => play(clip, b); clipsEl.appendChild(b);
+  }
+  const first = gltf.animations.find(c => c.name === keep) ?? gltf.animations.find(c => c.name === 'Aim') ?? gltf.animations[0];
+  play(first ?? null, [...clipsEl.children][first ? gltf.animations.indexOf(first) + 1 : 0]);
+}
+function play(clip, button) {
+  mixer.stopAllAction();
+  if (clip) { current = mixer.clipAction(clip); current.reset().play(); }
+  for (const b of clipsEl.children) b.classList.toggle('active', b === button);
+}
+function loadUrl(url) { info.textContent = 'Loading…'; loader.load(url, g => show(g, url.split('/').pop()), undefined, e => info.textContent = 'Failed: ' + e.message); }
+function loadFile(file) { file.arrayBuffer().then(buf => loader.parse(buf, '', g => show(g, file.name), e => info.textContent = 'Failed: ' + e.message)); }
+
+document.getElementById('load').onclick = () => loadUrl(document.getElementById('url').value);
+document.getElementById('skeleton').onchange = e => { if (helper) helper.visible = e.target.checked; };
+document.getElementById('floor').onchange = e => { grid.visible = e.target.checked; };
+const drop = document.getElementById('drop');
+addEventListener('dragover', e => { e.preventDefault(); drop.style.display = 'flex'; });
+addEventListener('dragleave', e => { if (!e.relatedTarget) drop.style.display = 'none'; });
+addEventListener('drop', e => { e.preventDefault(); drop.style.display = 'none'; const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+
+const params = new URLSearchParams(location.search);
+loadUrl(params.get('file') ?? document.getElementById('url').value);
+
+const clock = new THREE.Clock();
+function frame() {
+  const dt = clock.getDelta();
+  const w = innerWidth, h = innerHeight;
+  if (renderer.domElement.width !== w * devicePixelRatio || renderer.domElement.height !== h * devicePixelRatio) {
+    renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  mixer?.update(dt * Number(document.getElementById('speed').value));
+  camera.position.set(orbit.target.x + orbit.radius * Math.cos(orbit.pitch) * Math.sin(orbit.yaw),
+    orbit.target.y + orbit.radius * Math.sin(orbit.pitch), orbit.target.z + orbit.radius * Math.cos(orbit.pitch) * Math.cos(orbit.yaw));
+  camera.lookAt(orbit.target);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

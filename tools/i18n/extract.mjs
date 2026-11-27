@@ -23,6 +23,7 @@ const SKIP_MODULES = new Set([
   'level-details.mjs', 'level-props.mjs', 'organ-world.mjs', 'arena-scene.mjs', 'heart-valve.mjs', 'mega-virus.mjs', 'terrain-view.mjs', 'ground-fx.mjs', 'weapon-skins.mjs', 'gpu-idle.mjs', 'render-scale.mjs',
   'arena-textures.mjs', 'bio-textures.mjs', 'decor-chunks.mjs', 'asset-loading.mjs', 'i18n.mjs', 'ai-debug.mjs',
   'tactical-ai.mjs', 'ai-navigation.mjs', 'ui-theme.mjs', 'ai-profiles.mjs', 'coop-protocol.mjs', 'settings-store.mjs',
+  'nanonaut.mjs', 'nanonaut-view.mjs',
 ]);
 // Calls whose string arguments are never shown.
 const SILENT_CALLS = new Set([

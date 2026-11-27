@@ -1,5 +1,14 @@
 {
  "strings": {
+  "Nanonaut": "奈米戰士",
+  "Nanonaut fireteam": "奈米戰士火力小組",
+  "Human operator in a hijacked biosuit": "身穿遭劫持生化服的人類特務",
+  "Special-forces hazmat teams (fictional)": "特種部隊防化小隊（虛構）",
+  "A human operator sealed in a red and yellow biosuit, shrunk and injected alongside the nanobots and fighting for them. It carries a carbine, works in fireteams and fights like a soldier: from cover, in short bursts, on the move.": "一名密封在紅黃相間生化服中的人類特務，被縮小後與奈米機器人一同注入體內，並為它們而戰。他攜帶一把卡賓槍，以火力小組行動，像士兵一樣作戰：依託掩體、短點射、邊打邊移動。",
+  "It takes cover and peeks out to fire, so keep it pinned with fire and flank its cover. It dodges when you line up a shot, strafes in the open and reloads behind cover. Aim for the helmet: a headshot is critical. It never attacks tissue.": "他會躲進掩體並探身射擊，所以要用火力壓制他並從側翼包抄他的掩體。你瞄準他時他會閃避，在開闊地橫向移動，並在掩體後換彈。瞄準頭盔：爆頭是暴擊。他從不攻擊組織。",
+  "Its suit is rated for the inside of a patient. Its loyalty, apparently, is not.": "他的服裝獲准在病人體內使用。顯然，他的忠誠沒有通過認證。",
+  "It is the only enemy in the body that knows what cover is, and it will use yours.": "他是體內唯一懂得什麼是掩體的敵人，而且他會用你的掩體。",
+  "The chevrons are a hazard warning. The operator inside is the hazard.": "人字紋是危險警示。真正的危險是裡面的特務。",
   "· Campaign": "· 戰役",
   "· Down": "· 倒地",
   "· inspired by": "· 原型：",

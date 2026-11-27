@@ -40,6 +40,7 @@ import { randomSource, configureTile, glowTexture, contactShadowTexture, cloudTe
 import { TAU, UP, floorHeight, baseFloorHeight, setTerrainArea, shapeFloor, texturedLobe, redCellGeometry, sprite, setInstance, addMesh, makeRoom, makeAtmosphere, makeTissue, makeJunctionField, biologicalMaterial, setVesselRim, setVesselBeat } from './arena-scene.mjs';
 import { prepareAll as prepareAllOf, prepareScenes as prepareScenesOf, prepareArea as prepareAreaOf, prepareMission as prepareMissionOf } from './world-preparation.mjs';
 import { enemyTemplate as enemyTemplateOf, dressGuardModel as dressGuardModelOf, updateEnemies as updateEnemiesOf, releaseEnemyView as releaseEnemyViewOf, poseEnemyAttack as poseEnemyAttackOf, updateTethers as updateTethersOf, updateProjectiles as updateProjectilesOf } from './pathogen-views.mjs';
+import { fireNanonaut, flinchNanonaut } from './nanonaut-view.mjs';
 import { TracerPool } from './shot-fx.mjs';
 import { VisorGoo, VisorCracks, createVisorOverlay } from './visor-fx.mjs';
 import { updateWeapon as updateWeaponOf, updateRepairTool as updateRepairToolOf, addShot as addShotOf, addTracer as addTracerOf, addTeammateShot as addTeammateShotOf, addTurretShot as addTurretShotOf } from './weapon-view.mjs';
@@ -56,7 +57,7 @@ const MAX_PARTICLES = 288;
 const SPECIES_COLORS = {
   virus: 0xff6d4a, bacillus: 0xffd078, spore: 0xf384ff, colony: 0xa8e07a, guard: 0x6fd8cf, splitter: 0xc96bdc,
   phage: 0xb98cff, flagellate: 0xa678ff, blister: 0xff7a5c, filovirus: 0xff5a46, amoeba: 0xb7b2ff, rogue: 0xff6650,
-  'rogue-bot': 0xff4838, crawler: 0xff5a30, latcher: 0xa8f070,
+  'rogue-bot': 0xff4838, crawler: 0xff5a30, latcher: 0xa8f070, nanonaut: 0xd8322a,
 };
 const HEALTHY = new THREE.Color(0xffc6ad);
 const HEALTHY_FLANK = new THREE.Color(0xf1c1d5);
@@ -319,6 +320,8 @@ export class World {
     this.shotMaterial = 0xd6ffc4;
     this.teammateShotMaterial = 0xbcefff;
     this.turretShotMaterial = 0xffc27e;
+    // A Nanonaut's carbine rounds: hot orange-red, so a suit can tell incoming fire from its own.
+    this.enemyShotMaterial = 0xff7a3c;
     this.width = this.height = 0;
     this.renderScale = new RenderScale();
     this.lastRender = 0;
@@ -383,7 +386,7 @@ export class World {
   // the whole body on the glass; a spat glob leaves less. Machines' lasers leave nothing.
   splatVisor(type, amount) {
     const gore = DEATHS[type]?.gore ?? BOSS_GORE[type];
-    if (gore == null || type === 'rogue-bot' || type === 'crawler') return;
+    if (gore == null || type === 'rogue-bot' || type === 'crawler' || type === 'nanonaut') return;
     const fluid = new THREE.Color(gore);
     const colour = new THREE.Color(0xeadcd0).lerp(fluid, .55);
     this.visor.splat(colour, fluid.multiplyScalar(.6), amount ?? ((SPECIES[type]?.behavior ?? type) === 'virus' ? 1 : .6));
@@ -980,6 +983,8 @@ export class World {
             const push = Math.min(.42, (event.damage ?? 20) / 150) / (view.enemy?.boss || view.enemy?.nest ? 6 : 1);
             const dx = event.x - this.camera.position.x, dz = event.z - this.camera.position.z, length = Math.hypot(dx, dz) || 1;
             (view.knock ??= new THREE.Vector3()).add(this.tempPosition.set(dx / length * push, push * .2, dz / length * push));
+            // A Nanonaut flinches away from the shot instead of being shoved.
+            if (view.rig) flinchNanonaut(view.rig, this.camera.position, view.model, (event.damage ?? 20) > 40 || event.crit);
           }
           if (Number.isFinite(event.x)) this.impacts.enemyHit(view, event, this.camera.position, event.damage ?? 20, event.crit, reduceMotion);
         }
@@ -1009,6 +1014,14 @@ export class World {
             ? JUNCTION_GASH_SITES[event.branch] : this.nodes.find(node => node.id === event.nodeId) ?? OBJECTIVE;
           this.burst(THREE.MathUtils.lerp(anchor.x, event.x, .58), anchor.y + .03,
             THREE.MathUtils.lerp(anchor.z, event.z, .58), 0xf37337, 14, 2.4);
+        }
+        // A Nanonaut's round: a tracer from its muzzle, sparks where a miss strikes, and a flash.
+        if (event.type === 'enemyAttack' && event.behavior === 'rifle' && event.stage === 'release' && event.to) {
+          const view = this.enemyViews.get(event.id);
+          const start = view?.rig ? fireNanonaut(view.rig, reduceMotion, this.tempPosition) : this.tempPosition.set(event.x, event.y, event.z);
+          const end = new THREE.Vector3(event.to.x, event.to.y, event.to.z);
+          this.addTracer(start.clone(), end, this.enemyShotMaterial, .07, .022, 8);
+          if (!event.hit) this.impacts?.shotMiss(start.clone(), end, 'carbine', reduceMotion);
         }
         if (event.type === 'enemyAttack' && event.enemyType === 'spore') {
           if (event.stage === 'release') this.burst(event.x, event.y, event.z, 0xd279b1, 8, .9);
