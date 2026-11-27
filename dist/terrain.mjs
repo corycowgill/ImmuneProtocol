@@ -16,6 +16,8 @@ export const STEP_HEIGHT = .42;
 const mound = (x, z, radius, top, slope) => ({ kind: 'mound', x, z, radius, top, slope });
 const shelf = (x, z, radius, top, breathe) => ({ kind: 'shelf', x, z, radius, top, ...(breathe ? { breathe } : {}) });
 const ridge = (x1, z1, x2, z2, width, top) => ({ kind: 'ridge', x1, z1, x2, z2, width, top });
+// A ledge: a shelf too tall to jump onto, climbed with a mantle.
+const ledge = (x, z, radius, top) => ({ ...shelf(x, z, radius, top), ledge: true });
 
 // The artery is the first arena with real height: a plaque overlook beside each tissue node, a
 // tall plaque shelf in the middle that has to be jumped, and low ridges across the inlet lanes.
@@ -71,6 +73,10 @@ export const TERRAIN = Object.freeze({
     shelf(0, -26, 2.6, .8),
     ridge(-13, 6, -6, 10, .9, .6),
     ridge(6, 10, 13, 6, .9, .6),
+    // Ledges a jump and a grab tall (abilities.mjs MANTLE): climb up for a view over the nodes.
+    ledge(-25, 1.2, 2.6, 1.6),
+    ledge(20.2, -25.7, 2.3, 1.9),
+    ledge(-8.8, -20.7, 2.1, 2.2),
   ].map(Object.freeze)),
   // Heart Valve: a shelf at the hub of the chamber to see every valve from, two overlooks in the
   // far quarters, and low ridges across the long runs between valves to hop on the way through.
@@ -81,6 +87,10 @@ export const TERRAIN = Object.freeze({
     ridge(-8, 28, 4, 30, .9, .6),
     ridge(14, -40, 22, -34, .9, .6),
     ridge(-24, -24, -30, -16, .9, .6),
+    // Ledges a jump and a grab tall (abilities.mjs MANTLE): climb up for a view over the nodes.
+    ledge(10.8, -44.7, 2.6, 1.6),
+    ledge(-11.3, 39.7, 2.3, 1.9),
+    ledge(21.1, 13.5, 2.1, 2.2),
   ].map(Object.freeze)),
   // Lungs: alveolar platforms that rise and fall with every breath, and bronchial ridges along
   // both edges of the airway.
@@ -91,6 +101,10 @@ export const TERRAIN = Object.freeze({
     shelf(20, 19, 2.2, .62, { amp: .35, period: 5.2, phase: -Math.PI / 2 }),
     ridge(-12, -30, -12, -21, 1.1, .6),
     ridge(12, -30, 12, -21, 1.1, .6),
+    // Ledges a jump and a grab tall (abilities.mjs MANTLE): climb up for a view over the nodes.
+    ledge(24.7, -29.3, 2.6, 1.6),
+    ledge(-25.7, -28.9, 2.3, 1.9),
+    ledge(32.9, -6.5, 2.1, 2.2),
   ].map(Object.freeze)),
   // Stomach: acid floods the whole chamber during a surge, so rugae islands are scattered
   // everywhere: repair islands beside each node and valve, a 12 m backbone so nowhere is far from
@@ -186,6 +200,10 @@ export const TERRAIN = Object.freeze({
       .flatMap(([x, z]) => terrace(x, z, [3.8, 3.2, 2.6, 2, 1.5, 1.1])),
     ...terrace(-14, 50, [3.6, 3, 2.5, 1.9, 1.4, 1.05]),
     ...terrace(24, -52, [3.4, 2.9, 2.4, 1.8, 1.35, 1]),
+    // Ledges a jump and a grab tall (abilities.mjs MANTLE): climb up for a view over the nodes.
+    ledge(24.5, 4.4, 2.6, 1.6),
+    ledge(-5.1, 38, 2.3, 1.9),
+    ledge(-29.3, 28.7, 2.1, 2.2),
   ].map(Object.freeze)),
   // Colon: haustral folds running with the bowel, a jump tall, with walk-up pads alongside. On a
   // fold's crest the squeeze passes beneath you.
@@ -200,6 +218,10 @@ export const TERRAIN = Object.freeze({
     shelf(0, -28, 3.6, .38), shelf(0, -28, 2.5, .76), shelf(0, -28, 1.4, 1.14),
     mound(-31, 8, 2.2, .9, 2.8),
     mound(31, 8, 2.2, .9, 2.8),
+    // Ledges a jump and a grab tall (abilities.mjs MANTLE): climb up for a view over the nodes.
+    ledge(-36, -25.5, 2.6, 1.6),
+    ledge(26.9, -29.6, 2.3, 1.9),
+    ledge(9.2, 25.6, 2.1, 2.2),
   ].map(Object.freeze)),
   // Inner ear: the cochlea, a spiral stair to a high perch. A turret up there stands above the
   // resonance and never jams.
@@ -210,6 +232,10 @@ export const TERRAIN = Object.freeze({
     }),
     shelf(10, -22, 1.7, 2.5),
     mound(-31, -4, 2.2, .9, 2.8),
+    // Ledges a jump and a grab tall (abilities.mjs MANTLE): climb up for a view over the nodes.
+    ledge(-28.2, 27.7, 2.6, 1.6),
+    ledge(-15.9, -8.2, 2.3, 1.9),
+    ledge(16.5, -12.2, 2.1, 2.2),
   ].map(Object.freeze)),
   // Neural cortex: a synapse walkway of raised pads between the nodes, a jump apart, and rises
   // flanking the entry.
@@ -217,6 +243,10 @@ export const TERRAIN = Object.freeze({
     ...[-12, -6, 0, 6, 12].map(x => shelf(x, -26, 1.9, .9)),
     mound(-34, 4, 2.2, .9, 2.8),
     mound(34, 4, 2.2, .9, 2.8),
+    // Ledges a jump and a grab tall (abilities.mjs MANTLE): climb up for a view over the nodes.
+    ledge(14.2, -18.3, 2.6, 1.6),
+    ledge(-18.9, 5.3, 2.3, 1.9),
+    ledge(-36.1, -13.7, 2.1, 2.2),
   ].map(Object.freeze)),
 });
 

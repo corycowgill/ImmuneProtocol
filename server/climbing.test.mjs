@@ -181,3 +181,26 @@ test('a suit walks up a rising vessel only as far as the climbing ceiling', asyn
   assert.ok(highest > 1.5, `it walks up the vessel (${highest.toFixed(2)} m)`);
   assert.ok(highest <= CLIMB_CEILING + .05, `but not past ${CLIMB_CEILING} m`);
 });
+
+test('every arena has ledges a jump and a grab tall, and each one can be climbed', async () => {
+  const { TERRAIN } = await import('../dist/terrain.mjs');
+  for (const area of ['junction', 'heart', 'lungs', 'intestines', 'lymph', 'ear', 'brain']) {
+    const ledges = TERRAIN[area].filter(piece => piece.ledge);
+    assert.equal(ledges.length, 3, area);
+    for (const piece of ledges) {
+      const sim = new Simulation(area);
+      sim.start();
+      sim.tutorial = null;
+      sim.enemies = [];
+      sim.spawnIndex = 1e9;
+      const state = abilityState(sim);
+      Object.assign(state, { feet: 0, airborne: false, vy: 0, mantle: null });
+      Object.assign(sim.player, { x: piece.x, z: piece.z + piece.radius + 2.5, yaw: 0 });
+      go(sim, .5, { moveZ: 1 });
+      assert.ok(sim.player.feet < .5, `${area}: too tall to walk or hop onto`);
+      go(sim, DT, { moveZ: 1, jump: true });
+      go(sim, 1.2, { moveZ: 1 });
+      assert.ok(Math.abs(sim.player.feet - piece.top) < .1, `${area}: climbed the ${piece.top} m ledge (feet ${sim.player.feet.toFixed(2)})`);
+    }
+  }
+});

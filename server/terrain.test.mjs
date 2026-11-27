@@ -97,7 +97,7 @@ test('stairs (terraces and the cochlea) are walkable step by step, without a jum
   // The intestinal terrace's top tiers stand above the contraction; a colon fold's crest above the squeeze.
   assert.ok(2.28 >= HAZARD_CLEARANCE.intestines && 1.05 >= HAZARD_CLEARANCE.colon);
   const ear = field('ear');
-  const spiral = TERRAIN.ear.filter(piece => piece.kind === 'shelf');
+  const spiral = TERRAIN.ear.filter(piece => piece.kind === 'shelf' && !piece.ledge);
   Object.assign(ear.player, { x: spiral[0].x + 2, z: spiral[0].z - 1.5 });
   const eye = ear.player.y;
   for (const step of spiral) walk(ear, step, .9);
