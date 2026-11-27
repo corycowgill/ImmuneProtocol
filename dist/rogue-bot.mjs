@@ -1,4 +1,5 @@
 import { clearSegment } from './ai-navigation.mjs';
+import { raySolids } from './solids.mjs';
 
 export const ROGUE_BOT_SPEC = Object.freeze({ behavior: 'laser', radius: 1.08, y: 2.15,
   health: 88, speed: 3.4, suitDamage: 16, tissueDamage: 0, score: 240 });
@@ -16,6 +17,24 @@ export const laserRules = enemy => LASERS[enemy.type] ?? LASER_RULES;
 
 // The same conservative obstacle footprints as ordinary attacks. Clip the visible beam
 // before it can reach cover, including cover a suit moves behind during the warning.
+// With the arena's solids (solids.mjs) the beam stops where it meets scenery in 3D, so it can
+// reach a suit up on a clot or mound; without them it clips at the obstacles' footprints.
+function clipBeam(sim, from, to) {
+  // Walls (and anything else that is only a footprint) clip flat; low scenery in 3D.
+  const low = sim.lowObstacles;
+  const flat = clipLaser(low ? sim.obstacles.filter(obstacle => !low.has(obstacle)) : sim.obstacles, from, to);
+  if (!low?.size) return flat;
+  const dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z, length = Math.hypot(dx, dy, dz) || 1;
+  // Low scenery that is still in the arena (a test or a mode may have cleared the obstacles),
+  // and the artery's vessels.
+  const scenery = sim.shotSolids.filter(solid => solid.kind === 'tube' ||
+    (solid.kind !== 'pillar' && sim.obstacles.includes(sim.obstacleOf?.get(solid))));
+  const solid = raySolids(scenery, from, { x: dx / length, y: dy / length, z: dz / length }, length) / length;
+  const flatFraction = Math.hypot(flat.x - from.x, flat.y - from.y, flat.z - from.z) / length;
+  const fraction = Math.min(1, solid, flatFraction);
+  return { x: from.x + dx * fraction, y: from.y + dy * fraction, z: from.z + dz * fraction };
+}
+
 export function clipLaser(obstacles, from, to) {
   let fraction = 1;
   const dx = to.x - from.x, dz = to.z - from.z, a = dx * dx + dz * dz;
@@ -31,22 +50,31 @@ export function clipLaser(obstacles, from, to) {
   return { x: from.x + dx * fraction, y: from.y + (to.y - from.y) * fraction, z: from.z + dz * fraction };
 }
 
+// The footprints that hide a suit from a bot: all of them, except the low scenery (a clot, a
+// mound) the bot is itself up on or over.
+function coverFor(sim, enemy) {
+  if (!sim.lowObstacles?.size || !(sim.overLowScenery?.(enemy) > 0)) return sim.obstacles;
+  return sim.obstacles.filter(obstacle => !sim.lowObstacles.has(obstacle) ||
+    Math.hypot(enemy.x - obstacle[0], enemy.z - obstacle[1]) >= obstacle[2]);
+}
+
 export function startBotLaser(sim, enemy, target, targetName) {
   const c = sim.ai.controllers.get(enemy.id);
+  const cover = coverFor(sim, enemy);
   const rules = laserRules(enemy);
   const range = target ? Math.hypot(target.x - enemy.x, target.z - enemy.z) : Infinity;
   if (targetName !== 'player' || !target || target.health <= 0 || sim.attackPlayer(target.id) !== target ||
       !c?.targetKey?.startsWith('player:') || c.attackTarget() !== target ||
       range > rules.range || range < rules.minimumRange ||
-      !clearSegment(sim.obstacles, enemy, target)) return false;
+      !clearSegment(cover, enemy, target)) return false;
   enemy.heading = Math.atan2(target.x - enemy.x, target.z - enemy.z);
   const from = { x: enemy.x + Math.sin(enemy.heading) * rules.muzzle, y: enemy.y + rules.muzzleHeight, z: enemy.z + Math.cos(enemy.heading) * rules.muzzle };
-  if (!clearSegment(sim.obstacles, enemy, from, .04) || !sim.ai.director.acquire(enemy, 'player', 1.9)) return false;
+  if (!clearSegment(cover, enemy, from, .04) || !sim.ai.director.acquire(enemy, 'player', 1.9)) return false;
   const length = Math.max(.001, Math.hypot(target.x - from.x, target.y - from.y, target.z - from.z));
   const to = { x: from.x + (target.x - from.x) / length * rules.range,
     y: from.y + (target.y - from.y) / length * rules.range, z: from.z + (target.z - from.z) / length * rules.range };
   enemy.actionTarget = 'player'; enemy.actionPlayerId = target.id;
-  enemy.laser = { from, aim: to, to: clipLaser(sim.obstacles, from, to), stage: 'warning', remaining: rules.windup };
+  enemy.laser = { from, aim: to, to: clipBeam(sim, from, to), stage: 'warning', remaining: rules.windup };
   sim.setEnemyAction(enemy, 'laser-windup'); sim.attackEvent(enemy, 'windup', 'player');
   return true;
 }
@@ -58,7 +86,7 @@ function cancel(sim, enemy) {
 function fire(sim, enemy, spec) {
   const rules = laserRules(enemy);
   const beam = enemy.laser;
-  beam.to = clipLaser(sim.obstacles, beam.from, beam.aim);
+  beam.to = clipBeam(sim, beam.from, beam.aim);
   const dx = beam.to.x - beam.from.x, dy = beam.to.y - beam.from.y, dz = beam.to.z - beam.from.z;
   const length = dx * dx + dy * dy + dz * dz;
   let hit = null, first = Infinity;
@@ -67,7 +95,7 @@ function fire(sim, enemy, spec) {
     const x = player.x - beam.from.x, y = player.y - beam.from.y, z = player.z - beam.from.z;
     const t = (x * dx + y * dy + z * dz) / length;
     if (t < 0 || t > 1 || t >= first || Math.hypot(x - dx * t, y - dy * t, z - dz * t) > rules.radius ||
-        !clearSegment(sim.obstacles, beam.from, player)) continue;
+        !clearSegment(coverFor(sim, enemy), beam.from, player)) continue;
     first = t; hit = player;
   }
   sim.attackEvent(enemy, 'release', 'player');
@@ -107,7 +135,10 @@ export function stepRogueBot(sim, enemy, dt, spec, speedFactor, controller) {
   const target = controller.targetKey?.startsWith('player:') ? controller.attackTarget() : null;
   const defensive = ['retreat', 'cover', 'evade', 'investigate', 'idle', 'patrol'].includes(controller.action);
   if (!defensive && target && enemy.attackCooldown === 0 && startBotLaser(sim, enemy, target, 'player')) return;
-  controller.move(dt, spec.speed * speedFactor, target && controller.action === 'pursue' ? controller.profile.preferredDistance : 0);
+  // A crawler after a suit up on a clot or mound cannot shoot it from the floor: it closes in,
+  // which takes it up the slope onto the top.
+  const perched = enemy.type === 'crawler' && (sim.attackPlayer(controller.targetKey?.slice(7))?.feet ?? target?.feet ?? 0) > .3;
+  controller.move(dt, spec.speed * speedFactor, target && controller.action === 'pursue' ? perched ? 1.8 : controller.profile.preferredDistance : 0);
   // The crawler walks on its legs: up the stairs and over raised ground.
   if (enemy.type === 'crawler') enemy.y = spec.y + (sim.groundUnder?.(enemy) ?? 0);
 }

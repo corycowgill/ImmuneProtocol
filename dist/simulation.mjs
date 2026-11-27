@@ -338,6 +338,12 @@ export class Simulation {
     // only the pillars stop them flat.
     this.solids = suitSolids(this.area, this.obstacles);
     this.suitWalls = this.solids.filter(solid => !climbable(solid)).map(solid => [solid.x, solid.z, solid.r]);
+    // What stops shots and beams in 3D (the heart's obstacles are its valve sleeves, which keep
+    // their own aperture rules).
+    this.shotSolids = this.area === 'heart' ? this.solids.filter(climbable) : this.solids;
+    // The obstacles that are low scenery (clots, mounds), met in 3D rather than as footprints.
+    this.lowObstacles = new Set(this.obstacles.filter((_, index) => climbable(this.solids[index])));
+    this.obstacleOf = new Map(this.obstacles.map((obstacle, index) => [this.solids[index], obstacle]));
     // Raised ground (terrain.mjs): the suit stands on it, crawlers go round it.
     this.terrain = terrainFor(this.area);
     this.terrainFootprints = terrainFootprints(this.terrain);
@@ -1710,8 +1716,6 @@ export class Simulation {
     }
 
     // Scenery stops a shot: clots, mounds, the artery's vessels and every wall.
-    // (The heart's obstacles are its valve sleeves, which traceSleeve handles above.)
-    this.shotSolids ??= this.area === 'heart' ? (this.solids ?? []).filter(climbable) : this.solids ?? [];
     const scenery = raySolids(this.shotSolids, player, ray, distance);
     if (scenery < distance) {
       distance = scenery;
@@ -2149,10 +2153,12 @@ export class Simulation {
 
   // Pathogens flow around solid scenery instead of drifting through it.
   skirtObstacles(enemy) {
+    const base = (enemy.y ?? 0) - (SPECIES[enemy.type]?.y ?? 0);
     for (const [index, [x, z, size]] of this.obstacles.entries()) {
-      // A pathogen floating higher than a low obstacle (a clot, a mound) drifts over it.
+      // A pathogen up on (or floating over) a low obstacle, a clot or a mound, moves across it:
+      // crawlers walk its surface and floating pathogens drift over the top.
       const solid = this.solids?.[index];
-      if (solid && climbable(solid) && (enemy.y ?? 0) - (enemy.radius ?? .5) > solid.c + solid.half) continue;
+      if (solid && climbable(solid) && base >= solidTopAt([solid], enemy.x, enemy.z) - .3) continue;
       const dx = enemy.x - x;
       const dz = enemy.z - z;
       const gap = Math.hypot(dx, dz);
@@ -2275,8 +2281,11 @@ export class Simulation {
     return enemy.perchLift;
   }
 
+  // Raised ground and low scenery under a point: a crawler walks on both, so one that climbs a
+  // clot after a suit rides up its surface.
   groundUnder(point) {
-    return this.terrain?.length ? groundHeight(this.terrain, point.x, point.z, this.clock) : 0;
+    const terrain = this.terrain?.length ? groundHeight(this.terrain, point.x, point.z, this.clock) : 0;
+    return Math.max(terrain, this.overLowScenery(point));
   }
 
   // How far a hovering pathogen sits above its usual height: over raised ground it floats clear

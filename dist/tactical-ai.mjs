@@ -305,9 +305,8 @@ export class EnemyAIController {
       desired = { x: this.home.x + (desired.x - this.home.x) / length * p.territory, z: this.home.z + (desired.z - this.home.z) / length * p.territory };
     }
     this.destination = action === 'objective' && d < 5 ? world.navigation.project(desired) : world.squads.reserve(this, desired);
-    // A floating pathogen after a suit up on a clot or mound goes right up to it, over the top.
-    if (['virus', 'spore'].includes(enemy.behavior) && this.targetKey?.startsWith('player:') &&
-      (world.players.find(player => playerKey(player) === this.targetKey)?.feet ?? 0) > .3) {
+    // A pathogen that can get up there goes right up to a suit on a clot or mound, over the top.
+    if (climbsAfterPerched(enemy) && perchedTarget(world, this.targetKey)) {
       this.destination = world.airNavigation.project(desired);
     }
     if (action === 'cover' && threat && world.navigation.clear(threat, this.destination, 0)) this.destination = world.navigation.project(desired);
@@ -337,11 +336,10 @@ export class EnemyAIController {
     // walk back down off it).
     const climbing = enemy.type === 'crawler' && (world.sim.groundUnder?.(enemy) > .05 ||
       (world.players.find(player => playerKey(player) === this.targetKey)?.feet ?? 0) > .3);
-    // A floating pathogen flies over low scenery after a suit standing up on it (and back off it).
-    const floating = ['virus', 'spore'].includes(enemy.behavior);
-    const flying = floating && ((world.players.find(player => playerKey(player) === this.targetKey)?.feet ?? 0) > .3 ||
-      world.sim.overLowScenery?.(enemy));
-    const nav = enemy.type === 'crawler' && !climbing ? world.groundNavigation : flying ? world.airNavigation : world.navigation;
+    // Floating pathogens and flying bots go over low scenery, and crawlers climb it, after a suit
+    // standing up on it (and back off it afterwards).
+    const overScenery = climbsAfterPerched(enemy) && (perchedTarget(world, this.targetKey) || world.sim.overLowScenery?.(enemy) > 0);
+    const nav = overScenery ? world.airNavigation : enemy.type === 'crawler' && !climbing ? world.groundNavigation : world.navigation;
     if (this.profile.family !== 'mutated' && enemy.encounterOrder?.until > now && !enemy.encounterOrder.reached &&
         this.targetKey?.startsWith('node:') && ['objective', 'flank'].includes(this.action)) stopDistance = 0;
     if (!this.destination || this.action === 'idle' || (this.blockedUntil ?? 0) > now) return;
@@ -417,6 +415,15 @@ export class EnemyAIController {
     this.memory.clear(); this.path.length = 0; this.coverCandidates.length = 0;
     this.target = null; this.destination = null; this.enemy = null; this.world = null; this.disposed = true;
   }
+}
+
+// Who follows a suit up onto a clot or mound: floating pathogens, flying bots and crawlers.
+function climbsAfterPerched(enemy) {
+  return ['virus', 'spore', 'laser'].includes(enemy.behavior);
+}
+// Whether the suit a pathogen is after stands up on something.
+function perchedTarget(world, key) {
+  return !!key?.startsWith('player:') && (world.players.find(player => playerKey(player) === key)?.feet ?? 0) > .3;
 }
 
 export class AIWorld {
