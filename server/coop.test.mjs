@@ -614,3 +614,24 @@ test('waves field five times their roster and score is kept per player', () => {
   solo.hitEnemy(target, 1e4, false, at, 'player', solo);
   assert.deepEqual([solo.player.score, solo.player.kills, solo.score], [130, 1, 130]);
 });
+
+test('client prediction moves a suit from a real snapshot without throwing, near a Grip Phage and up a clot', async () => {
+  const { movementStandIn, Simulation: Sim } = await import('../dist/simulation.mjs');
+  const { CoopSimulation: Coop } = await import('../dist/coop-simulation.mjs');
+  const sim = new Coop([{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], 'artery');
+  sim.start();
+  for (let i = 0; i < 30; i++) sim.step(1 / 30, {});
+  const state = sim.snapshotFor('a');
+  // A Grip Phage clinging to the suit: prediction must see it (it slows the suit).
+  const phage = { ...sim.createEnemy('latcher', state.player.x, state.player.z, sim.nodes[0]), action: 'cling', actionPlayerId: 'a', health: 50 };
+  const movement = movementStandIn({ ...state, enemies: [...state.enemies, phage] });
+  assert.doesNotThrow(() => {
+    for (let i = 0; i < 20; i++) Sim.prototype.movePlayer.call(movement, 1 / 30, { moveZ: 1, jump: i === 5 });
+  });
+  // And it climbs the same scenery as the server.
+  const clot = sim.solids[2];
+  const stand = movementStandIn({ ...state, ability: undefined });
+  Object.assign(stand.player, { x: clot.x, z: clot.z + clot.r + 1.5, yaw: 0 });
+  for (let i = 0; i < 40; i++) Sim.prototype.movePlayer.call(stand, 1 / 30, { moveZ: 1, jump: i === 3 });
+  assert.ok(stand.player.feet > 1, 'the predicted suit climbed the clot');
+});

@@ -23,7 +23,7 @@ const DRAIN_TICK = .3;
 
 // The suit's living Grip Phage, if one holds it.
 export function grippedBy(sim, player) {
-  return sim.enemies.find(enemy => enemy.action === 'cling' && enemy.health > 0 &&
+  return sim.enemies?.find(enemy => enemy.action === 'cling' && enemy.health > 0 &&
     (enemy.actionPlayerId ?? null) === (player.id ?? null)) ?? null;
 }
 

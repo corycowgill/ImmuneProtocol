@@ -302,6 +302,30 @@ function confineToChamber(player, obstacles) {
   if (obstacles) pushOutOf(player, obstacles);
 }
 
+// What client-side prediction moves a suit with (coop-client.mjs): a stand-in Simulation holding
+// only what movePlayer reads, from a co-op snapshot: the real methods it calls (confineToArena,
+// keepOffNodes) over the snapshot's nodes and pathogens (a Grip Phage holding the suit slows it)
+// and the arena's scenery, so the prediction meets what the server does.
+const STAND_IN_SCENERY = new Map();
+export function movementStandIn(state, player = { ...state.player }) {
+  if (!STAND_IN_SCENERY.has(state.area)) {
+    const obstacles = arenaObstacles(state.area);
+    const solids = suitSolids(state.area, obstacles);
+    STAND_IN_SCENERY.set(state.area, {
+      obstacles, suitScenery: suitScenery(state.area), solids,
+      suitWalls: solids.filter(solid => !climbable(solid)).map(solid => [solid.x, solid.z, solid.r]),
+    });
+  }
+  const { weapon, valve, organ, organMission } = state;
+  return {
+    confineToArena: Simulation.prototype.confineToArena, keepOffNodes: Simulation.prototype.keepOffNodes,
+    player, weapon, valve, organ, organMission, events: [], clock: state.clock, terrain: terrainFor(state.area),
+    area: state.area, nodes: state.nodes ?? [], enemies: state.enemies ?? [], airway: state.airway ?? null, tutorial: null,
+    ...STAND_IN_SCENERY.get(state.area),
+    ability: state.ability ? { ...state.ability } : undefined,
+  };
+}
+
 // Moves an actor out of any of the circles [x, z, radius] it stands in.
 function pushOutOf(actor, circles) {
   for (const [x, z, size] of circles) {
