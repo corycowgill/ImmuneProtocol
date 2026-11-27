@@ -77,6 +77,12 @@ export function updateWeapon(world, sim, dt, input, aiming, reduceMotion) {
     model.rotation.x += -wind * .25 + strike * .12 - toss * .3;
     model.rotation.y += strike * .95 - wind * .2;
     model.rotation.z += strike * .55 + toss * .4 + feel.side * feel.rush * .12;
+    // Mantling: the weapon drops and rolls out of the way, then comes back up as the suit tops out.
+    const climb = feel.climb > 0 ? Math.sin(Math.min(1, (1 - feel.climb) * 1.15) * Math.PI) : 0;
+    model.position.y -= climb * .2;
+    model.position.x += climb * .08;
+    model.rotation.x -= climb * .45;
+    model.rotation.z -= climb * .6;
   }
   // The off hand leaves the weapon to wipe the visor: the gun drops and cants as it is held one-handed.
   const wipeHand = world.visor?.handRaise ?? 0;

@@ -26,7 +26,7 @@ export const ARTERY_VESSEL_SCALE = Object.freeze([1.25 * LAYOUT_SCALE, 1.18, 1.2
 
 // A point on the centripetal Catmull-Rom curve through `points` (as three.js CatmullRomCurve3
 // draws it), at parameter t in 0..1.
-function curvePoint(points, t) {
+export function curvePoint(points, t) {
   const l = points.length;
   const p = (l - 1) * t;
   let index = Math.floor(p);

@@ -564,6 +564,10 @@ export class GameAudio {
       case 'jump':
         if (!event.teammate) this.playSample('suit/jump', .42, { rate: .95 + Math.random() * .1 });
         break;
+      case 'mantle':
+        // Gauntlets on the ledge, then the haul up.
+        if (!event.teammate) this.playSample('suit/land', .38, { rate: 1.25 + Math.random() * .1 });
+        break;
       case 'land':
         if (!event.teammate) this.playSample('suit/land', Math.min(.75, .25 + event.speed * .07), { rate: .9 + Math.random() * .15 });
         break;

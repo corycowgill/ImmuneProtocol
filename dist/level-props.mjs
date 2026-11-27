@@ -1,3 +1,4 @@
+import { arteryClotHeight } from './solids.mjs';
 import * as THREE from './vendor/three.module.js';
 import { chunkInstances, flowPatches } from './decor-chunks.mjs';
 import { ARENA_GROWTH } from './arena-scale.mjs';
@@ -945,9 +946,11 @@ function organPillars(root, area, obstacles, random) {
       emissive: 0x3a0306, emissiveIntensity: .3 });
     const fibrin = bioMaterial('neural', [1, 5], { color: 0xf0d2c0, roughness: .45, clearcoat: .5 });
     const disc = redCellGeometry();
-    for (const [x, z, size] of obstacles) {
+    for (const [index, [x, z, size]] of obstacles.entries()) {
       const mound = new THREE.Mesh(lumpySphere(4, .24, Math.round(x * 5 + z * 3)), clot);
-      mound.scale.set(size * .96, size * (.95 + random() * .5), size * .96);
+      // Its height is shared with the simulation (solids.mjs), which lets a suit climb onto it.
+      random();
+      mound.scale.set(size * .96, size * arteryClotHeight(index), size * .96);
       mound.position.set(x, -.3, z);
       mound.rotation.y = random() * TAU;
       root.add(mound);

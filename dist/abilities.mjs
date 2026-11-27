@@ -16,6 +16,12 @@ export const ABILITIES = Object.freeze({
 
 import { releaseCling } from './grip-phage.mjs';
 import { STEP_HEIGHT, groundHeight } from './terrain.mjs';
+import { STANCE, solidGround } from './solids.mjs';
+
+// Mantling: a suit in the air that runs into a ledge grabs it and pulls itself up, if the top
+// is within this reach of its feet (about 2.4 m from the floor at the top of a jump). It takes
+// a moment: up first, then over the edge.
+export const MANTLE = Object.freeze({ reach: 1.3, time: .32, perMetre: .16, over: .55 });
 
 const GRAVITY = 22;
 const KNOCK_DECAY = 8;
@@ -56,6 +62,8 @@ export function moveAbilities(sim, suit, input, dt) {
   const { player } = suit;
   const state = abilityState(suit);
   state.eye ??= player.y;
+  // Climbing a ledge carries the suit on its own.
+  if (state.mantle) return true;
   state.dashCooldown = Math.max(0, state.dashCooldown - dt);
   const playerId = player.id;
 
@@ -100,16 +108,24 @@ export function settleOnTerrain(sim, suit, fromX, fromZ, dt) {
   const state = abilityState(suit);
   state.eye ??= player.y;
   const pieces = sim.terrain ?? [];
-  const ground = (x, z) => groundHeight(pieces, x, z, sim.clock ?? 0);
+  const solids = sim.solids ?? [];
+  // The ground under the suit: raised terrain and the solids it stands on (not ones overhead).
+  // The body (its full footprint) stops at a wall's surface; it stands on what is under its feet.
+  const ground = (x, z, feet = state.feet) => Math.max(groundHeight(pieces, x, z, sim.clock ?? 0), solidGround(solids, x, z, feet));
+  const footing = (x, z, feet = state.feet) => Math.max(groundHeight(pieces, x, z, sim.clock ?? 0), solidGround(solids, x, z, feet, STANCE));
+  if (state.mantle) { climbLedge(sim, suit, state, dt); return; }
   // Feet clear an edge only if they are already (nearly) above it.
   const reach = state.feet + (state.airborne ? .05 : STEP_HEIGHT);
-  if (ground(player.x, player.z) > reach) {
+  // (A suit that somehow stands inside a solid, say put there by a spawn, may walk out of it.)
+  if (ground(player.x, player.z) > reach && ground(fromX, fromZ) <= state.feet + MANTLE.reach) {
+    // In the air against a ledge it can reach: grab it and climb.
+    if (state.airborne && startMantle(sim, suit, state, fromX, fromZ, footing)) return;
     // Slide along the edge where one axis is still open, otherwise stop at it.
     if (ground(player.x, fromZ) <= reach) player.z = fromZ;
     else if (ground(fromX, player.z) <= reach) player.x = fromX;
     else { player.x = fromX; player.z = fromZ; }
   }
-  const floor = ground(player.x, player.z);
+  const floor = footing(player.x, player.z);
   if (state.airborne) {
     state.feet += state.vy * dt;
     state.vy -= ABILITIES.jump.gravity * dt;
@@ -119,13 +135,67 @@ export function settleOnTerrain(sim, suit, fromX, fromZ, dt) {
       state.vy = 0;
       state.airborne = false;
     }
-  } else if (floor < state.feet - .12) {
-    // Walked off an edge: fall.
+  } else if (floor < state.feet - STEP_HEIGHT) {
+    // Walked off an edge: fall. (Down a slope or a small step it keeps its footing.)
     state.airborne = true;
     state.vy = 0;
   } else state.feet = floor;
   player.y = state.eye + state.feet;
   player.lift = state.feet - floor;
+  player.feet = state.feet;
+}
+
+// Looks along the suit's move for a ledge it can grab: the top just past the edge it ran into,
+// within reach of its feet, with room to stand there. Starts the climb and returns true if so.
+function startMantle(sim, suit, state, fromX, fromZ, ground) {
+  const { player } = suit;
+  const dx = player.x - fromX, dz = player.z - fromZ, length = Math.hypot(dx, dz);
+  if (length < 1e-4 || player.health <= 0) return false;
+  const nx = dx / length, nz = dz / length;
+  const reach = state.feet + MANTLE.reach;
+  for (let along = .2; along <= 1.2; along += .1) {
+    const x = fromX + nx * along, z = fromZ + nz * along;
+    // Judged as if standing at the ledge's height, so a tube overhead is not mistaken for it.
+    const top = ground(x, z, reach);
+    if (top <= state.feet + STEP_HEIGHT) continue;
+    if (top > reach) return false;
+    // Stand a little past the lip, on ground that rises no more than a step from there (a top,
+    // or a slope it can walk on up).
+    const toX = x + nx * MANTLE.over, toZ = z + nz * MANTLE.over;
+    const landing = ground(toX, toZ, top);
+    if (landing > Math.max(top, state.feet) + STEP_HEIGHT * 1.6 || landing > reach || landing < top - 1) continue;
+    const rise = Math.max(top, landing) - state.feet;
+    state.mantle = { t: 0, time: MANTLE.time + rise * MANTLE.perMetre, fromX, fromZ, toX, toZ, fromFeet: state.feet, toFeet: Math.max(top, landing) };
+    player.x = fromX; player.z = fromZ;
+    state.vy = 0;
+    sim.events.push({ type: 'mantle', playerId: player.id, rise, x: player.x, y: player.y, z: player.z });
+    return true;
+  }
+  return false;
+}
+
+// Pulls the suit up a ledge: most of the rise first, then over the lip onto the top.
+function climbLedge(sim, suit, state, dt) {
+  const { player } = suit;
+  const m = state.mantle;
+  m.t = Math.min(m.time, m.t + dt);
+  const k = m.t / m.time;
+  const up = 1 - (1 - Math.min(1, k / .7)) ** 2;
+  const over = Math.max(0, (k - .45) / .55);
+  const ease = over * over * (3 - 2 * over);
+  player.x = m.fromX + (m.toX - m.fromX) * ease;
+  player.z = m.fromZ + (m.toZ - m.fromZ) * ease;
+  state.feet = m.fromFeet + (m.toFeet - m.fromFeet) * up;
+  if (k >= 1) {
+    state.mantle = null;
+    state.airborne = false;
+    state.vy = 0;
+    state.feet = m.toFeet;
+    sim.events.push({ type: 'land', playerId: player.id, speed: 1.5, mantle: true, x: player.x, y: state.eye + state.feet, z: player.z });
+  }
+  player.mantling = !!state.mantle;
+  player.y = state.eye + state.feet;
+  player.lift = 0;
   player.feet = state.feet;
 }
 

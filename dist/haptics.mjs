@@ -144,6 +144,9 @@ export class Haptics {
         this.add({ strong: .55, weak: .85, ms: 85 });
         this.add({ strong: .18, ms: 320, curve: 1.2 }, 90);
         break;
+      case 'mantle':
+        this.add({ strong: .25, weak: .2, ms: 120, curve: 1.5 });
+        break;
       case 'jump':
         this.add({ weak: .3, ms: 55 });
         break;

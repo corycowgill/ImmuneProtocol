@@ -13,6 +13,7 @@ import { spawnLevelBoss, stepBossArrival, stepLevelBoss } from './level-bosses.m
 import { NANOBOT } from './nanobot-boss.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
+import { suitSolids, climbable, solidTopAt } from './solids.mjs';
 import { HAZARD_CLEARANCE, RESONANCE_CLEARANCE, groundHeight, onMovingGround, terrainFor, terrainFootprints } from './terrain.mjs';
 import { companionOf, createDrone, stepDrones, toggleDrone } from './companions.mjs';
 import { abilityState, dodges, knockBack, moveAbilities, settleOnTerrain, restockThrowables, throwItems, updateThrowables, useMelee } from './abilities.mjs';
@@ -333,6 +334,10 @@ export class Simulation {
     this.area = this.organMission || area === 'heart' || area === 'junction' ? area : 'artery';
     this.obstacles = arenaObstacles(this.area);
     this.suitScenery = suitScenery(this.area);
+    // The same obstacles with height (solids.mjs): suits stand on and climb the low ones, and
+    // only the pillars stop them flat.
+    this.solids = suitSolids(this.area, this.obstacles);
+    this.suitWalls = this.solids.filter(solid => !climbable(solid)).map(solid => [solid.x, solid.z, solid.r]);
     // Raised ground (terrain.mjs): the suit stands on it, crawlers go round it.
     this.terrain = terrainFor(this.area);
     this.terrainFootprints = terrainFootprints(this.terrain);
@@ -1345,9 +1350,11 @@ export class Simulation {
   confineToArena(actor, solid = false) {
     if (solid) {
       this.keepOffNodes(actor);
-      pushOutOf(actor, this.suitScenery);
+      // Clots, mounds and vessels are met with height in settleOnTerrain; pillars are walls.
+      confineToChamber(actor, this.suitWalls ?? this.obstacles);
+      return;
     }
-    confineToChamber(actor, solid ? this.obstacles : null);
+    confineToChamber(actor, null);
   }
 
   // Tissue nodes are solid: a suit walks or dashes around one, not through it. Only the nodes the
@@ -1474,7 +1481,8 @@ export class Simulation {
       this.events.push({ type: 'reload', stage: 'start' });
       return;
     }
-    if (!input.fire || suit.fireCooldown > 0) return;
+    // Both hands are on the ledge while the suit climbs.
+    if (!input.fire || suit.fireCooldown > 0 || player.mantling) return;
     this.shoot(input.aim, suit);
   }
 
@@ -2131,7 +2139,10 @@ export class Simulation {
 
   // Pathogens flow around solid scenery instead of drifting through it.
   skirtObstacles(enemy) {
-    for (const [x, z, size] of this.obstacles) {
+    for (const [index, [x, z, size]] of this.obstacles.entries()) {
+      // A pathogen floating higher than a low obstacle (a clot, a mound) drifts over it.
+      const solid = this.solids?.[index];
+      if (solid && climbable(solid) && (enemy.y ?? 0) - (enemy.radius ?? .5) > solid.c + solid.half) continue;
       const dx = enemy.x - x;
       const dz = enemy.z - z;
       const gap = Math.hypot(dx, dz);
@@ -2316,8 +2327,9 @@ export class Simulation {
         this.attackEvent(owner, 'miss', target, { x: from.x + dx, y: from.y + dy, z: from.z + dz }, projectile.targetPlayerId);
         continue;
       }
-      // Colony spit starts inside a valve sleeve and leaves through the aperture.
-      if (!projectile.colony && !clearSegment(this.obstacles, from, { x: from.x + dx, z: from.z + dz }, projectile.radius)) {
+      // Colony spit starts inside a valve sleeve and leaves through the aperture. Other spit
+      // splashes on scenery taller than it where it is (it passes over a low clot or mound).
+      if (!projectile.colony && solidTopAt(this.solids ?? [], from.x + dx, from.z + dz) > from.y + dy) {
         this.attackEvent(owner, 'miss', target, from, projectile.targetPlayerId);
         continue;
       }

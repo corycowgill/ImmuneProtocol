@@ -1,3 +1,4 @@
+import { MANTLE } from './abilities.mjs';
 import * as THREE from './vendor/three.module.js';
 import { createArsenalView, weaponModelsReady, prepareWeaponCosmetics } from './arsenal-models.mjs';
 import { COOP_SUITS, loadSuitModels } from './suits.mjs';
@@ -213,7 +214,7 @@ export class World {
     this.abilityFx = new AbilityFX(this.scene, this.glow, this.random);
     this.terrainViews = new Map();
     // How the suit's own moves feel through the camera and the weapon (see applyFeel).
-    this.feel = { rush: 0, side: 0, forward: 0, dip: 0, dipV: 0, focus: 0, bash: 0, throw: 0 };
+    this.feel = { rush: 0, side: 0, forward: 0, dip: 0, dipV: 0, focus: 0, bash: 0, throw: 0, climb: 0, climbTime: .4 };
     for (const view of this.turretViews) this.scene.add(view.model);
     // Medic drones, one per suit in the largest squad, built once their model has loaded.
     this.droneViews = null;
@@ -632,6 +633,8 @@ export class World {
         if (event.type === 'jump') feel.dipV -= .35;
         if (event.type === 'land') feel.dipV -= Math.min(2.6, .35 + event.speed * .3);
         if (event.type === 'dodge') feel.focus = 1;
+        // Grabbing a ledge: the weapon swings aside while the hands pull the suit up.
+        if (event.type === 'mantle') Object.assign(feel, { climb: 1, climbTime: MANTLE.time + (event.rise ?? 1) * MANTLE.perMetre });
         if (event.type === 'melee') {
           feel.bash = 1;
           if (event.hits && !reduceMotion) this.explosions.shake = Math.min(1, this.explosions.shake + .2);
@@ -643,6 +646,7 @@ export class World {
     feel.focus = Math.max(0, feel.focus - dt * 1.5);
     feel.bash = Math.max(0, feel.bash - dt / .42);
     feel.throw = Math.max(0, feel.throw - dt / .5);
+    feel.climb = Math.max(0, feel.climb - dt / feel.climbTime);
     // The landing dip is a stiff spring back to eye height.
     const step = Math.min(dt, .05);
     feel.dipV += (-feel.dip * 110 - feel.dipV * 15) * step;

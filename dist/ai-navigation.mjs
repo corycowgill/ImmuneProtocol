@@ -5,7 +5,11 @@ const gap = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 export function clearSegment(obstacles, from, to, clearance = 0) {
   const dx = to.x - from.x, dz = to.z - from.z;
   const length = dx * dx + dz * dz;
+  // A suit standing up on an obstacle (solids.mjs) is in plain view of everything around it.
+  const perched = point => (point.feet ?? 0) > .3;
   for (const [x, z, radius] of obstacles) {
+    if ((perched(to) && (to.x - x) ** 2 + (to.z - z) ** 2 < radius * radius) ||
+      (perched(from) && (from.x - x) ** 2 + (from.z - z) ** 2 < radius * radius)) continue;
     const t = length ? Math.max(0, Math.min(1, ((x - from.x) * dx + (z - from.z) * dz) / length)) : 0;
     if ((from.x + dx * t - x) ** 2 + (from.z + dz * t - z) ** 2 < (radius + clearance) ** 2) return false;
   }
