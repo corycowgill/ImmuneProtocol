@@ -104,6 +104,16 @@ export function updateWeapon(world, sim, dt, input, aiming, reduceMotion) {
   world.magazineHandPosition.copy(magazineGrip).applyQuaternion(magazine.quaternion).add(magazine.position);
   supportHand.position.copy(world.supportRest).lerp(world.magazineHandPosition,reach);
   supportHand.rotation.set(-reach * .24 + magazineTurn * .15, reach * .15, reach * .42 + magazineTurn * .17);
+  // Climbing: the off hand lets go of the weapon and reaches up and forward onto the ledge,
+  // palm down, then comes back to the grip as the suit tops out.
+  const grab = world.feel?.climb > 0 && !reduceMotion ? Math.sin(Math.min(1, (1 - world.feel.climb) * 1.25) * Math.PI) : 0;
+  if (grab > 0) {
+    supportHand.position.x -= grab * .07;
+    supportHand.position.y += grab * .26;
+    supportHand.position.z -= grab * .2;
+    supportHand.rotation.x -= grab * 1.1;
+    supportHand.rotation.z += grab * .35;
+  }
   bolt.position.z = Math.max(pose.recoil * .033, seat * .023);
   poseHands(reach, Math.min(pose.recoil,1));
   flash.visible = pose.flash > 0;

@@ -22,6 +22,9 @@ import { SUIT_HEAD, STANCE, solidGround, surfaceUnder } from './solids.mjs';
 // is within this reach of its feet (about 2.4 m from the floor at the top of a jump). It takes
 // a moment: up first, then over the edge.
 export const MANTLE = Object.freeze({ reach: 1.3, time: .32, perMetre: .16, over: .55 });
+// Vaulting: something no taller than `height` above the feet, with ground no higher than a
+// step within `depth` beyond its lip, is hopped clean over instead of climbed onto.
+export const VAULT = Object.freeze({ height: 1.15, depth: 1.6, time: .42, clear: .2 });
 // How high a suit can climb on scenery: a vessel that rises on into the canopy is too steep and
 // slick past this, so the suit walks up it this far and no further.
 export const CLIMB_CEILING = 4.5;
@@ -230,27 +233,57 @@ function startMantle(sim, suit, state, fromX, fromZ, ground) {
     const landing = ground(toX, toZ, top);
     if (landing > Math.max(top, state.feet) + STEP_HEIGHT * 1.6 || landing > reach || landing < top - 1) continue;
     const rise = Math.max(top, landing) - state.feet;
-    state.mantle = { t: 0, time: MANTLE.time + rise * MANTLE.perMetre, fromX, fromZ, toX, toZ, fromFeet: state.feet, toFeet: Math.max(top, landing) };
+    // Waist-high and thin, with open ground just past it: vault clean over.
+    const vault = rise <= VAULT.height && vaultLanding(state, ground, x, z, nx, nz, reach);
+    state.mantle = vault
+      ? { t: 0, time: VAULT.time, fromX, fromZ, toX: vault.x, toZ: vault.z, fromFeet: state.feet, toFeet: vault.feet, peak: vault.peak + VAULT.clear, vault: true }
+      : { t: 0, time: MANTLE.time + rise * MANTLE.perMetre, fromX, fromZ, toX, toZ, fromFeet: state.feet, toFeet: Math.max(top, landing) };
     player.x = fromX; player.z = fromZ;
     state.vy = 0;
-    sim.events.push({ type: 'mantle', playerId: player.id, rise, x: player.x, y: player.y, z: player.z });
+    sim.events.push({ type: 'mantle', playerId: player.id, rise, vault: !!vault, x: player.x, y: player.y, z: player.z });
     return true;
   }
   return false;
 }
 
-// Pulls the suit up a ledge: most of the rise first, then over the lip onto the top.
+// Past a lip at (x, z): the first spot within VAULT.depth whose ground is back within a step of
+// the suit's feet, with nothing on the way over taller than it can reach. Null if there is none.
+function vaultLanding(state, ground, x, z, nx, nz, reach) {
+  let peak = 0;
+  for (let along = .1; along <= VAULT.depth; along += .1) {
+    const px = x + nx * along, pz = z + nz * along;
+    const height = ground(px, pz, reach);
+    if (height > reach) return null;
+    peak = Math.max(peak, height);
+    if (height <= state.feet + STEP_HEIGHT && along > .3) {
+      return { x: px + nx * .35, z: pz + nz * .35, feet: ground(px + nx * .35, pz + nz * .35, state.feet + STEP_HEIGHT), peak };
+    }
+  }
+  return null;
+}
+
+// Pulls the suit up a ledge: most of the rise first, then over the lip onto the top. A vault
+// arcs over the top and down the far side.
 function climbLedge(sim, suit, state, dt) {
   const { player } = suit;
   const m = state.mantle;
   m.t = Math.min(m.time, m.t + dt);
   const k = m.t / m.time;
-  const up = 1 - (1 - Math.min(1, k / .7)) ** 2;
-  const over = Math.max(0, (k - .45) / .55);
-  const ease = over * over * (3 - 2 * over);
-  player.x = m.fromX + (m.toX - m.fromX) * ease;
-  player.z = m.fromZ + (m.toZ - m.fromZ) * ease;
-  state.feet = m.fromFeet + (m.toFeet - m.fromFeet) * up;
+  if (m.vault) {
+    // Across at an even pace, over an arc that clears the top.
+    const ease = k * k * (3 - 2 * k);
+    player.x = m.fromX + (m.toX - m.fromX) * ease;
+    player.z = m.fromZ + (m.toZ - m.fromZ) * ease;
+    const base = m.fromFeet + (m.toFeet - m.fromFeet) * k;
+    state.feet = base + (m.peak - Math.min(m.fromFeet, m.toFeet)) * Math.sin(Math.PI * Math.min(1, k * 1.1));
+  } else {
+    const up = 1 - (1 - Math.min(1, k / .7)) ** 2;
+    const over = Math.max(0, (k - .45) / .55);
+    const ease = over * over * (3 - 2 * over);
+    player.x = m.fromX + (m.toX - m.fromX) * ease;
+    player.z = m.fromZ + (m.toZ - m.fromZ) * ease;
+    state.feet = m.fromFeet + (m.toFeet - m.fromFeet) * up;
+  }
   if (k >= 1) {
     state.mantle = null;
     state.airborne = false;

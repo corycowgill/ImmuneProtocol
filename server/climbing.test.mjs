@@ -204,3 +204,26 @@ test('every arena has ledges a jump and a grab tall, and each one can be climbed
     }
   }
 });
+
+test('a jump at something waist-high and thin vaults clean over it; a deep one is climbed onto', () => {
+  for (const [r, vaults] of [[.45, true], [3, false]]) {
+    const sim = new Simulation('artery');
+    sim.start();
+    sim.tutorial = null;
+    sim.enemies = [];
+    sim.spawnIndex = 1e9;
+    // A log (or a broad mound) about a metre high on open floor.
+    const log = Object.freeze({ x: 0, z: 40, r, c: -.2, half: 1.25, kind: 'dome' });
+    sim.solids = [...sim.solids, log];
+    Object.assign(abilityState(sim), { feet: 0, airborne: false, vy: 0, mantle: null });
+    Object.assign(sim.player, { x: 0, z: 40 + r + 1.2, yaw: 0 });
+    let highest = 0;
+    const events = [...go(sim, .15, { moveZ: 1 }), ...go(sim, DT, { moveZ: 1, jump: true })];
+    for (let t = 0; t < 1.2; t += DT) { events.push(...go(sim, DT, { moveZ: 1 })); if (!sim.player.mantling) highest = Math.max(highest, sim.player.feet); }
+    const mantle = events.find(event => event.type === 'mantle');
+    assert.ok(mantle, `r ${r}: it grabbed the edge`);
+    assert.equal(!!mantle.vault, vaults, `r ${r}: ${vaults ? 'vaults' : 'climbs'}`);
+    if (vaults) assert.ok(sim.player.z < 40 - r && sim.player.feet < .3, 'over and down the far side');
+    else assert.ok(highest > .8, 'up on top');
+  }
+});
