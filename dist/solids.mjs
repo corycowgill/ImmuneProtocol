@@ -112,3 +112,38 @@ export function solidTopAt(solids, x, z) {
 
 // Whether a solid can be climbed at all (pillars cannot).
 export const climbable = solid => solid.kind !== 'pillar';
+
+// The surface something small at height y rests on or runs into at (x, z): the top of the
+// highest solid there whose underside is below it (it passes under the rest). 0 where none.
+export function surfaceUnder(solids, x, z, y) {
+  let top = 0;
+  for (const solid of solids) {
+    if (Math.abs(x - solid.x) > solid.r || Math.abs(z - solid.z) > solid.r) continue;
+    const span = solidSpan(solid, x, z, 0);
+    if (span && span[0] <= y + .05 && span[1] > top) top = span[1];
+  }
+  return top;
+}
+
+// How far along a ray (from `origin`, unit `direction`) it first meets a solid, up to `range`;
+// Infinity if it meets none. Each solid is the rounded body of solidSpan, cut off at the floor.
+export function raySolids(solids, origin, direction, range = Infinity) {
+  let nearest = range;
+  const { x: ox, y: oy, z: oz } = origin, { x: dx, y: dy, z: dz } = direction;
+  for (const solid of solids) {
+    // Squash the body into a unit sphere: x and z by its radius, y by its half-height.
+    const sy = Math.min(solid.half, 1e3);
+    const px = (ox - solid.x) / solid.r, py = (oy - solid.c) / sy, pz = (oz - solid.z) / solid.r;
+    const vx = dx / solid.r, vy = dy / sy, vz = dz / solid.r;
+    const a = vx * vx + vy * vy + vz * vz;
+    const b = px * vx + py * vy + pz * vz;
+    const c = px * px + py * py + pz * pz - 1;
+    if (c <= 0) continue; // The ray starts inside it (a suit standing in a tube's skin): ignore.
+    const discriminant = b * b - a * c;
+    if (discriminant < 0 || b > 0) continue;
+    const t = (-b - Math.sqrt(discriminant)) / a;
+    if (t < 0 || t >= nearest || oy + dy * t < 0) continue;
+    nearest = t;
+  }
+  return nearest;
+}

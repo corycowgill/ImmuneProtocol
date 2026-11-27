@@ -16,7 +16,7 @@ export const ABILITIES = Object.freeze({
 
 import { releaseCling } from './grip-phage.mjs';
 import { STEP_HEIGHT, groundHeight } from './terrain.mjs';
-import { STANCE, solidGround } from './solids.mjs';
+import { STANCE, solidGround, surfaceUnder } from './solids.mjs';
 
 // Mantling: a suit in the air that runs into a ledge grabs it and pulls itself up, if the top
 // is within this reach of its feet (about 2.4 m from the floor at the top of a jump). It takes
@@ -296,7 +296,8 @@ export function throwItems(sim, suit, input, dt) {
 
 function bounceOff(sim, item) {
   let bounced = false;
-  for (const [x, z, size] of sim.obstacles ?? []) {
+  // Walls only: clots, mounds and vessels are met with height in updateThrowables.
+  for (const [x, z, size] of sim.suitWalls ?? sim.obstacles ?? []) {
     const dx = item.x - x;
     const dz = item.z - z;
     const gap = Math.hypot(dx, dz);
@@ -331,13 +332,16 @@ function bounceOff(sim, item) {
 
 export function updateThrowables(sim, dt) {
   if (!sim.throwables?.length) return;
+  // What a throwable at height y lands on or runs into: raised ground, and low scenery below it.
+  sim.lowSolids ??= (sim.solids ?? []).filter(solid => solid.kind !== 'pillar');
+  const surface = (x, z, y) => Math.max(groundHeight(sim.terrain ?? [], x, z, sim.clock), surfaceUnder(sim.lowSolids, x, z, y));
   let count = 0;
   for (const item of sim.throwables) {
     item.age += dt;
     item.fuse -= dt;
     // Something resting on a breathing platform rides it up and down.
     if (item.rest && !item.stuck) {
-      const rest = groundHeight(sim.terrain ?? [], item.x, item.z, sim.clock) + REST_HEIGHT;
+      const rest = surface(item.x, item.z, item.y) + REST_HEIGHT;
       if (Math.abs(rest - item.y) > .005) item.y = rest;
     }
     if (!item.rest) {
@@ -350,15 +354,14 @@ export function updateThrowables(sim, dt) {
       item.spin += dt * Math.hypot(item.vx, item.vz) * 1.6;
       let bounced = bounceOff(sim, item);
       // Struck the side of raised ground: knock it back off the edge.
-      const pieces = sim.terrain ?? [];
-      if (groundHeight(pieces, item.x, item.z, sim.clock) > item.y + .1) {
+      if (surface(item.x, item.z, item.y) > item.y + .1) {
         item.x = fromX;
         item.z = fromZ;
         item.vx *= -.45;
         item.vz *= -.45;
         bounced = true;
       }
-      const rest = groundHeight(pieces, item.x, item.z, sim.clock) + REST_HEIGHT;
+      const rest = surface(item.x, item.z, item.y + .4) + REST_HEIGHT;
       if (item.y < rest) {
         const impact = -item.vy;
         item.y = rest;

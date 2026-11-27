@@ -13,7 +13,7 @@ import { spawnLevelBoss, stepBossArrival, stepLevelBoss } from './level-bosses.m
 import { NANOBOT } from './nanobot-boss.mjs';
 import { createBrainBoss, stepBrainBoss, traceBrainBoss, hitBrainBoss } from './brain-boss.mjs';
 import { FIELD_UPGRADES } from './loadouts.mjs';
-import { suitSolids, climbable, solidTopAt } from './solids.mjs';
+import { suitSolids, climbable, solidTopAt, raySolids } from './solids.mjs';
 import { HAZARD_CLEARANCE, RESONANCE_CLEARANCE, groundHeight, onMovingGround, terrainFor, terrainFootprints } from './terrain.mjs';
 import { companionOf, createDrone, stepDrones, toggleDrone } from './companions.mjs';
 import { abilityState, dodges, knockBack, moveAbilities, settleOnTerrain, restockThrowables, throwItems, updateThrowables, useMelee } from './abilities.mjs';
@@ -1707,6 +1707,16 @@ export class Simulation {
         critical = false;
         blocked = hit.mouth;
       }
+    }
+
+    // Scenery stops a shot: clots, mounds, the artery's vessels and every wall.
+    // (The heart's obstacles are its valve sleeves, which traceSleeve handles above.)
+    this.shotSolids ??= this.area === 'heart' ? (this.solids ?? []).filter(climbable) : this.solids ?? [];
+    const scenery = raySolids(this.shotSolids, player, ray, distance);
+    if (scenery < distance) {
+      distance = scenery;
+      target = undefined;
+      critical = false;
     }
 
     const bossHit = traceBrainBoss(this.boss, player, ray, distance);

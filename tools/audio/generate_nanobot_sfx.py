@@ -1,4 +1,4 @@
-# Generates the Mega Nano Bot's sound effects with Stable Audio Open 1.0
+# Generates the Mega Nano Bot's sound effects and the suit's footsteps with Stable Audio Open 1.0
 # (stabilityai/stable-audio-open-1.0, via diffusers), then trims, fades and normalises them into
 # 16-bit mono 32 kHz WAVs. Runs on CPU; a few minutes per cue.
 #
@@ -33,6 +33,11 @@ CUES = {
     'death': (4.6, 'Giant robot war machine powering down, failing engines sputtering and electrical sparks, then a huge metal crash and a massive explosion, cinematic sound effect'),
     'shield-hit': (1.0, 'Single bullet hitting an energy shield, short bright electric deflection zap, sci-fi sound effect'),
     'armour-hit': (1.0, 'Single bullet ricochet off thick metal armor plate, sharp metallic ping, sound effect'),
+    # The suit's footsteps on each kind of ground, and its slide (assets/sfx/suit/).
+    'step-flesh': (1.0, 'Single heavy armored boot footstep on wet squishy organic flesh, a soft wet squelch, close up, sound effect'),
+    'step-plaque': (1.0, 'Single heavy armored boot footstep on hard crusty mineral rock, a firm crunchy thud, close up, sound effect'),
+    'step-vessel': (1.0, 'Single heavy armored boot footstep on a thick rubbery tube, a dull rubbery thump with a slight wet squeak, close up, sound effect'),
+    'slide': (1.2, 'Armored suit sliding fast across a wet slippery floor, a rushing wet scrape that slows down, sound effect'),
 }
 RATE = 32000
 
