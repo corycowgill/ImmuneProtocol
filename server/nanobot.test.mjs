@@ -216,7 +216,7 @@ test('the boss bar says where to shoot, with a countdown while the brain is expo
   // A shot into the shield is reported as blocked, so the HUD can say why it did nothing.
   sim.events = [];
   sim.hitEnemy(boss, 50, false, { x: boss.x, y: boss.y, z: boss.z }, 'player', sim);
-  assert.ok(sim.events.some(event => event.type === 'hit' && event.blocked));
+  assert.ok(sim.events.some(event => event.type === 'hit' && event.blocked === 'armour'));
   for (const pylon of pylons(sim, boss)) sim.hitEnemy(pylon, 1e4, false, pylon, 'carbine', sim);
   run(sim, DT);
   status = levelBossStatus(sim);

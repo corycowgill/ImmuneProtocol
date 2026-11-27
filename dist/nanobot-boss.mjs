@@ -25,7 +25,10 @@ export const NANOBOT = Object.freeze({
 // Where the pylons and the brain sit on the model, in its own units (scaled by NANOBOT.scale).
 export const NANOBOT_LAYOUT = Object.freeze({
   // Crystal centres of nanobot-pylon-0/1/2 and the centre of nanobot-brain in boss-nanobot.glb.
-  pylons: Object.freeze([[0, .5, -.75], [-.62, .5, .33], [.62, .5, .33]].map(([x, y, z]) => Object.freeze({ x, y, z }))),
+  pylons: Object.freeze([[0, .62, -.75], [-.62, .62, .33], [.62, .62, .33]].map(([x, y, z]) => Object.freeze({ x, y, z }))),
+  // The shield: a bubble over the glass dome that guards the brain. The pylon crystals stand
+  // outside it and feed it.
+  shield: Object.freeze({ x: 0, y: .5, z: -.03, radius: .56 }),
   brain: Object.freeze({ x: 0, y: .67, z: -.04, radius: .4 }),
   laser: Object.freeze({ x: 0, y: -.35, z: 1.12 }),
   bay: Object.freeze({ x: 0, y: -.42, z: -.5 }),

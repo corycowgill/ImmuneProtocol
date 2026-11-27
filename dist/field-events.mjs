@@ -182,6 +182,7 @@ export function applyEvents() {
     if (event.type === 'hit' && event.blocked && ['player', 'melee'].includes(event.source) &&
       (event.playerId == null || event.playerId === session.sim.player.id)) {
       session.shieldedTimer = 1.1;
+      session.shieldedBy = event.blocked;
     }
     if (event.type === 'shot' && event.hit) {
       session.hitTimer = 0.19;

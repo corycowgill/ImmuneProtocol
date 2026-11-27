@@ -163,6 +163,7 @@
   "Armour leads tissue attackers. Get an angle on the colony behind it.": "encounters.mjs",
   "ARMOURED · BAIT ITS CHARGE INTO A WALL": "level-bosses.mjs",
   "Armoured · shoot the brain": "hud.mjs",
+  "Armoured · shoot the pylons": "hud.mjs",
   "Arrow keys": "index.html",
   "Arsenal": "index.html",
   "Arterial Core": "simulation.mjs",

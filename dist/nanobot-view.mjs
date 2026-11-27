@@ -4,9 +4,10 @@
 // warning, a thick burning beam during the sweep), the missile pods kick when a salvo leaves and the
 // drone bay drops open when it launches. Missiles in flight are the world's rocket effects.
 import * as THREE from './vendor/three.module.js';
-import { NANOBOT } from './nanobot-boss.mjs';
+import { NANOBOT, NANOBOT_LAYOUT } from './nanobot-boss.mjs';
 
 const UP = new THREE.Vector3(0, 1, 0);
+const SCALE = new THREE.Vector3(), FROM = new THREE.Vector3(), TO = new THREE.Vector3();
 
 // The shield: a fresnel bubble that is bright at its rim and nearly clear facing the camera.
 function shieldMaterial() {
@@ -50,6 +51,14 @@ export function dressNanobot(world, enemy, view, dt, reduceMotion, enemies = [])
     for (const core of [false, true]) beam.add(new THREE.Mesh(world.botLaserGeometry,
       new THREE.MeshBasicMaterial({ color: core ? 0xfff0d8 : 0xff2a12, transparent: true, opacity: core ? .95 : .38, depthWrite: false, toneMapped: false })));
     world.scene.add(beam);
+    // A feed beam from each pylon crystal into the shield.
+    const feeds = [0, 1, 2].map(() => {
+      const feed = new THREE.Mesh(world.botLaserGeometry, new THREE.MeshBasicMaterial({
+        color: 0x9ff6ff, transparent: true, opacity: .9, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+      feed.renderOrder = 6;
+      world.scene.add(feed);
+      return feed;
+    });
     // Brain and pylon materials are cloned so this machine's glow does not leak into the template.
     const glow = mesh => {
       if (!mesh?.material) return null;
@@ -58,7 +67,7 @@ export function dressNanobot(world, enemy, view, dt, reduceMotion, enemies = [])
     };
     const brain = find('nanobot-brain');
     view.nanobot = {
-      shield, beam,
+      shield, beam, feeds,
       pylons: [0, 1, 2].map(i => find('nanobot-pylon-' + i)),
       brain, brainGlow: glow(brain),
       pods: ['nanobot-pod-L', 'nanobot-pod-R'].map(name => { const pod = find(name); return pod ? { pod, rest: pod.position.clone() } : null; }).filter(Boolean),
@@ -76,8 +85,28 @@ export function dressNanobot(world, enemy, view, dt, reduceMotion, enemies = [])
   const target = enemy.shielded || enemy.state === 'enter' ? .55 + .15 * standing.size : 0;
   n.shieldLevel = THREE.MathUtils.damp(n.shieldLevel, target, 6, dt);
   n.shield.visible = n.shieldLevel > .01 && model.visible;
-  n.shield.position.copy(model.position);
-  n.shield.scale.setScalar(NANOBOT.radius * 1.32);
+  // It sits over the dome, following the hull as it tilts and turns.
+  const { shield: bubble } = NANOBOT_LAYOUT;
+  model.updateMatrixWorld();
+  n.shield.position.set(bubble.x, bubble.y, bubble.z).applyMatrix4(model.matrixWorld);
+  const scale = model.getWorldScale(SCALE).x;
+  n.shield.scale.setScalar(bubble.radius * scale);
+  // Each standing pylon feeds it with a beam from its crystal to the bubble's edge.
+  n.pylons.forEach((pylon, slot) => {
+    const feed = n.feeds[slot];
+    feed.visible = n.shield.visible && !!pylon?.visible;
+    if (!feed.visible) return;
+    const p = NANOBOT_LAYOUT.pylons[slot];
+    FROM.set(p.x, p.y, p.z).applyMatrix4(model.matrixWorld);
+    TO.copy(n.shield.position).sub(FROM);
+    const length = Math.max(.01, TO.length() - bubble.radius * scale * .92);
+    TO.normalize();
+    feed.position.copy(FROM).addScaledVector(TO, length / 2);
+    feed.quaternion.setFromUnitVectors(UP, TO);
+    const pulse = reduceMotion ? 1 : .8 + .35 * Math.sin(world.clock * 9 + slot * 2.1);
+    feed.scale.set(.17 * pulse, length, .17 * pulse);
+    feed.material.opacity = Math.min(1, n.shieldLevel * 1.8);
+  });
   n.shield.material.uniforms.time.value = reduceMotion ? 0 : world.clock;
   // Shots it turns make it flare.
   world.shieldPing = Math.max(0, (world.shieldPing ?? 0) - dt * 4);
@@ -120,7 +149,8 @@ export function dressNanobot(world, enemy, view, dt, reduceMotion, enemies = [])
 
 export function releaseNanobot(world, view) {
   if (!view.nanobot) return;
-  world.scene.remove(view.nanobot.shield, view.nanobot.beam);
+  world.scene.remove(view.nanobot.shield, view.nanobot.beam, ...view.nanobot.feeds);
+  for (const feed of view.nanobot.feeds) feed.material.dispose();
   view.nanobot.shield.geometry.dispose();
   view.nanobot.shield.material.dispose();
   for (const mesh of view.nanobot.beam.children) mesh.material.dispose();
@@ -132,4 +162,5 @@ export function hideNanobot(view) {
   if (!view.nanobot) return;
   view.nanobot.shield.visible = false;
   view.nanobot.beam.visible = false;
+  for (const feed of view.nanobot.feeds) feed.visible = false;
 }

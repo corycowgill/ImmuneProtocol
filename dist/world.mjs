@@ -962,7 +962,7 @@ export class World {
           this.burst(event.x, floorHeight(event.x, event.z) + .11, event.z, 0xb78079, 15, 1.2);
         }
         // A shot turned by a boss's shield makes the shield flare where it would have struck.
-        if (event.type === 'hit' && event.blocked) this.shieldPing = 1;
+        if (event.type === 'hit' && event.blocked === 'shield') this.shieldPing = 1;
         if (event.type === 'hit') {
           // A lethal hit has already handed the pathogen's model to its death animation.
           const view = this.enemyViews.get(event.id) ?? this.deaths.corpses.find(corpse => corpse.id === event.id)?.view;

@@ -34,6 +34,7 @@ export const session = {
   hitTimer: 0,
   // Counts down after this suit's shot bounces off a shielded boss.
   shieldedTimer: 0,
+  shieldedBy: null,
   killTimer: 0,
   damageTimer: 0,
   damageFrom: null,

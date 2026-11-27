@@ -393,7 +393,9 @@ function drawOrganHazard() {
 // What the "shielded" cue says: which weak point to shoot instead.
 function shieldedHint() {
   const status = levelBossStatus(session.sim);
-  return status?.targets?.[0]?.kind === 'pylon' ? 'Shielded · shoot the pylons' : status?.targets?.[0]?.kind === 'brain' ? 'Armoured · shoot the brain' : 'Shielded';
+  const kind = status?.targets?.[0]?.kind;
+  if (kind === 'pylon') return session.shieldedBy === 'shield' ? 'Shielded · shoot the pylons' : 'Armoured · shoot the pylons';
+  return kind === 'brain' ? 'Armoured · shoot the brain' : 'Shielded';
 }
 
 function drawBossHud() {
@@ -799,8 +801,12 @@ export function drawMarkers() {
 // The Mega Nano Bot's weak points go to the canvas HUD (hud-feed.mjs) as screen positions.
 const TARGET_LABELS = { pylon: 'Pylon', brain: 'Shoot the brain' };
 function drawBossTargets(top, width, height) {
-  const targets = levelBossStatus(session.sim)?.targets ?? [];
-  hudFeed.bossTargets = targets.flatMap(target => {
+  const status = levelBossStatus(session.sim);
+  const boss = status && session.sim.enemies.find(enemy => enemy.boss && enemy.name === status.name);
+  const player = session.sim.player;
+  hudFeed.bossTargets = (status?.targets ?? []).flatMap(target => {
+    // A pylon on the far side of the hull is not marked through it.
+    if (boss && target.kind === 'pylon' && (target.x - boss.x) * (player.x - boss.x) + (target.z - boss.z) * (player.z - boss.z) < -1) return [];
     const point = session.world.project(target.x, target.y + (target.kind === 'brain' ? .2 : .9), target.z);
     if (!point.visible || point.y < top || point.y > height * .84 || point.x < 40 || point.x > width - 40) return [];
     return [{ x: point.x, y: point.y, text: TARGET_LABELS[target.kind], kind: target.kind }];
