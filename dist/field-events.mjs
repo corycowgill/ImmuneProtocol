@@ -112,20 +112,21 @@ export function applyEvents() {
         session.audio.play({ type: 'boss', stage: 'warning', x: event.x, z: event.z });
         announce('WARNING · ' + event.name.toUpperCase() + ' INBOUND', 'THE BRAIN WAS ONLY ITS PROCESSOR', 3.6);
       }
+      // The Mega Nano Bot has its own sound set (audio.mjs NANOBOT_CUES); the generic boss cues stay out of its way.
+      const ownSounds = event.boss === 'nanobot';
       if (event.stage === 'ability' && event.ability === 'shield-down') {
-        session.audio.play({ type: 'boss', stage: 'phase', x: event.x, z: event.z });
         announce('SHIELD DOWN', 'SHOOT THE BRAIN IN THE DOME', 2.4);
       }
       if (event.stage === 'ability' && event.ability === 'emp') announce('EMP', 'TURRETS AND DRONES OFFLINE', 2);
       if (event.stage === 'arrive') {
-        session.audio.play({ type: 'boss', stage: 'phase', x: event.x, z: event.z });
+        if (!ownSounds) session.audio.play({ type: 'boss', stage: 'phase', x: event.x, z: event.z });
         announce(event.name.toUpperCase(), event.hint, 4.2);
       }
       if (event.stage === 'defeated') {
-        session.audio.play({ type: 'boss', stage: 'defeated', x: event.x, z: event.z });
+        if (!ownSounds) session.audio.play({ type: 'boss', stage: 'defeated', x: event.x, z: event.z });
         announce(event.name.toUpperCase() + ' DOWN', session.sim.enemies.length ? 'CLEAR WHAT IS LEFT' : '+2,500 SCORE', 3);
       }
-      if (event.stage === 'ability' && ['charge', 'slam', 'pull', 'pulse-warning', 'burrow', 'volley', 'salvo', 'sweep', 'emp-warning', 'drones-warning'].includes(event.ability)) {
+      if (!ownSounds && event.stage === 'ability' && ['charge', 'slam', 'pull', 'pulse-warning', 'burrow', 'volley'].includes(event.ability)) {
         session.audio.play({ type: 'boss', stage: 'warning', x: event.x, z: event.z });
       }
     }

@@ -289,6 +289,7 @@ function stepSweep(sim, boss, dt, helpers) {
   const { sweep } = NANOBOT_RULES;
   const state = boss.sweep;
   if (boss.timer > 0) { aimBeam(sim, boss, state.from, 'warn'); return; }
+  if (!state.elapsed) helpers.emit(sim, boss, 'ability', { ability: 'sweep-fire', duration: state.duration });
   state.elapsed += dt;
   const t = Math.min(1, state.elapsed / state.duration);
   const previous = state.bearing ?? state.from;

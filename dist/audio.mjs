@@ -33,7 +33,19 @@ const ORGAN_CUES = {
   ear: ['field/branch', 'field/spore-windup', 1.11],
   brain: ['field/branch', 'field/valve-blocked', .88],
 };
+// The Mega Nano Bot's own sounds (assets/sfx/nanobot/<name>.wav, made with Stable Audio Open by
+// tools/audio/generate_nanobot_sfx.py): what each of its events plays, and how loud.
+const NANOBOT_CUES = {
+  arrive: ['arrive', .8], 'salvo': ['salvo-launch', .62], 'salvo-impact': ['salvo-impact', .7],
+  sweep: ['laser-charge', .55], 'sweep-fire': ['laser-burn', .6], 'emp-warning': ['emp-charge', .58],
+  emp: ['emp-blast', .72], 'shield-down': ['shield-down', .7], 'shield-up': ['shield-up', .5],
+  'drones-warning': ['drone-bay', .55], defeated: ['death', .95],
+};
+const NANOBOT_SOUNDS = ['arrive', 'salvo-launch', 'salvo-impact', 'laser-charge', 'laser-burn', 'emp-charge', 'emp-blast',
+  'shield-down', 'shield-up', 'pylon-break', 'drone-bay', 'death', 'shield-hit', 'armour-hit'].map(name => 'nanobot/' + name);
+
 const EFFECTS = [
+  ...NANOBOT_SOUNDS,
   ...SHOTS, 'field/deploy', 'field/arterial-bed',
   'weapon/dry', 'weapon/hit', 'weapon/kill', 'weapon/reload-start', 'weapon/reload-complete',
   'field/branch', 'field/tissue-hit', 'field/suit-hit',
@@ -624,14 +636,29 @@ export class GameAudio {
         this.playSample('weapon/dry', 0.42);
         break;
       case 'hit':
+        // Shots the Mega Nano Bot turns: a zap off its shield, a ping off its armour.
+        if (event.blocked) {
+          const now = this.context.currentTime;
+          if (now - (this.blockedAt ?? -1) > .09) {
+            this.blockedAt = now;
+            this.playSample(event.blocked === 'shield' ? 'nanobot/shield-hit' : 'nanobot/armour-hit', .32, { pan: this.spatialPan(event), rate: .94 + Math.random() * .12 });
+          }
+          break;
+        }
         if (!event.lethal) this.playSample('weapon/hit', event.source === 'turret' ? .18 : event.crit ? .43 : .36, { pan: this.spatialPan(event) });
         break;
       case 'kill':
+        if (event.pylon) { this.playSample('nanobot/pylon-break', .6, { pan: this.spatialPan(event) }); break; }
         if (event.source === 'immune') this.playSample('field/engulf', .5, { pan: this.spatialPan(event), rate: .9 + Math.random() * .2 });
         else if (!event.teammate) this.playSample('weapon/kill', event.source === 'turret' ? .25 : .45, { pan: this.spatialPan(event) });
         this.playDeath(event);
         break;
       case 'levelBoss':
+        if (event.boss === 'nanobot') {
+          const cue = NANOBOT_CUES[event.stage === 'ability' ? event.ability : event.stage];
+          if (cue) this.playSample('nanobot/' + cue[0], cue[1], { pan: this.spatialPan(event) * .6, bus: cue[1] > .7 ? this.master : this.effectsBus });
+          break;
+        }
         if (event.stage === 'defeated') this.playSample('death/boss', .9, { pan: this.spatialPan(event) * .6, bus: this.master });
         else if (event.stage === 'ability' && event.ability === 'devour') {
           this.playSample('field/engulf', .45, { pan: this.spatialPan(event), rate: .75 + Math.random() * .1 });
