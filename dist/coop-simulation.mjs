@@ -7,6 +7,8 @@ import { COOP_MIN_PLAYERS, COOP_MAX_PLAYERS, COOP_SUITS, DEFAULT_COOP_SUIT } fro
 const normalizeSuit = suit => COOP_SUITS.includes(suit) ? suit : DEFAULT_COOP_SUIT;
 
 const RESPAWN_HEALTH = 50;
+// Holding the sealer on a downed teammate brings them back where they fell, at a third of their health.
+export const REVIVE = Object.freeze({ seconds: 5, radius: 2.5, health: Math.round(RULES.health / 3) });
 
 // State packets carry the build in hand and the names of both carried weapons, not every build.
 // The sealer's cosmetics and the companion ride along so the sealer is painted and teammates know
@@ -52,6 +54,8 @@ class CoopSuit {
     this.repairProgress = 0;
     this.repairing = false;
     this.repairTarget = null;
+    this.reviveTarget = null;
+    this.player.reviveProgress = 0;
     this.nearNode = null;
     this.nearTissue = false;
     this.nearGash = false;
@@ -187,11 +191,69 @@ export class CoopSimulation extends Simulation {
     }
   }
 
+  // A downed teammate in reach takes the sealer before tissue does.
+  updateRepair(dt, held, suit = this) {
+    if (!this.suits) return super.updateRepair(dt, held, suit);
+    const { player } = suit;
+    let ally = null;
+    let nearest = REVIVE.radius;
+    for (const member of this.suits) {
+      if (member === suit || !member.player.downed) continue;
+      const distance = Math.hypot(member.player.x - player.x, member.player.z - player.z);
+      if (distance <= nearest) {
+        ally = member;
+        nearest = distance;
+      }
+    }
+    if (!ally) {
+      if (suit.reviveTarget) this.stopRevive(suit);
+      return super.updateRepair(dt, held, suit);
+    }
+    suit.nearNode = null;
+    suit.nearTissue = suit.nearGash = false;
+    suit.nearGastricValve = null;
+    suit.canRepair = true;
+    if (suit.reviveTarget !== ally) {
+      if (suit.reviveTarget) this.stopRevive(suit);
+      suit.reviveTarget = ally;
+    }
+    suit.repairTarget = ally.player;
+    if (!held) {
+      if (suit.repairing) this.events.push({ type: 'repairStop' });
+      suit.repairing = false;
+      suit.repairProgress = ally.player.reviveProgress = 0;
+      return false;
+    }
+    if (!suit.repairing) {
+      suit.repairing = true;
+      this.events.push({ type: 'repairStart' });
+    }
+    suit.repairProgress = ally.player.reviveProgress = Math.min(1, suit.repairProgress + dt / REVIVE.seconds);
+    if (suit.repairProgress >= 1) {
+      ally.clearActions();
+      Object.assign(ally.player, { health: REVIVE.health, downed: false });
+      suit.repairProgress = 0;
+      suit.reviveTarget = suit.repairTarget = null;
+      this.creditPlayer(suit, 250);
+      this.events.push({ type: 'suit', stage: 'revive', targetId: ally.player.id,
+        x: ally.player.x, y: ally.player.y, z: ally.player.z });
+    }
+    return true;
+  }
+
+  stopRevive(suit) {
+    if (suit.reviveTarget) suit.reviveTarget.player.reviveProgress = 0;
+    suit.reviveTarget = null;
+    suit.repairProgress = 0;
+  }
+
   updateSuitStatus() {
     for (const suit of this.suits) {
       if (suit.player.health > 0 || suit.player.downed) continue;
       const playerId = suit.player.id;
       if (suit.repairing) this.events.push({ type: 'repairStop', playerId });
+      this.stopRevive(suit);
+      for (const member of this.suits) if (member.reviveTarget === suit) this.stopRevive(member);
       suit.clearActions();
       suit.player.downed = true;
       suit.player.aiming = false;
@@ -238,6 +300,7 @@ export class CoopSimulation extends Simulation {
       weaponLoadout, weapon, baseMagazineSize, magazineSize, reloading, reloadProgress, switching, switchProgress,
       repairAmount, repairing, repairProgress, canRepair, nearTissue,
       repairTargetId: suit.repairTarget?.id ?? null, nearGash: suit.nearGash,
+      revive: suit.reviveTarget ? { id: suit.reviveTarget.player.id, name: suit.reviveTarget.player.name } : null,
       nearGastricValveId: suit.nearGastricValve?.id ?? null,
       nearNode: nodeCopy(suit.nearNode), nearNodeId: suit.nearNode?.id ?? null,
       objective: nodeCopy(this.objective), objectiveId: this.objective.id,

@@ -676,7 +676,11 @@ export function drawHud() {
   const workingValve = !!valveTarget && repairingNode === valveTarget;
   const repairing = session.sim.repairing && (!restoringHere || !!blockedPort || workingValve);
   let prompt = '';
-  if (repairing && session.sim.gash && session.sim.repairTarget === session.sim.gash) prompt = 'SEALING GASH';
+  const revive = session.sim.revive;
+  const reviveProgress = session.sim.player.downed ? session.sim.player.reviveProgress ?? 0 : 0;
+  if (session.sim.player.downed) prompt = reviveProgress > 0 ? 'BEING REVIVED · ' + Math.floor(reviveProgress * 100) + '%' : 'DOWN · WAIT FOR A TEAMMATE TO REVIVE YOU';
+  else if (revive) prompt = session.sim.repairing ? 'REVIVING ' + (revive.name || 'TEAMMATE').toUpperCase() : repairKey + ' TO REVIVE ' + (revive.name || 'TEAMMATE').toUpperCase();
+  else if (repairing && session.sim.gash && session.sim.repairTarget === session.sim.gash) prompt = 'SEALING GASH';
   else if (session.sim.gash && session.sim.nearGash) {
     const sealed = Math.floor(100 * (1 - session.sim.gash.sealRemaining / session.sim.gash.sealRequired));
     prompt = repairKey + ' TO SEAL GASH' + (sealed ? ' · ' + sealed + '%' : '');
@@ -710,8 +714,12 @@ export function drawHud() {
   actionPrompt.hidden = !prompt;
   actionPrompt.classList.toggle('restored', restoringHere);
   setText(promptText, prompt);
-  repairMeter.hidden = !repairing;
-  if (repairing) {
+  repairMeter.hidden = !repairing && !reviveProgress;
+  if (reviveProgress || (repairing && revive)) {
+    const value = Math.floor(100 * (reviveProgress || session.sim.repairProgress));
+    repairFill.style.width = value + '%';
+    if (repairMeter.getAttribute('aria-valuenow') !== String(value)) repairMeter.setAttribute('aria-valuenow', value);
+  } else if (repairing) {
     const gash = session.sim.repairTarget === session.sim.gash && session.sim.gash;
     const port = session.sim.airway?.ports.find(item => item.nodeId === session.sim.repairTarget?.id && !item.open);
     const value = gash ? Math.floor(100 * clamp(

@@ -149,7 +149,7 @@ export function updateRepairTool(world, sim, idle, walk, reduceMotion) {
   const target = sim.repairTarget ?? sim.objective;
   world.toolTarget.copy(target);
   world.toolTarget.y += floorHeight(target.x, target.z);
-  world.toolTarget.z += sim.gash && target === sim.gash ? .49 : .83;
+  world.toolTarget.z += sim.gash && target === sim.gash ? .49 : target.revive ? 0 : .83;
   if (!sim.repairing || raise < .68 || !world.project(world.toolTarget.x, world.toolTarget.y, world.toolTarget.z).visible) return;
   const start = nozzle.getWorldPosition(world.toolStart);
   const ratio = Math.tan(world.camera.fov * Math.PI / 360) / Math.tan(world.weaponCamera.fov * Math.PI / 360);

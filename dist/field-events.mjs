@@ -69,8 +69,13 @@ export function applyEvents() {
       session.announcementTimer = 0;
       alertBox.replaceChildren();
     }
+    if (event.type === 'suit' && event.stage === 'revive') {
+      const revived = session.sim.players?.find(player => player.id === event.targetId);
+      if (event.targetId === session.sim.player.id) announce('SUIT REVIVED', 'BACK IN THE FIGHT', 2.5);
+      else if (!teammate) announce('TEAMMATE REVIVED', (revived?.name || 'Teammate').toUpperCase() + ' IS BACK UP', 2.2);
+    }
     if (event.type === 'suit' && !teammate) {
-      if (event.stage === 'down') announce('SUIT DOWN', 'YOUR TEAMMATE CAN FINISH THE WAVE', 3.2);
+      if (event.stage === 'down') announce('SUIT DOWN', 'A TEAMMATE CAN REVIVE YOU WITH THE SEALER', 3.2);
       if (event.stage === 'respawn') announce('SUIT RESTORED', 'READY FOR THE NEXT WAVE', 2.5);
     }
     if (event.type === 'tutorial' && event.stage === 'complete') {

@@ -53,6 +53,9 @@ function hydrate(state) {
   const valves = state.gastric ? [state.gastric.intake, state.gastric.drain] : [];
   state.nearGastricValve = valves.find(valve => valve.id === state.nearGastricValveId) ?? null;
   state.repairTarget = [...state.nodes, ...valves, state.gash].find(target => target && target.id === state.repairTargetId) ?? null;
+  // Reviving a downed teammate aims the sealer at the body on the floor.
+  const downed = state.revive && state.players?.find(player => player.id === state.revive.id);
+  if (downed && state.repairTargetId === downed.id) state.repairTarget = { id: downed.id, revive: true, x: downed.x, y: .45, z: downed.z };
   state.organMission = ORGAN_MISSIONS[state.area];
   for (const enemy of state.enemies) {
     if (enemy.nodeId) enemy.node = state.nodes.find(node => node.id === enemy.nodeId);

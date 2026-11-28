@@ -91,7 +91,7 @@ export class Haptics {
     const near = (scale = .08) => 1 / (1 + distance * scale);
 
     // A teammate's actions only reach your hands when they shake the ground near you.
-    if (teammate && !['explosion', 'levelBoss', 'boss', 'stun'].includes(event.type)) return;
+    if (teammate && !['explosion', 'levelBoss', 'boss', 'stun'].includes(event.type) && !(event.stage === 'revive' && event.targetId === player?.id)) return;
 
     switch (event.type) {
       case 'shot': {
@@ -224,7 +224,7 @@ export class Haptics {
         break;
       case 'suit':
         if (event.stage === 'down') this.add({ strong: 1, weak: .5, ms: 800, attack: 10, curve: 1.3 });
-        else if (event.stage === 'respawn') this.add({ weak: .4, strong: .2, ms: 180, attack: 60 });
+        else if (event.stage === 'respawn' || (event.stage === 'revive' && event.targetId === player?.id)) this.add({ weak: .4, strong: .2, ms: 180, attack: 60 });
         break;
       case 'won':
         for (let beat = 0; beat < 3; beat++) this.add({ weak: .45, strong: .25, ms: 90 }, beat * 150);
