@@ -9,7 +9,8 @@ export function createSquadView(mask, createView = createTeammate) {
   return {
     root,
     update(players, localId, floorHeight, dt, reduceMotion) {
-      const teammates = (players ?? []).filter(player => player.id !== localId);
+      // A teammate who dropped out is gone from the field until they rejoin.
+      const teammates = (players ?? []).filter(player => player.id !== localId && player.linked !== false);
       views.forEach((view, index) => {
         const player = teammates[index];
         view.update(player, player ? Math.max(floorHeight(player.x, player.z), player.feet ?? 0) : 0, dt, reduceMotion);

@@ -483,7 +483,7 @@ export class AIWorld {
   }
   begin(dt) {
     this.startedAt = performance.now(); this.rayBudget = this.config.sightBudget; this.pathBudget = this.config.pathsPerStep;
-    this.players = (this.sim.players ?? [this.sim.player]).filter(p => p.health > 0);
+    this.players = (this.sim.players ?? [this.sim.player]).filter(p => p.health > 0 && p.linked !== false);
     this.entities.clear(); this.cells.clear();
     for (const enemy of this.sim.enemies) {
       this.entities.set(enemy.id, enemy);

@@ -46,10 +46,21 @@ function readCode(value) {
   return code.length === COOP_CODE_LENGTH && Array.from(code).every(char => COOP_CODE_ALPHABET.includes(char)) ? code : '';
 }
 
-function send(client, message) {
+function send(client, message, replacer) {
   if (client?.readyState !== WebSocket.OPEN) return;
   if (client.bufferedAmount > 256_000) client.terminate();
-  else client.send(JSON.stringify(message));
+  else client.send(JSON.stringify(message, replacer));
+}
+
+// Positions to the millimetre and timers to the millisecond are finer than anything drawn, and the
+// shorter numbers compress far better. The player's own suit, dash state and the clock stay exact
+// because the client predicts its own movement from them.
+export function roundedState(state) {
+  const exact = new Set([state.player, state.ability].filter(Boolean));
+  return function (key, value) {
+    if (typeof value !== 'number' || Number.isInteger(value) || exact.has(this) || (this === state && key === 'clock')) return value;
+    return Math.round(value * 1000) / 1000;
+  };
 }
 
 function error(client, code, message) {
@@ -121,9 +132,7 @@ export class CoopRooms {
         this.setSuit(room, player, message, now);
         break;
       case 'supply':
-        if (room.phase === 'playing' && room.players.every(entry => entry.connection)) {
-          room.simulation.selectJunctionSupply(message.choice);
-        }
+        if (room.phase === 'playing') room.simulation.selectJunctionSupply(message.choice);
         break;
       case 'leave':
         this.leave(connection, now);
@@ -191,6 +200,8 @@ export class CoopRooms {
     resetInput(player);
     connection.room = room;
     connection.player = player;
+    // A player rejoining a live match drops straight back into their suit.
+    if (room.phase === 'playing') room.events.push(...room.simulation.setLinked(player.id, true));
     room.touchedAt = now;
     send(connection.client, { type: 'session', code: room.code, id: player.id, token: player.token });
   }
@@ -208,15 +219,7 @@ export class CoopRooms {
   }
 
   leave(connection, now) {
-    const { room, player } = connection;
-    if (room.phase === 'playing') {
-      connection.room = null;
-      connection.player = null;
-      player.connection = null;
-      this.endRoom(room, 'PARTNER_LEFT', 'Your teammate left the match. Create a new room to play again.');
-      return;
-    }
-    this.removePlayer(room, player, now);
+    this.removePlayer(connection.room, connection.player, now);
   }
 
   disconnect(connection, now) {
@@ -228,12 +231,8 @@ export class CoopRooms {
     player.disconnectedAt = now;
     player.ready = false;
     resetInput(player);
-    if (room.phase === 'playing') {
-      for (const teammate of room.players) {
-        teammate.ack = teammate.sequence;
-        resetInput(teammate);
-      }
-    }
+    // The rest of the squad plays on while the seat is held for a rejoin.
+    if (room.phase === 'playing') room.events.push(...room.simulation.setLinked(player.id, false));
     this.publishRoom(room);
   }
 
@@ -250,12 +249,13 @@ export class CoopRooms {
     }
     room.touchedAt = now;
     if (room.ownerId === player.id) room.ownerId = room.players[0].id;
-    if (room.phase === 'finished') {
-      room.phase = 'lobby';
-      room.simulation = null;
-      room.missionIndex = 0;
-      room.results = [];
+    if (room.phase === 'playing') {
+      // A player leaving mid-match takes only their own suit out; the squad finishes the mission.
+      room.events.push(...room.simulation.removeSuit(player.id));
+      this.publishRoom(room);
+      return;
     }
+    // Between missions the campaign carries on with whoever is left, even a single suit.
     for (const remaining of room.players) remaining.ready = false;
     this.publishRoom(room);
   }
@@ -276,7 +276,9 @@ export class CoopRooms {
     }
     room.touchedAt = now;
     player.ready = message.ready;
-    if (room.players.length >= COOP_MIN_PLAYERS && room.players.length <= COOP_MAX_PLAYERS && room.players.every(entry => entry.connection && entry.ready)) {
+    // A squad forms with two or three in the lobby; once deployed, it carries on as it shrinks.
+    const minimum = room.phase === 'finished' ? 1 : COOP_MIN_PLAYERS;
+    if (room.players.length >= minimum && room.players.length <= COOP_MAX_PLAYERS && room.players.every(entry => entry.connection && entry.ready)) {
       this.startMatch(room);
     } else {
       this.publishRoom(room);
@@ -311,8 +313,7 @@ export class CoopRooms {
   }
 
   receiveInput(room, player, message, now) {
-    if (room.phase !== 'playing' || room.players.some(entry => !entry.connection) ||
-        !Number.isSafeInteger(message.seq) || message.seq <= player.sequence ||
+    if (room.phase !== 'playing' || !Number.isSafeInteger(message.seq) || message.seq <= player.sequence ||
         !message.input || typeof message.input !== 'object' || Array.isArray(message.input)) return;
     const input = readInput(message.input);
     player.input = input;
@@ -355,11 +356,10 @@ export class CoopRooms {
       else for (const player of expired) this.removePlayer(room, player, now);
       return;
     }
-    if (expired.length) {
-      this.endRoom(room, 'PARTNER_LEFT', 'Your teammate did not reconnect. Create a new room to play again.');
-      return;
-    }
-    if (room.players.some(player => !player.connection)) return;
+    for (const player of expired) this.removePlayer(room, player, now);
+    if (!this.rooms.has(room.code)) return;
+    // With nobody connected the match holds still until someone rejoins or the seats expire.
+    if (!room.players.some(player => player.connection)) return;
 
     const sim = room.simulation;
     const inputs = Object.fromEntries(room.players.map(player => [player.id, this.consumeInput(player, now)]));
@@ -407,7 +407,7 @@ export class CoopRooms {
   publishState(room, player, events) {
     const state = room.simulation.snapshotFor(player.id);
     delete state.events;
-    send(player.connection.client, { type: 'state', tick: room.tick, ack: player.ack, state, events });
+    send(player.connection.client, { type: 'state', tick: room.tick, ack: player.ack, state, events }, roundedState(state));
   }
 
   endRoom(room, code, message) {

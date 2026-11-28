@@ -74,6 +74,12 @@ export function applyEvents() {
       if (event.targetId === session.sim.player.id) announce('SUIT REVIVED', 'BACK IN THE FIGHT', 2.5);
       else if (!teammate) announce('TEAMMATE REVIVED', (revived?.name || 'Teammate').toUpperCase() + ' IS BACK UP', 2.2);
     }
+    if (event.type === 'suit' && teammate) {
+      const name = (event.name || 'Teammate').toUpperCase();
+      if (event.stage === 'disconnected') announce('TEAMMATE DISCONNECTED', name + ' IS RECONNECTING', 2.6);
+      if (event.stage === 'rejoined') announce('TEAMMATE REJOINED', name + ' IS BACK IN THE FIGHT', 2.4);
+      if (event.stage === 'left') announce('TEAMMATE LEFT', name + ' LEFT THE MATCH', 2.6);
+    }
     if (event.type === 'suit' && !teammate) {
       if (event.stage === 'down') announce('SUIT DOWN', 'A TEAMMATE CAN REVIVE YOU WITH THE SEALER', 3.2);
       if (event.stage === 'respawn') announce('SUIT RESTORED', 'READY FOR THE NEXT WAVE', 2.5);

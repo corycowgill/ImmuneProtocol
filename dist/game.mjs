@@ -444,17 +444,20 @@ function syncCoopIndicators() {
   if (!coopClient?.session) return;
   const { room, localPlayer, connected } = coopClient;
   const partners = room?.players.filter(player => player.id !== localPlayer?.id) ?? [];
-  const allies = session.sim?.players?.filter(player => player.id !== coopClient.session.id) ?? [];
+  const away = partners.filter(partner => !partner.connected);
+  const allies = session.sim?.players?.filter(player => player.id !== coopClient.session.id && player.linked !== false) ?? [];
   const reconnectTime = room?.reconnectDeadline ? Math.max(0, Math.ceil((room.reconnectDeadline - Date.now()) / 1000)) : 0;
   const down = session.sim?.player?.downed;
   setText(byId('coop-ally'), partners.length ? partners.map(partner => {
     const ally = allies.find(player => player.id === partner.id);
-    return partner.name + (ally?.downed ? ' · Down' : '');
+    return partner.name + (!partner.connected ? ' · Reconnecting' : ally?.downed ? ' · Down' : '');
   }).join(' / ') : 'Online co-op');
+  // A teammate reconnecting no longer holds the match; their countdown sits beside the squad.
+  const squad = allies.length ? allies.map(ally => (ally.name || 'Teammate') + ': ' + (ally.downed ? 'Down' : Math.ceil(ally.health) + '%')).join(' / ') : 'Connected';
   setText(byId('coop-match-status'), !connected ? 'Reconnecting…'
-    : room?.reconnectDeadline ? 'Waiting for teammate · ' + reconnectTime + 's'
-      : down ? (session.sim.wave < session.sim.waves ? 'Suit down · Rejoin next wave' : 'Suit down · Teammate still active')
-        : allies.length ? allies.map(ally => (ally.name || 'Teammate') + ': ' + (ally.downed ? 'Down' : Math.ceil(ally.health) + '%')).join(' / ') : 'Connected');
+    : down ? (session.sim.wave < session.sim.waves ? 'Suit down · Rejoin next wave' : 'Suit down · Teammate still active')
+      : away.length ? (allies.length ? squad + ' · ' : '') + away.map(partner => partner.name).join(' / ') + ' reconnecting · ' + reconnectTime + 's'
+        : partners.length ? squad : 'Squad of one');
 }
 
 function syncCoopRoom() {

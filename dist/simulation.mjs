@@ -738,7 +738,7 @@ export class Simulation {
       score: this.score,
       kills: this.kills,
       nodes: Object.fromEntries(this.nodes.map(node => [node.id, node.health])),
-      suits: this.activeSuits().map(({ player, turret, turretCharges }) => ({
+      suits: this.squadSuits().map(({ player, turret, turretCharges }) => ({
         id: player.id ?? null, health: player.health, score: player.score ?? 0, kills: player.kills ?? 0,
         turretCharges, turret: turret ? { x: turret.x, y: turret.y, z: turret.z, yaw: turret.yaw, pitch: turret.pitch, build: turret.build } : null,
       })),
@@ -789,7 +789,7 @@ export class Simulation {
   // A suit brought back at a checkpoint has at least half its integrity, so a retry is not lost
   // before it starts. Score and kills are as they were.
   restoreSuits(saved = []) {
-    this.activeSuits().forEach((suit, index) => {
+    this.squadSuits().forEach((suit, index) => {
       const { player } = suit;
       const record = saved.find(entry => entry.id !== null && entry.id === (player.id ?? null)) ?? (player.id == null ? saved[index] : null);
       if (!record) return;
@@ -840,6 +840,11 @@ export class Simulation {
 
   activeSuits() {
     return [this];
+  }
+
+  // Every suit in the squad, including any whose player has dropped and may rejoin.
+  squadSuits() {
+    return this.activeSuits();
   }
 
   moveSuits(dt, input) {

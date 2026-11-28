@@ -186,6 +186,8 @@ npm run serve:coop
 
 The server runs the shared simulation on a fixed tick (30 per second), validates player input, and sends the result for each client to draw in Three.js. Rooms live in the running server's memory. The `/healthz` endpoint responds when the game server is ready. Run `npm run test:coop` to exercise it with two- and three-player WebSocket clients.
 
+State packets are kept small. `snapshotFor` in [`coop-simulation.mjs`](../dist/coop-simulation.mjs) leaves out enemy fields that only the server's AI uses (`SERVER_ONLY_ENEMY`) and sends only the parts of a Nanonaut's `soldier` state that its rig is posed from. If a view, HUD or prediction needs a new enemy field, make sure it isn't in that list. `roundedState` in [`rooms.mjs`](../server/rooms.mjs) rounds numbers to three decimals, except the local suit, its dash state and the clock, which the client predicts from. The WebSocket keeps its compression window between messages, so the parts of a packet that repeat the previous one cost almost nothing. A typical packet is about 1.7 KB on the wire.
+
 ### Host online co-op on Render
 
 1. Open [Deploy Immune Protocol to Render](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fcorycowgill%2FImmuneProtocol) and sign in. If asked to connect GitHub, grant Render access to the `ImmuneProtocol` repository.

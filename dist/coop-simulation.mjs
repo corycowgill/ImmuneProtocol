@@ -2,7 +2,7 @@ import { RULES, Simulation } from './simulation.mjs';
 import { magazineCapacity, normalizeWeaponLoadout, weaponStats } from './weapon-mods.mjs';
 import { snapshotThrowables, throwItems, useMelee } from './abilities.mjs';
 import { companionOf, createDrone, snapshotDrone } from './companions.mjs';
-import { COOP_MIN_PLAYERS, COOP_MAX_PLAYERS, COOP_SUITS, DEFAULT_COOP_SUIT } from './coop-protocol.mjs';
+import { COOP_MAX_PLAYERS, COOP_SUITS, DEFAULT_COOP_SUIT } from './coop-protocol.mjs';
 
 const normalizeSuit = suit => COOP_SUITS.includes(suit) ? suit : DEFAULT_COOP_SUIT;
 
@@ -17,6 +17,22 @@ function snapshotLoadout({ arsenal, ...build }) {
   return { ...build, arsenal: { primary: arsenal.primary, secondary: arsenal.secondary, companion: arsenal.companion, sealer: arsenal.sealer } };
 }
 
+// What the server's AI keeps on an enemy that no client draws: encounter orders, attack origins and
+// timers. The node it targets goes as nodeId, which the client resolves. The compact tactical
+// decision stays for the AI debug overlay.
+const SERVER_ONLY_ENEMY = ['node', 'encounterOrder', 'attackOrigin', 'perchLift', 'lungeCooldown'];
+
+function snapshotEnemy(enemy) {
+  const copy = { ...enemy, nodeId: enemy.node?.id ?? enemy.nodeId ?? null };
+  for (const key of SERVER_ONLY_ENEMY) delete copy[key];
+  // A Nanonaut's rig is posed from these; the rest of its combat state stays on the server.
+  if (enemy.soldier) {
+    const { state, stance, aimYaw, aimPitch, dodgeDir } = enemy.soldier;
+    copy.soldier = { state, stance, aimYaw, aimPitch, dodgeDir };
+  }
+  return copy;
+}
+
 class CoopSuit {
   constructor({ id, name, weaponLoadout, suit }, spawn, repairAmount) {
     this.spawn = spawn;
@@ -24,7 +40,7 @@ class CoopSuit {
     this.baseMagazineSize = RULES.magazine;
     this.weaponLoadout = Object.freeze(normalizeWeaponLoadout({ ...weaponLoadout, slot: 'primary' }));
     this.configuredWeapon = weaponStats(this.weaponLoadout);
-    this.player = { id, name, suit: normalizeSuit(suit), ammo: this.magazineSize, score: 0, kills: 0 };
+    this.player = { id, name, suit: normalizeSuit(suit), ammo: this.magazineSize, score: 0, kills: 0, linked: true };
     this.resetPose(RULES.health);
   }
 
@@ -71,10 +87,11 @@ class CoopSuit {
 export class CoopSimulation extends Simulation {
   constructor(profiles, area = 'artery', options = {}) {
     super(area, options);
-    if (profiles.length < COOP_MIN_PLAYERS || profiles.length > COOP_MAX_PLAYERS ||
+    // A squad forms with two or three, and carries on through the campaign if it shrinks to one.
+    if (profiles.length < 1 || profiles.length > COOP_MAX_PLAYERS ||
         profiles.some(profile => typeof profile.id !== 'string' || !profile.id) ||
         new Set(profiles.map(profile => profile.id)).size !== profiles.length) {
-      throw new Error('Co-op requires two or three distinct players');
+      throw new Error('Co-op requires one to three distinct players');
     }
     // Keep authored organ routes and timed attacks intact.
     if (area === 'artery') {
@@ -129,13 +146,13 @@ export class CoopSimulation extends Simulation {
 
   attackPlayer(id) {
     const player = this.suitsById.get(id)?.player;
-    return player?.health > 0 ? player : null;
+    return player?.health > 0 && player.linked ? player : null;
   }
 
   chooseAttackPlayer(enemy) {
     let closest = null;
     let closestDistance = Infinity;
-    for (const player of this.players) {
+    for (const { player } of this.activeSuits()) {
       if (player.health <= 0) continue;
       const distance = (player.x - enemy.x) ** 2 + (player.z - enemy.z) ** 2;
       if (distance < closestDistance) {
@@ -157,12 +174,63 @@ export class CoopSimulation extends Simulation {
     }
   }
 
+  // A suit whose player dropped stands out of the fight: pathogens, hazards, companions and the
+  // wave rules ignore it until the player rejoins.
   activeSuits() {
+    return this.suits.filter(suit => suit.player.linked);
+  }
+
+  squadSuits() {
     return this.suits;
   }
 
+  get turrets() {
+    return this.suits.map(suit => suit.turret).filter(Boolean);
+  }
+
+  // The match carries on without a dropped player. Their suit keeps its health, ammo and score
+  // for when they come back. These happen between steps, so the events are handed back for the
+  // room to send rather than added to the step's own list.
+  setLinked(id, linked) {
+    const suit = this.suitsById.get(id);
+    if (!suit || suit.player.linked === linked) return [];
+    const events = [];
+    if (!linked) {
+      if (suit.repairing) events.push(this.squadEvent({ type: 'repairStop', playerId: id }));
+      this.releaseSuit(suit);
+    }
+    suit.player.linked = linked;
+    events.push(this.squadEvent({ type: 'suit', stage: linked ? 'rejoined' : 'disconnected', playerId: id, name: suit.player.name }));
+    return events;
+  }
+
+  // A player who leaves takes their suit, turret and drone with them; the squad plays on.
+  removeSuit(id) {
+    const suit = this.suitsById.get(id);
+    if (!suit) return [];
+    this.releaseSuit(suit);
+    this.suits = this.suits.filter(member => member !== suit);
+    this.suitsById.delete(id);
+    this.players = this.suits.map(member => member.player);
+    return [this.squadEvent({ type: 'suit', stage: 'left', playerId: id, name: suit.player.name })];
+  }
+
+  squadEvent(event) {
+    event.sequence = ++this.eventSequence;
+    return event;
+  }
+
+  releaseSuit(suit) {
+    // A turret on the suit's back is set down where it stands.
+    this.carryTurret(false, suit);
+    this.stopRevive(suit);
+    for (const member of this.suits) if (member.reviveTarget === suit) this.stopRevive(member);
+    suit.clearActions();
+    suit.player.aiming = false;
+  }
+
   moveSuits(dt, inputsById) {
-    for (const suit of this.suits) {
+    for (const suit of this.activeSuits()) {
       if (suit.player.health <= 0) continue;
       this.movePlayer(dt, inputsById[suit.player.id] ?? {}, suit);
       if (this.organ?.phase === 'active') this.applyOrganHazard(dt, suit);
@@ -170,7 +238,7 @@ export class CoopSimulation extends Simulation {
   }
 
   actSuits(dt, inputsById) {
-    for (const suit of this.suits) this.act(dt, suit, inputsById[suit.player.id] ?? {});
+    for (const suit of this.activeSuits()) this.act(dt, suit, inputsById[suit.player.id] ?? {});
   }
 
   act(dt, suit, input) {
@@ -198,7 +266,7 @@ export class CoopSimulation extends Simulation {
     let ally = null;
     let nearest = REVIVE.radius;
     for (const member of this.suits) {
-      if (member === suit || !member.player.downed) continue;
+      if (member === suit || !member.player.downed || !member.player.linked) continue;
       const distance = Math.hypot(member.player.x - player.x, member.player.z - player.z);
       if (distance <= nearest) {
         ally = member;
@@ -262,7 +330,7 @@ export class CoopSimulation extends Simulation {
   }
 
   suitsDefeated() {
-    return this.players.every(player => player.health === 0);
+    return this.activeSuits().every(({ player }) => player.health === 0);
   }
 
   openExtractionChoice() {
@@ -316,7 +384,7 @@ export class CoopSimulation extends Simulation {
       turretPlacement: player.downed ? null : this.turretPlacementFor(player, suit),
       turretCharges: suit.turretCharges, canRedeployTurret: false,
       nodes,
-      enemies: this.enemies.map(enemy => ({ ...enemy, node: nodeCopy(enemy.node) })),
+      enemies: this.enemies.map(snapshotEnemy),
       projectiles: this.projectiles.map(({ owner, ...projectile }) => ({ ...projectile, ownerId: owner.id })),
       pickups: this.pickups.map(pickup => ({ ...pickup })),
       encounter: this.encounter ? { ...this.encounter, approaches: this.encounter.approaches.map(p => ({ ...p })) } : null,

@@ -132,12 +132,19 @@ test('shares authoritative combat, reload-safe reconnect, and an unattended wave
   await host.take(message => tagged('state')(message) && message.ack === 3);
 
   guest.socket.terminate();
-  const paused = await host.take(message => roomPhase('playing')(message) && !message.players[1].connected);
-  assert.ok(paused.reconnectDeadline > Date.now());
-  const suspendedClock = simulation.clock;
-  const suspendedAmmo = simulation.snapshotFor(hostSession.id).player.ammo;
+  const dropped = await host.take(message => roomPhase('playing')(message) && !message.players[1].connected);
+  assert.ok(dropped.reconnectDeadline > Date.now());
+  // The host plays on: the clock runs and their shots still land while the guest's seat is held.
+  const droppedClock = simulation.clock;
+  const notice = await host.take(message => tagged('state')(message) && message.events.some(event => event.type === 'suit' && event.stage === 'disconnected'));
+  assert.equal(notice.events.find(event => event.stage === 'disconnected').playerId, guestSession.id);
+  assert.equal(notice.state.players.find(player => player.id === guestSession.id).linked, false);
+  host.send({ type: 'input', seq: 4, input: { fire: true } });
+  host.send({ type: 'input', seq: 5, input: { fire: false } });
+  await host.take(message => tagged('state')(message) && message.ack === 5);
   await delay(100);
-  assert.equal(simulation.clock, suspendedClock);
+  assert.ok(simulation.clock > droppedClock);
+  const ammoWhileAway = simulation.snapshotFor(hostSession.id).player.ammo;
   const connectedAgain = await connect(t, origin);
   connectedAgain.send({ type: 'resume', code: guestSession.code, token: guestSession.token });
   const resumed = await connectedAgain.take(tagged('session'));
@@ -149,10 +156,12 @@ test('shares authoritative combat, reload-safe reconnect, and an unattended wave
   });
   const resumeView = await connectedAgain.take(tagged('state'));
   assert.equal(resumeView.state.player.ammo, sawShot.state.player.ammo);
+  assert.equal(resumeView.state.player.linked, true);
   assert.equal(resumeView.ack, 0);
   assert.deepEqual(resumeView.events, []);
+  await host.take(message => tagged('state')(message) && message.events.some(event => event.stage === 'rejoined' && event.playerId === guestSession.id));
   await delay(180);
-  assert.equal(simulation.snapshotFor(hostSession.id).player.ammo, suspendedAmmo);
+  assert.equal(simulation.snapshotFor(hostSession.id).player.ammo, ammoWhileAway);
 
   simulation.spawnIndex = simulation.missions[0].species.length;
   simulation.enemies = [];
@@ -167,13 +176,25 @@ test('shares authoritative combat, reload-safe reconnect, and an unattended wave
   assert.equal(nextWave.state.phase, 'combat');
   assert.ok(nextWave.state.clock > countdown.state.clock);
 
+  // A teammate leaving takes only their suit out; the host finishes the mission alone.
   connectedAgain.send({ type: 'leave' });
-  assert.equal((await host.take(tagged('error'))).code, 'PARTNER_LEFT');
+  const alone = await host.take(message => roomPhase('playing')(message) && message.players.length === 1);
+  assert.equal(alone.players[0].id, hostSession.id);
+  const left = await host.take(message => tagged('state')(message) && message.events.some(event => event.stage === 'left'));
+  assert.deepEqual(left.state.players.map(player => player.id), [hostSession.id]);
+  simulation.endMission('won');
+  await host.take(message => roomPhase('finished')(message) && message.results.length === 1);
+  // A squad of one carries the campaign on to the next mission.
+  host.send({ type: 'ready', ready: true });
+  const next = await host.take(roomPhase('playing'));
+  assert.equal(next.missionIndex, 1);
+  assert.equal((await host.take(message => tagged('state')(message) && message.tick === 0)).state.players.length, 1);
+  host.send({ type: 'leave' });
   host.send({ type: 'create' });
   assert.notEqual((await host.take(tagged('session'))).code, hostSession.code);
 });
 
-test('ends an active room when a detached seat runs out of reconnect time', async t => {
+test('frees a detached seat that runs out of reconnect time and plays on without it', async t => {
   const origin = await localServer(t, { graceMs: 100 });
   const first = await connect(t, origin);
   const second = await connect(t, origin);
@@ -185,7 +206,8 @@ test('ends an active room when a detached seat runs out of reconnect time', asyn
   second.send({ type: 'ready', ready: true });
   await first.take(roomPhase('playing'));
   second.socket.terminate();
-  assert.equal((await first.take(tagged('error'))).code, 'PARTNER_LEFT');
+  const solo = await first.take(message => roomPhase('playing')(message) && message.players.length === 1);
+  assert.equal(solo.reconnectDeadline, undefined);
   const returning = await connect(t, origin);
   returning.send({ type: 'resume', code: formerGuest.code, token: formerGuest.token });
   assert.equal((await returning.take(tagged('error'))).code, 'SESSION_EXPIRED');
@@ -634,4 +656,37 @@ test('client prediction moves a suit from a real snapshot without throwing, near
   Object.assign(stand.player, { x: clot.x, z: clot.z + clot.r + 1.5, yaw: 0 });
   for (let i = 0; i < 40; i++) Sim.prototype.movePlayer.call(stand, 1 / 30, { moveZ: 1, jump: i === 3 });
   assert.ok(stand.player.feet > 1, 'the predicted suit climbed the clot');
+});
+
+test('state packets drop server-only enemy fields and round everything but the local suit', async () => {
+  const { roundedState } = await import('./rooms.mjs');
+  const sim = new CoopSimulation([{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], 'artery');
+  sim.start();
+  const soldier = sim.createEnemy('nanonaut', 3.123456, 4.987654, sim.nodes[0]);
+  const virus = sim.createEnemy('virus', -2.5, 6, sim.nodes[1]);
+  sim.enemies = [soldier, virus];
+  for (let i = 0; i < 20; i++) sim.step(1 / 30, {});
+  sim.players[0].x += 1e-7;
+  const state = sim.snapshotFor('a');
+  delete state.events;
+  for (const enemy of state.enemies) {
+    for (const key of ['node', 'encounterOrder', 'attackOrigin', 'perchLift', 'lungeCooldown']) assert.equal(enemy[key], undefined, key);
+    const live = sim.enemies.find(entry => entry.id === enemy.id);
+    assert.equal(enemy.nodeId, live.node?.id ?? null);
+    // What the views, HUD, aim assist and prediction read is all still there.
+    for (const key of ['x', 'y', 'z', 'heading', 'type', 'behavior', 'action', 'actionProgress', 'health', 'maxHealth', 'radius']) {
+      assert.deepEqual(enemy[key], live[key], key);
+    }
+  }
+  const drawn = state.enemies.find(enemy => enemy.id === soldier.id).soldier;
+  assert.deepEqual(Object.keys(drawn).sort(), ['aimPitch', 'aimYaw', 'dodgeDir', 'stance', 'state']);
+  assert.equal(drawn.state, soldier.soldier.state);
+
+  const sent = JSON.parse(JSON.stringify({ state }, roundedState(state))).state;
+  assert.equal(sent.player.x, sim.players[0].x, 'the local suit is exact for prediction');
+  assert.equal(sent.clock, sim.clock);
+  const fractions = sent.enemies.flatMap(enemy => [enemy.x, enemy.z]).map(value => String(value).split('.')[1] ?? '');
+  assert.ok(fractions.every(digits => digits.length <= 3));
+  assert.ok(Math.abs(sent.enemies[0].x - state.enemies[0].x) <= 5e-4);
+  assert.equal(sim.enemies[0].x, soldier.x, 'rounding never touches the live simulation');
 });

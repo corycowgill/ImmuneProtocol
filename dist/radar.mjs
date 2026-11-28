@@ -48,7 +48,7 @@ export function radarSnapshot(sim, { range = RADAR_RANGE, reduceMotion = false }
   });
   for (const pickup of sim.pickups ?? []) add('cache', pickup);
   for (const mate of sim.players ?? []) {
-    if (mate === player || mate.id === player.id || mate.health <= 0) continue;
+    if (mate === player || mate.id === player.id || mate.health <= 0 || mate.linked === false) continue;
     add('ally', mate, {}, true);
   }
   const turrets = sim.turrets ?? (sim.turret ? [sim.turret] : []);

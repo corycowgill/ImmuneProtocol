@@ -74,13 +74,19 @@ test('three seats enforce capacity and ready barriers, share third-player shots,
   assert.deepEqual(shots[0].events, shots[2].events);
   clients[2].socket.terminate();
   await clients[0].take(message => phase('playing')(message) && !message.players[2].connected);
-  const stopped = team.sim.clock;
-  await delay(90); assert.equal(team.sim.clock, stopped);
+  // The other two play on while the third suit stands out of the fight.
+  const dropped = team.sim.clock;
+  await clients[0].take(message => type('state')(message) && message.events.some(event => event.stage === 'disconnected' && event.playerId === sessions[2].id));
+  await delay(90); assert.ok(team.sim.clock > dropped);
+  assert.equal(team.sim.players[2].linked, false);
   clients[2] = await connect(t, team.origin);
   clients[2].send({ type: 'resume', code: sessions[2].code, token: sessions[2].token });
   assert.equal((await clients[2].take(type('session'))).id, sessions[2].id);
   await clients[2].take(phase('playing'));
-  assert.equal((await clients[2].take(type('state'))).state.players.length, 3);
+  const rejoined = await clients[2].take(type('state'));
+  assert.equal(rejoined.state.players.length, 3);
+  assert.equal(rejoined.state.player.linked, true);
+  assert.equal(rejoined.state.player.ammo, shots[2].state.player.ammo);
   team.sim.spawnIndex = team.sim.missions[0].species.length;
   team.sim.enemies = []; team.sim.projectiles = []; team.sim.outro = { remaining: 0, duration: 0 };
   // The next wave counts down for everyone without a ready-up.
@@ -125,8 +131,8 @@ test('a three-player squad advances all ten missions and retries a loss with eve
 
 test('the third suit repairs, fires and survives when the other two are down; invalid squads are rejected', () => {
   const profiles = ['alpha', 'bravo', 'charlie'].map(id => ({ id }));
-  for (const invalid of [profiles.slice(0,1), [...profiles, { id: 'delta' }], [profiles[0],profiles[1],profiles[0]]]) {
-    assert.throws(() => new CoopSimulation(invalid), /two or three distinct/);
+  for (const invalid of [[], [...profiles, { id: 'delta' }], [profiles[0],profiles[1],profiles[0]]]) {
+    assert.throws(() => new CoopSimulation(invalid), /one to three distinct/);
   }
   const sim = new CoopSimulation(profiles); sim.start();
   const third = sim.players[2], node = sim.nodes[2];

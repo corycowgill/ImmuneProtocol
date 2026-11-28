@@ -194,7 +194,8 @@ export class CoopClient extends EventTarget {
           this.seq = seq;
         }
         this.room = message;
-        if (message.phase !== 'playing' || message.reconnectDeadline) {
+        // A teammate dropping out no longer holds the match, so only leaving play clears input.
+        if (message.phase !== 'playing') {
           this.pending.length = 0;
           this.buffer = emptyInput();
           this.elapsed = 0;
@@ -256,7 +257,7 @@ export class CoopClient extends EventTarget {
   }
 
   advanceInput(dt, input) {
-    if (!this.connected || this.room?.phase !== 'playing' || this.room.reconnectDeadline) return;
+    if (!this.connected || this.room?.phase !== 'playing') return;
     this.buffer = {
       ...input,
       lookX: this.buffer.lookX + input.lookX,
@@ -287,7 +288,7 @@ export class CoopClient extends EventTarget {
     const span = Math.max(30, Math.min(100, receivedAt - (this.previous?.receivedAt ?? receivedAt)));
     const ratio = Math.min(1, Math.max(0, (now - receivedAt) / span));
     const player = { ...state.player };
-    if (this.connected && this.room?.phase === 'playing' && !this.room.reconnectDeadline && !player.downed) {
+    if (this.connected && this.room?.phase === 'playing' && !player.downed) {
       // The suit's dash and jump state rides along so prediction carries a dash through to its end.
       const movement = movementStandIn(state, player);
       for (const packet of this.pending) Simulation.prototype.movePlayer.call(movement, INPUT_TICK, packet.input);
