@@ -19,5 +19,5 @@ test('every option has a group, a label and a default inside its own range', () 
     if (option.type === 'range') assert.ok(option.value >= option.min && option.value <= option.max, option.id);
     if (option.type === 'select') assert.ok(option.options.some(([value]) => value === option.value), option.id);
   }
-  assert.equal(defaultSettings()['field-of-view'], 61, 'the default view matches the original camera');
+  assert.equal(defaultSettings()['field-of-view'], 80, 'the default view of a modern shooter');
 });

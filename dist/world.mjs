@@ -1064,10 +1064,14 @@ export class World {
     const aiming = input.aim && !sim.reloading && !sim.repairing;
     // Each weapon and optic zooms by its own amount; the Lancet scope zooms furthest.
     // Aim zoom keeps each optic's magnification relative to the chosen field of view.
-    const baseFov = this.fieldOfView ?? 61;
+    const baseFov = this.fieldOfView ?? 80;
     // A dash punches the field of view out and lets it settle back.
     const dashFov = reduceMotion ? 0 : 11 * feel.rush * Math.max(.35, feel.forward + .6);
-    const targetFov = (aiming ? (sim.weapon.zoom ?? 48) * baseFov / 61 : baseFov) + dashFov;
+    // Sprinting forward widens the view a little, easing back when the suit stops.
+    const sprinting = input.sprint && !aiming && !input.fire && (input.moveZ ?? 0) > .3 && !player.mantling;
+    this.sprintFov = THREE.MathUtils.damp(this.sprintFov ?? 0, sprinting ? 1 : 0, sprinting ? 5 : 8, dt);
+    const sprintFov = reduceMotion ? 0 : 7 * this.sprintFov;
+    const targetFov = (aiming ? (sim.weapon.zoom ?? 48) * baseFov / 61 : baseFov + sprintFov) + dashFov;
     if (Math.abs(targetFov - this.camera.fov) > .04) {
       this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1, dt * (feel.rush > .5 ? 30 : 12)));
       this.camera.updateProjectionMatrix();

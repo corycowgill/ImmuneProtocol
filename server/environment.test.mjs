@@ -149,3 +149,21 @@ test('a sprint-jump keeps its speed through the air; steering only bends it', ()
   run(sim, .25, {});
   assert.ok(z - sim.player.z > 10.8 * .25 * .5, `carried ${(z - sim.player.z).toFixed(2)} m with no input`);
 });
+
+test('a sprint opens with a tactical burst that recharges while the suit is not sprinting', () => {
+  const sim = field();
+  const travel = seconds => {
+    const z = sim.player.z;
+    run(sim, seconds, { moveZ: 1, sprint: true });
+    return z - sim.player.z;
+  };
+  stand(sim, 0, 40);
+  sim.player.yaw = 0;
+  const burst = travel(1);
+  travel(2); // the burst runs out
+  const sprint = travel(1);
+  assert.ok(burst > sprint * 1.12, `the burst is faster (${burst.toFixed(2)} vs ${sprint.toFixed(2)} m/s)`);
+  stand(sim, 0, 40);
+  run(sim, 4.5, {}); // standing still recharges it
+  assert.ok(travel(1) > sprint * 1.12, 'the burst is back after a rest');
+});

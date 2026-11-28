@@ -32,7 +32,8 @@ export const OPTIONS = Object.freeze([
   { id: 'aim-mode', group: 'Controls', type: 'select', label: 'Aim down sights', value: 'hold', options: [['hold', 'Hold'], ['toggle', 'Toggle']] },
   // Video
   { id: 'brightness', group: 'Video', type: 'range', label: 'Brightness', min: .6, max: 1.6, step: .05, value: 1, format: percent },
-  { id: 'field-of-view', group: 'Video', type: 'range', label: 'Field of view', min: 55, max: 90, step: 1, value: 61, format: value => Math.round(value) + '°' },
+  // 80 degrees, as modern shooters default to: a wider view makes movement read faster.
+  { id: 'field-of-view', group: 'Video', type: 'range', label: 'Field of view', min: 60, max: 110, step: 1, value: 80, format: value => Math.round(value) + '°' },
   { id: 'resolution-scale', group: 'Video', type: 'select', label: 'Resolution scale', value: 'auto',
     options: [['auto', 'Dynamic'], ['1', '100%'], ['0.85', '85%'], ['0.7', '70%'], ['0.5', '50%']] },
   { id: 'frame-limit', group: 'Video', type: 'select', label: 'Frame rate limit', value: '0',

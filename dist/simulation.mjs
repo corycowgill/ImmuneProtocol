@@ -234,7 +234,8 @@ const RIFLE_RANGE = 68;
 const ROCKET_RANGE = 60;
 const REPAIR_TIME = SEALER_BASE.interval;
 const REPAIR_PER_CYCLE = SEALER_BASE.repair;
-const INTERMISSION_TIME = 6.5;
+const INTERMISSION_TIME = 4.5;
+const SPRINT_BURST = { seconds: 2.5, recharge: 4, boost: 1.18 };
 // Pause between the final kill of a wave and the wave-clear / armory screen.
 export const WAVE_OUTRO_TIME = 4;
 // Nodes sit much farther apart in the enlarged arenas, so each one soaks a little more punishment.
@@ -249,7 +250,7 @@ const BOSS_SUIT_DAMAGE = .4;
 const BOSS_TISSUE_DAMAGE = .25;
 const THREE_NODE_TISSUE_DAMAGE = .5;
 const ORGAN_TISSUE_DAMAGE = .72;
-const JUNCTION_BREAK_TIME = 8;
+const JUNCTION_BREAK_TIME = 6;
 const JUNCTION_REPAIR_TIME = 9;
 const JUNCTION_EXTRACT_DELAY = 1.25;
 const JUNCTION_GASH_REPAIR_RADIUS = 2.4;
@@ -1370,6 +1371,14 @@ export class Simulation {
     if (this.organ?.phase === 'active' && this.organMission.hazard.slow && withinHazard(player, this.organ)) {
       speed *= this.organMission.hazard.slow;
     }
+    // A tactical sprint: each sprint opens with a burst of extra speed, which recharges while the suit
+    // is not sprinting (as Call of Duty's tactical sprint, without its double tap).
+    const burstState = abilityState(suit);
+    const sprintingForward = input.sprint && !input.fire && !input.aim && forward > .3;
+    burstState.sprintBurst ??= SPRINT_BURST.seconds;
+    burstState.sprintBurst = sprintingForward ? Math.max(0, burstState.sprintBurst - dt)
+      : Math.min(SPRINT_BURST.seconds, burstState.sprintBurst + dt * SPRINT_BURST.seconds / SPRINT_BURST.recharge);
+    if (sprintingForward && burstState.sprintBurst > 0) speed *= SPRINT_BURST.boost;
     // A Grip Phage on the visor drags the suit down.
     if (grippedBy(this, player)) speed *= GRIP_SPEC.grip.slow;
     if (abilityState(suit).crouched) speed = Math.min(speed, 6.9 * (weapon.moveSpeed ?? 1)) * CROUCH.speed;
