@@ -10,6 +10,7 @@ from gradio_client import Client, handle_file
 from huggingface_hub import get_token
 
 OUT = pathlib.Path(__file__).parent / 'originals'
+NAME = os.environ.get('NAME', 'nanonaut')  # file prefix: the Nanonaut or a co-op suit
 
 
 def client(space):
@@ -21,10 +22,10 @@ def trellis2(image, seed):
     c.predict(api_name='/start_session')
     prompt = c.predict(handle_file(image), api_name='/preprocess_image')
     prompt = prompt['path'] if isinstance(prompt, dict) else prompt
-    shutil.copy(prompt, OUT / f'nanonaut-trellis2-{seed}-prompt.png')
+    shutil.copy(prompt, OUT / f'{NAME}-trellis2-{seed}-prompt.png')
     c.predict(handle_file(prompt), seed, '1536', 7.5, .7, 12, 5.0, 7.5, .5, 12, 3.0, 1.0, 0.0, 12, 3.0, api_name='/image_to_3d')
     glb, _ = c.predict(300000, 4096, api_name='/extract_glb')
-    path = OUT / f'nanonaut-trellis2-{seed}.glb'
+    path = OUT / f'{NAME}-trellis2-{seed}.glb'
     shutil.copy(glb, path)
     return path
 
@@ -34,7 +35,7 @@ def hunyuan(image, seed, back=None):
     out = c.predict(handle_file(image), handle_file(image) if back else None, handle_file(back) if back else None, None, None,
                     50, 5.0, seed, 512, True, 8000, False, api_name='/generation_all')
     textured = out[1] if out[1] else out[0]
-    path = OUT / f'nanonaut-hunyuan-{seed}.glb'
+    path = OUT / f'{NAME}-hunyuan-{seed}.glb'
     shutil.copy(textured if isinstance(textured, str) else textured['path'], path)
     return path
 

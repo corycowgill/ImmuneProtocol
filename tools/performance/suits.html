@@ -1,0 +1,58 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Co-op suit check</title>
+<style>body{margin:20px;background:#131918;color:#dff2d9;font:14px/1.5 monospace}canvas{width:1280px;height:720px;max-width:100%}button{margin:5px;padding:8px}</style>
+<h1>Co-op suits — rigged teammate check</h1><p id="status">Loading the suits…</p>
+<button data-act="walk">Walk</button><button data-act="strafe">Strafe</button><button data-act="run">Run</button><button data-act="crouch">Crouch walk</button>
+<button data-act="aim">Aim and fire</button><button data-act="reload">Reload</button><button data-act="down">Downed</button><button data-act="auto">Cycle everything</button>
+<canvas id="view"></canvas>
+<script type="module">
+// Each co-op suit worn by a teammate view (teammate.mjs), driven by a scripted player so its rigged,
+// motion-captured animation can be checked: movement, aim, fire, reload, crouch, downed.
+import * as THREE from './vendor/three.module.js';
+import { RoomEnvironment } from './vendor/RoomEnvironment.js';
+import { createTeammate } from './teammate.mjs';
+import { COOP_SUITS, loadSuitModels, riggedSuit } from './suits.mjs';
+const status = document.querySelector('#status');
+const canvas = document.querySelector('#view');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(1280, 720, false);
+renderer.shadowMap.enabled = true; renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x30383c);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+const sun = new THREE.DirectionalLight(0xffffff, 2.4); sun.position.set(4, 8, 5); sun.castShadow = true; scene.add(sun);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: 0x4a5458, roughness: .9 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const camera = new THREE.PerspectiveCamera(32, 16 / 9, .1, 100); camera.position.set(0, 2.2, 9); camera.lookAt(0, 1, 0);
+await loadSuitModels();
+const views = COOP_SUITS.map((suit, i) => {
+  const view = createTeammate(null, { marker: false }); scene.add(view.root);
+  const player = { id: 'p' + i, name: suit, suit, x: (i - 1.5) * 2.2, z: 0, yaw: Math.PI, pitch: 0, connected: true };
+  return { view, player, home: player.x };
+});
+status.textContent = 'Rigged: ' + COOP_SUITS.map(s => s + (riggedSuit(s) ? ' ✓' : ' (jointed)')).join(', ');
+let act = 'auto', t = 0, last = performance.now(), fireClock = 0;
+const ACTS = ['walk', 'strafe', 'run', 'crouch', 'aim', 'reload', 'down'];
+document.querySelectorAll('button').forEach(b => b.onclick = () => { act = b.dataset.act; t = 0; });
+const muzzle = new THREE.Vector3();
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now; t += dt; fireClock += dt;
+  const current = act === 'auto' ? ACTS[Math.floor(t / 4) % ACTS.length] : act;
+  const phase = Math.sin(t * .9);
+  for (const { view, player, home } of views) {
+    Object.assign(player, { crouched: current === 'crouch', aiming: current === 'aim', downed: current === 'down', reloadProgress: 0 });
+    player.yaw = Math.PI; player.pitch = current === 'aim' ? .1 * Math.sin(t) : 0;
+    // Facing the camera (+Z): forward is -sin/-cos of yaw.
+    if (current === 'walk') player.z = phase * 1.2;
+    else if (current === 'run') player.z = Math.sin(t * 1.6) * 2.4;
+    else if (current === 'crouch') player.z = phase * .7;
+    else if (current === 'strafe') player.x = home + phase * 1.2;
+    if (current !== 'strafe') player.x += (home - player.x) * Math.min(1, dt * 3);
+    if (current === 'reload') player.reloadProgress = (t % 2.5) / 2.5;
+    view.update(player, 0, dt, false);
+    if (current === 'aim' && fireClock > .14) view.fire(player.id, false, muzzle);
+  }
+  if (fireClock > .14) fireClock = 0;
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

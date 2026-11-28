@@ -22,7 +22,7 @@ const server = createServer(async (request, response) => {
         .end(await readFile(new URL(script, import.meta.url)));
       return;
     }
-    const page = { '/__rogue-bot': './rogue-bot.html', '/__nanonaut': './nanonaut.html', '/__mobile': './mobile-loading.html', '/__loading-qa': './verify-loading.html', '/__profile': './profile.html', '/__ai': './ai-combat.html', '/__bosses': './boss-combat.html', '/__hitches': './hitches.html', '/__overview': './overview.html', '/__armory': './armory-check.html', '/__deaths': './deaths.html', '/__hazards': './hazards.html', '/__abilities': './abilities.html' }[url.pathname];
+    const page = { '/__rogue-bot': './rogue-bot.html', '/__nanonaut': './nanonaut.html', '/__suits': './suits.html', '/__mobile': './mobile-loading.html', '/__loading-qa': './verify-loading.html', '/__profile': './profile.html', '/__ai': './ai-combat.html', '/__bosses': './boss-combat.html', '/__hitches': './hitches.html', '/__overview': './overview.html', '/__armory': './armory-check.html', '/__deaths': './deaths.html', '/__hazards': './hazards.html', '/__abilities': './abilities.html' }[url.pathname];
     if (page) {
       const html = await readFile(new URL(page, import.meta.url));
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }).end(html);

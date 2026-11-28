@@ -1,7 +1,8 @@
 import { translate } from './i18n.mjs';
 import * as THREE from './vendor/three.module.js';
 import { createArsenalView } from './arsenal-models.mjs';
-import { suitModelVersion, suitParts } from './suits.mjs';
+import { riggedSuit, suitModelVersion, suitParts } from './suits.mjs';
+import { cloneSkinned, createNanonautRig, fireNanonaut, poseNanonaut } from './nanonaut-view.mjs';
 
 const DOWN = new THREE.Vector3(0, -1, 0);
 const { clamp, damp, lerp } = THREE.MathUtils;
@@ -67,6 +68,9 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     suitJoints['forearm_' + side] = arms[index].forearm;
     suitJoints['glove_' + side] = arms[index].glove;
   }
+  // The skinned suit: once a suit's rigged model has loaded it replaces the jointed body, animated by
+  // the Nanonaut's motion-captured layers (nanonaut-view.mjs) and carrying this teammate's own rifle.
+  let skinned = null; // { model, rig }
   let suitId = null;
   let suitWorn = false;
   let wornVersion = -1;
@@ -95,11 +99,30 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     // Dress once the suit's model has loaded; until then the teammate is not drawn.
     if (id === suitId && suitWorn && wornVersion === suitModelVersion()) return;
     const parts = id ? suitParts(id) : null;
+    const rigged = id ? riggedSuit(id) : null;
     suitId = id;
-    suitWorn = !!parts;
+    suitWorn = !!(parts || rigged);
     wornVersion = suitModelVersion();
-    body.visible = shadow.visible = suitWorn;
+    shadow.visible = suitWorn;
     for (const part of worn.splice(0)) part.removeFromParent();
+    if (skinned) {
+      skinned.model.removeFromParent();
+      skinned.rig.mixer.stopAllAction();
+      skinned = null;
+      // The rifle goes back into the jointed body's hands.
+      arsenal.model.scale.setScalar(ARSENAL_SCALE);
+      arsenal.model.rotation.set(0, 0, 0);
+      arsenal.model.position.set(0, .017, 0);
+      rifle.add(arsenal.model);
+    }
+    body.visible = suitWorn && !rigged;
+    if (rigged) {
+      const model = Object.assign(cloneSkinned(rigged), { userData: rigged.userData });
+      model.rotation.y = Math.PI; // the rig faces +Z; a teammate faces -Z
+      root.add(model);
+      skinned = { model, rig: createNanonautRig(model, { gun: arsenal.model, muzzle: arsenal.muzzle.position.clone() }) };
+      return;
+    }
     fitRig(parts?.rig);
     if (!parts) return;
     for (const [name, template] of parts) {
@@ -195,6 +218,9 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
   let flashTime = 0;
   let loadoutKey;
   let previousLoadout = null;
+  const velocity = new THREE.Vector2();
+  const facingAxis = new THREE.Vector3();
+  let firedHold = 0, reloadSeen = 0, reloadTime = 2;
 
   function linkArm(segment, from, to) {
     armDirection.subVectors(to, from);
@@ -213,6 +239,7 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     arsenal.setLoadout(loadout ?? undefined);
     muzzle.position.copy(arsenal.muzzle.position).multiplyScalar(ARSENAL_SCALE);
     muzzle.position.y += .017;
+    skinned?.rig.muzzle.position.copy(arsenal.muzzle.position);
   }
 
   function hide() {
@@ -235,7 +262,8 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
       downedPose = Number(!!player.downed);
       root.rotation.y = player.yaw;
     }
-    const distance = Math.hypot(player.x - previous.x, player.z - previous.y);
+    const stepX = player.x - previous.x, stepZ = player.z - previous.y;
+    const distance = Math.hypot(stepX, stepZ);
     previous.set(player.x, player.z);
     root.position.set(player.x, ground, player.z);
     root.visible = true;
@@ -283,6 +311,10 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     configureRifle(player.weaponLoadout);
     arsenal.update(dt, { recoil, movement: gait, stride }, 1);
     wearSuit(player.suit ?? null);
+    if (skinned) {
+      poseSkinned(player, stepX, stepZ, dt, reduceMotion, prone, repair, aim);
+      return;
+    }
 
     for (const arm of arms) {
       if (arm.side > 0) wrist.set(0, -.056, .045);
@@ -298,8 +330,41 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     }
   }
 
+  // Poses the skinned suit from the player's state: its legs from how it really moves, its upper body
+  // from aiming, reloading and firing, and a fall while downed.
+  function poseSkinned(player, stepX, stepZ, dt, reduceMotion, prone, repair, aim) {
+    const { model, rig } = skinned;
+    root.updateMatrixWorld(true);
+    model.getWorldDirection(facingAxis);
+    const facing = Math.atan2(facingAxis.x, facingAxis.z);
+    // A jump of a metre or more is a respawn or teleport, not a step.
+    const moving = dt > 0 && Math.hypot(stepX, stepZ) < 1;
+    velocity.x = damp(velocity.x, moving ? stepX / dt : 0, 10, dt);
+    velocity.y = damp(velocity.y, moving ? stepZ / dt : 0, 10, dt);
+    const forward = velocity.x * Math.sin(facing) + velocity.y * Math.cos(facing);
+    const right = -(velocity.x * Math.cos(facing) - velocity.y * Math.sin(facing));
+    const progress = clamp(player.reloadProgress || 0, 0, 1);
+    const reloading = progress > 0 && progress < 1;
+    // The reload's length, from how fast its progress runs, so the clip ends with it.
+    if (reloading && progress > reloadSeen && dt > 0) reloadTime = clamp(dt / (progress - reloadSeen), .8, 4);
+    reloadSeen = reloading ? progress : 0;
+    firedHold = Math.max(0, firedHold - dt);
+    arsenal.model.visible = !repair;
+    poseNanonaut(rig, model, {
+      local: { forward, right, speed: Math.hypot(velocity.x, velocity.y) },
+      stance: player.crouched || player.sliding ? 'crouch' : 'stand',
+      aiming: (aim || firedHold > 0) && !repair, reloading: reloading && !prone, reloadTime, downed: prone,
+      aimYaw: facing, aimPitch: clamp(player.pitch || 0, -1.2, 1.2),
+    }, dt > 0 ? dt : .5, reduceMotion); // a still (the lobby's portraits pass no time) settles straight into its pose
+  }
+
   function fire(playerId, reduceMotion, position) {
     if (playerId !== actorId || !root.visible) return false;
+    if (skinned) {
+      firedHold = .8; // a teammate who fires raises the rifle to the shoulder
+      fireNanonaut(skinned.rig, reduceMotion, position);
+      return true;
+    }
     recoil = reduceMotion ? .22 : 1;
     flashTime = reduceMotion ? 0 : .045;
     flash.visible = !reduceMotion && rifle.visible;

@@ -12,7 +12,9 @@ from gradio_client import Client, handle_file
 from huggingface_hub import get_token
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, 'work', 'autorig')
+CHARACTER = os.environ.get('CHARACTER', 'nanonaut')
+WORK = os.path.join(HERE, 'work', *([] if CHARACTER == 'nanonaut' else [CHARACTER]))
+OUT = os.path.join(WORK, 'autorig')
 NAMES = ['joints_coarse', 'canonicalized', 'samples', 'joints', 'blend_weights', 'rest_pose', 'rest_lbs', 'animatable', 'animatable_file']
 
 
@@ -38,18 +40,19 @@ def keep(name, value):
 
 
 def main():
-    source = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, 'work', 'rig_input.glb')
+    source = sys.argv[1] if len(sys.argv) > 1 else os.path.join(WORK, 'rig_input.glb')
     os.makedirs(OUT, exist_ok=True)
     client = Client('jasongzy/Make-It-Animatable', token=get_token(), httpx_kwargs={'timeout': 900})
-    # Fingers on, the scan rests in an A-pose, weight post-processing on, kept in its own pose (so the
-    # skeleton fits the mesh as it is), no animation.
-    job = client.submit(handle_file(source), False, 'A-pose', [], False, .01, False, True, 'LeftArm', False, None, False, True,
+    # Fingers on, the scan's rest pose (the Nanonaut stands in an A-pose, the co-op suits in a T-pose),
+    # weight post-processing on, kept in its own pose (so the skeleton fits the mesh as it is), no animation.
+    pose = os.environ.get('POSE', 'A-pose')
+    job = client.submit(handle_file(source), False, pose, [], False, .01, False, True, 'LeftArm', False, None, False, True,
                         api_name='/pipeline')
     for update in job:
         for name, value in zip(NAMES, update):
             keep(name, value)
     print('pipeline', job.status().code, flush=True)
-    rest, anim_vis, anim = client.predict(False, False, 'A-pose', [], None, False, True, api_name='/vis_blender')
+    rest, anim_vis, anim = client.predict(False, False, pose, [], None, False, True, api_name='/vis_blender')
     keep('rest_pose', rest)
     keep('animatable_preview', anim_vis)
     keep('animatable_file', anim)

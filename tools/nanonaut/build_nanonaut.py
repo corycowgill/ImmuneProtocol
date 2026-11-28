@@ -28,9 +28,10 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
-WORK = os.path.join(HERE, 'work')
+CHARACTER = os.environ.get('CHARACTER', 'nanonaut')  # the Nanonaut or a co-op suit
+WORK = os.path.join(HERE, 'work', *([] if CHARACTER == 'nanonaut' else [CHARACTER]))
 MOTION = os.path.join(HERE, 'motion')
-OUT = os.path.join(ROOT, 'dist', 'assets', 'enemies', 'nanonaut.glb')
+OUT = os.path.join(ROOT, 'dist', 'assets', *(['enemies', 'nanonaut.glb'] if CHARACTER == 'nanonaut' else ['suits', 'rigged', CHARACTER + '.glb']))
 FPS = 30
 sys.path.insert(0, HERE)
 import retarget  # noqa: E402
@@ -181,10 +182,14 @@ def islands(obj):
 RIGID = set()  # vertices of the pieces bound wholly to one bone
 
 
-def rigid_gear(body):
+def rigid_gear(body, rig):
     """Each separate piece of the scan whose weights are dominated by one bone is bound wholly to
-    that bone: plates, pouches, holster, mask and boots move as solid objects."""
+    that bone: plates, pouches, holster, mask and boots move as solid objects. Shoulder armour rides
+    the collarbone, as in shipped games: on the upper arm a big pauldron swings into the helmet when
+    the rifle comes up."""
     names = {g.index: g.name for g in body.vertex_groups}
+    to_rig = rig.matrix_world.inverted() @ body.matrix_world
+    shoulders = {side: (np.array(rig.data.bones[side + 'Arm'].head_local[:]), rig.data.bones[side + 'Arm'].length) for side in ('Left', 'Right')}
     pieces = sorted(islands(body), key=len, reverse=True)
     rigid = []
     for members in pieces[1:]:  # the largest piece is the suit itself, which bends
@@ -196,6 +201,11 @@ def rigid_gear(body):
             continue
         bone, share = max(total.items(), key=lambda kv: kv[1])
         share /= sum(total.values())
+        centre = np.mean([(to_rig @ body.data.vertices[i].co)[:] for i in members], axis=0)
+        for side, (joint_at, length) in shoulders.items():
+            near = {n: w for n, w in total.items() if n in (side + 'Arm', side + 'Shoulder', 'Spine2')}
+            if np.linalg.norm(centre - joint_at) < .5 * length and sum(near.values()) / sum(total.values()) > .72:
+                bone, share = side + 'Shoulder', 1.0
         # Gloves and other pieces spanning joints must bend; small or one-bone pieces need not.
         if share < .72 or ('Hand' in bone and len(members) > 300):
             continue
@@ -228,20 +238,23 @@ def smooth_seams(body, rig):
     for v in me.vertices:
         for g in v.groups:
             w[v.index, g.group] = g.weight
+    original = w.copy()
     # Everything that bends: the suit and the gear spanning joints, not the rigid pieces.
     suit = np.ones(len(co), bool)
     suit[list(RIGID)] = False
-    x, z = np.abs(co[:, 0]), co[:, 2]
+    # The regions were measured on the 1.84 m Nanonaut; other bodies scale them by their height.
+    k = co[:, 2].max() / 1.84
+    x, z = np.abs(co[:, 0]) / k, co[:, 2] / k
     crotch = suit & (x < .13) & (z > .7) & (z < .96)
     pit = suit & (x > .05) & (x < .3) & (z > 1.15) & (z < 1.52)  # armpits and shoulder blades
     hips = names.index('Hips')
     # No thigh influence above the hip joints: the belt and waist follow the pelvis.
-    joint = rig.data.bones['LeftUpLeg'].head_local.z
+    joint = rig.data.bones['LeftUpLeg'].head_local.z / k
     for leg in ('LeftUpLeg', 'RightUpLeg'):
-        k = names.index(leg)
+        g = names.index(leg)
         fade = np.clip((z - joint) / .08, 0, 1) * suit
-        moved = w[:, k] * fade
-        w[:, k] -= moved
+        moved = w[:, g] * fade
+        w[:, g] -= moved
         w[:, hips] += moved
     pull = np.clip(1 - x / .09, 0, 1) * np.clip(1 - np.abs(z - .84) / .12, 0, 1) * .6
     w[crotch] *= (1 - pull[crotch])[:, None]
@@ -260,6 +273,24 @@ def smooth_seams(body, rig):
             if nbr[i]:
                 nw[i] = .5 * w[i] + .5 * w[nbr[i]].mean(0)
         w = nw
+    # No bleed along a limb (after the relax, which can spread it): the forearm and shin move only
+    # what lies past the elbow or knee, or close around the joint itself.
+    to_rig = rig.matrix_world.inverted() @ body.matrix_world
+    local = np.array([(to_rig @ Vector(c))[:] for c in co])
+    for parent, child in (('LeftArm', 'LeftForeArm'), ('RightArm', 'RightForeArm'), ('LeftUpLeg', 'LeftLeg'), ('RightUpLeg', 'RightLeg')):
+        upper, lower = rig.data.bones[parent], rig.data.bones[child]
+        joint_at = np.array(lower.head_local[:])
+        axis = np.array((lower.tail_local - lower.head_local)[:])
+        past = (local - joint_at) @ axis / np.linalg.norm(axis)
+        reach = upper.length
+        near = np.linalg.norm(local - joint_at, axis=1)
+        # Soft on both counts: a hard edge in the weights would tear the skin itself.
+        keep = np.maximum(np.clip(past / (.3 * reach) + .5, 0, 1), np.clip(1 - (near - .3 * reach) / (.3 * reach), 0, 1))
+        fade = (1 - keep) * suit
+        pi, ci = names.index(parent), names.index(child)
+        moved = w[:, ci] * fade
+        w[:, ci] -= moved
+        w[:, pi] += moved
     # The relax must not carry a limb into the torso: the centre of the chest, belly and back
     # answers to the spine and pelvis alone, fading back to the limbs toward the sides.
     limbs = [k for k, n in enumerate(names) if re.match(r'(Left|Right)(Arm|ForeArm|Shoulder|UpLeg)$', n)]
@@ -268,12 +299,14 @@ def smooth_seams(body, rig):
         moved = w[i, limbs] * centre[i]
         w[i, limbs] -= moved
         w[i, hips if z[i] < joint + .2 else names.index('Spine')] += moved.sum()
-    for i in idx:
+    # Write back every vertex that changed (the limb and hip fixes reach beyond the relaxed regions).
+    changed = np.nonzero(np.abs(w - original).max(1) > 1e-6)[0]
+    for i in changed:
         for gi in np.nonzero(w[i] > 1e-4)[0]:
             body.vertex_groups[gi].add([int(i)], float(w[i, gi]), 'REPLACE')
         for gi in np.nonzero((w[i] <= 1e-4))[0]:
             body.vertex_groups[gi].remove([int(i)])
-    log('seams: relaxed', int(trunk.sum()), 'trunk vertices;', 'blended the pelvis into', int(crotch.sum()), 'crotch vertices, relaxed', int(pit.sum()), 'armpit vertices')
+    log('seams: reweighted', len(changed), 'vertices; relaxed', int(trunk.sum()), 'trunk vertices;', 'blended the pelvis into', int(crotch.sum()), 'crotch vertices, relaxed', int(pit.sum()), 'armpit vertices')
 
 
 def hygiene(body):
@@ -536,7 +569,7 @@ def author(rig):
                             bag.fcurves.remove(fc)
     rig.animation_data.action = None
     os.makedirs(os.path.join(HERE, 'reports'), exist_ok=True)
-    json.dump(CLIP_INFO, open(os.path.join(HERE, 'reports', 'clips.json'), 'w'), indent=1)
+    json.dump(CLIP_INFO, open(os.path.join(HERE, 'reports', ('' if CHARACTER == 'nanonaut' else CHARACTER + '-') + 'clips.json'), 'w'), indent=1)
 
 
 def ground(rig, frames, settle=False):
@@ -566,6 +599,7 @@ def export(body, rig):
     body.select_set(True)
     rig.select_set(True)
     raw = os.path.join(WORK, 'nanonaut_raw.glb')
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
     bpy.ops.export_scene.gltf(filepath=raw, export_format='GLB', use_selection=True, export_yup=True, export_apply=False,
                               export_texcoords=True, export_normals=True, export_materials='EXPORT', export_image_format='WEBP',
                               export_image_quality=90, export_skins=True, export_all_influences=False, export_def_bones=False,
@@ -593,7 +627,7 @@ def main():
     textures(body)
     for o in extra:
         bpy.data.objects.remove(o)
-    rigid_gear(body)
+    rigid_gear(body, rig)
     smooth_seams(body, rig)
     hygiene(body)
     bind(body, rig)
@@ -604,4 +638,5 @@ def main():
     export(body, rig)
 
 
-main()
+if __name__ == '__main__':
+    main()

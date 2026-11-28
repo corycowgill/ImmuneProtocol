@@ -56,8 +56,9 @@ function carbine() {
   return carbineTemplate;
 }
 
-// The animated rig for one placed copy of the model: its mixer, both layers and the carbine.
-export function createNanonautRig(model) {
+// The animated rig for one placed copy of the model: its mixer, both layers and the carbine. A co-op
+// suit passes its own weapon (`gun`, built at carbine scale, with its `muzzle` point) to carry instead.
+export function createNanonautRig(model, { gun: ownGun = null, muzzle: ownMuzzle = null } = {}) {
   const clips = new Map((model.userData.clips ?? []).map(clip => [clip.name, clip]));
   const mixer = new THREE.AnimationMixer(model);
   const actions = {};
@@ -78,8 +79,8 @@ export function createNanonautRig(model) {
   const bone = name => model.getObjectByName(name);
   const bones = { spine: bone('Spine1'), chest: bone('Spine2'), neck: bone('Neck'), head: bone('Head'), weapon: bone('weapon') };
   // The carbine.
-  const { model: gunTemplate, muzzle: muzzlePoint } = carbine();
-  const gun = gunTemplate.clone();
+  const { model: gunTemplate, muzzle: muzzlePoint } = ownGun ? { model: ownGun, muzzle: ownMuzzle } : carbine();
+  const gun = ownGun ?? gunTemplate.clone();
   gun.scale.setScalar(CARBINE_SCALE);
   // Carbine forward is -Z and up +Y; the bone's barrel axis is +Y and up +Z.
   gun.rotation.x = Math.PI / 2;
@@ -139,10 +140,12 @@ export function poseNanonaut(rig, model, state, dt, reduceMotion) {
   const local = state.local ?? { forward: 0, right: 0, speed: 0 };
   const crouch = state.stance === 'crouch';
   const aiming = state.aiming;
-  // Full-body moments (a dodge, a stagger) take over both layers until they finish.
-  if (rig.full) {
+  // Full-body moments (a dodge, a stagger) take over both layers until they finish. A downed co-op
+  // suit falls as a death does and stays down until revived.
+  if (state.downed) { if (rig.full !== 'DeathBack') { rig.full = null; playFull(rig, 'DeathBack'); } }
+  else if (rig.full) {
     const action = actions[rig.full];
-    if (!action || !action.isRunning() || action.time >= action.getClip().duration - .02) rig.full = null;
+    if (!action || !action.isRunning() || action.time >= action.getClip().duration - .02 || rig.full === 'DeathBack') rig.full = null;
   }
   if (state.dodge && !rig.full) playFull(rig, state.dodgeDir > 0 ? 'DodgeL' : 'DodgeR');
   if (state.stagger && !rig.full) playFull(rig, 'Stagger');

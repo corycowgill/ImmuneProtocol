@@ -97,7 +97,39 @@ export function loadSuitModel(id) {
   return glbLoads.get(id);
 }
 
-export const loadSuitModels = () => Promise.all(COOP_SUITS.map(loadSuitModel));
+// The skinned, motion-captured suits (tools/nanonaut, the Nanonaut's pipeline): one mesh on a
+// 52-bone skeleton with every clip, at dist/assets/suits/rigged/<id>.glb. A teammate wears this
+// when it has loaded, and the jointed model above otherwise.
+const riggedModels = new Map();
+const riggedLoads = new Map();
+
+export function loadRiggedSuit(id) {
+  if (!COOP_SUITS.includes(id)) return Promise.resolve(null);
+  if (!riggedLoads.has(id)) {
+    const url = new URL('./assets/suits/rigged/' + id + '.glb', import.meta.url).href;
+    riggedLoads.set(id, loadModel(url).then(gltf => {
+      const root = new THREE.Group();
+      root.name = id + ' (rigged)';
+      gltf.scene.traverse(part => {
+        if (!part.isMesh) return;
+        part.castShadow = true;
+        part.frustumCulled = false; // skinned: its bounds move with the pose
+      });
+      root.add(gltf.scene);
+      root.userData.humanoid = true;
+      root.userData.clips = gltf.animations;
+      riggedModels.set(id, root);
+      modelVersion++;
+      return root;
+    }).catch(() => null));
+  }
+  return riggedLoads.get(id);
+}
+
+// The rigged template for a suit, or null while it loads (or where it does not exist).
+export const riggedSuit = id => riggedModels.get(id) ?? null;
+
+export const loadSuitModels = () => Promise.all(COOP_SUITS.map(id => Promise.all([loadSuitModel(id), loadRiggedSuit(id)]).then(([parts]) => parts)));
 
 // Returns a Map of rig joint name -> Object3D template to clone onto that joint, or null
 // while the suit's model is still loading (or if it failed).

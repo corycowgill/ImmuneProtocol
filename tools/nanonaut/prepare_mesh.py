@@ -13,12 +13,13 @@ import bpy, bmesh, os, sys, math
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-WORK = os.path.join(HERE, 'work')
+CHARACTER = os.environ.get('CHARACTER', 'nanonaut')  # the Nanonaut or a co-op suit
+WORK = os.path.join(HERE, 'work', *([] if CHARACTER == 'nanonaut' else [CHARACTER]))
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 SOURCE = ARGS[0] if ARGS else os.path.join(HERE, 'originals', 'nanonaut-trellis2-11.glb')
 TRIS = int(ARGS[1]) if len(ARGS) > 1 else 60000
 SIZE = int(os.environ.get('BAKE_SIZE', 2048))
-HEIGHT = 1.84
+HEIGHT = float(os.environ.get('HEIGHT', 1.84))  # metres, floor to helmet top
 
 
 def log(*args):

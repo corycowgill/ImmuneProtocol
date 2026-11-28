@@ -54,6 +54,33 @@ The order is `prepare_mesh.py`, `autorig.py` and `build_nanonaut.py` (`blender -
 - **Volume change:** 1–6% in play clips.
 - **Ground and grip:** boots stay within 3 cm of the floor. The support hand stays within 3 cm of the handguard in the clips that drive the arms in game (aim, low-ready, cover); the locomotion clips contribute only their legs.
 
+### Co-op suits on the same rig
+
+The co-op suits are built by the same scripts, selected with `CHARACTER=<suit>` (work in `tools/nanonaut/work/<suit>/`, output `dist/assets/suits/rigged/<suit>.glb`).
+
+1. **A-pose picture** (`apose_concept.py`): FLUX.1 Kontext re-poses the suit's existing front render (`tools/trellis/renders/<suit>/B_front.jpg`) into a 45° A-pose, keeping its design. The prompt is short and direct, with guidance 4: longer prompts that list what to keep leave the pose unchanged.
+2. **The rest of the Nanonaut pipeline:**
+   - `generate.py` (with `NAME=<suit>`), then `prepare_mesh.py` (with `HEIGHT`).
+   - `autorig.py` (with `POSE=A-pose`), then `build_nanonaut.py`.
+   - The build adds two steps for suits: separate armour on a shoulder rides the collarbone, and the retargeter carries half of the mocap's collarbone motion (`CLAVICLE`).
+
+What failed, and why the A-pose matters:
+- **T-pose scans:** the ribs and armpits smear once the arms come down to a rifle. Re-posing the scanned mesh in Blender pinches the armpit, which is worse.
+- **Arms hanging close to the body:** TRELLIS.2 fuses forearm to hip and upper arm to chest, giving 10–40 cm tears.
+
+Status:
+- **Lifeline:** passes QA, with tears of 4–5 cm at most.
+- **Wraith:** one long shoulder-blade edge reaches 7–10 cm. It is invisible in renders and was accepted on visual review.
+- **Vanguard and Bathysphere:** bulky armour with helmet hoses and a wide collar. Driven by mocap of an ordinary body, their upper chests stretch past double length, so they keep the jointed suits until they get per-suit work.
+
+[`teammate.mjs`](../dist/teammate.mjs) wears a suit's rigged model when it has loaded, and the jointed one otherwise. It uses the Nanonaut's animation layers, driven by the player's state:
+- the legs follow how the player really moves, and crouching or sliding plays the crouch clips;
+- the upper body aims when the player aims or has just fired, and reloads at the player's own reload speed;
+- a downed player falls and stays down until revived;
+- the player's own customised rifle sits in the right hand, and the spine turns so it points where they look.
+
+`/__suits` on the verification server shows every suit driven through walking, strafing, running, crouching, aiming and firing, reloading and being downed.
+
 ## In the game
 
 [`nanonaut-view.mjs`](../dist/nanonaut-view.mjs) clones the skinned template with its own skeleton and hangs a clone of the game's carbine (the arsenal model, at the teammates' scale) on the weapon bone. It animates in two layers. The legs blend standing, the four walking directions, running and crouching from the body's real velocity relative to its facing, at the playback speed that keeps the boots planted. The upper body blends aiming, low-ready, cover and reloading. Dodges, the stagger and deaths take over the whole body.

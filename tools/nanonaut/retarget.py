@@ -153,6 +153,7 @@ def frame(direction, secondary):
 
 
 SIDES = (('Left', '_L'), ('Right', '_R'))
+CLAVICLE = float(__import__('os').environ.get('CLAVICLE', .5))
 # Mixamo finger N is mocap finger N + 1 (SOMA counts the metacarpal); the thumbs line up.
 FINGERS = {'Thumb': [1, 2, 3, 'End'], 'Index': [2, 3, 4, 'End'], 'Middle': [2, 3, 4, 'End'], 'Ring': [2, 3, 4, 'End'], 'Pinky': [2, 3, 4, 'End']}
 FINGER_BASE = {'Thumb': 15, 'Index': 19, 'Middle': 24, 'Ring': 29, 'Pinky': 34}  # left hand; the right is +28
@@ -216,11 +217,20 @@ class Retargeter:
         R = target_frame @ self.rest_frames[rest_key or bone].inverted() @ self.rest[bone]
         self.set_world(bone, R)
 
-    def swing(self, bone, want):
-        """Turn a bone (keeping its twist from its parent) to point along `want`."""
+    def swing(self, bone, want, amount=1.0):
+        """Turn a bone (keeping its twist from its parent) to point along `want`, or `amount` of the
+        way there from its rest direction."""
+        import bpy
+        from mathutils import Quaternion
         pb = self.rig.pose.bones[bone]
+        if amount < 1:
+            pb.rotation_quaternion = (1, 0, 0, 0)
+            bpy.context.view_layer.update()
         cur = (pb.tail - pb.head).normalized()
-        self.set_world(bone, cur.rotation_difference(Vector(want).normalized()).to_matrix() @ pb.matrix.to_3x3())
+        turn = cur.rotation_difference(Vector(want).normalized())
+        if amount < 1:
+            turn = Quaternion().slerp(turn, amount)
+        self.set_world(bone, turn.to_matrix() @ pb.matrix.to_3x3())
 
     def pose(self, p, frame_index, parts, key):
         v = lambda name: Vector(p[K[name]])
@@ -263,7 +273,8 @@ class Retargeter:
                 key(bone, ('rotation_quaternion',))
         if 'arms' in parts:
             for side, s in SIDES:
-                self.swing(side + 'Shoulder', v('arm' + s) - v('shoulder' + s))
+                # Half the mocap's collarbone motion: a full shrug drags a wide suit's upper chest along.
+                self.swing(side + 'Shoulder', v('arm' + s) - v('shoulder' + s), CLAVICLE)
                 key(side + 'Shoulder', ('rotation_quaternion',))
                 sh, el, wr = v('arm' + s), v('forearm' + s), v('hand' + s)
                 n = self.bend(sh, el, wr)

@@ -171,3 +171,19 @@ test('its model is a skinned, animated glTF with baked maps, and the guide has i
   assert.ok(file.length < 5e6, 'under 5 MB');
   assert.ok(readFileSync(new URL('../dist/assets/enemies/portraits/nanonaut.webp', import.meta.url)).length > 1000);
 });
+
+test('the rigged co-op suits share the Nanonaut skeleton and clips', () => {
+  // Built by the same pipeline (tools/nanonaut, CHARACTER=<suit>); a teammate wears one when it exists.
+  for (const suit of ['lifeline', 'wraith']) {
+    const file = readFileSync(new URL(`../dist/assets/suits/rigged/${suit}.glb`, import.meta.url));
+    const json = JSON.parse(file.toString('utf8', 20, 20 + file.readUInt32LE(12)));
+    assert.equal(json.skins?.length, 1, suit + ' has one skin');
+    const joints = json.skins[0].joints.map(i => json.nodes[i].name);
+    for (const bone of ['Hips', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftHandIndex1', 'RightHand']) assert.ok(joints.includes(bone), suit + ' ' + bone);
+    assert.ok(json.nodes.some(node => node.name === 'weapon'), suit + ' weapon bone');
+    const clips = json.animations.map(a => a.name);
+    for (const name of ['Stand', 'Walk', 'WalkBack', 'StrafeL', 'StrafeR', 'Run', 'Crouch', 'CrouchWalk', 'Aim', 'LowReady', 'Cover', 'Reload',
+      'DeathBack']) assert.ok(clips.includes(name), suit + ' ' + name);
+    assert.ok(file.length < 5e6, suit + ' under 5 MB');
+  }
+});
