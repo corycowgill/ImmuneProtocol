@@ -1,7 +1,9 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { WebSocket } from 'ws';
-import { COOP_MIN_PLAYERS, COOP_MAX_PLAYERS, CAMPAIGN_AREAS, COOP_SUITS, DEFAULT_COOP_SUIT, COOP_CODE_ALPHABET, COOP_CODE_LENGTH, COOP_NAME_LIMIT, COOP_RECONNECT_MS, COOP_TICK_RATE as TICK_RATE } from '../dist/coop-protocol.mjs';
+import { COOP_MIN_PLAYERS, COOP_MAX_PLAYERS, CAMPAIGN_AREAS, COOP_MODES, COOP_SUITS, DEFAULT_COOP_SETTINGS, DEFAULT_COOP_SUIT, COOP_CODE_ALPHABET, COOP_CODE_LENGTH, COOP_NAME_LIMIT, COOP_RECONNECT_MS, COOP_TICK_RATE as TICK_RATE } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
+import { DEFAULT_DIFFICULTY, DIFFICULTIES, applyDifficulty } from '../dist/difficulty.mjs';
+import { ENDLESS_AREAS, applyEndless } from '../dist/endless.mjs';
 import { normalizeWeaponLoadout } from '../dist/weapon-mods.mjs';
 
 const INPUT_TIMEOUT = 750;
@@ -34,6 +36,15 @@ function readName(value) {
 
 function readSuit(value) {
   return COOP_SUITS.includes(value) ? value : DEFAULT_COOP_SUIT;
+}
+
+// The host's choices, each checked against what the game offers; anything else keeps the current value.
+function readSettings(value, current) {
+  return {
+    mode: COOP_MODES.includes(value.mode) ? value.mode : current.mode,
+    difficulty: Object.hasOwn(DIFFICULTIES, value.difficulty) ? value.difficulty : current.difficulty,
+    arena: ENDLESS_AREAS.includes(value.arena) ? value.arena : current.arena,
+  };
 }
 
 function generateCode() {
@@ -131,6 +142,9 @@ export class CoopRooms {
       case 'suit':
         this.setSuit(room, player, message, now);
         break;
+      case 'settings':
+        this.setSettings(room, player, message, now);
+        break;
       case 'supply':
         if (room.phase === 'playing') room.simulation.selectJunctionSupply(message.choice);
         break;
@@ -151,7 +165,7 @@ export class CoopRooms {
     do { code = generateCode(); } while (this.rooms.has(code));
     const room = {
       code, ownerId: '', players: [], phase: 'lobby', simulation: null, tick: 0, events: [],
-      missionIndex: 0, results: [],
+      missionIndex: 0, results: [], settings: { ...DEFAULT_COOP_SETTINGS },
       touchedAt: now,
     };
     this.rooms.set(code, room);
@@ -164,13 +178,18 @@ export class CoopRooms {
     const room = this.rooms.get(readCode(message.code));
     if (!room) {
       error(connection.client, 'ROOM_NOT_FOUND', 'Room not found. Check the code or ask your friend for a new invite.');
-    } else if (room.phase !== 'lobby') {
-      error(connection.client, 'ROOM_FULL', 'That match has already started. Join a new lobby.');
     } else if (room.players.length >= COOP_MAX_PLAYERS) {
       error(connection.client, 'ROOM_FULL', 'That room already has three players.');
     } else {
-      this.addPlayer(room, connection, message, now);
+      // A seat opens at any point: in the lobby, at the checkpoint between missions, or mid-match,
+      // where the new suit drops in at the insertion point.
+      const player = this.addPlayer(room, connection, message, now);
+      if (room.phase === 'playing') {
+        const { id, name, weaponLoadout, suit } = player;
+        room.events.push(...room.simulation.joinSuit({ id, name, weaponLoadout, suit }));
+      }
       this.publishRoom(room);
+      if (room.phase === 'playing') this.publishState(room, player, []);
     }
   }
 
@@ -185,6 +204,7 @@ export class CoopRooms {
     };
     room.players.push(player);
     this.bind(room, player, connection, now);
+    return player;
   }
 
   bind(room, player, connection, now) {
@@ -269,6 +289,17 @@ export class CoopRooms {
     this.publishRoom(room);
   }
 
+  // Only the host sets the mode, arena and difficulty, and only in the lobby; everyone readies again.
+  setSettings(room, player, message, now) {
+    if (room.phase !== 'lobby' || player.id !== room.ownerId) return;
+    const settings = readSettings(message, room.settings);
+    if (Object.keys(settings).every(key => settings[key] === room.settings[key])) return;
+    room.settings = settings;
+    room.touchedAt = now;
+    for (const entry of room.players) entry.ready = false;
+    this.publishRoom(room);
+  }
+
   setReady(room, player, message, now) {
     if (room.phase === 'playing' || typeof message.ready !== 'boolean') return;
     if (message.loadout && typeof message.loadout === 'object') {
@@ -289,13 +320,19 @@ export class CoopRooms {
     // After a loss the squad retries from the start of the wave it lost, not the whole mission.
     const lost = room.phase === 'finished' && room.simulation?.phase === 'lost' ? room.simulation.checkpoint : null;
     const checkpoint = lost && (lost.wave > 1 || lost.stage === 'airway') ? lost : null;
-    if (room.phase === 'finished' && room.simulation.phase === 'won') {
+    const { mode, difficulty, arena } = room.settings;
+    if (mode === 'campaign' && room.phase === 'finished' && room.simulation.phase === 'won') {
       room.missionIndex = (room.missionIndex + 1) % CAMPAIGN_AREAS.length;
       if (room.missionIndex === 0) room.results = [];
     }
     const participants = room.players.map(({ id, name, weaponLoadout, suit }) => ({ id, name, weaponLoadout, suit }));
-    room.simulation = this.createSimulation(participants, CAMPAIGN_AREAS[room.missionIndex]);
-    room.simulation.start(checkpoint);
+    const sim = this.createSimulation(participants, mode === 'endless' ? arena : CAMPAIGN_AREAS[room.missionIndex]);
+    if (mode === 'endless') applyEndless(sim);
+    // Medium keeps co-op's own tuning; Easy and Hard reshape waves as they do in solo.
+    if (difficulty === DEFAULT_DIFFICULTY) sim.difficulty = DEFAULT_DIFFICULTY;
+    else applyDifficulty(sim, difficulty);
+    room.simulation = sim;
+    sim.start(checkpoint);
     room.tick = 0;
     room.events = [...room.simulation.events];
     this.continueMatch(room);
@@ -391,8 +428,9 @@ export class CoopRooms {
       })),
       missionIndex: room.missionIndex,
       results: room.results,
+      settings: room.settings,
     };
-    if (room.phase === 'finished' && room.simulation.phase === 'won') {
+    if (room.phase === 'finished' && room.simulation.phase === 'won' && room.settings.mode === 'campaign') {
       message.nextArea = CAMPAIGN_AREAS[room.missionIndex + 1] ?? null;
     }
     if (disconnected.length) message.reconnectDeadline = Math.min(...disconnected.map(player => player.disconnectedAt + this.graceMs));
@@ -406,6 +444,8 @@ export class CoopRooms {
 
   publishState(room, player, events) {
     const state = room.simulation.snapshotFor(player.id);
+    // Someone who joined at the checkpoint has no suit in the match that just ended.
+    if (!state) return;
     delete state.events;
     send(player.connection.client, { type: 'state', tick: room.tick, ack: player.ack, state, events }, roundedState(state));
   }

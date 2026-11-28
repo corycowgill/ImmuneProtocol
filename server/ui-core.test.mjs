@@ -244,3 +244,37 @@ test('short victory reports show all four reward choices beside their metrics', 
   }
   assert.ok(scene.hits.find(item => item.id === 'continue'));
 });
+
+test('the co-op squad lobby fills the screen, keeps every control on it and gives each seat a plate', () => {
+  const option = (id, selected) => btn(id, { selected, height: 44 });
+  const lobby = {
+    preview: { kind: 'image', src: 'media:bay' },
+    rules: { kind: 'stack', children: [{ kind: 'grid', minColumn: 100, maxColumns: 3, children: [option('campaign', true), option('endless', false)] }] },
+    suits: { kind: 'grid', minColumn: 140, maxColumns: 2, children: ['vanguard', 'wraith', 'lifeline', 'bathysphere'].map(id => btn(id, { variant: 'operator', height: 178 })) },
+    invite: { kind: 'field', id: 'coop-link', action: 'coop-link', label: 'Invite link', value: 'http://host/?room=ABCDEFGH', readOnly: true },
+    status: 'Ready up to deploy as a pair.', ready: '1 / 2',
+    squad: [{ name: 'Alpha', suit: 'Lifeline', state: 'ready', you: true, host: true }, { name: 'Bravo', suit: 'Wraith', state: 'preparing' }, { empty: true, name: 'Optional third player' }],
+  };
+  const footer = [btn('coop-copy'), btn('coop-leave'), btn('coop-customize'), btn('coop-ready', { primary: true })];
+  for (const size of [{ w: 1280, h: 720 }, { w: 1920, h: 1080 }, { w: 1024, h: 640 }]) {
+    const scene = buildUiScreen({ id: 'coop-dialog', type: 'dialog', title: 'Miniaturization lab', kicker: 'ROOM ABCDEFGH', body: [], footer, lobby }, size, safe, state(), measure);
+    const background = scene.draw.find(item => item.kind === 'image');
+    assert.deepEqual(background.rect, { x: 0, y: 0, w: size.w, h: size.h }, 'the lab fills the screen');
+    const plates = scene.draw.filter(item => item.kind === 'nameplate');
+    assert.equal(plates.length, 3);
+    for (let i = 1; i < plates.length; i++) assert.ok(plates[i].rect.x >= plates[i - 1].rect.x + plates[i - 1].rect.w, 'plates do not overlap');
+    for (const id of ['coop-copy', 'coop-leave', 'coop-customize', 'coop-ready', '@back', 'campaign', 'endless', 'vanguard', 'coop-link']) {
+      const hit = scene.hits.find(item => item.id === id);
+      assert.ok(hit, id + ' is on screen');
+      assert.ok(hit.rect.x >= 0 && hit.rect.x + hit.rect.w <= size.w && hit.rect.y + hit.rect.h <= size.h, id + ' fits');
+    }
+    const ready = scene.hits.find(item => item.id === 'coop-ready');
+    assert.ok(ready.rect.h >= 60 && ready.rect.w >= 260, 'the ready button is the largest action');
+    // Plates sit between the side columns, never under them.
+    const panes = scene.panes.map(pane => pane.rect);
+    for (const plate of plates) for (const pane of panes) assert.ok(plate.rect.x >= pane.x + pane.w || plate.rect.x + plate.rect.w <= pane.x || plate.rect.y >= pane.y + pane.h);
+  }
+  // Phones keep the tabbed dialog.
+  const phone = buildUiScreen({ id: 'coop-dialog', type: 'dialog', title: 'Lab', body: [btn('suit')], left: [{ kind: 'image', src: 'media:bay' }], footer, lobby }, sizes[0], safe, state(), measure);
+  assert.equal(phone.draw.filter(item => item.kind === 'nameplate').length, 0);
+});

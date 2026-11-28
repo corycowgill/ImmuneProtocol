@@ -78,6 +78,7 @@ export function applyEvents() {
       const name = (event.name || 'Teammate').toUpperCase();
       if (event.stage === 'disconnected') announce('TEAMMATE DISCONNECTED', name + ' IS RECONNECTING', 2.6);
       if (event.stage === 'rejoined') announce('TEAMMATE REJOINED', name + ' IS BACK IN THE FIGHT', 2.4);
+      if (event.stage === 'joined') announce('TEAMMATE JOINED', name + ' DROPPED IN', 2.4);
       if (event.stage === 'left') announce('TEAMMATE LEFT', name + ' LEFT THE MATCH', 2.6);
     }
     if (event.type === 'suit' && !teammate) {

@@ -52,6 +52,7 @@ export function buildUiScreen(model, size, safe, state, measure) {
   } else if (model.type === 'menu') buildMenu(ui, model, area, full, size);
   else if (model.type === 'combat') buildCombat(ui, model, area, full, size, state, measure);
   else if (['new-campaign-dialog', 'profile-delete-dialog', 'ui-recovery'].includes(model.id)) buildConfirmation(ui, model, area, full, size);
+  else if (model.id === 'coop-dialog' && model.lobby && w >= 1000 && h >= 600) buildSquadLobby(ui, model, area, full, size);
   else buildDialog(ui, model, area, full, size, state, measure);
   if (state.popup) {
     const popup = state.popup, start = ui.draw.length, pw = Math.min(620, area.w), px = (w - pw) / 2;
@@ -217,6 +218,63 @@ function buildDialog(ui, model, area, full, size, state, measure) {
     if (w >= 1100 && area.w - footerWidth > 220) ui.add(text('FIELD SYSTEMS / NANO RESPONSE', 10, T.faint), { x, y: fy + 27, w: area.w - footerWidth - 20, h: 18 });
   }
 }
+// The co-op room as a squad lobby: the lab fills the screen with the squad on its pads, the
+// host's match settings down the left, suits down the right, a name plate under each seat and a
+// large ready button with the squad's ready count. Phones and short screens keep the dialog layout.
+function buildSquadLobby(ui, model, area, full, size) {
+  const { w, h } = size, lobby = model.lobby, { x, y: top } = area;
+  if (lobby.preview) ui.add({ ...lobby.preview, kind: 'image', cover: true }, full);
+  const side = Math.min(640, w * .42), shade = '#05090e';
+  ui.add({ kind: 'shade', direction: 'down', from: shade + 'e6', to: shade + '00' }, { x: 0, y: 0, w, h: 160 });
+  ui.add({ kind: 'shade', direction: 'right', from: shade + 'f2', to: shade + '00' }, { x: 0, y: 0, w: side, h });
+  ui.add({ kind: 'shade', direction: 'left', from: shade + 'f2', to: shade + '00' }, { x: w - side, y: 0, w: side, h });
+  ui.add({ kind: 'shade', direction: 'up', from: shade + 'fa', to: shade + '00' }, { x: 0, y: h - 320, w, h: 320 });
+
+  ui.add({ ...text(model.kicker, 10, T.green), tracking: 1.4 }, { x, y: top + 1, w: area.w - 140, h: 15 });
+  ui.add(heading(model.title, 46), { x, y: top + 20, w: area.w - 140, h: 48 });
+  if (model.canBack !== false) ui.add(button('@back', 'Back', { icon: 'back', variant: 'ghost' }), { x: x + area.w - 120, y: top, w: 120, h: 44 });
+
+  // The footer: ready count and status on the left, the room's actions and a large ready button on the right.
+  const readyH = 60, fy = top + area.h - readyH;
+  const footer = (model.footer ?? []).map(polish), ready = footer.find(b => b.primary);
+  let bx = x + area.w;
+  if (ready) {
+    bx -= 280;
+    ui.add({ ...ready, size: 22, height: readyH, detail: null, icon: 'arrow' }, { x: bx, y: fy, w: 280, h: readyH });
+  }
+  for (const action of footer.filter(b => b !== ready).reverse()) {
+    bx -= 186;
+    ui.add({ ...action, detail: null, height: 48, variant: 'ghost' }, { x: bx, y: fy + 6, w: 176, h: 48 });
+  }
+  ui.add({ ...text('SQUAD READY', 10, T.muted), tracking: 1.4 }, { x, y: fy + 2, w: 140, h: 14 });
+  ui.add({ ...heading(lobby.ready, 36), color: T.green }, { x, y: fy + 18, w: 140, h: 40 });
+  ui.add({ ...text(lobby.status, 13, T.muted), maxLines: 3 }, { x: x + 150, y: fy + 6, w: Math.max(80, bx - x - 170), h: 54 });
+
+  // Settings and suits in side columns; on narrower screens the suits join the settings column.
+  const colTop = top + 92, colBottom = fy - 22, colH = colBottom - colTop;
+  const left = Math.round(Math.min(400, Math.max(320, w * .25))), right = Math.round(Math.min(380, Math.max(300, w * .23)));
+  const compact = node => ({ ...node, ...(node.variant === 'operator' && colH < 520 ? { height: 74, compact: true } : {}), ...(node.children ? { children: node.children.map(compact) } : {}) });
+  const rules = polish(lobby.rules), suits = lobby.suits && compact(polish(lobby.suits)), invite = lobby.invite && polish(lobby.invite);
+  // Each column is as tall as what it holds, up to the space above the footer (then it scrolls).
+  const fit = (nodes, width, label) => Math.min(colH, (label ? 61 : 28) + nodes.filter(Boolean)
+    .reduce((sum, node, index) => sum + ui.height(node, width - 32) + (index ? 10 : 0), 0));
+  let centerX = x + left + 24, centerW = area.w - left - right - 48;
+  if (centerW >= 3 * 180 + 28) {
+    pane(ui, 'rules', [rules, invite], { x, y: colTop, w: left, h: fit([rules, invite], left, true) }, 'Match');
+    pane(ui, 'suits', [suits], { x: x + area.w - right, y: colTop, w: right, h: fit([suits], right) });
+  } else {
+    pane(ui, 'rules', [rules, suits, invite], { x, y: colTop, w: left, h: fit([rules, suits, invite], left, true) }, 'Match');
+    centerW = area.w - left - 24;
+  }
+
+  // One plate per seat, in the order the suits stand on the pads (left to right).
+  const seats = lobby.squad ?? [], gap = 14;
+  const plateW = Math.min(250, (centerW - gap * (seats.length - 1)) / Math.max(1, seats.length)), plateH = 108;
+  const rowW = seats.length * plateW + (seats.length - 1) * gap;
+  seats.forEach((seat, index) => ui.add({ kind: 'nameplate', ...seat },
+    { x: centerX + (centerW - rowW) / 2 + index * (plateW + gap), y: colBottom - plateH, w: plateW, h: plateH }));
+}
+
 function inspector(ui, model, nodes, r) {
   const part = model.id === 'armory-dialog' ? nodes.find(n => n.id === '@armory-part') : null;
   const sticky = part ? { ...part, ...(r.h < 250 ? { label: '' } : {}) } : null;

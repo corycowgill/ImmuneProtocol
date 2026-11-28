@@ -1,6 +1,7 @@
 import { RULES, Simulation } from './simulation.mjs';
 import { magazineCapacity, normalizeWeaponLoadout, weaponStats } from './weapon-mods.mjs';
-import { snapshotThrowables, throwItems, useMelee } from './abilities.mjs';
+import { restockThrowables, snapshotThrowables, throwItems, useMelee } from './abilities.mjs';
+import { DIFFICULTIES } from './difficulty.mjs';
 import { companionOf, createDrone, snapshotDrone } from './companions.mjs';
 import { COOP_MAX_PLAYERS, COOP_SUITS, DEFAULT_COOP_SUIT } from './coop-protocol.mjs';
 
@@ -106,19 +107,45 @@ export class CoopSimulation extends Simulation {
   }
 
   createSquad(profiles) {
-    this.suits = profiles.map((profile, index) => new CoopSuit(
-      profile, { x: this.player.x + (index === 0 ? -2.2 : index === 1 ? 2.2 : 0),
-        y: this.player.y, z: this.player.z + (index === 2 ? 2.2 : 0) }, this.repairAmount,
-    ));
+    this.suits = profiles.map((profile, index) => this.createSuit(profile, index));
     this.suitsById = new Map(this.suits.map(suit => [suit.player.id, suit]));
     this.players = this.suits.map(suit => suit.player);
-    // Every suit brings its own companion: its own turret to place once, or its own medic drone.
-    for (const suit of this.suits) {
-      suit.companion = companionOf(suit);
-      suit.turretCharges = suit.companion === 'turret' ? 1 : 0;
-      suit.turret = null;
-      suit.drone = createDrone(this, suit);
-    }
+    for (const suit of this.suits) this.equipSuit(suit);
+  }
+
+  // Insertion points for the three seats, beside the solo spawn.
+  spawnFor(index) {
+    return { x: this.player.x + (index === 0 ? -2.2 : index === 1 ? 2.2 : 0),
+      y: this.player.y, z: this.player.z + (index === 2 ? 2.2 : 0) };
+  }
+
+  createSuit(profile, index) {
+    return new CoopSuit(profile, this.spawnFor(index), this.repairAmount);
+  }
+
+  // Every suit brings its own companion: its own turret to place (two on Easy), or its own medic drone.
+  equipSuit(suit) {
+    suit.companion = companionOf(suit);
+    suit.turretCharges = suit.companion === 'turret' ? DIFFICULTIES[this.difficulty]?.turrets ?? 1 : 0;
+    suit.turret = null;
+    suit.drone = createDrone(this, suit);
+  }
+
+  // A player joining a match in progress drops in at the insertion point with a fresh suit.
+  joinSuit(profile) {
+    if (this.suits.length >= COOP_MAX_PLAYERS || this.suitsById.has(profile.id)) return [];
+    const taken = new Set(this.suits.map(({ spawn }) => spawn.x + ',' + spawn.z));
+    const slot = [0, 1, 2].find(index => {
+      const spawn = this.spawnFor(index);
+      return !taken.has(spawn.x + ',' + spawn.z);
+    }) ?? 0;
+    const suit = this.createSuit(profile, slot);
+    this.suits.push(suit);
+    this.suitsById.set(suit.player.id, suit);
+    this.players = this.suits.map(member => member.player);
+    this.equipSuit(suit);
+    restockThrowables(suit);
+    return [this.squadEvent({ type: 'suit', stage: 'joined', playerId: suit.player.id, name: suit.player.name })];
   }
 
   start(checkpoint = null) {
@@ -356,7 +383,7 @@ export class CoopSimulation extends Simulation {
       reloading, reloadProgress, repairAmount, repairing, repairProgress, canRepair, nearTissue } = suit;
     const weaponLoadout = snapshotLoadout(suit.weaponLoadout);
     return {
-      area: this.area,
+      area: this.area, difficulty: this.difficulty ?? 'medium', endless: this.endless ? { wave: this.wave } : null,
       phase: this.phase, clock: this.clock, wave: this.wave, waves: this.waves, remaining: this.remaining,
       intermission: this.intermission, score: this.score, kills: this.kills, tissue: this.tissue,
       checkpoint: this.checkpoint ? { stage: this.checkpoint.stage, wave: this.checkpoint.wave } : null,

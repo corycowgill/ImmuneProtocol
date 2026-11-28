@@ -1,4 +1,4 @@
-import { isNonLatin, translate, upper } from './i18n.mjs';
+import { isNonLatin, translate, upper, verbatim } from './i18n.mjs';
 import { fitSize, lines, intersect, clamp } from './ui-core.mjs';
 import { UI_THEME, uiFace, uiLineHeight } from './ui-theme.mjs';
 import { TIERS } from './achievements.mjs';
@@ -237,6 +237,15 @@ export class CanvasUiRenderer {
     const active = item.selected || focused || hot;
     const inset = (p = 12) => ({ x: r.x + p, y: r.y + p, w: r.w - p * 2, h: r.h - p * 2 });
     if (kind === 'panel') return item.hud ? this.hudPanel(r, item) : this.box(r, item.color ?? t.panel, item.border ?? t.line);
+    if (kind === 'shade') {
+      // A soft fade over a full-bleed scene, so panels and text stay readable on top of it.
+      const ends = { down: [0, 0, 0, 1], up: [0, 1, 0, 0], right: [0, 0, 1, 0], left: [1, 0, 0, 0] }[item.direction ?? 'down'];
+      const g = c.createLinearGradient(r.x + ends[0] * r.w, r.y + ends[1] * r.h, r.x + ends[2] * r.w, r.y + ends[3] * r.h);
+      g.addColorStop(0, item.from); g.addColorStop(1, item.to);
+      c.fillStyle = g; c.fillRect(r.x, r.y, r.w, r.h);
+      return;
+    }
+    if (kind === 'nameplate') return this.nameplate(r, item);
     if (kind === 'rule') return this.box(r, item.color ?? t.line, null, 0);
     if (kind === 'section') {
       this.text(upper(item.text), { ...r, h: 18 }, 11, t.muted, 600, 'left', 1, 1.3, 'body', 1.4);
@@ -788,6 +797,34 @@ export class CanvasUiRenderer {
     c.save(); c.shadowColor = tier.color; c.shadowBlur = 22; this.box({ x: ax + 4, y: ay + 4, w: s - 8, h: s - 8 }, '#000', null, 4); c.restore();
     this.image(item.art, { x: ax, y: ay, w: s, h: s });
     c.restore();
+  }
+  // One squad seat in the lobby: who stands there, in which suit, and whether they are ready.
+  nameplate(r, item) {
+    const c = this.c, t = UI_THEME, accent = item.accent || t.green;
+    c.save();
+    const g = c.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    g.addColorStop(0, item.empty ? '#0a121866' : '#0d1820e6'); g.addColorStop(1, item.empty ? '#0a121833' : '#070d12f2');
+    c.fillStyle = g;
+    c.beginPath(); c.moveTo(r.x, r.y); c.lineTo(r.x + r.w - 14, r.y); c.lineTo(r.x + r.w, r.y + 14); c.lineTo(r.x + r.w, r.y + r.h); c.lineTo(r.x, r.y + r.h); c.closePath(); c.fill();
+    c.strokeStyle = item.empty ? '#a4c1cc30' : item.you ? accent : '#a4c1cc40'; c.lineWidth = item.you ? 1.5 : 1;
+    if (item.empty) c.setLineDash([5, 5]);
+    c.stroke();
+    c.restore();
+    if (item.empty) {
+      this.text('+', { x: r.x, y: r.y + r.h / 2 - 22, w: r.w, h: 26 }, 24, t.faint, 300, 'center', 1, 1);
+      this.text(upper(item.name), { x: r.x + 10, y: r.y + r.h / 2 + 6, w: r.w - 20, h: 16 }, 11, t.faint, 600, 'center', 1, 1.2, 'body', 1.2);
+      return;
+    }
+    this.box({ x: r.x, y: r.y, w: 4, h: r.h }, accent, null, 0);
+    const tags = [item.you ? translate('YOU') : null, item.host ? translate('HOST') : null].filter(Boolean).join(' · ');
+    if (tags) this.text(tags, { x: r.x + 16, y: r.y + 11, w: r.w - 32, h: 14 }, 10, accent, 700, 'left', 1, 1.2, 'mono', 1.2);
+    // A callsign is shown as typed, never translated.
+    this.text(verbatim(upper(item.name)), { x: r.x + 16, y: r.y + (tags ? 27 : 16), w: r.w - 32, h: 28 }, 26, t.paper, 800, 'left', 1, 1.04);
+    this.text(upper(item.suit), { x: r.x + 16, y: r.y + (tags ? 56 : 46), w: r.w - 32, h: 16 }, 11, t.muted, 600, 'left', 1, 1.2, 'body', 1.2);
+    const state = { ready: ['READY', t.green, '#c8f79426'], preparing: ['NOT READY', '#ffc46b', '#ffc46b1a'], reconnecting: ['RECONNECTING', t.hot, '#ff957e1f'] }[item.state] ?? ['', t.muted, '#0000'];
+    const chip = { x: r.x + 16, y: r.y + r.h - 30, w: r.w - 32, h: 20 };
+    this.box(chip, state[2], state[1] + '66', 2);
+    this.text(state[0], { ...chip, y: chip.y + 4 }, 10, state[1], 700, 'center', 1, 1.2, 'mono', 1.4);
   }
   hudPanel(r, item) {
     const c = this.c, cut = Math.min(10, r.h / 4), accent = item.accent ?? '#c8f794';

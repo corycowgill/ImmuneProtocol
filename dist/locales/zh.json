@@ -1347,7 +1347,6 @@
   "Ready for": "准备迎战",
   "READY FOR THE NEXT WAVE": "准备迎接下一波",
   "Ready up at the mission checkpoint.": "在任务检查点准备就绪。",
-  "Ready up to deploy as a pair, or invite a third player before everyone is ready.": "准备就绪即可双人部署，或在所有人准备就绪前邀请第三名玩家。",
   "Real phages find their host by touch: tail fibres bump along the cell surface until they catch a receptor, then lock on.": "真正的噬菌体靠触碰寻找宿主：尾丝沿细胞表面磕碰，直到抓住一个受体，然后牢牢锁定。",
   "Real spore-shooting fungi such as Pilobolus launch their payload with accelerations of thousands of g.": "现实中会射孢子的真菌，如水玉霉，发射孢子的加速度可达数千 g。",
   "Recall": "召回",
@@ -1971,7 +1970,25 @@
   "REVIVING": "正在救起",
   "SUIT REVIVED": "战衣已恢复",
   "TEAMMATE REVIVED": "队友已救起",
-  "TO REVIVE": "救起"
+  "TO REVIVE": "救起",
+  "CO-OP ENDLESS ·": "合作无尽 ·",
+  "DROPPED IN": "已加入",
+  "Endless arena": "无尽竞技场",
+  "Mode": "模式",
+  "Ready up to deploy as a pair. A third player can join at any time, even mid-mission.": "准备好即可两人出发。第三名玩家可随时加入，任务中途也可以。",
+  "TEAMMATE JOINED": "队友已加入",
+  "The host chooses the mode and difficulty.": "房主选择模式和难度。",
+  "The squad is deployed with these settings.": "小队已按这些设置部署。",
+  "You are the host: choose the mode and difficulty.": "你是房主：请选择模式和难度。",
+  "HOST": "房主",
+  "Match": "对局",
+  "NOT READY": "未准备",
+  "READY": "已准备",
+  "RECONNECTING": "正在重连",
+  "SQUAD READY": "小队准备",
+  "YOU": "你",
+  "Ten missions in order": "十个任务依次进行",
+  "Waves never stop": "波次永不停歇"
  },
  "templates": {
   "· {0} OF 4 OPEN": "· {0}/4 已开启",
@@ -2138,6 +2155,8 @@
   "{0} IS BACK UP": "{0} 重新站起来了",
   "{0} TO REVIVE {1}": "{0} 救起 {1}",
   "BEING REVIVED · {0}%": "正在被救起 · {0}%",
-  "REVIVING {0}": "正在救起 {0}"
+  "REVIVING {0}": "正在救起 {0}",
+  "CO-OP ENDLESS · {0}": "合作无尽 · {0}",
+  "{0} DROPPED IN": "{0} 已加入"
  }
 }

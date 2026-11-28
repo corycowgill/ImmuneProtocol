@@ -4,7 +4,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { test } from 'node:test';
 import WebSocket from 'ws';
 import { hitBrainBoss } from '../dist/brain-boss.mjs';
-import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH, COOP_PROTOCOL_VERSION } from '../dist/coop-protocol.mjs';
+import { CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH, COOP_PROTOCOL_VERSION, DEFAULT_COOP_SETTINGS } from '../dist/coop-protocol.mjs';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
 import { DIFFICULTIES, MISSION_TUNING, applyDifficulty } from '../dist/difficulty.mjs';
 import {
@@ -152,7 +152,7 @@ test('shares authoritative combat, reload-safe reconnect, and an unattended wave
   await connectedAgain.take(roomPhase('playing'));
   assert.deepEqual(await host.take(message => roomPhase('playing')(message) && message.reconnectDeadline === undefined && message.players.every(player => player.connected)), {
     type: 'room', code: hostSession.code, phase: 'playing', ownerId: hostSession.id,
-    players: lobby.players, missionIndex: 0, results: [],
+    players: lobby.players, missionIndex: 0, results: [], settings: DEFAULT_COOP_SETTINGS,
   });
   const resumeView = await connectedAgain.take(tagged('state'));
   assert.equal(resumeView.state.player.ammo, sawShot.state.player.ammo);

@@ -1347,7 +1347,6 @@
   "Ready for": "तैयार:",
   "READY FOR THE NEXT WAVE": "अगली वेव के लिए तैयार",
   "Ready up at the mission checkpoint.": "मिशन चेकपॉइंट पर तैयार हो जाएँ।",
-  "Ready up to deploy as a pair, or invite a third player before everyone is ready.": "जोड़ी में डिप्लॉय करने के लिए तैयार हो जाएँ, या सबके तैयार होने से पहले तीसरे खिलाड़ी को बुलाएँ।",
   "Real phages find their host by touch: tail fibres bump along the cell surface until they catch a receptor, then lock on.": "असली फेज छूकर अपना मेज़बान ढूँढते हैं: पूँछ-तंतु कोशिका की सतह पर टटोलते रहते हैं जब तक कोई रिसेप्टर न पकड़ लें, फिर जकड़ जाते हैं।",
   "Real spore-shooting fungi such as Pilobolus launch their payload with accelerations of thousands of g.": "पाइलोबोलस जैसे असली स्पोर-फेंकू फफूंद अपना पेलोड हज़ारों g के त्वरण से छोड़ते हैं।",
   "Recall": "वापस बुलाएँ",
@@ -1971,7 +1970,25 @@
   "REVIVING": "उठा रहे हैं",
   "SUIT REVIVED": "सूट फिर से उठा",
   "TEAMMATE REVIVED": "साथी फिर से उठा",
-  "TO REVIVE": "उठाने के लिए"
+  "TO REVIVE": "उठाने के लिए",
+  "CO-OP ENDLESS ·": "को-ऑप एंडलेस ·",
+  "DROPPED IN": "शामिल हो गया",
+  "Endless arena": "एंडलेस अखाड़ा",
+  "Mode": "मोड",
+  "Ready up to deploy as a pair. A third player can join at any time, even mid-mission.": "जोड़ी में उतरने के लिए तैयार हों। तीसरा खिलाड़ी कभी भी जुड़ सकता है, मिशन के बीच में भी।",
+  "TEAMMATE JOINED": "साथी जुड़ा",
+  "The host chooses the mode and difficulty.": "होस्ट मोड और कठिनाई चुनता है।",
+  "The squad is deployed with these settings.": "दस्ता इन सेटिंग्स के साथ उतरा है।",
+  "You are the host: choose the mode and difficulty.": "आप होस्ट हैं: मोड और कठिनाई चुनें।",
+  "HOST": "होस्ट",
+  "Match": "मैच",
+  "NOT READY": "तैयार नहीं",
+  "READY": "तैयार",
+  "RECONNECTING": "फिर से जुड़ रहा है",
+  "SQUAD READY": "दस्ता तैयार",
+  "YOU": "आप",
+  "Ten missions in order": "क्रम से दस मिशन",
+  "Waves never stop": "कभी न रुकने वाली लहरें"
  },
  "templates": {
   "· {0} OF 4 OPEN": "· {0} / 4 खुले",
@@ -2138,6 +2155,8 @@
   "{0} IS BACK UP": "{0} फिर से खड़ा है",
   "{0} TO REVIVE {1}": "{1} को उठाने के लिए {0}",
   "BEING REVIVED · {0}%": "आपको उठाया जा रहा है · {0}%",
-  "REVIVING {0}": "{0} को उठा रहे हैं"
+  "REVIVING {0}": "{0} को उठा रहे हैं",
+  "CO-OP ENDLESS · {0}": "को-ऑप एंडलेस · {0}",
+  "{0} DROPPED IN": "{0} शामिल हो गया"
  }
 }

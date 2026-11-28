@@ -1,12 +1,19 @@
 import { COOP_SUITS, SUITS, loadSuitModels, normalizeSuit, saveSuit, savedSuit, suitModelVersion } from './suits.mjs';
 import { createLobbyBay } from './coop-lobby-bay.mjs';
-import { COOP_MAX_PLAYERS, COOP_MIN_PLAYERS } from './coop-protocol.mjs';
+import { COOP_MAX_PLAYERS, COOP_MIN_PLAYERS, COOP_MODES, DEFAULT_COOP_SETTINGS } from './coop-protocol.mjs';
 import { LOW_MEMORY } from './asset-loading.mjs';
+import { DIFFICULTIES } from './difficulty.mjs';
+import { ENDLESS_AREAS } from './endless.mjs';
+import { missionName } from './mission-text.mjs';
 
 // Co-op lobby: once in a room the dialog becomes a full-screen miniaturization lab where both
 // players stand in the shrinking machine in their chosen suits, with a picker to choose your
 // own. Attached to the CoopClient.
 const PICK_PHASES = ['lobby', 'finished'];
+const MODES = {
+  campaign: ['Campaign', 'Ten missions in order'],
+  endless: ['Endless', 'Waves never stop'],
+};
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -49,7 +56,36 @@ export function attachLobby(client) {
     options.append(button);
     return button;
   });
-  stockRoster.before(bayFrame, picker);
+  // The host's match settings: mode, difficulty and, for Endless, the arena. Everyone sees them;
+  // only the host can change them, and only in the lobby.
+  const rules = element('section', 'coop-rules');
+  rules.setAttribute('aria-label', 'Match settings');
+  const rulesHint = element('p', 'coop-rules-hint');
+  function choiceRow(legend, entries, key) {
+    const fieldset = element('fieldset', 'coop-rule');
+    fieldset.append(element('legend', '', legend));
+    const row = element('div', 'coop-rule-options');
+    row.setAttribute('role', 'radiogroup');
+    const buttons = entries.map(([value, name, detail]) => {
+      const button = element('button', 'coop-rule-option');
+      button.type = 'button';
+      button.dataset.value = value;
+      button.append(element('strong', '', name), ...(detail ? [element('small', '', detail)] : []));
+      button.addEventListener('click', () => client.setSettings({ [key]: value }));
+      row.append(button);
+      return button;
+    });
+    fieldset.append(row);
+    rules.append(fieldset);
+    return { fieldset, buttons, key };
+  }
+  const ruleRows = [
+    choiceRow('Mode', COOP_MODES.map(mode => [mode, ...MODES[mode]]), 'mode'),
+    choiceRow('Difficulty', Object.entries(DIFFICULTIES).map(([id, level]) => [id, level.name]), 'difficulty'),
+    choiceRow('Endless arena', ENDLESS_AREAS.map(area => [area, missionName(area)]), 'arena'),
+  ];
+  rules.prepend(rulesHint);
+  stockRoster.before(bayFrame, rules, picker);
   stockRoster.classList.add('coop-roster-replaced');
 
   const heading = document.getElementById('coop-title');
@@ -111,6 +147,22 @@ export function attachLobby(client) {
     drawPicker(false);
   }
 
+  function drawRules() {
+    const room = client.room;
+    const settings = room?.settings ?? DEFAULT_COOP_SETTINGS;
+    const host = !!client.session && room?.ownerId === client.session.id;
+    const editable = host && client.connected && room?.phase === 'lobby';
+    for (const { fieldset, buttons, key } of ruleRows) {
+      if (key === 'arena') fieldset.hidden = settings.mode !== 'endless';
+      for (const button of buttons) {
+        button.setAttribute('aria-pressed', String(button.dataset.value === settings[key]));
+        button.disabled = !editable;
+      }
+    }
+    rulesHint.textContent = room?.phase !== 'lobby' ? 'The squad is deployed with these settings.'
+      : host ? 'You are the host: choose the mode and difficulty.' : 'The host chooses the mode and difficulty.';
+  }
+
   function drawRoster(players, localId) {
     const rows = players.map(player => {
       const suit = SUITS[normalizeSuit(player.suit)];
@@ -118,6 +170,12 @@ export function attachLobby(client) {
       row.style.setProperty('--suit', suit.accent);
       const status = element('span', '', !player.connected ? 'Reconnecting' : player.ready ? 'Ready' : 'Preparing');
       status.dataset.ready = String(player.ready && player.connected);
+      // The lobby's name plates read these rather than parsing the text.
+      row.dataset.state = !player.connected ? 'reconnecting' : player.ready ? 'ready' : 'preparing';
+      row.dataset.name = player.name;
+      row.dataset.suit = suit.name;
+      if (player.id === localId) row.dataset.you = 'true';
+      if (player.id === client.room?.ownerId) row.dataset.host = 'true';
       row.append(
         element('strong', '', player.name + (player.id === localId ? ' (you)' : '')),
         element('em', '', suit.name + ' · ' + suit.archetype),
@@ -142,6 +200,7 @@ export function attachLobby(client) {
       return;
     }
     drawPortraits();
+    drawRules();
     drawPicker();
     const players = bay ? bay.setPlayers(room.players, localId) : room.players;
     drawRoster(players, localId);

@@ -462,26 +462,27 @@ function syncCoopIndicators() {
 
 function syncCoopRoom() {
   const room = coopClient?.room;
-  const session = coopClient?.session;
-  coopEntry.hidden = !coopHost || !!session;
-  coopLobby.hidden = !room || !session;
+  // The room seat; `session` stays the game's own state (onlineRun, running).
+  const seat = coopClient?.session;
+  coopEntry.hidden = !coopHost || !!seat;
+  coopLobby.hidden = !room || !seat;
   byId('coop-create').disabled = coopBusy;
   byId('coop-join').querySelector('button').disabled = coopBusy;
-  if (!room || !session) return;
+  if (!room || !seat) return;
   if (session.onlineRun && !session.running && room.phase === 'lobby') {
     mainMenu(true);
     openCoop();
     return;
   }
   const invite = new URL(location.pathname, location.origin);
-  invite.searchParams.set('room', session.code);
+  invite.searchParams.set('room', seat.code);
   coopLink.value = invite.href;
-  setText(byId('coop-room-code'), session.code);
+  setText(byId('coop-room-code'), seat.code);
   const roster = room.players.map(player => {
     const row = document.createElement('li');
     const name = document.createElement('strong');
     const status = document.createElement('span');
-    name.textContent = player.name + (player.id === session.id ? ' (you)' : '');
+    name.textContent = player.name + (player.id === seat.id ? ' (you)' : '');
     status.textContent = !player.connected ? 'Reconnecting' : player.ready ? 'Ready' : 'Preparing';
     status.dataset.ready = String(player.ready && player.connected);
     row.append(name, status);
@@ -500,7 +501,7 @@ function syncCoopRoom() {
   if (coopDialog.open) {
     setCoopStatus(!coopClient.connected ? 'Reconnecting to the room…' : room.phase === 'finished' ? 'Ready up at the mission checkpoint.'
       : room.players.length < COOP_MIN_PLAYERS ? 'Invite one or two friends to join.'
-        : room.players.length < COOP_MAX_PLAYERS ? 'Ready up to deploy as a pair, or invite a third player before everyone is ready.'
+        : room.players.length < COOP_MAX_PLAYERS ? 'Ready up to deploy as a pair. A third player can join at any time, even mid-mission.'
           : 'All three players must ready up to deploy.');
   }
   if (session.onlineRun && resultDialog.open) syncCoopCheckpoint();
@@ -679,7 +680,9 @@ async function launch(area, run = null, drill = null, onlineState = null, checkp
       weaponLoadout: { ...session.weaponLoadout, slot: 'primary' },
     });
     if (drill?.endless && !onlineState) applyEndless(nextSim);
-    loadingScreen.begin(missionName(area), 'Preparing the arena, your loadout and combat effects before insertion.', drill?.endless
+    // A co-op room set to Endless arrives with the server's endless state already in the snapshot.
+    const endlessRun = !!(drill?.endless || onlineState?.endless);
+    loadingScreen.begin(missionName(area), 'Preparing the arena, your loadout and combat effects before insertion.', endlessRun
       ? 'ENDLESS' : 'MISSION ' + String(index + 1).padStart(2, '0') + ' / ' + campaignAreas.length);
     await paintLoading();
     await session.world.prepareMission(nextSim, (value, label) => loadingScreen.progress(value, label));
@@ -728,6 +731,7 @@ async function launch(area, run = null, drill = null, onlineState = null, checkp
       if (session.running && !session.paused && session.sim === mission && session.sim.clock < 1.25) session.audio.play({ type: 'deploy' });
     }).catch(() => {});
     if (checkpoint) announce(checkpointName(checkpoint).toUpperCase(), 'RESUMED FROM CHECKPOINT', 3.2);
+    else if (session.onlineRun && endlessRun) announce('CO-OP ENDLESS · ' + missionName(area).toUpperCase(), 'THE WAVES NEVER STOP · EACH ONE HITS HARDER', 3.2);
     else if (session.onlineRun) announce(missionName(area).toUpperCase(), 'CO-OP MISSION ' + (index + 1) + ' OF ' + campaignAreas.length, 2.7);
     else if (drill?.bossPractice) announce('MEGA VIRUS PRACTICE', 'SHOOT EXPOSED CORES', 1.9);
     else if (drill?.endless) announce('ENDLESS · ' + missionName(area).toUpperCase(), 'THE WAVES NEVER STOP · EACH ONE HITS HARDER', 3.2);
@@ -784,9 +788,9 @@ async function launch(area, run = null, drill = null, onlineState = null, checkp
   }
 }
 
-// Solo runs name their difficulty on the pause screen and mission report.
+// Runs name their difficulty on the pause screen and mission report (in co-op, the host's pick).
 function difficultyTag() {
-  return !session.onlineRun && DIFFICULTIES[session.sim?.difficulty] ? ' · ' + DIFFICULTIES[session.sim.difficulty].name : '';
+  return DIFFICULTIES[session.sim?.difficulty] ? ' · ' + DIFFICULTIES[session.sim.difficulty].name : '';
 }
 
 function pause() {
@@ -1109,9 +1113,10 @@ function finish() {
   const junction = session.sim.area === 'junction';
   const heart = session.sim.area === 'heart';
   const bossPractice = !!practice?.bossPractice;
-  // An endless run only ends in a loss; it is scored by the waves it cleared.
+  // An endless run only ends in a loss; it is scored by the waves it cleared. Records are solo runs.
   let endless = null;
-  if (session.sim.endless) {
+  if (session.sim.endless && session.onlineRun) endless = { waves: endlessWavesCleared(session.sim) };
+  else if (session.sim.endless) {
     const waves = endlessWavesCleared(session.sim);
     endless = { waves, ...recordEndlessRun(endlessRecords(), {
       area: session.sim.area, waves, score: session.sim.score, difficulty: session.sim.difficulty,
@@ -1135,7 +1140,7 @@ function finish() {
   previewRumble();
   const self = session.onlineRun ? session.sim.players?.find(player => player.id === session.sim.player?.id) ?? session.sim.player : session.sim.player;
   achievements.missionEnd({
-    won, area: session.sim.area, difficulty: session.onlineRun ? 'medium' : session.sim.difficulty,
+    won, area: session.sim.area, difficulty: session.sim.difficulty,
     score: session.onlineRun ? self?.score ?? 0 : session.sim.score, nodes: session.sim.nodes ?? [], health: self?.health,
     online: session.onlineRun, campaignComplete: complete, overtimeBonus: session.sim.overtimeBonus ?? 0, bossPractice,
   });

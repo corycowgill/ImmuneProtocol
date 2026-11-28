@@ -1347,7 +1347,6 @@
   "Ready for": "Prêt pour",
   "READY FOR THE NEXT WAVE": "PRÊT POUR LA VAGUE SUIVANTE",
   "Ready up at the mission checkpoint.": "Indique que tu es prêt au point de contrôle de la mission.",
-  "Ready up to deploy as a pair, or invite a third player before everyone is ready.": "Indique que tu es prêt pour te déployer à deux, ou invite un troisième joueur avant que tout le monde soit prêt.",
   "Real phages find their host by touch: tail fibres bump along the cell surface until they catch a receptor, then lock on.": "Les vrais phages trouvent leur hôte au toucher : leurs fibres caudales tâtonnent sur la surface de la cellule jusqu'à saisir un récepteur, puis se verrouillent.",
   "Real spore-shooting fungi such as Pilobolus launch their payload with accelerations of thousands of g.": "De vrais champignons tireurs de spores comme Pilobolus projettent leur charge avec des accélérations de plusieurs milliers de g.",
   "Recall": "Rappeler",
@@ -1971,7 +1970,25 @@
   "REVIVING": "RÉANIMATION",
   "SUIT REVIVED": "COMBINAISON RÉANIMÉE",
   "TEAMMATE REVIVED": "COÉQUIPIER RÉANIMÉ",
-  "TO REVIVE": "POUR RÉANIMER"
+  "TO REVIVE": "POUR RÉANIMER",
+  "CO-OP ENDLESS ·": "INFINI EN COOP ·",
+  "DROPPED IN": "A REJOINT LA PARTIE",
+  "Endless arena": "Arène infinie",
+  "Mode": "Mode",
+  "Ready up to deploy as a pair. A third player can join at any time, even mid-mission.": "Soyez prêts pour déployer à deux. Un troisième joueur peut rejoindre à tout moment, même en pleine mission.",
+  "TEAMMATE JOINED": "COÉQUIPIER ARRIVÉ",
+  "The host chooses the mode and difficulty.": "L’hôte choisit le mode et la difficulté.",
+  "The squad is deployed with these settings.": "L’escouade est déployée avec ces réglages.",
+  "You are the host: choose the mode and difficulty.": "Vous êtes l’hôte : choisissez le mode et la difficulté.",
+  "HOST": "HÔTE",
+  "Match": "Partie",
+  "NOT READY": "PAS PRÊT",
+  "READY": "PRÊT",
+  "RECONNECTING": "RECONNEXION",
+  "SQUAD READY": "ESCOUADE PRÊTE",
+  "YOU": "VOUS",
+  "Ten missions in order": "Dix missions dans l’ordre",
+  "Waves never stop": "Des vagues sans fin"
  },
  "templates": {
   "· {0} OF 4 OPEN": "· {0} SUR 4 OUVERTES",
@@ -2138,6 +2155,8 @@
   "{0} IS BACK UP": "{0} EST DE NOUVEAU DEBOUT",
   "{0} TO REVIVE {1}": "{0} POUR RÉANIMER {1}",
   "BEING REVIVED · {0}%": "RÉANIMATION EN COURS · {0} %",
-  "REVIVING {0}": "RÉANIMATION DE {0}"
+  "REVIVING {0}": "RÉANIMATION DE {0}",
+  "CO-OP ENDLESS · {0}": "INFINI EN COOP · {0}",
+  "{0} DROPPED IN": "{0} A REJOINT LA PARTIE"
  }
 }

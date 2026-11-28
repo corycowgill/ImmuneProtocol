@@ -99,6 +99,11 @@ export class BrowserUiBindings {
     const children = [...el.children].map(c => this.block(c, excluded)).filter(Boolean);
     if (!children.length) return !el.children.length && this.text(el) ? { kind: 'text', text: this.text(el), size: 14 } : null;
     if (el.classList.contains('coop-suit-options')) return grid(children, 140, 2);
+    // Mode and difficulty fit a row; the six arenas take two columns so their names fit.
+    if (el.classList.contains('coop-rule-options')) {
+      const long = children.length > 3;
+      return grid(children.map(child => ({ ...child, height: child.detail ? 72 : long ? 64 : 44 })), long ? 150 : 100, long ? 2 : 3);
+    }
     const group = !['rows', 'weapons'].includes(el.dataset.layout) && (el.getAttribute('role') === 'tablist' || el.getAttribute('role') === 'radiogroup' || /options|choice|mission-list|roster|loadout-row|threats|difficulty-picker/.test(el.className ?? ''));
     return group ? grid(children, el.getAttribute('role') === 'tablist' ? 110 : 175, 4) : { kind: 'stack', children };
   }
@@ -224,8 +229,22 @@ export class BrowserUiBindings {
       model.kicker = 'ROOM ' + this.value('coop-room-code');
       model.left = [this.block(root.querySelector('.coop-bay canvas')), this.block(root.querySelector('.coop-bay-roster')), this.control(this.get('coop-link'))].filter(Boolean);
       model.squadText = [...root.querySelectorAll('.coop-bay-roster li:not(.coop-bay-empty)')].map(row => this.text(row.querySelector('strong')) + ' / ' + this.text(row.querySelector('span'))).join(' · ');
-      model.body = [this.block(root.querySelector('.coop-suits')), this.block(this.get('coop-status'))].filter(Boolean);
+      model.body = [this.block(root.querySelector('.coop-rules')), this.block(root.querySelector('.coop-suits')), this.block(this.get('coop-status'))].filter(Boolean);
       const copy = this.control(this.get('coop-copy')); if (copy) model.footer.unshift(copy);
+      // The squad lobby: the lab fills the screen, with a name plate under each seat.
+      const rows = [...root.querySelectorAll('.coop-bay-roster li')];
+      const filled = rows.filter(row => row.dataset.state);
+      model.lobby = {
+        preview: this.block(root.querySelector('.coop-bay canvas')),
+        rules: this.block(root.querySelector('.coop-rules')),
+        suits: this.block(root.querySelector('.coop-suits')),
+        status: this.value('coop-status'),
+        invite: this.control(this.get('coop-link')),
+        ready: filled.filter(row => row.dataset.state === 'ready').length + ' / ' + filled.length,
+        squad: rows.map(row => row.dataset.state
+          ? { name: row.dataset.name, suit: row.dataset.suit, state: row.dataset.state, you: row.dataset.you === 'true', host: row.dataset.host === 'true', accent: row.style.getPropertyValue('--suit').trim() }
+          : { empty: true, name: this.text(row) }),
+      };
     } else if (id === 'settings-dialog') {
       model.defaultFocus = this.id(this.get('look-sensitivity'));
       const mute = root.querySelector('[data-mute]'), muted = mute?.getAttribute('aria-pressed') === 'true';

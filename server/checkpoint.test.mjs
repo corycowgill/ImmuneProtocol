@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CoopSimulation } from '../dist/coop-simulation.mjs';
+import { DEFAULT_COOP_SETTINGS } from '../dist/coop-protocol.mjs';
 import { CoopRooms } from './rooms.mjs';
 import { Simulation } from '../dist/simulation.mjs';
 
@@ -143,7 +144,7 @@ test('a co-op squad retries from its checkpoint with every suit restored', () =>
   // The server's ready-up after a loss starts the next match from that checkpoint.
   const rooms = new CoopRooms({ simulation: (players, area) => new CoopSimulation(players, area) });
   try {
-    const room = { phase: 'finished', simulation: sim, missionIndex: 0, results: [], events: [], players: profiles.map(p => ({ ...p, weaponLoadout: undefined, suit: undefined, ready: true })) };
+    const room = { phase: 'finished', simulation: sim, missionIndex: 0, results: [], events: [], settings: { ...DEFAULT_COOP_SETTINGS }, players: profiles.map(p => ({ ...p, weaponLoadout: undefined, suit: undefined, ready: true })) };
     rooms.publishRoom = rooms.publishStates = () => {};
     rooms.startMatch(room);
     const retry = room.simulation;

@@ -307,6 +307,8 @@ Studio renders, QA images, and `reports/REPORT.md` cover each suit. The startup 
 
 ### Co-op lobby lab
 
+On screens at least 1000 by 600, a room draws as a squad lobby (`buildSquadLobby` in [`ui-screens.mjs`](../dist/ui-screens.mjs)). The live lab render fills the screen. The host's match settings (`.coop-rules`, built in [`coop-lobby.mjs`](../dist/coop-lobby.mjs)) run down the left and the suit picker down the right. A `nameplate` sits under each seat, in the order the suits stand on the pads, and a large Ready button sits beside the squad's ready count. `ui-bindings.mjs` reads each seat from the roster rows' `data-state`, `data-name`, `data-suit`, `data-you` and `data-host`. Phones and short screens keep the tabbed dialog.
+
 The lab is modelled in Blender by `tools/lobby/build_lab.py`:
 
 ```sh

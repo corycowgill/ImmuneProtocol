@@ -1347,7 +1347,6 @@
   "Ready for": "Bereit für",
   "READY FOR THE NEXT WAVE": "BEREIT FÜR DIE NÄCHSTE WELLE",
   "Ready up at the mission checkpoint.": "Mach dich am Missions-Checkpoint bereit.",
-  "Ready up to deploy as a pair, or invite a third player before everyone is ready.": "Macht euch bereit, um zu zweit auszurücken, oder ladet einen dritten Spieler ein, bevor alle bereit sind.",
   "Real phages find their host by touch: tail fibres bump along the cell surface until they catch a receptor, then lock on.": "Echte Phagen finden ihren Wirt durch Tasten: Die Schwanzfasern tasten die Zelloberfläche ab, bis sie einen Rezeptor erwischen, und rasten dann ein.",
   "Real spore-shooting fungi such as Pilobolus launch their payload with accelerations of thousands of g.": "Echte sporenschießende Pilze wie Pilobolus schleudern ihre Ladung mit Beschleunigungen von Tausenden g.",
   "Recall": "Rückruf",
@@ -1971,7 +1970,25 @@
   "REVIVING": "WIEDERBELEBEN",
   "SUIT REVIVED": "ANZUG WIEDERBELEBT",
   "TEAMMATE REVIVED": "TEAMMITGLIED WIEDERBELEBT",
-  "TO REVIVE": "ZUM WIEDERBELEBEN"
+  "TO REVIVE": "ZUM WIEDERBELEBEN",
+  "CO-OP ENDLESS ·": "KOOP-ENDLOS ·",
+  "DROPPED IN": "IST EINGESTIEGEN",
+  "Endless arena": "Endlos-Arena",
+  "Mode": "Modus",
+  "Ready up to deploy as a pair. A third player can join at any time, even mid-mission.": "Macht euch bereit, um zu zweit einzusetzen. Ein dritter Spieler kann jederzeit beitreten, auch mitten in der Mission.",
+  "TEAMMATE JOINED": "TEAMMITGLIED BEIGETRETEN",
+  "The host chooses the mode and difficulty.": "Der Host wählt Modus und Schwierigkeit.",
+  "The squad is deployed with these settings.": "Der Trupp ist mit diesen Einstellungen im Einsatz.",
+  "You are the host: choose the mode and difficulty.": "Du bist der Host: Wähle Modus und Schwierigkeit.",
+  "HOST": "HOST",
+  "Match": "Spiel",
+  "NOT READY": "NICHT BEREIT",
+  "READY": "BEREIT",
+  "RECONNECTING": "VERBINDET NEU",
+  "SQUAD READY": "TRUPP BEREIT",
+  "YOU": "DU",
+  "Ten missions in order": "Zehn Missionen der Reihe nach",
+  "Waves never stop": "Wellen ohne Ende"
  },
  "templates": {
   "· {0} OF 4 OPEN": "· {0} VON 4 OFFEN",
@@ -2138,6 +2155,8 @@
   "{0} IS BACK UP": "{0} IST WIEDER AUF DEN BEINEN",
   "{0} TO REVIVE {1}": "{0} ZUM WIEDERBELEBEN VON {1}",
   "BEING REVIVED · {0}%": "WIRST WIEDERBELEBT · {0} %",
-  "REVIVING {0}": "WIEDERBELEBE {0}"
+  "REVIVING {0}": "WIEDERBELEBE {0}",
+  "CO-OP ENDLESS · {0}": "KOOP-ENDLOS · {0}",
+  "{0} DROPPED IN": "{0} IST EINGESTIEGEN"
  }
 }

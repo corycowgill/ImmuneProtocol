@@ -1347,7 +1347,6 @@
   "Ready for": "Listo para",
   "READY FOR THE NEXT WAVE": "LISTO PARA LA SIGUIENTE OLEADA",
   "Ready up at the mission checkpoint.": "Prepárate en el punto de control de la misión.",
-  "Ready up to deploy as a pair, or invite a third player before everyone is ready.": "Marca listo para desplegaros en pareja, o invita a un tercer jugador antes de que todos estén listos.",
   "Real phages find their host by touch: tail fibres bump along the cell surface until they catch a receptor, then lock on.": "Los fagos reales encuentran a su huésped por el tacto: las fibras de la cola rozan la superficie de la célula hasta engancharse a un receptor y entonces se fijan.",
   "Real spore-shooting fungi such as Pilobolus launch their payload with accelerations of thousands of g.": "Los hongos lanzaesporas reales, como Pilobolus, disparan su carga con aceleraciones de miles de g.",
   "Recall": "Llamar",
@@ -1971,7 +1970,25 @@
   "REVIVING": "REANIMANDO",
   "SUIT REVIVED": "TRAJE REANIMADO",
   "TEAMMATE REVIVED": "COMPAÑERO REANIMADO",
-  "TO REVIVE": "PARA REANIMAR"
+  "TO REVIVE": "PARA REANIMAR",
+  "CO-OP ENDLESS ·": "INFINITO COOPERATIVO ·",
+  "DROPPED IN": "SE HA UNIDO",
+  "Endless arena": "Arena infinita",
+  "Mode": "Modo",
+  "Ready up to deploy as a pair. A third player can join at any time, even mid-mission.": "Preparaos para desplegar en pareja. Un tercer jugador puede unirse en cualquier momento, incluso a mitad de misión.",
+  "TEAMMATE JOINED": "COMPAÑERO UNIDO",
+  "The host chooses the mode and difficulty.": "El anfitrión elige el modo y la dificultad.",
+  "The squad is deployed with these settings.": "La escuadra está desplegada con estos ajustes.",
+  "You are the host: choose the mode and difficulty.": "Eres el anfitrión: elige el modo y la dificultad.",
+  "HOST": "ANFITRIÓN",
+  "Match": "Partida",
+  "NOT READY": "NO LISTO",
+  "READY": "LISTO",
+  "RECONNECTING": "RECONECTANDO",
+  "SQUAD READY": "ESCUADRA LISTA",
+  "YOU": "TÚ",
+  "Ten missions in order": "Diez misiones en orden",
+  "Waves never stop": "Oleadas sin fin"
  },
  "templates": {
   "· {0} OF 4 OPEN": "· {0} DE 4 ABIERTAS",
@@ -2138,6 +2155,8 @@
   "{0} IS BACK UP": "{0} ESTÁ DE PIE",
   "{0} TO REVIVE {1}": "{0} PARA REANIMAR A {1}",
   "BEING REVIVED · {0}%": "REANIMÁNDOTE · {0} %",
-  "REVIVING {0}": "REANIMANDO A {0}"
+  "REVIVING {0}": "REANIMANDO A {0}",
+  "CO-OP ENDLESS · {0}": "INFINITO COOPERATIVO · {0}",
+  "{0} DROPPED IN": "{0} SE HA UNIDO"
  }
 }

@@ -230,6 +230,10 @@ export class CoopClient extends EventTarget {
     return this.connected && this.send({ type: 'suit', suit });
   }
 
+  setSettings(settings) {
+    return this.connected && this.send({ type: 'settings', ...settings });
+  }
+
   setReady(ready, loadout) {
     return this.connected && this.send({ type: 'ready', ready, loadout });
   }
