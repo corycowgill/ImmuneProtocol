@@ -369,6 +369,7 @@ export function poseEnemyAttack(world, enemy, view, reduceMotion) {
   if (spikes) spikes.scale.setScalar(1);
   if (fringe) fringe.scale.set(1, 1, 1);
   switch (enemy.action) {
+    case 'virus-coil': // a lunge's warning: the same coil, quicker
     case 'virus-windup':
       model.rotation.set(-.27 * progress * motion, enemy.heading, 0);
       model.scale.x *= 1 + .18 * progress * motion;
@@ -377,6 +378,12 @@ export function poseEnemyAttack(world, enemy, view, reduceMotion) {
       spikes?.scale.setScalar(1 - .22 * progress * motion);
       view.clench = progress * motion;
       glow = .32 + .68 * progress;
+      break;
+    case 'virus-dash': // darting in to pouncing range, stretched along its run
+      model.rotation.set(.3 * motion, enemy.heading, 0);
+      model.scale.set(1 - .14 * motion, 1 - .12 * motion, 1 + .4 * motion);
+      view.clench = -.5 * motion;
+      glow = .75;
       break;
     case 'virus-pounce': {
       const thrust = Math.sin(progress * Math.PI);

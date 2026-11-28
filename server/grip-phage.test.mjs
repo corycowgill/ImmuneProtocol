@@ -151,3 +151,27 @@ test('left to its own tactics in a running mission, a Grip Phage goes for the su
   }
   assert.ok(latched, 'it latched within twelve seconds');
 });
+
+test('a swarmer closing on a suit coils, then lunges in to pouncing range', () => {
+  const sim = field();
+  const virus = sim.createEnemy('virus', 0, 14 - 6.5, sim.nodes[0]);
+  virus.y = sim.player.y;
+  virus.lungeCooldown = 0;
+  virus.heading = 0; // facing the suit
+  sim.enemies.push(virus);
+  const actions = new Set();
+  let windups = 0;
+  for (let i = 0; i < 240 && !actions.has('virus-windup'); i++) {
+    sim.events = [];
+    // It keeps the suit in sight.
+    sim.ai.controllers.get(virus.id)?.memory.observe('player:solo', sim.player, sim.clock, { visible: true });
+    sim.step(DT, { moveX: 0, moveZ: 0, lookX: 0, lookY: 0 });
+    actions.add(virus.action);
+    windups += sim.events.filter(event => event.type === 'enemyAttack' && event.stage === 'windup').length;
+  }
+  assert.ok(actions.has('virus-coil'), 'it coils first');
+  assert.ok(actions.has('virus-dash'), 'then darts in');
+  assert.ok(actions.has('virus-windup'), 'and the usual pounce follows');
+  assert.ok(windups >= 2, 'the coil and the pounce both warn the suit');
+  assert.ok(Math.hypot(virus.x - sim.player.x, virus.z - sim.player.z) < 3.7, 'it reached pouncing range');
+});

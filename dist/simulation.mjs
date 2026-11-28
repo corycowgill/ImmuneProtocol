@@ -95,19 +95,19 @@ export const RULES = Object.freeze({
 // player-only laser state machine, and the Nanonaut (a human soldier, nanonaut.mjs) its own
 // carbine and cover tactics. Variants retain their own authored statistics.
 export const SPECIES = {
-  virus: { radius: 0.92, y: 1.63, health: 60, speed: 2.28, suitDamage: 11, tissueDamage: 6, score: 100 },
-  bacillus: { radius: 1.12, y: 1.13, health: 115, speed: 1.47, tissueDamage: 10, period: 1.75, score: 180 },
-  spore: { radius: 0.73, y: 2.10, health: 36, speed: 3.55, suitDamage: 9, tissueDamage: 4, score: 130 },
-  guard: { behavior: 'bacillus', radius: 1.32, y: 1.33, health: 144, speed: 1.62, tissueDamage: 12, period: 1.9, score: 260 },
-  splitter: { behavior: 'virus', radius: 1.07, y: 1.75, health: 84, speed: 3.35, suitDamage: 13, tissueDamage: 7, score: 200 },
+  virus: { radius: 0.92, y: 1.63, health: 54, speed: 3.2, suitDamage: 11, tissueDamage: 6, score: 100 },
+  bacillus: { radius: 1.12, y: 1.13, health: 115, speed: 1.69, tissueDamage: 10, period: 1.75, score: 180 },
+  spore: { radius: 0.73, y: 2.10, health: 36, speed: 4.26, suitDamage: 9, tissueDamage: 4, score: 130 },
+  guard: { behavior: 'bacillus', radius: 1.32, y: 1.33, health: 144, speed: 1.86, tissueDamage: 12, period: 1.9, score: 260 },
+  splitter: { behavior: 'virus', radius: 1.07, y: 1.75, health: 76, speed: 4.5, suitDamage: 13, tissueDamage: 7, score: 200 },
   // Rooted on the floor behind a heart valve; it spits through the aperture while the valve is open.
   colony: { radius: 1.15, y: 1.3, health: 340, suitDamage: 14, tissueDamage: 13, period: 1.6, score: 600 },
-  phage: { behavior: 'virus', radius: 0.88, y: 1.85, health: 52, speed: 2.6, suitDamage: 10, tissueDamage: 5, score: 115 },
-  flagellate: { behavior: 'virus', radius: 0.95, y: 1.5, health: 66, speed: 2.45, suitDamage: 12, tissueDamage: 6, score: 125 },
-  blister: { behavior: 'spore', radius: 0.84, y: 2.2, health: 44, speed: 3.2, suitDamage: 10, tissueDamage: 5, score: 150 },
-  filovirus: { behavior: 'bacillus', radius: 1.15, y: 1.2, health: 118, speed: 1.55, tissueDamage: 10, period: 1.7, score: 195 },
-  amoeba: { behavior: 'bacillus', radius: 1.2, y: 1.25, health: 126, speed: 1.22, tissueDamage: 9, period: 1.95, score: 205 },
-  rogue: { behavior: 'bacillus', radius: 1.2, y: 1.3, health: 128, speed: 1.5, tissueDamage: 11, period: 1.8, score: 225 },
+  phage: { behavior: 'virus', radius: 0.88, y: 1.85, health: 47, speed: 3.6, suitDamage: 10, tissueDamage: 5, score: 115 },
+  flagellate: { behavior: 'virus', radius: 0.95, y: 1.5, health: 59, speed: 3.4, suitDamage: 12, tissueDamage: 6, score: 125 },
+  blister: { behavior: 'spore', radius: 0.84, y: 2.2, health: 44, speed: 3.84, suitDamage: 10, tissueDamage: 5, score: 150 },
+  filovirus: { behavior: 'bacillus', radius: 1.15, y: 1.2, health: 118, speed: 1.78, tissueDamage: 10, period: 1.7, score: 195 },
+  amoeba: { behavior: 'bacillus', radius: 1.2, y: 1.25, health: 126, speed: 1.4, tissueDamage: 9, period: 1.95, score: 205 },
+  rogue: { behavior: 'bacillus', radius: 1.2, y: 1.3, health: 128, speed: 1.73, tissueDamage: 11, period: 1.8, score: 225 },
   'rogue-bot': ROGUE_BOT_SPEC,
   crawler: CRAWLER_SPEC,
   nanonaut: NANONAUT_SPEC,
@@ -115,7 +115,7 @@ export const SPECIES = {
   latcher: GRIP_SPEC,
 };
 
-const FRAGMENT = { radius: .55, y: 1.35, health: 24, speed: 4.05, suitDamage: 5, tissueDamage: 2, score: 55 };
+const FRAGMENT = { radius: .55, y: 1.35, health: 22, speed: 5.5, suitDamage: 5, tissueDamage: 2, score: 55 };
 const TUTORIAL_ATTACKER_HEALTH = 34;
 const GUARD_FRONT_THRESHOLD = .55;
 
@@ -268,6 +268,10 @@ const VIRUS_RECOVERY = 0.42;
 // Seconds between the Mega Virus's collapse and the Mega Nano Bot's arrival.
 const FINALE_DELAY = 4;
 const VIRUS_RANGE = 3.6;
+// Flying pathogens gain pace each wave, so the last wave is frantic.
+const WAVE_PACE = .3;
+// A swarmer closing on a suit coils (the pounce's warning), then darts in to pouncing range.
+const LUNGE = { range: 7.5, coil: .3, dash: .6, speed: 9, cooldown: 3.5, max: 2 };
 // How fast steering in the air bends a jump's momentum (per second).
 const AIR_CONTROL = 2.6;
 const SPORE_WINDUP = 0.55;
@@ -2200,6 +2204,17 @@ export class Simulation {
       if (target && distance <= range + .04) enemy.heading = Math.atan2(target.x - enemy.x, target.z - enemy.z);
       const defensive = ['retreat', 'cover', 'evade', 'regroup', 'investigate', 'idle'].includes(controller.action);
       const tooClose = attacksSuit && enemy.behavior === 'spore' && distance < controller.profile.preferredDistance * .65;
+      enemy.lungeCooldown = Math.max(0, (enemy.lungeCooldown ?? LUNGE.cooldown * Math.random()) - dt);
+      if (enemy.behavior === 'virus' && attacksSuit && !defensive && enemy.attackCooldown === 0 && enemy.lungeCooldown === 0 &&
+          distance > VIRUS_RANGE + .8 && distance < LUNGE.range && clearSegment(this.obstacles, enemy, target) &&
+          this.enemies.filter(other => other.action === 'virus-coil' || other.action === 'virus-dash').length < LUNGE.max) {
+        enemy.lungeCooldown = LUNGE.cooldown;
+        this.setEnemyAction(enemy, 'virus-coil');
+        enemy.actionTarget = 'player';
+        enemy.actionPlayerId = target.id;
+        this.attackEvent(enemy, 'windup', 'player');
+        continue;
+      }
       enemy.attackingTissue = !defensive && !attacksSuit && distance <= range + .04;
       enemy.node.underAttack ||= enemy.attackingTissue;
       if (!defensive && !tooClose && target && distance <= range + .04 && enemy.attackCooldown === 0 &&
@@ -2207,7 +2222,7 @@ export class Simulation {
         this.startEnemyAttack(enemy, target, attacksSuit ? 'player' : 'tissue');
       } else {
         const stop = !defensive && !tooClose && target && !['flank', 'strafe'].includes(controller.action) ? Math.max(0, range - .2) : 0;
-        controller.move(dt, (spec.speed + (this.wave - 1) * .13) * speedFactor, stop);
+        controller.move(dt, (spec.speed + (this.wave - 1) * WAVE_PACE) * speedFactor, stop);
       }
     }
     this.ai.end();
@@ -2258,6 +2273,25 @@ export class Simulation {
 
   advanceVirusAttack(enemy, dt, spec) {
     if (enemy.action === 'cling') { advanceCling(this, enemy, dt); return; }
+    if (enemy.action === 'virus-coil') {
+      if (this.advanceAction(enemy, dt, LUNGE.coil)) this.setEnemyAction(enemy, 'virus-dash');
+      return;
+    }
+    if (enemy.action === 'virus-dash') {
+      // Straight at the suit, until pouncing range; then the usual pounce follows.
+      const player = this.attackPlayer(enemy.actionPlayerId);
+      const done = this.advanceAction(enemy, dt, LUNGE.dash);
+      if (player && player.health > 0) {
+        const dx = player.x - enemy.x, dz = player.z - enemy.z, gap = Math.hypot(dx, dz);
+        const slow = (enemy.slowRemaining > 0 ? TURRET_SLOW_FACTOR : 1) * (enemy.speedScale ?? 1);
+        const step = Math.min(LUNGE.speed * slow * dt, Math.max(0, gap - (VIRUS_RANGE - .4)));
+        if (gap > 1e-3) { enemy.x += dx / gap * step; enemy.z += dz / gap * step; enemy.heading = Math.atan2(dx, dz); }
+        this.skirtObstacles(enemy);
+        if (gap - step <= VIRUS_RANGE - .3) { this.setEnemyAction(enemy, 'idle'); return; }
+      }
+      if (done || !player || player.health <= 0) this.setEnemyAction(enemy, 'idle');
+      return;
+    }
     if (enemy.action === 'virus-windup') {
       if (this.advanceAction(enemy, dt, VIRUS_WINDUP)) {
         const target = enemy.actionTarget === 'player' ? this.attackPlayer(enemy.actionPlayerId) : enemy.node;
