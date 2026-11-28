@@ -76,6 +76,8 @@ export function createNanonautRig(model, { gun: ownGun = null, muzzle: ownMuzzle
   for (const name of UPPER_CLIPS) add(name, clips.get(name) && split(clips.get(name), bone => !LOWER.has(bone)), name !== 'Reload');
   for (const name of FULL_CLIPS) add(name, clips.get(name), false);
   for (const name of FULL_CLIPS) actions[name]?.stop();
+  // At ease (the co-op lobby): standing relaxed, rifle held low; the whole body, looping.
+  add('AtEase', clips.get('AtEase'));
   const bone = name => model.getObjectByName(name);
   const bones = { spine: bone('Spine1'), chest: bone('Spine2'), neck: bone('Neck'), head: bone('Head'), weapon: bone('weapon') };
   // The carbine.
@@ -150,6 +152,7 @@ export function poseNanonaut(rig, model, state, dt, reduceMotion) {
   if (state.dodge && !rig.full) playFull(rig, state.dodgeDir > 0 ? 'DodgeL' : 'DodgeR');
   if (state.stagger && !rig.full) playFull(rig, 'Stagger');
   if (rig.full) targets[rig.full] = 1;
+  else if (state.atEase && actions.AtEase) targets.AtEase = 1;
   else {
     // Legs.
     const speed = local.speed;

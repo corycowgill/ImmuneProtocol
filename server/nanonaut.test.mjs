@@ -183,7 +183,7 @@ test('the rigged co-op suits share the Nanonaut skeleton and clips', () => {
     assert.ok(json.nodes.some(node => node.name === 'weapon'), suit + ' weapon bone');
     const clips = json.animations.map(a => a.name);
     for (const name of ['Stand', 'Walk', 'WalkBack', 'StrafeL', 'StrafeR', 'Run', 'Crouch', 'CrouchWalk', 'Aim', 'LowReady', 'Cover', 'Reload',
-      'DeathBack']) assert.ok(clips.includes(name), suit + ' ' + name);
+      'DeathBack', 'AtEase']) assert.ok(clips.includes(name), suit + ' ' + name);
     assert.ok(file.length < 5e6, suit + ' under 5 MB');
   }
 });

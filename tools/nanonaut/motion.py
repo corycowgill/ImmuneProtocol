@@ -39,6 +39,9 @@ CLIPS = {
     'Cover': ('A soldier crouches low behind cover holding his rifle upright close to his chest with both hands, ducking his head.', 4, 23),
     'Reload': ('A soldier standing holds his rifle with his right hand, removes the magazine with his left hand, inserts a new magazine and pulls the charging handle, then aims again.', 3, 24),
     'Fire': ('A soldier stands firing a rifle in short controlled bursts, the rifle kicking against his shoulder, both hands on the rifle.', 3, 25),
+    # Lobby idle: relaxed, rifle held low across the body, as in other multiplayer games' lobbies.
+    'AtEase': ('A relaxed soldier stands waiting with his rifle held at low ready, angled down toward the floor in front of him, '
+               'both hands on the rifle, shifting his weight.', 6, 31),
     'DeathFront': ('A soldier is shot in the back, stumbles forward and falls face down onto the ground and lies still.', 3, 12),
 }
 

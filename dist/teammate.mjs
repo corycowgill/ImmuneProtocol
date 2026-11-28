@@ -353,7 +353,7 @@ export function createTeammate(softMask, { marker: showMarker = true } = {}) {
     poseNanonaut(rig, model, {
       local: { forward, right, speed: Math.hypot(velocity.x, velocity.y) },
       stance: player.crouched || player.sliding ? 'crouch' : 'stand',
-      aiming: (aim || firedHold > 0) && !repair, reloading: reloading && !prone, reloadTime, downed: prone,
+      aiming: (aim || firedHold > 0) && !repair, reloading: reloading && !prone, reloadTime, downed: prone, atEase: !!player.atEase,
       aimYaw: facing, aimPitch: clamp(player.pitch || 0, -1.2, 1.2),
     }, dt > 0 ? dt : .5, reduceMotion); // a still (the lobby's portraits pass no time) settles straight into its pose
   }

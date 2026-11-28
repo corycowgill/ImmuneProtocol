@@ -89,6 +89,15 @@
   "speed": 0.0,
   "scale": 1.073
  },
+ "AtEase": {
+  "source": "AtEase.npz",
+  "mirrored": false,
+  "handedness": 0.19,
+  "frames": 72,
+  "seconds": 2.4,
+  "speed": 0.0,
+  "scale": 1.074
+ },
  "Cover": {
   "source": "Cover.npz",
   "mirrored": false,

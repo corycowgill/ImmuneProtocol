@@ -2,7 +2,7 @@
 <style>body{margin:20px;background:#131918;color:#dff2d9;font:14px/1.5 monospace}canvas{width:1280px;height:720px;max-width:100%}button{margin:5px;padding:8px}</style>
 <h1>Co-op suits — rigged teammate check</h1><p id="status">Loading the suits…</p>
 <button data-act="walk">Walk</button><button data-act="strafe">Strafe</button><button data-act="run">Run</button><button data-act="crouch">Crouch walk</button>
-<button data-act="aim">Aim and fire</button><button data-act="reload">Reload</button><button data-act="down">Downed</button><button data-act="auto">Cycle everything</button>
+<button data-act="aim">Aim and fire</button><button data-act="reload">Reload</button><button data-act="down">Downed</button><button data-act="ease">At ease (lobby)</button><button data-act="auto">Cycle everything</button>
 <canvas id="view"></canvas>
 <script type="module">
 // Each co-op suit worn by a teammate view (teammate.mjs), driven by a scripted player so its rigged,
@@ -21,7 +21,7 @@ scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnviron
 const sun = new THREE.DirectionalLight(0xffffff, 2.4); sun.position.set(4, 8, 5); sun.castShadow = true; scene.add(sun);
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: 0x4a5458, roughness: .9 }));
 floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-const camera = new THREE.PerspectiveCamera(32, 16 / 9, .1, 100); camera.position.set(0, 2.2, 9); camera.lookAt(0, 1, 0);
+const camera = new THREE.PerspectiveCamera(32, 16 / 9, .1, 100); camera.position.set(0, 2.4, 12); camera.lookAt(0, 1, 0);
 await loadSuitModels();
 const views = COOP_SUITS.map((suit, i) => {
   const view = createTeammate(null, { marker: false }); scene.add(view.root);
@@ -30,7 +30,7 @@ const views = COOP_SUITS.map((suit, i) => {
 });
 status.textContent = 'Rigged: ' + COOP_SUITS.map(s => s + (riggedSuit(s) ? ' ✓' : ' (jointed)')).join(', ');
 let act = 'auto', t = 0, last = performance.now(), fireClock = 0;
-const ACTS = ['walk', 'strafe', 'run', 'crouch', 'aim', 'reload', 'down'];
+const ACTS = ['ease', 'walk', 'strafe', 'run', 'crouch', 'aim', 'reload', 'down'];
 document.querySelectorAll('button').forEach(b => b.onclick = () => { act = b.dataset.act; t = 0; });
 const muzzle = new THREE.Vector3();
 function frame(now) {
@@ -38,7 +38,7 @@ function frame(now) {
   const current = act === 'auto' ? ACTS[Math.floor(t / 4) % ACTS.length] : act;
   const phase = Math.sin(t * .9);
   for (const { view, player, home } of views) {
-    Object.assign(player, { crouched: current === 'crouch', aiming: current === 'aim', downed: current === 'down', reloadProgress: 0 });
+    Object.assign(player, { crouched: current === 'crouch', aiming: current === 'aim', downed: current === 'down', atEase: current === 'ease', reloadProgress: 0 });
     player.yaw = Math.PI; player.pitch = current === 'aim' ? .1 * Math.sin(t) : 0;
     // Facing the camera (+Z): forward is -sin/-cos of yaw.
     if (current === 'walk') player.z = phase * 1.2;

@@ -154,5 +154,15 @@
   "space": "hugging-apps/kimodo-motion",
   "chosen_seed": 25,
   "info": "Generated 90 frames (3.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 1.9 s, total 2.0 s."
+ },
+ "AtEase": {
+  "prompt": "A relaxed soldier stands waiting with his rifle held at low ready, angled down toward the floor in front of him, both hands on the rifle, shifting his weight.",
+  "seconds": 6,
+  "seed": 31,
+  "model": "nvidia/Kimodo-SOMA-RP",
+  "space": "hugging-apps/kimodo-motion",
+  "chosen_seed": 31,
+  "info": "Generated 180 frames (6.0 s @ 30 fps), 1 segment(s), 0 constraint set(s) \u2014 generation 3.9 s, total 4.2 s.",
+  "note": "chosen from six takes for the lowest muzzle (left hand 19 cm below the right)"
  }
 }

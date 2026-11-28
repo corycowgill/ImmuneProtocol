@@ -80,6 +80,7 @@ Status, all four rigged:
 - the legs follow how the player really moves, and crouching or sliding plays the crouch clips;
 - the upper body aims when the player aims or has just fired, and reloads at the player's own reload speed;
 - a downed player falls and stays down until revived;
+- in the co-op lobby (pedestals and suit portraits) they stand at ease, rifle held low with the muzzle down (the `AtEase` clip, chosen from six Kimodo takes for the lowest muzzle);
 - the player's own customised rifle sits in the right hand, and the spine turns so it points where they look.
 
 `/__suits` on the verification server shows every suit driven through walking, strafing, running, crouching, aiming and firing, reloading and being downed.

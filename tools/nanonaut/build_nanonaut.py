@@ -43,7 +43,7 @@ CLIPS = {
     'WalkBack': dict(loop=True, cycle=(.8, 1.6)), 'StrafeL': dict(loop=True, cycle=(.8, 1.8), partner='StrafeR'),
     'StrafeR': dict(loop=True, cycle=(.8, 1.8), partner='StrafeL'), 'Run': dict(loop=True, cycle=(.55, 1.0)),
     'Crouch': dict(loop=True, cycle=(1.0, 1.8), search=.45), 'CrouchWalk': dict(loop=True, cycle=(.9, 1.8)),
-    'Aim': dict(loop=True, cycle=(1.6, 3.2)), 'LowReady': dict(loop=True, cycle=(1.4, 3.0)),
+    'Aim': dict(loop=True, cycle=(1.6, 3.2)), 'LowReady': dict(loop=True, cycle=(1.4, 3.0)), 'AtEase': dict(loop=True, cycle=(2.4, 4.8)),
     'Cover': dict(loop=True, cycle=(1.4, 3.0), search=.4), 'Reload': dict(loop=False),
     'DodgeL': dict(loop=False, partner='DodgeR'), 'DodgeR': dict(loop=False, partner='DodgeL'),
     'Stagger': dict(loop=False, in_place=False),

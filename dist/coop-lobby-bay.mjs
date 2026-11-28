@@ -276,7 +276,7 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
     rig.root.traverse(part => { if (part.isMesh) part.castShadow = true; });
     turntable.add(rig.root);
     const actor = {
-      id: 'bay-' + index, x: 0, z: 0, yaw: 0, pitch: -.08, name: '', aiming: false,
+      id: 'bay-' + index, x: 0, z: 0, yaw: 0, pitch: -.08, name: '', aiming: false, atEase: true, // at ease in the lobby, rifle low
       downed: false, connected: true, suit: null, weaponLoadout: undefined,
     };
     return { ringMaterial, beam, turntable, rig, actor, player: null, spin: index ? -.3 : .3 };
@@ -402,7 +402,7 @@ export function createLobbyBay(canvas, softMask = radialMask()) {
     const rig = createTeammate(softMask, { marker: false });
     rig.root.rotation.y = .5;
     booth.add(rig.root);
-    rig.update({ id: 'portrait-' + suit, x: 0, z: 0, yaw: .5, pitch: -.1, suit, connected: true }, 0, 0, true);
+    rig.update({ id: 'portrait-' + suit, x: 0, z: 0, yaw: .5, pitch: -.1, suit, connected: true, atEase: true }, 0, 0, true);
     const lens = new THREE.PerspectiveCamera(26, width / height, .1, 20);
     lens.position.set(0, 1.15, -4.6);
     lens.lookAt(0, .95, 0);
