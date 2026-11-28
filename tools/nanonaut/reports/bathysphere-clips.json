@@ -1,0 +1,155 @@
+{
+ "Stand": {
+  "source": "Stand.npz",
+  "mirrored": false,
+  "handedness": 0.73,
+  "frames": 48,
+  "seconds": 1.6,
+  "speed": 0.0,
+  "scale": 0.953
+ },
+ "Walk": {
+  "source": "Walk.npz",
+  "mirrored": true,
+  "handedness": 0.89,
+  "frames": 28,
+  "seconds": 0.933,
+  "speed": 1.708,
+  "scale": 0.952
+ },
+ "WalkBack": {
+  "source": "WalkBack.npz",
+  "mirrored": true,
+  "handedness": 0.83,
+  "frames": 30,
+  "seconds": 1.0,
+  "speed": 1.32,
+  "scale": 0.952
+ },
+ "StrafeL": {
+  "source": "StrafeL.npz",
+  "mirrored": false,
+  "handedness": -0.4,
+  "frames": 28,
+  "seconds": 0.933,
+  "speed": 1.576,
+  "scale": 0.953
+ },
+ "StrafeR": {
+  "source": "StrafeR.npz",
+  "mirrored": false,
+  "handedness": 0.8,
+  "frames": 47,
+  "seconds": 1.567,
+  "speed": 1.113,
+  "scale": 0.953
+ },
+ "Run": {
+  "source": "Run.npz",
+  "mirrored": false,
+  "handedness": -0.09,
+  "frames": 21,
+  "seconds": 0.7,
+  "speed": 2.665,
+  "scale": 0.953
+ },
+ "Crouch": {
+  "source": "Crouch.npz",
+  "mirrored": true,
+  "handedness": 0.86,
+  "frames": 30,
+  "seconds": 1.0,
+  "speed": 0.017,
+  "scale": 0.952
+ },
+ "CrouchWalk": {
+  "source": "CrouchWalk.npz",
+  "mirrored": false,
+  "handedness": 0.88,
+  "frames": 54,
+  "seconds": 1.8,
+  "speed": 0.587,
+  "scale": 0.953
+ },
+ "Aim": {
+  "source": "Aim.npz",
+  "mirrored": false,
+  "handedness": 0.87,
+  "frames": 48,
+  "seconds": 1.6,
+  "speed": 0.0,
+  "scale": 0.953
+ },
+ "LowReady": {
+  "source": "LowReady.npz",
+  "mirrored": true,
+  "handedness": 0.88,
+  "frames": 52,
+  "seconds": 1.733,
+  "speed": 0.0,
+  "scale": 0.952
+ },
+ "Cover": {
+  "source": "Cover.npz",
+  "mirrored": false,
+  "handedness": 0.9,
+  "frames": 42,
+  "seconds": 1.4,
+  "speed": 0.001,
+  "scale": 0.953
+ },
+ "Reload": {
+  "source": "Reload.npz",
+  "mirrored": true,
+  "handedness": 0.64,
+  "frames": 89,
+  "seconds": 2.967,
+  "speed": 0.0,
+  "scale": 0.952
+ },
+ "DodgeL": {
+  "source": "DodgeL.npz",
+  "mirrored": false,
+  "handedness": 0.59,
+  "frames": 59,
+  "seconds": 1.967,
+  "speed": 0.0,
+  "scale": 0.953
+ },
+ "DodgeR": {
+  "source": "DodgeR.npz",
+  "mirrored": false,
+  "handedness": 0.21,
+  "frames": 59,
+  "seconds": 1.967,
+  "speed": 0.0,
+  "scale": 0.953
+ },
+ "Stagger": {
+  "source": "Stagger.npz",
+  "mirrored": false,
+  "handedness": 0.12,
+  "frames": 59,
+  "seconds": 1.967,
+  "speed": 0.0,
+  "scale": 0.953
+ },
+ "DeathBack": {
+  "source": "DeathBack.npz",
+  "mirrored": false,
+  "handedness": 0.31,
+  "frames": 89,
+  "seconds": 2.967,
+  "speed": 0.0,
+  "scale": 0.953
+ },
+ "DeathFront": {
+  "source": "DeathFront.npz",
+  "mirrored": false,
+  "handedness": 0.28,
+  "frames": 89,
+  "seconds": 2.967,
+  "speed": 0.0,
+  "scale": 0.953
+ }
+}

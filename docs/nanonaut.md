@@ -68,10 +68,13 @@ What failed, and why the A-pose matters:
 - **T-pose scans:** the ribs and armpits smear once the arms come down to a rifle. Re-posing the scanned mesh in Blender pinches the armpit, which is worse.
 - **Arms hanging close to the body:** TRELLIS.2 fuses forearm to hip and upper arm to chest, giving 10–40 cm tears.
 
-Status:
+Fixes for the bulky suits, all in the build:
+- **Shoulders:** the upper arm moves only the skin outboard of the shoulder joint. The skin on top of and inside the shoulder follows the collarbone, blending across a span the length of the upper arm. Otherwise a rifle hold drags a wide suit's collar along.
+- **Diving boots:** `STIFF_BOOTS=1` keeps the Bathysphere's lead boots from bending at the toe.
+
+Status, all four rigged:
 - **Lifeline:** passes QA, with tears of 4–5 cm at most.
-- **Wraith:** one long shoulder-blade edge reaches 7–10 cm. It is invisible in renders and was accepted on visual review.
-- **Vanguard and Bathysphere:** bulky armour with helmet hoses and a wide collar. Driven by mocap of an ordinary body, their upper chests stretch past double length, so they keep the jointed suits until they get per-suit work.
+- **Wraith, Vanguard and Bathysphere:** each has one long edge over the tear limit (a shoulder blade, the front of Vanguard's left pauldron, the back of Bathysphere's left armpit) at 7–11 cm. Each is invisible in renders, and all three were accepted on visual review. Stretch is within limits in every clip and every extreme pose.
 
 [`teammate.mjs`](../dist/teammate.mjs) wears a suit's rigged model when it has loaded, and the jointed one otherwise. It uses the Nanonaut's animation layers, driven by the player's state:
 - the legs follow how the player really moves, and crouching or sliding plays the crouch clips;

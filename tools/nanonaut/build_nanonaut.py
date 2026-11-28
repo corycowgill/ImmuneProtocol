@@ -277,12 +277,15 @@ def smooth_seams(body, rig):
     # what lies past the elbow or knee, or close around the joint itself.
     to_rig = rig.matrix_world.inverted() @ body.matrix_world
     local = np.array([(to_rig @ Vector(c))[:] for c in co])
-    for parent, child in (('LeftArm', 'LeftForeArm'), ('RightArm', 'RightForeArm'), ('LeftUpLeg', 'LeftLeg'), ('RightUpLeg', 'RightLeg')):
+    # The same holds at the shoulder: the upper arm moves only what lies outboard of the shoulder joint, and the
+    # skin on top of and inside the shoulder follows the collarbone (else a rifle hold drags the collar along).
+    for parent, child in (('LeftShoulder', 'LeftArm'), ('RightShoulder', 'RightArm'), ('LeftArm', 'LeftForeArm'), ('RightArm', 'RightForeArm'),
+                          ('LeftUpLeg', 'LeftLeg'), ('RightUpLeg', 'RightLeg')):
         upper, lower = rig.data.bones[parent], rig.data.bones[child]
         joint_at = np.array(lower.head_local[:])
         axis = np.array((lower.tail_local - lower.head_local)[:])
         past = (local - joint_at) @ axis / np.linalg.norm(axis)
-        reach = upper.length
+        reach = max(upper.length, lower.length)  # the blend spans the longer bone: a collarbone is short
         near = np.linalg.norm(local - joint_at, axis=1)
         # Soft on both counts: a hard edge in the weights would tear the skin itself.
         keep = np.maximum(np.clip(past / (.3 * reach) + .5, 0, 1), np.clip(1 - (near - .3 * reach) / (.3 * reach), 0, 1))
@@ -291,6 +294,12 @@ def smooth_seams(body, rig):
         moved = w[:, ci] * fade
         w[:, ci] -= moved
         w[:, pi] += moved
+    # Rigid boots (the Bathysphere's lead diving boots) do not bend at the toe: the toes follow the foot.
+    if os.environ.get('STIFF_BOOTS'):
+        for side in ('Left', 'Right'):
+            ti, fi = names.index(side + 'ToeBase'), names.index(side + 'Foot')
+            w[:, fi] += w[:, ti]
+            w[:, ti] = 0
     # The relax must not carry a limb into the torso: the centre of the chest, belly and back
     # answers to the spine and pelvis alone, fading back to the limbs toward the sides.
     limbs = [k for k, n in enumerate(names) if re.match(r'(Left|Right)(Arm|ForeArm|Shoulder|UpLeg)$', n)]

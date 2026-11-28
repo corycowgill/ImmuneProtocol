@@ -174,7 +174,7 @@ test('its model is a skinned, animated glTF with baked maps, and the guide has i
 
 test('the rigged co-op suits share the Nanonaut skeleton and clips', () => {
   // Built by the same pipeline (tools/nanonaut, CHARACTER=<suit>); a teammate wears one when it exists.
-  for (const suit of ['lifeline', 'wraith']) {
+  for (const suit of ['vanguard', 'wraith', 'lifeline', 'bathysphere']) {
     const file = readFileSync(new URL(`../dist/assets/suits/rigged/${suit}.glb`, import.meta.url));
     const json = JSON.parse(file.toString('utf8', 20, 20 + file.readUInt32LE(12)));
     assert.equal(json.skins?.length, 1, suit + ' has one skin');
