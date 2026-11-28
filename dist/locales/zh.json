@@ -1010,7 +1010,6 @@
   "Mega Virus Practice": "超级病毒练习",
   "MEGA VIRUS PRACTICE": "超级病毒练习",
   "MENDING AROUND THIS SPOT": "正在修复此处周边",
-  "Mends a suit or tissue node by 1 point a second.": "每秒为战甲或组织节点修复 1 点。",
   "Mends suits 40% faster. Mends tissue 40% slower.": "战甲修复速度提高 40%。组织修复速度降低 40%。",
   "Mends tissue 40% faster. Mends suits 40% slower.": "组织修复速度提高 40%。战甲修复速度降低 40%。",
   "Menu": "菜单",
@@ -1965,7 +1964,6 @@
   "A TEAMMATE CAN REVIVE YOU WITH THE SEALER": "队友可以用密封器救起你",
   "BACK IN THE FIGHT": "重返战斗",
   "BEING REVIVED ·": "正在被救起 ·",
-  "DOWN · WAIT FOR A TEAMMATE TO REVIVE YOU": "倒地 · 等待队友救起你",
   "IS BACK UP": "重新站起来了",
   "REVIVING": "正在救起",
   "SUIT REVIVED": "战衣已恢复",
@@ -1988,7 +1986,17 @@
   "SQUAD READY": "小队准备",
   "YOU": "你",
   "Ten missions in order": "十个任务依次进行",
-  "Waves never stop": "波次永不停歇"
+  "Waves never stop": "波次永不停歇",
+  "DOWN ·": "倒地 ·",
+  "HELP CALLED": "已呼救",
+  "M AWAY · CHECK YOUR TRACKER": "米 · 查看追踪器",
+  "Mends a suit by 2 points a second, or a tissue node by 1.": "每秒修复战衣 2 点，或组织节点 1 点。",
+  "NEEDS A REVIVE": "需要救援",
+  "PRESS E": "按 E",
+  "TAP REPAIR": "点击修复",
+  "TO CALL FOR HELP": "呼救",
+  "WATCHING": "正在观察",
+  "YOUR SQUAD CAN SEE YOU ON THEIR TRACKER": "小队可以在追踪器上看到你"
  },
  "templates": {
   "· {0} OF 4 OPEN": "· {0}/4 已开启",
@@ -2157,6 +2165,11 @@
   "BEING REVIVED · {0}%": "正在被救起 · {0}%",
   "REVIVING {0}": "正在救起 {0}",
   "CO-OP ENDLESS · {0}": "合作无尽 · {0}",
-  "{0} DROPPED IN": "{0} 已加入"
+  "{0} DROPPED IN": "{0} 已加入",
+  "DOWN · {0} TO CALL FOR HELP": "倒地 · {0} 呼救",
+  "PRESS {0}": "按 {0}",
+  "WATCHING {0} · {1} TO CALL FOR HELP": "正在观察 {0} · {1} 呼救",
+  "{0} M AWAY · CHECK YOUR TRACKER": "{0} 米外 · 查看追踪器",
+  "{0} NEEDS A REVIVE": "{0} 需要救援"
  }
 }

@@ -39,7 +39,7 @@ const TURRET_TYPE = {
 
 // The medic drone's bars (droneStats numbers).
 export const DRONE_ARMORY_STATS = [
-  { id: 'drone-suit', name: 'Suit mending', low: 0, high: 2.5, better: 1, unit: ' /s', digits: 2, value: stats => stats.suitHeal },
+  { id: 'drone-suit', name: 'Suit mending', low: 0, high: 4, better: 1, unit: ' /s', digits: 2, value: stats => stats.suitHeal },
   { id: 'drone-tissue', name: 'Tissue mending', low: 0, high: 2.5, better: 1, unit: ' /s', digits: 2, value: stats => stats.tissueHeal },
   { id: 'drone-radius', name: 'Field', low: 0, high: 12, better: 1, unit: ' m', digits: 1, value: stats => stats.radius },
   { id: 'drone-speed', name: 'Flight speed', low: 0, high: 14, better: 1, unit: ' m/s', digits: 1, value: stats => stats.speed },

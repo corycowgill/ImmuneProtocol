@@ -16,6 +16,7 @@ import { loadLab } from './coop-lobby-bay.mjs';
 import { ENEMY_MODELS } from './enemy-models.mjs';
 import { GameAudio } from './audio.mjs';
 import { CoopClient, PUBLIC_COOP_ORIGIN, savedCoopSession, verifyCoopHost } from './coop-client.mjs';
+import { spectateTarget } from './spectate.mjs';
 import { COOP_MIN_PLAYERS, COOP_MAX_PLAYERS, CAMPAIGN_AREAS, COOP_CODE_ALPHABET, COOP_CODE_LENGTH } from './coop-protocol.mjs';
 import { GamepadInput } from './gamepad.mjs';
 import { GamepadMenu } from './gamepad-menu.mjs';
@@ -1335,6 +1336,8 @@ function playFrame(now) {
       if (session.sim.phase !== phase || session.sim.tutorial !== tutorial || session.sim.valve?.colonyDefeated !== colonyDefeated ||
         (session.sim.gastric && session.sim.phase === 'intermission' && (session.sim.enemies.length > 0) !== enemiesActive)) syncMusic();
       applyEvents();
+      // Downed in co-op: watch a teammate who is still up; fire or swap moves to the next one.
+      session.world.spectate = session.onlineRun ? spectateTarget(session.sim, session.world.spectate, controls.fireTap || controls.swapTap) : null;
       updateAbilityHints(simDt);
       const suit = session.sim.player;
       session.haptics.update(now, {

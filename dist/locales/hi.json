@@ -1010,7 +1010,6 @@
   "Mega Virus Practice": "मेगा वायरस प्रैक्टिस",
   "MEGA VIRUS PRACTICE": "मेगा वायरस प्रैक्टिस",
   "MENDING AROUND THIS SPOT": "इस जगह के आसपास ठीक कर रहा है",
-  "Mends a suit or tissue node by 1 point a second.": "सूट या ऊतक नोड को 1 पॉइंट प्रति सेकंड ठीक करता है।",
   "Mends suits 40% faster. Mends tissue 40% slower.": "सूट 40% तेज़ी से ठीक करता है। ऊतक 40% धीमे ठीक करता है।",
   "Mends tissue 40% faster. Mends suits 40% slower.": "ऊतक 40% तेज़ी से ठीक करता है। सूट 40% धीमे ठीक करता है।",
   "Menu": "मेन्यू",
@@ -1965,7 +1964,6 @@
   "A TEAMMATE CAN REVIVE YOU WITH THE SEALER": "साथी सीलर से आपको फिर उठा सकता है",
   "BACK IN THE FIGHT": "लड़ाई में वापस",
   "BEING REVIVED ·": "आपको उठाया जा रहा है ·",
-  "DOWN · WAIT FOR A TEAMMATE TO REVIVE YOU": "गिर गए · साथी के आपको उठाने का इंतज़ार करें",
   "IS BACK UP": "फिर से खड़ा है",
   "REVIVING": "उठा रहे हैं",
   "SUIT REVIVED": "सूट फिर से उठा",
@@ -1988,7 +1986,17 @@
   "SQUAD READY": "दस्ता तैयार",
   "YOU": "आप",
   "Ten missions in order": "क्रम से दस मिशन",
-  "Waves never stop": "कभी न रुकने वाली लहरें"
+  "Waves never stop": "कभी न रुकने वाली लहरें",
+  "DOWN ·": "गिर गए ·",
+  "HELP CALLED": "मदद बुलाई",
+  "M AWAY · CHECK YOUR TRACKER": "मीटर दूर · अपना ट्रैकर देखें",
+  "Mends a suit by 2 points a second, or a tissue node by 1.": "सूट को हर सेकंड 2 अंक, या ऊतक नोड को 1 अंक ठीक करता है।",
+  "NEEDS A REVIVE": "को उठाने की ज़रूरत है",
+  "PRESS E": "E दबाएँ",
+  "TAP REPAIR": "रिपेयर टैप करें",
+  "TO CALL FOR HELP": "मदद बुलाने के लिए",
+  "WATCHING": "देख रहे हैं",
+  "YOUR SQUAD CAN SEE YOU ON THEIR TRACKER": "आपका दस्ता आपको अपने ट्रैकर पर देख सकता है"
  },
  "templates": {
   "· {0} OF 4 OPEN": "· {0} / 4 खुले",
@@ -2157,6 +2165,11 @@
   "BEING REVIVED · {0}%": "आपको उठाया जा रहा है · {0}%",
   "REVIVING {0}": "{0} को उठा रहे हैं",
   "CO-OP ENDLESS · {0}": "को-ऑप एंडलेस · {0}",
-  "{0} DROPPED IN": "{0} शामिल हो गया"
+  "{0} DROPPED IN": "{0} शामिल हो गया",
+  "DOWN · {0} TO CALL FOR HELP": "गिर गए · मदद बुलाने के लिए {0}",
+  "PRESS {0}": "{0} दबाएँ",
+  "WATCHING {0} · {1} TO CALL FOR HELP": "{0} को देख रहे हैं · मदद बुलाने के लिए {1}",
+  "{0} M AWAY · CHECK YOUR TRACKER": "{0} मीटर दूर · अपना ट्रैकर देखें",
+  "{0} NEEDS A REVIVE": "{0} को उठाने की ज़रूरत है"
  }
 }

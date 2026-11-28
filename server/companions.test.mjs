@@ -39,7 +39,9 @@ test('loadouts pick a companion and keep drone and sealer builds', () => {
 test('drone parts trade suit healing, tissue healing, reach and speed', () => {
   const base = droneStats({});
   assert.deepEqual(base, { ...DRONE_BASE });
-  assert.ok(base.suitHeal <= 1.5 && base.tissueHeal <= 1.5, 'healing stays slow');
+  // Suits mend at two points a second and tissue at one: steady, but far below the sealer's ~16.
+  assert.equal(base.suitHeal, 2);
+  assert.ok(base.tissueHeal <= 1.5, 'tissue healing stays slow');
   const triage = droneStats({ emitter: 'triage-emitter' });
   assert.ok(triage.suitHeal > base.suitHeal && triage.tissueHeal < base.tissueHeal);
   const wide = droneStats({ field: 'wide-field' });

@@ -915,6 +915,16 @@ export class CanvasUiRenderer {
         c.fillStyle = color; c.strokeStyle = '#061014'; c.lineWidth = 1;
         c.beginPath(); c.moveTo(x, y - s); c.lineTo(x + s, y); c.lineTo(x, y + s); c.lineTo(x - s, y); c.closePath(); c.fill(); c.stroke();
         if (p.attacked) { c.strokeStyle = color; c.globalAlpha *= .7; c.beginPath(); c.arc(x, y, s + 3, 0, Math.PI * 2); c.stroke(); }
+      } else if (p.kind === 'ally' && p.downed) {
+        // A downed teammate: a red cross, ringed while they are calling for help.
+        const arm = dot + 1.6;
+        c.strokeStyle = '#ff6a5a'; c.lineWidth = 2.2;
+        c.beginPath(); c.moveTo(x - arm, y); c.lineTo(x + arm, y); c.moveTo(x, y - arm); c.lineTo(x, y + arm); c.stroke();
+        if (p.help) {
+          const pulse = .5 + .5 * Math.sin((item.time ?? 0) * 8);
+          c.strokeStyle = 'rgba(255,106,90,' + (.35 + .5 * pulse) + ')'; c.lineWidth = 1.4;
+          c.beginPath(); c.arc(x, y, arm + 3 + pulse * 2, 0, Math.PI * 2); c.stroke();
+        }
       } else if (p.kind === 'ally') {
         c.fillStyle = '#ffd86a'; c.strokeStyle = '#061014'; c.lineWidth = 1;
         c.beginPath(); c.arc(x, y, dot + .4, 0, Math.PI * 2); c.fill(); c.stroke();

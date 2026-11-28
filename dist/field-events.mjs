@@ -79,10 +79,16 @@ export function applyEvents() {
       if (event.stage === 'disconnected') announce('TEAMMATE DISCONNECTED', name + ' IS RECONNECTING', 2.6);
       if (event.stage === 'rejoined') announce('TEAMMATE REJOINED', name + ' IS BACK IN THE FIGHT', 2.4);
       if (event.stage === 'joined') announce('TEAMMATE JOINED', name + ' DROPPED IN', 2.4);
+      if (event.stage === 'help') {
+        const distance = Math.round(Math.hypot(event.x - session.sim.player.x, event.z - session.sim.player.z));
+        announce(name + ' NEEDS A REVIVE', distance + ' M AWAY · CHECK YOUR TRACKER', 2.8);
+        session.audio.play({ type: 'outroTick' });
+      }
       if (event.stage === 'left') announce('TEAMMATE LEFT', name + ' LEFT THE MATCH', 2.6);
     }
     if (event.type === 'suit' && !teammate) {
       if (event.stage === 'down') announce('SUIT DOWN', 'A TEAMMATE CAN REVIVE YOU WITH THE SEALER', 3.2);
+      if (event.stage === 'help') announce('HELP CALLED', 'YOUR SQUAD CAN SEE YOU ON THEIR TRACKER', 2);
       if (event.stage === 'respawn') announce('SUIT RESTORED', 'READY FOR THE NEXT WAVE', 2.5);
     }
     if (event.type === 'tutorial' && event.stage === 'complete') {
@@ -100,7 +106,7 @@ export function applyEvents() {
       const distance = Math.hypot(dx, dz);
       const pan = (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / Math.max(1, distance);
       session.audio.play({ ...event, pan, distance, teammate: !!teammate });
-    } else if (event.type !== 'mission') session.audio.play(event);
+    } else if (event.type !== 'mission' && !event.echo) session.audio.play(event);
     if (event.type === 'boss') {
       if (event.stage === 'defeated') {
         announce('MEGA VIRUS DOWN', 'CLEAR SURVIVING PATHOGENS', 2.5);

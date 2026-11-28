@@ -10,6 +10,12 @@ const normalizeSuit = suit => COOP_SUITS.includes(suit) ? suit : DEFAULT_COOP_SU
 const RESPAWN_HEALTH = 50;
 // Holding the sealer on a downed teammate brings them back where they fell, at a third of their health.
 export const REVIVE = Object.freeze({ seconds: 5, radius: 2.5, health: Math.round(RULES.health / 3) });
+// Lag compensation: a shot is traced against where the pathogens stood on the shooter's screen, up
+// to this many ticks (about a quarter of a second) in the past. Older views get the oldest kept.
+export const REWIND = Object.freeze({ ticks: 8 });
+// A downed suit can call the squad for help (its Repair control), at most this often; the call
+// marks it on teammates' radar for `marked` seconds.
+export const HELP = Object.freeze({ cooldown: 4, marked: 6 });
 
 // State packets carry the build in hand and the names of both carried weapons, not every build.
 // The sealer's cosmetics and the companion ride along so the sealer is painted and teammates know
@@ -73,6 +79,7 @@ class CoopSuit {
     this.repairTarget = null;
     this.reviveTarget = null;
     this.player.reviveProgress = 0;
+    this.player.helpUntil = 0;
     this.nearNode = null;
     this.nearTissue = false;
     this.nearGash = false;
@@ -103,6 +110,10 @@ export class CoopSimulation extends Simulation {
       }));
     }
     this.eventSequence = 0;
+    // Steps taken, which the server sends as each state packet's tick, and where every pathogen
+    // stood after each of the last few.
+    this.frame = 0;
+    this.history = [];
     this.createSquad(profiles);
   }
 
@@ -270,7 +281,10 @@ export class CoopSimulation extends Simulation {
 
   act(dt, suit, input) {
     const { player } = suit;
+    if (player.downed) this.callForHelp(suit, input);
     if (player.health <= 0) return;
+    // The tick the shooter's screen showed when they fired (interpolated, so fractional).
+    suit.viewTick = Number.isFinite(input.view) ? input.view : null;
     const eventStart = this.events.length;
     if (input.deploy) this.useCompanion(suit);
     this.carryTurret(!!input.carry, suit);
@@ -336,6 +350,16 @@ export class CoopSimulation extends Simulation {
     return true;
   }
 
+  callForHelp(suit, input) {
+    const { player } = suit;
+    const pressed = input.repair && !suit.helpHeld;
+    suit.helpHeld = !!input.repair;
+    if (!pressed || this.clock < (suit.helpReady ?? 0)) return;
+    suit.helpReady = this.clock + HELP.cooldown;
+    player.helpUntil = this.clock + HELP.marked;
+    this.events.push({ type: 'suit', stage: 'help', playerId: player.id, name: player.name, x: player.x, y: player.y, z: player.z });
+  }
+
   stopRevive(suit) {
     if (suit.reviveTarget) suit.reviveTarget.player.reviveProgress = 0;
     suit.reviveTarget = null;
@@ -367,6 +391,45 @@ export class CoopSimulation extends Simulation {
   step(dt, inputsById = {}) {
     super.step(dt, inputsById);
     this.sequenceEvents();
+    this.frame++;
+    this.history.push({ frame: this.frame, at: new Map(this.enemies.map(enemy => [enemy.id, [enemy.x, enemy.y, enemy.z, enemy.feet ?? 0]])) });
+    if (this.history.length > REWIND.ticks + 2) this.history.shift();
+  }
+
+  // Hitscan shots are traced with the pathogens put back where the shooter saw them. Anything the
+  // shot itself moves them by (knockback) is kept when they are returned to the present.
+  shoot(aiming, suit = this) {
+    const rewound = this.suits && !suit.weapon.projectileSpeed ? this.rewindTo(suit.viewTick) : null;
+    try {
+      super.shoot(aiming, suit);
+    } finally {
+      if (rewound) for (const [enemy, present, past] of rewound) {
+        enemy.x = present[0] + enemy.x - past[0];
+        enemy.y = present[1] + enemy.y - past[1];
+        enemy.z = present[2] + enemy.z - past[2];
+        enemy.feet = present[3] + (enemy.feet ?? 0) - past[3];
+      }
+    }
+  }
+
+  rewindTo(tick) {
+    if (tick == null || !this.history.length) return null;
+    const target = Math.min(this.frame, Math.max(this.frame - REWIND.ticks, tick));
+    if (target >= this.frame) return null;
+    const after = this.history.findIndex(entry => entry.frame >= target);
+    if (after < 0) return null;
+    const later = this.history[after], earlier = this.history[Math.max(0, after - 1)];
+    const span = later.frame - earlier.frame, ratio = span > 0 ? (target - earlier.frame) / span : 1;
+    const rewound = [];
+    for (const enemy of this.enemies) {
+      const a = earlier.at.get(enemy.id), b = later.at.get(enemy.id) ?? a;
+      if (!a && !b) continue;
+      const from = a ?? b;
+      const past = from.map((value, index) => value + (b[index] - value) * ratio);
+      rewound.push([enemy, [enemy.x, enemy.y, enemy.z, enemy.feet ?? 0], past]);
+      [enemy.x, enemy.y, enemy.z, enemy.feet] = past;
+    }
+    return rewound;
   }
 
   sequenceEvents() {

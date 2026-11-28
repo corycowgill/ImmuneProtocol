@@ -678,7 +678,12 @@ export function drawHud() {
   let prompt = '';
   const revive = session.sim.revive;
   const reviveProgress = session.sim.player.downed ? session.sim.player.reviveProgress ?? 0 : 0;
-  if (session.sim.player.downed) prompt = reviveProgress > 0 ? 'BEING REVIVED · ' + Math.floor(reviveProgress * 100) + '%' : 'DOWN · WAIT FOR A TEAMMATE TO REVIVE YOU';
+  // Downed: the Repair control calls the squad for help, and the view may be following a teammate.
+  const callKey = session.usingGamepad ? 'PRESS ' + padActionKey('repair').toUpperCase() : isTouch ? 'TAP REPAIR' : 'PRESS E';
+  const watching = session.world?.spectate && session.sim.players?.find(player => player.id === session.world.spectate);
+  if (session.sim.player.downed) prompt = reviveProgress > 0 ? 'BEING REVIVED · ' + Math.floor(reviveProgress * 100) + '%'
+    : watching ? 'WATCHING ' + (watching.name || 'TEAMMATE').toUpperCase() + ' · ' + callKey + ' TO CALL FOR HELP'
+      : 'DOWN · ' + callKey + ' TO CALL FOR HELP';
   else if (revive) prompt = session.sim.repairing ? 'REVIVING ' + (revive.name || 'TEAMMATE').toUpperCase() : repairKey + ' TO REVIVE ' + (revive.name || 'TEAMMATE').toUpperCase();
   else if (repairing && session.sim.gash && session.sim.repairTarget === session.sim.gash) prompt = 'SEALING GASH';
   else if (session.sim.gash && session.sim.nearGash) {

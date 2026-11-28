@@ -97,8 +97,9 @@ export class Haptics {
       case 'shot': {
         if (event.blast) break;
         const kick = WEAPON_KICK[event.weapon] ?? WEAPON_KICK.carbine;
-        // Pellets after the first share one kick; hits still tick below.
-        if (!event.pellet) {
+        // Pellets after the first share one kick; hits still tick below. A co-op echo kicked when
+        // it was fired, and a predicted shot never carries a hit, so each lands once.
+        if (!event.pellet && !event.echo) {
           const steady = this.aiming ? .9 : 1; // Aiming down sights braces the weapon.
           this.add({ strong: kick.strong * steady, weak: kick.weak * steady, right: kick.right, ms: kick.ms, attack: kick.attack, hold: kick.hold });
         }

@@ -48,8 +48,9 @@ export function radarSnapshot(sim, { range = RADAR_RANGE, reduceMotion = false }
   });
   for (const pickup of sim.pickups ?? []) add('cache', pickup);
   for (const mate of sim.players ?? []) {
-    if (mate === player || mate.id === player.id || mate.health <= 0 || mate.linked === false) continue;
-    add('ally', mate, {}, true);
+    if (mate === player || mate.id === player.id || mate.linked === false || (mate.health <= 0 && !mate.downed)) continue;
+    // A downed teammate stays on the tracker, and flashes while their call for help is fresh.
+    add('ally', mate, mate.downed ? { downed: true, help: (mate.helpUntil ?? 0) > (sim.clock ?? 0) } : {}, true);
   }
   const turrets = sim.turrets ?? (sim.turret ? [sim.turret] : []);
   for (const turret of turrets) if (turret && !turret.carried) add('turret', turret, { own: (turret.ownerId ?? null) === (player.id ?? null) });

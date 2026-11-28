@@ -1010,7 +1010,6 @@
   "Mega Virus Practice": "Megavirus-Training",
   "MEGA VIRUS PRACTICE": "MEGAVIRUS-TRAINING",
   "MENDING AROUND THIS SPOT": "FLICKT AN DIESER STELLE",
-  "Mends a suit or tissue node by 1 point a second.": "Flickt einen Anzug oder Gewebeknoten um 1 Punkt pro Sekunde.",
   "Mends suits 40% faster. Mends tissue 40% slower.": "Flickt Anzüge 40 % schneller. Flickt Gewebe 40 % langsamer.",
   "Mends tissue 40% faster. Mends suits 40% slower.": "Flickt Gewebe 40 % schneller. Flickt Anzüge 40 % langsamer.",
   "Menu": "Menü",
@@ -1965,7 +1964,6 @@
   "A TEAMMATE CAN REVIVE YOU WITH THE SEALER": "EIN TEAMMITGLIED KANN DICH MIT DEM VERSIEGLER WIEDERBELEBEN",
   "BACK IN THE FIGHT": "ZURÜCK IM KAMPF",
   "BEING REVIVED ·": "WIRST WIEDERBELEBT ·",
-  "DOWN · WAIT FOR A TEAMMATE TO REVIVE YOU": "AM BODEN · WARTE, BIS DICH EIN TEAMMITGLIED WIEDERBELEBT",
   "IS BACK UP": "IST WIEDER AUF DEN BEINEN",
   "REVIVING": "WIEDERBELEBEN",
   "SUIT REVIVED": "ANZUG WIEDERBELEBT",
@@ -1988,7 +1986,17 @@
   "SQUAD READY": "TRUPP BEREIT",
   "YOU": "DU",
   "Ten missions in order": "Zehn Missionen der Reihe nach",
-  "Waves never stop": "Wellen ohne Ende"
+  "Waves never stop": "Wellen ohne Ende",
+  "DOWN ·": "AM BODEN ·",
+  "HELP CALLED": "HILFE GERUFEN",
+  "M AWAY · CHECK YOUR TRACKER": "M ENTFERNT · SIEH AUF DEINEN TRACKER",
+  "Mends a suit by 2 points a second, or a tissue node by 1.": "Repariert einen Anzug um 2 Punkte pro Sekunde oder einen Gewebeknoten um 1.",
+  "NEEDS A REVIVE": "BRAUCHT WIEDERBELEBUNG",
+  "PRESS E": "DRÜCKE E",
+  "TAP REPAIR": "TIPPE REPARIEREN",
+  "TO CALL FOR HELP": "UM HILFE ZU RUFEN",
+  "WATCHING": "BEOBACHTE",
+  "YOUR SQUAD CAN SEE YOU ON THEIR TRACKER": "DEIN TRUPP SIEHT DICH AUF SEINEM TRACKER"
  },
  "templates": {
   "· {0} OF 4 OPEN": "· {0} VON 4 OFFEN",
@@ -2157,6 +2165,11 @@
   "BEING REVIVED · {0}%": "WIRST WIEDERBELEBT · {0} %",
   "REVIVING {0}": "WIEDERBELEBE {0}",
   "CO-OP ENDLESS · {0}": "KOOP-ENDLOS · {0}",
-  "{0} DROPPED IN": "{0} IST EINGESTIEGEN"
+  "{0} DROPPED IN": "{0} IST EINGESTIEGEN",
+  "DOWN · {0} TO CALL FOR HELP": "AM BODEN · {0}, UM HILFE ZU RUFEN",
+  "PRESS {0}": "DRÜCKE {0}",
+  "WATCHING {0} · {1} TO CALL FOR HELP": "BEOBACHTE {0} · {1}, UM HILFE ZU RUFEN",
+  "{0} M AWAY · CHECK YOUR TRACKER": "{0} M ENTFERNT · SIEH AUF DEINEN TRACKER",
+  "{0} NEEDS A REVIVE": "{0} BRAUCHT WIEDERBELEBUNG"
  }
 }

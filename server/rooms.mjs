@@ -25,6 +25,9 @@ function readInput(value) {
   const input = {};
   for (const [axis, limit] of Object.entries(INPUT_AXES)) input[axis] = clampAxis(value[axis], limit);
   for (const flag of INPUT_FLAGS) input[flag] = value[flag] === true;
+  // The tick the player's screen was showing, for lag-compensated shots (the simulation caps how
+  // far back it reaches).
+  if (Number.isFinite(value.view) && value.view >= 0) input.view = value.view;
   return input;
 }
 
@@ -401,7 +404,7 @@ export class CoopRooms {
     const sim = room.simulation;
     const inputs = Object.fromEntries(room.players.map(player => [player.id, this.consumeInput(player, now)]));
     sim.step(1 / TICK_RATE, inputs);
-    room.tick++;
+    room.tick = sim.frame ?? room.tick + 1;
     room.events.push(...sim.events);
     if (sim.phase === 'won' || sim.phase === 'lost') {
       if (sim.phase === 'won') {

@@ -1010,7 +1010,6 @@
   "Mega Virus Practice": "Entraînement Méga-Virus",
   "MEGA VIRUS PRACTICE": "ENTRAÎNEMENT MÉGA-VIRUS",
   "MENDING AROUND THIS SPOT": "SOINS AUTOUR DE CE POINT",
-  "Mends a suit or tissue node by 1 point a second.": "Soigne une combinaison ou un nœud tissulaire de 1 point par seconde.",
   "Mends suits 40% faster. Mends tissue 40% slower.": "Soigne les combinaisons 40% plus vite. Soigne le tissu 40% moins vite.",
   "Mends tissue 40% faster. Mends suits 40% slower.": "Soigne le tissu 40% plus vite. Soigne les combinaisons 40% moins vite.",
   "Menu": "Menu",
@@ -1965,7 +1964,6 @@
   "A TEAMMATE CAN REVIVE YOU WITH THE SEALER": "UN COÉQUIPIER PEUT VOUS RÉANIMER AVEC LE SCELLEUR",
   "BACK IN THE FIGHT": "DE RETOUR AU COMBAT",
   "BEING REVIVED ·": "RÉANIMATION EN COURS ·",
-  "DOWN · WAIT FOR A TEAMMATE TO REVIVE YOU": "À TERRE · ATTENDEZ QU’UN COÉQUIPIER VOUS RÉANIME",
   "IS BACK UP": "EST DE NOUVEAU DEBOUT",
   "REVIVING": "RÉANIMATION",
   "SUIT REVIVED": "COMBINAISON RÉANIMÉE",
@@ -1988,7 +1986,17 @@
   "SQUAD READY": "ESCOUADE PRÊTE",
   "YOU": "VOUS",
   "Ten missions in order": "Dix missions dans l’ordre",
-  "Waves never stop": "Des vagues sans fin"
+  "Waves never stop": "Des vagues sans fin",
+  "DOWN ·": "À TERRE ·",
+  "HELP CALLED": "APPEL À L’AIDE ENVOYÉ",
+  "M AWAY · CHECK YOUR TRACKER": "M · REGARDEZ VOTRE TRAQUEUR",
+  "Mends a suit by 2 points a second, or a tissue node by 1.": "Répare une combinaison de 2 points par seconde, ou un nœud de tissu de 1.",
+  "NEEDS A REVIVE": "A BESOIN D’ÊTRE RÉANIMÉ",
+  "PRESS E": "APPUYEZ SUR E",
+  "TAP REPAIR": "TOUCHEZ RÉPARER",
+  "TO CALL FOR HELP": "POUR APPELER À L’AIDE",
+  "WATCHING": "EN OBSERVATION",
+  "YOUR SQUAD CAN SEE YOU ON THEIR TRACKER": "VOTRE ESCOUADE VOUS VOIT SUR SON TRAQUEUR"
  },
  "templates": {
   "· {0} OF 4 OPEN": "· {0} SUR 4 OUVERTES",
@@ -2157,6 +2165,11 @@
   "BEING REVIVED · {0}%": "RÉANIMATION EN COURS · {0} %",
   "REVIVING {0}": "RÉANIMATION DE {0}",
   "CO-OP ENDLESS · {0}": "INFINI EN COOP · {0}",
-  "{0} DROPPED IN": "{0} A REJOINT LA PARTIE"
+  "{0} DROPPED IN": "{0} A REJOINT LA PARTIE",
+  "DOWN · {0} TO CALL FOR HELP": "À TERRE · {0} POUR APPELER À L’AIDE",
+  "PRESS {0}": "APPUYEZ SUR {0}",
+  "WATCHING {0} · {1} TO CALL FOR HELP": "VOUS SUIVEZ {0} · {1} POUR APPELER À L’AIDE",
+  "{0} M AWAY · CHECK YOUR TRACKER": "À {0} M · REGARDEZ VOTRE TRAQUEUR",
+  "{0} NEEDS A REVIVE": "{0} A BESOIN D’ÊTRE RÉANIMÉ"
  }
 }

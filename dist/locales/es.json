@@ -1010,7 +1010,6 @@
   "Mega Virus Practice": "Práctica Megavirus",
   "MEGA VIRUS PRACTICE": "PRÁCTICA MEGAVIRUS",
   "MENDING AROUND THIS SPOT": "REPARANDO ESTA ZONA",
-  "Mends a suit or tissue node by 1 point a second.": "Repara un traje o nodo de tejido a 1 punto por segundo.",
   "Mends suits 40% faster. Mends tissue 40% slower.": "Repara trajes un 40% más rápido. Repara tejido un 40% más lento.",
   "Mends tissue 40% faster. Mends suits 40% slower.": "Repara tejido un 40% más rápido. Repara trajes un 40% más lento.",
   "Menu": "Menú",
@@ -1965,7 +1964,6 @@
   "A TEAMMATE CAN REVIVE YOU WITH THE SEALER": "UN COMPAÑERO PUEDE REANIMARTE CON EL SELLADOR",
   "BACK IN THE FIGHT": "DE VUELTA AL COMBATE",
   "BEING REVIVED ·": "REANIMÁNDOTE ·",
-  "DOWN · WAIT FOR A TEAMMATE TO REVIVE YOU": "CAÍDO · ESPERA A QUE UN COMPAÑERO TE REANIME",
   "IS BACK UP": "ESTÁ DE PIE",
   "REVIVING": "REANIMANDO",
   "SUIT REVIVED": "TRAJE REANIMADO",
@@ -1988,7 +1986,17 @@
   "SQUAD READY": "ESCUADRA LISTA",
   "YOU": "TÚ",
   "Ten missions in order": "Diez misiones en orden",
-  "Waves never stop": "Oleadas sin fin"
+  "Waves never stop": "Oleadas sin fin",
+  "DOWN ·": "CAÍDO ·",
+  "HELP CALLED": "AYUDA PEDIDA",
+  "M AWAY · CHECK YOUR TRACKER": "M · MIRA TU RASTREADOR",
+  "Mends a suit by 2 points a second, or a tissue node by 1.": "Repara un traje 2 puntos por segundo, o un nodo de tejido 1.",
+  "NEEDS A REVIVE": "NECESITA REANIMACIÓN",
+  "PRESS E": "PULSA E",
+  "TAP REPAIR": "TOCA REPARAR",
+  "TO CALL FOR HELP": "PARA PEDIR AYUDA",
+  "WATCHING": "OBSERVANDO",
+  "YOUR SQUAD CAN SEE YOU ON THEIR TRACKER": "TU ESCUADRA TE VE EN SU RASTREADOR"
  },
  "templates": {
   "· {0} OF 4 OPEN": "· {0} DE 4 ABIERTAS",
@@ -2157,6 +2165,11 @@
   "BEING REVIVED · {0}%": "REANIMÁNDOTE · {0} %",
   "REVIVING {0}": "REANIMANDO A {0}",
   "CO-OP ENDLESS · {0}": "INFINITO COOPERATIVO · {0}",
-  "{0} DROPPED IN": "{0} SE HA UNIDO"
+  "{0} DROPPED IN": "{0} SE HA UNIDO",
+  "DOWN · {0} TO CALL FOR HELP": "CAÍDO · {0} PARA PEDIR AYUDA",
+  "PRESS {0}": "PULSA {0}",
+  "WATCHING {0} · {1} TO CALL FOR HELP": "OBSERVANDO A {0} · {1} PARA PEDIR AYUDA",
+  "{0} M AWAY · CHECK YOUR TRACKER": "A {0} M · MIRA TU RASTREADOR",
+  "{0} NEEDS A REVIVE": "{0} NECESITA REANIMACIÓN"
  }
 }

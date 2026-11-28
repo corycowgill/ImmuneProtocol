@@ -28,7 +28,8 @@ export function updateWeapon(world, sim, dt, input, aiming, reduceMotion) {
   pose.swayY = damp(pose.swayY, reduceMotion ? 0 : clamp(input.lookY * .001, -.023, .023), 15, dt);
 
   const { model, muzzle, flash, magazine, magazineGrip, supportHand, bolt, poseHands } = world.carbine;
-  if (sim.events !== world.lastEvents && sim.events.some(event => event.type === 'shot' &&
+  // A co-op shot already drawn when it was fired comes back from the server as an echo.
+  if (sim.events !== world.lastEvents && sim.events.some(event => event.type === 'shot' && !event.echo &&
     (event.playerId == null || event.playerId === sim.player.id))) {
     const kick = sim.weapon.recoil ?? 1;
     pose.recoil = Math.min(1.24 * Math.max(1, kick * .8), pose.recoil + (reduceMotion ? .43 : 1) * kick);

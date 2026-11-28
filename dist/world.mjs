@@ -42,6 +42,7 @@ import { prepareAll as prepareAllOf, prepareScenes as prepareScenesOf, prepareAr
 import { enemyTemplate as enemyTemplateOf, dressGuardModel as dressGuardModelOf, updateEnemies as updateEnemiesOf, releaseEnemyView as releaseEnemyViewOf, poseEnemyAttack as poseEnemyAttackOf, updateTethers as updateTethersOf, updateProjectiles as updateProjectilesOf } from './pathogen-views.mjs';
 import { fireNanonaut, flinchNanonaut } from './nanonaut-view.mjs';
 import { TracerPool } from './shot-fx.mjs';
+import { spectatePose } from './spectate.mjs';
 import { VisorGoo, VisorCracks, createVisorOverlay } from './visor-fx.mjs';
 import { updateWeapon as updateWeaponOf, updateRepairTool as updateRepairToolOf, addShot as addShotOf, addTracer as addTracerOf, addTeammateShot as addTeammateShotOf, addTurretShot as addTurretShotOf } from './weapon-view.mjs';
 
@@ -960,7 +961,8 @@ export class World {
           if (event.ability === 'engulf') this.visor.engulf(new THREE.Color(0xe8dcf0), new THREE.Color(BOSS_GORE.macrophage));
         }
         if (event.type === 'shot') {
-          if (event.playerId == null || event.playerId === playerId) this.addShot(event, flashStrength, reduceMotion);
+          if (event.echo) { /* Drawn when it was fired (coop-client.mjs predicts your shots). */ }
+          else if (event.playerId == null || event.playerId === playerId) this.addShot(event, flashStrength, reduceMotion);
           else this.addTeammateShot(event, reduceMotion);
         }
         if (event.type === 'explosion') {
@@ -1058,9 +1060,30 @@ export class World {
     if (resizeViewport) this.resize(rescaled);
     const { player } = sim;
     const feel = this.applyFeel(sim, dt, reduceMotion);
-    this.camera.position.set(player.x, player.y + feel.dip, player.z);
-    // A sideways dash leans the view into it.
-    this.camera.rotation.set(player.pitch, player.yaw, reduceMotion ? 0 : -feel.side * .085 * Math.sin(Math.min(1, feel.rush) * Math.PI * .5));
+    // A downed co-op player watches a teammate from over their shoulder (spectate.mjs), with the
+    // whole first-person layer (weapon, hands, visor) put away; the weapon view sets its own
+    // models' visibility every frame, so the layer's scene is what is hidden.
+    const watched = this.spectate ? sim.players?.find(mate => mate.id === this.spectate) : null;
+    this.weaponScene.visible = !watched;
+    if (watched) {
+      const pose = spectatePose(watched, floorHeight(watched.x, watched.z));
+      const view = this.spectateView;
+      if (!view || view.id !== watched.id && Math.hypot(view.x - pose.x, view.z - pose.z) > 30) this.spectateView = { id: watched.id, ...pose };
+      else {
+        const rate = reduceMotion ? 30 : 9, { damp } = THREE.MathUtils;
+        for (const axis of ['x', 'y', 'z', 'pitch']) view[axis] = damp(view[axis], pose[axis], rate, dt);
+        const turn = Math.atan2(Math.sin(pose.yaw - view.yaw), Math.cos(pose.yaw - view.yaw));
+        view.yaw += turn * (1 - Math.exp(-rate * dt));
+        view.id = watched.id;
+      }
+      this.camera.position.set(this.spectateView.x, this.spectateView.y, this.spectateView.z);
+      this.camera.rotation.set(this.spectateView.pitch, this.spectateView.yaw, 0);
+    } else {
+      this.spectateView = null;
+      this.camera.position.set(player.x, player.y + feel.dip, player.z);
+      // A sideways dash leans the view into it.
+      this.camera.rotation.set(player.pitch, player.yaw, reduceMotion ? 0 : -feel.side * .085 * Math.sin(Math.min(1, feel.rush) * Math.PI * .5));
+    }
     const aiming = input.aim && !sim.reloading && !sim.repairing;
     // Each weapon and optic zooms by its own amount; the Lancet scope zooms furthest.
     // Aim zoom keeps each optic's magnification relative to the chosen field of view.

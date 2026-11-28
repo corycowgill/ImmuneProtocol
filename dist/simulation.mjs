@@ -334,6 +334,16 @@ export function movementStandIn(state, player = { ...state.player }) {
   };
 }
 
+// What a predicted shot is traced with (coop-client.mjs): the pathogens the player sees and the
+// snapshot's nodes, valves and boss, behind the same scenery the server's shots stop on.
+export function shotStandIn(state, enemies = state.enemies) {
+  const { solids } = movementStandIn(state);
+  return {
+    enemies: enemies ?? [], nodes: state.nodes ?? [], valve: state.valve ?? null, boss: state.boss ?? null, tutorial: null,
+    shotSolids: state.area === 'heart' ? solids.filter(climbable) : solids,
+  };
+}
+
 // Moves an actor out of any of the circles [x, z, radius] it stands in.
 function pushOutOf(actor, circles) {
   for (const [x, z, size] of circles) {
