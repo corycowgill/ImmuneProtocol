@@ -290,6 +290,14 @@ class PathogenViewer {
     // Show every model at the same apparent size, whatever its in-game scale.
     this.model.scale.setScalar(1 / ENEMY_MODELS[type].size);
     this.turntable.add(this.model);
+    this.motion = pathogenMotion(this.model);
+    if (this.model.userData.humanoid) {
+      // A skinned model has no shape until its skeleton is posed, and three.js caches the bounds
+      // it measures: pose the soldier first, then measure it.
+      animatePathogen(this.motion, 0, 0);
+      this.model.updateMatrixWorld(true);
+      this.model.traverse(part => { if (part.isSkinnedMesh) { part.skeleton.update(); part.computeBoundingBox(); } });
+    }
     const bounds = new THREE.Box3().setFromObject(this.model), center = bounds.getCenter(new THREE.Vector3());
     this.model.position.sub(center);
     this.previewBounds = bounds.getSize(new THREE.Vector3());
@@ -297,7 +305,6 @@ class PathogenViewer {
     this.floorGlow.position.y = -this.previewBounds.y / 2 - .03;
     this.floorGlow.scale.setScalar(Math.max(this.previewBounds.x, this.previewBounds.z) * 1.25);
     this.needsFit = true;
-    this.motion = pathogenMotion(this.model);
   }
 
   // Coils the model, then flares it, like an attack windup and strike.
